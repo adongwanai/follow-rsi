@@ -44,7 +44,7 @@ AI 正在学会改进自己。我们为它的每一步留下记录。
 
 今日动态负责「新」，证据库负责「准」，深度解读负责「懂」。
 
-**当前进度（2026-10-27）**：证据库、阅读路线、方向图和[中英导读](https://adongwanai.github.io/follow-rsi/guide.html)已上线。首轮 HF 回溯已完成，日报与周报等待首次人工审核；20 篇必读的全文证据审读、精读笔记和视频仍在待办中。详见[验收记录与待办](docs/acceptance.md)。
+**当前进度（2026-10-27）**：证据库、阅读路线、方向图和[中英导读](https://adongwanai.github.io/follow-rsi/guide.html)已上线。首轮 HF 回溯已完成，[82 篇待审记录已生成审核 PR](https://github.com/adongwanai/follow-rsi/pull/1)，通过后才会进入日报与周报。20 篇必读的全文证据审读、精读笔记和视频仍在待办中。详见[验收记录与待办](docs/acceptance.md)。
 
 ## RSI 研究版图
 

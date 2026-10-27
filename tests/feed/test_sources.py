@@ -61,7 +61,7 @@ def test_hf_covers_each_requested_day_without_network():
     assert len(raw['days']) == 14 and len(records) == 14
 
 
-def test_s2_schema_mock_and_author_heuristic(monkeypatch):
+def test_s2_schema_mock_and_author_heuristic():
     items = fetch_s2.parse_json(json.loads((FIX / 's2_mock.json').read_text()), seed_id='dgm', now=NOW)
     assert items[0]['seed_hits'] == ['dgm'] and items[0]['arxiv_id'] == '2610.10001'
     assert items[0]['code_links'] == ['https://github.com/example/agent']
@@ -71,9 +71,6 @@ def test_s2_schema_mock_and_author_heuristic(monkeypatch):
     ])
     assert {a['authorId'] for a in authors} == {'1', '2', '3'}
     assert authors[0]['seed_appearances'] == 2
-    monkeypatch.delenv('S2_API_KEY', raising=False)
-    with pytest.raises(ValueError, match='S2_API_KEY'):
-        fetch_s2.request('paper/test')
 
 
 def test_rss_recording_and_paper_link_hydration():

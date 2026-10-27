@@ -1,4 +1,4 @@
-> 当前项目约定（2026-10-27）：仓库为 `adongwanai/follow-rsi`，网站为 https://adongwanai.github.io/follow-rsi/。默认中文入口为 `README.md`，英文入口为 `README_en.md`，`README_zh.md` 是中文镜像。部署配置唯一来源是 `data/site.yaml`。人工审核闸门始终保留；真实接入、测试结果和未完成项分别见 `feed-setup.md`、`acceptance.md`、`data-audit.md`。下文是 owner 提供的任务规范，不能据此宣称验收已经通过。
+> 当前项目约定（2026-10-27）：仓库为 `adongwanai/follow-rsi`，网站为 https://adongwanai.github.io/follow-rsi/。默认中文入口为 `README.md`，英文入口为 `README_en.md`，`README_zh.md` 是独立保留手写区的中文备用入口。部署配置唯一来源是 `site.config.yaml`。人工审核闸门始终保留；真实接入、测试结果和未完成项分别见 `feed-setup.md`、`acceptance.md`、`data-audit.md`。下文是 owner 提供的任务规范，不能据此宣称验收已经通过。
 
 # 任务：搭建开源仓库 follow-rsi
 
@@ -206,7 +206,7 @@ routes:
 - 生成器只改写 `<!-- AUTO:XXX:START -->` 与 `<!-- AUTO:XXX:END -->` 之间的内容。文件里已有 `BADGES`、`METRICS`、`STAR_HISTORY` 三组标记。第四节要求的 `STATS`、`MUST_READ`、`ROUTES`、`TABLES` 区块，追加在「证据卡片长什么样」一节之后的新小节「证据库」里，新小节的标题和一句说明由你按现有文风补上。
 - `METRICS` 区块在第二期上线前保持「—」占位；徽章里的篇数从 `stats.json` 生成。
 - 两个文件中指向尚不存在页面的链接（`/daily/`、`/weekly/`、`/feed/*`）保留原样，在完成汇报里列出来，等第二期补上。
-- `<SITE_URL>`、`<GITHUB_USER>` 是占位符，统一从 `data/site.yaml` 读取并在 build 时替换；配置文件里先填占位值。
+- `<SITE_URL>`、`<GITHUB_USER>` 是占位符，统一从 `site.config.yaml` 读取并在 build 时替换；配置文件里先填占位值。
 - `CITATION.cff` 的标题写 “Follow RSI: Harness Evolution Evidence Base”，作者写 `<AUTHOR_NAME>`。
 
 ---

@@ -17,6 +17,7 @@ from scripts.feed.review import (APPROVED, approved_daily_items, daily_editions_
                                  day_week, item_week, validate_daily_review,
                                  validate_weekly_picks, week_bounds)
 from scripts.feed.storage import load_items
+from scripts.feed.scope import archive_counts, direction_of, in_scope, load_scope, require_scope
 
 TEMPLATES = Path(__file__).with_name("templates")
 NOTICE = {"zh": "自动判断，未核实", "en": "Automated, unverified"}
@@ -103,8 +104,10 @@ def _metrics(root, week, source_items, accepted, published_at):
     found = [item for item in source_items if item_week(item) == week and item["kind"] not in ("post", "release")
              and not item.get("in_repo")]
     accepted_ids = {item["id"] for item in accepted}
+    scope = load_scope(root)
     included = {item["id"] for item in source_items if item.get("llm", {}).get("label") == "include"
                 and not item.get("retracted")
+                and (item["id"] in accepted_ids or in_scope(direction_of(item), scope))
                 and (item["id"] in accepted_ids or (item.get("review", {}).get("week") == week
                      and item["review"]["decision"] in (*APPROVED, "reject")))}
     source_yield = {}
@@ -120,6 +123,7 @@ def _metrics(root, week, source_items, accepted, published_at):
     summarized = [item for item in found if item.get("llm", {}).get("label") in ("include", "borderline")]
     value = {**metrics.setdefault("weeks", {}).get(week, {}),
              "found": len(found), "accepted": len(accepted),
+             "archive_by_direction": archive_counts(root, week),
              "precision": len(included & accepted_ids) / len(included) if included else None,
              "latency_days": median(latencies) if latencies else None, "source_yield": source_yield,
              "guard_fail_rate": sum(bool(item.get("initial_guard_failed")) for item in summarized) / len(summarized)
@@ -234,6 +238,10 @@ def _write_feed(root, editions, config, retracted):
     editions = [*editions, *daily]
     if any(not edition.get("reviewed_only") or edition.get("demo") for edition in editions):
         raise ValueError("Public feeds require reviewed editions; demo artifacts cannot be published")
+    scope = load_scope(root)
+    for edition in editions:
+        for item in [*edition["items"], *edition["lab_updates"]]:
+            require_scope(item, scope)
     ordered = sorted(editions, key=lambda row: (row["week"], row.get("date", ""), row["published_at"]), reverse=True)
     cutoff = week_bounds(ordered[0]["week"])[0] - timedelta(weeks=3) if ordered else None
     last = [edition for edition in ordered if week_bounds(edition["week"])[0] >= cutoff]
@@ -257,20 +265,25 @@ def _write_feed(root, editions, config, retracted):
         return node
     element(feed, "id", "urn:follow-rsi:follow-rsi")
     element(feed, "title", "Follow RSI · Five minutes a day")
-    element(feed, "updated", updated or "1970-01-01T00:00:00Z")
+    daily_updated = max((entry.get("updated_at", entry["published_at"]) for entry in daily), default=None)
+    element(feed, "updated", daily_updated or "1970-01-01T00:00:00Z")
     element(element(feed, "author"), "name", config.get("author_name") or "Follow RSI owner")
     base = (config.get("base_url") or "").rstrip("/")
     element(feed, "link", rel="self", href=(base + "/feed/atom.xml") if base else "atom.xml")
-    for edition in sorted(editions, key=lambda row: row["published_at"], reverse=True):
-        period = edition.get("date", edition["week"])
-        kind = "daily" if "date" in edition else "weekly"
+    element(feed, "link", rel="alternate", href=(base + "/daily/") if base else "../daily/")
+    if config.get("repository_url"):
+        element(feed, "link", rel="related", href=config["repository_url"].rstrip("/") + "/pulls")
+    for edition in sorted(daily, key=lambda row: row["published_at"], reverse=True):
+        period = edition["date"]
         entry = element(feed, "entry")
-        element(entry, "id", "urn:follow-rsi:" + kind + ":" + period)
+        element(entry, "id", "urn:follow-rsi:daily:" + period)
         element(entry, "title", "Follow RSI · " + period)
         element(entry, "updated", edition.get("updated_at", edition["published_at"]))
-        element(entry, "link", href=(base + "/" if base else "../") + kind + "/" + period + ".html")
+        element(entry, "link", href=(base + "/" if base else "../") + "daily/" + period + ".html")
         element(entry, "summary", edition["intro"]["en"])
-    ET.ElementTree(feed).write(root / "site/feed/atom.xml", encoding="utf-8", xml_declaration=True)
+    shutil.copyfile(TEMPLATES / "atom.xsl", root / "site/feed/atom.xsl")
+    atom = b'<?xml version="1.0" encoding="utf-8"?>\n<?xml-stylesheet type="text/xsl" href="atom.xsl"?>\n'
+    (root / "site/feed/atom.xml").write_bytes(atom + ET.tostring(feed, encoding="utf-8"))
     return result
 
 
@@ -322,7 +335,7 @@ def publish_day(root=ROOT, date=None, client=None, now=None):
         return {"date": date, "accepted": 0, "published": False, "manifest": None}
     week = day_week(date)
     sources = {item["id"]: item for item in load_items(root)}
-    config = read_yaml(root / "data/site.yaml")
+    config = read_yaml(root / "site.config.yaml")
     directions = _directions(read_yaml(root / "feed/taxonomy.yaml"))
     ranking = read_yaml(root / "feed/sources.yaml")["ranking"]
     accepted.sort(key=lambda item: (-_rank(item, ranking), item["id"]))
@@ -334,8 +347,11 @@ def publish_day(root=ROOT, date=None, client=None, now=None):
     manifest = root / "site/daily" / f"{date}.json"
     previous = json.loads(manifest.read_text()) if manifest.exists() else None
     stamp = now or (previous["published_at"] if previous else datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z"))
+    from scripts.feed.review import _direction
+    taxonomy = read_yaml(root / "feed/taxonomy.yaml")
     lab_updates = [{"id": row["id"], "title": sources[row["id"]]["title"],
                     "kind": sources[row["id"]]["kind"], "links": _links(sources[row["id"]]),
+                    "direction": _direction(sources[row["id"]], {**row, "llm": sources[row["id"]].get("llm", {})}, taxonomy),
                     "release_version": sources[row["id"]].get("release_version")}
                    for row in labs]
     edition = {"date": date, "week": week, "published_at": stamp, "reviewed_only": True,
@@ -361,7 +377,7 @@ def publish_week(root=ROOT, week=None, client=None, now=None, render_card=False)
     public = list({item["id"]: item for edition in daily for item in edition["items"]}.values())
     source_items = load_items(root)
     sources = {item["id"]: item for item in source_items}
-    config = read_yaml(root / "data/site.yaml")
+    config = read_yaml(root / "site.config.yaml")
     directions = _directions(read_yaml(root / "feed/taxonomy.yaml"))
     ranking = read_yaml(root / "feed/sources.yaml")["ranking"]
     picked = [pick["arxiv_id"] for pick in review["picks"]]
@@ -397,7 +413,7 @@ def remove_retracted(root=ROOT, render_cards=False, now=None):
     if not withdrawn:
         return {"removed": 0, "weeks": [], "dates": [], "cards_removed": []}
     directions = _directions(read_yaml(root / "feed/taxonomy.yaml"))
-    config = read_yaml(root / "data/site.yaml")
+    config = read_yaml(root / "site.config.yaml")
     stamp = now or datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
     affected = {"daily": [], "weekly": []}
     removed_ids, cards_removed = set(), []
@@ -467,7 +483,7 @@ def render_digest_card(root=ROOT, week=None):
 def initialize_public(root=ROOT):
     """Render empty archives honestly without replacing an existing public feed."""
     root = Path(root)
-    config = read_yaml(root / "data/site.yaml")
+    config = read_yaml(root / "site.config.yaml")
     env = Environment(loader=FileSystemLoader(TEMPLATES), autoescape=select_autoescape(["html"]))
     daily = _published(root, "daily")
     daily_target = root / "site/daily/index.html"
@@ -500,7 +516,7 @@ def publish_demo(root=ROOT, week=None, output_dir=None, render_card=True):
     destination = Path(output_dir).resolve() if output_dir else root / "build/demo" / week
     if not destination.is_relative_to(root / "build"):
         raise ValueError("Demo output must stay inside the repository's ignored build/ directory")
-    for relative in ("data/papers.yaml", "data/site.yaml", "data/schema.json", "data/routes.yaml",
+    for relative in ("data/papers.yaml", "site.config.yaml", "data/schema.json", "data/routes.yaml",
                      "feed/taxonomy.yaml", "feed/sources.yaml"):
         target = destination / relative
         target.parent.mkdir(parents=True, exist_ok=True)

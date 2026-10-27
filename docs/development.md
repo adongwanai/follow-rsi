@@ -26,9 +26,9 @@ python -m http.server 8000 --directory site
 | --- | --- |
 | `data/papers.yaml` | 证据库论文的唯一数据源；数字与证据变更附正文页码或表号。 |
 | `data/routes.yaml` | 阅读路线及顺序；论文 ID 必须存在。 |
-| `data/site.yaml` | 仓库、Pages、作者与订阅 URL 的唯一配置。 |
+| `site.config.yaml` | 仓库、Pages、作者与订阅 URL 的唯一配置。 |
 | `README.md`、`README_en.md` | 分别为中文、英文手写源；只在 AUTO 区块外编辑正文。 |
-| `README_zh.md` | 构建时从 `README.md` 生成完整镜像，保留旧链接；不要单独编辑。 |
+| `README_zh.md` | 中文备用入口；只更新自己的 AUTO 区块，手写内容独立保留。 |
 | `papers/<id>.md` | AUTO:CARD 区块由数据生成；区块外保留精读、视频与想法。 |
 | `directions/*.md`、`site/guide.html` | 手写方向说明与导读；导读双语 HTML 和 Markdown 要一起同步。 |
 | `site/index.html`、`site/app.js`、`site/style.css` | 网站页面与交互源码。 |
@@ -37,7 +37,7 @@ python -m http.server 8000 --directory site
 
 `scripts/build.py` 校验数据后更新 README 的 AUTO 区块、论文卡片区块、JSON、徽章、社交落地页和分类图。它不会改写 `data/papers.yaml`，不会调用 LLM，也不会把未知证据改成肯定或否定。保留所有 `<!-- AUTO:...:START -->` / `<!-- AUTO:...:END -->` 标记；缺失、重复或顺序错误会直接失败。
 
-生成块外的作者文字必须保留；中文 README 镜像是明确的例外，整体由中文源覆盖。论文页顶端标题属于手写区，改题名时需同时处理该标题。英文摘要仅翻译对应中文，数字及出现次数保持一致；原有 `needs_reading` 标记不应被生成器隐藏。
+所有 README 生成块外的作者文字必须逐字保留；不以镜像方式覆盖任何一份文件。论文页顶端标题属于手写区，改题名时需同时处理该标题。英文摘要仅翻译对应中文，数字及出现次数保持一致；原有 `needs_reading` 标记不应被生成器隐藏。
 
 ## 常规修改与检查
 
@@ -72,7 +72,7 @@ Linux CI 安装 Chromium 时使用 `python -m playwright install --with-deps chr
 python scripts/render_cards.py --ids hda starharness
 ```
 
-渲染期间外部请求被阻止，二维码由带许可证的本地 JavaScript 生成。真实回流 URL 来自 `data/site.yaml`，改地址后需要重画卡片。`verify_site.py` 检查筛选、排序、语言记忆、详情键盘焦点及深浅主题，并写入 `docs/screenshots/`；检查范围与具体断言可直接在脚本中查看。
+渲染期间外部请求被阻止，二维码由带许可证的本地 JavaScript 生成。真实回流 URL 来自 `site.config.yaml`，改地址后需要重画卡片。`verify_site.py` 检查筛选、排序、语言记忆、详情键盘焦点及深浅主题，并写入 `docs/screenshots/`；检查范围与具体断言可直接在脚本中查看。
 
 owner 提供的 8 张 banner / RSI map SVG 是静态素材，普通 build 不会重画。确需更新时显式运行原生成器，先输出到临时构建目录审阅：
 
@@ -123,6 +123,6 @@ PY
 
 ## GitHub Pages 与生成物
 
-当前正式地址为 `https://adongwanai.github.io/follow-rsi`，配置在 `data/site.yaml`。`pages.yml` 发布 `site/`，`cards.yml` 负责单独重画图片；新卡片完成后会再部署 Pages。修改网站或地址后，确认 Actions 对应提交成功，再核对线上版本。
+当前正式地址为 `https://adongwanai.github.io/follow-rsi`，配置在 `site.config.yaml`。`pages.yml` 发布 `site/`，`cards.yml` 负责单独重画图片；新卡片完成后会再部署 Pages。修改网站或地址后，确认 Actions 对应提交成功，再核对线上版本。
 
-GitHub README 的社交预览需在 Settings → Social preview 手动上传 `assets/social-preview.png`。作者信息维护于 `data/site.yaml`、`CITATION.cff` 和许可证，不在页面中编造外部账号链接。发布与供稿细节见 [贡献指南](../CONTRIBUTING_zh.md)。
+GitHub README 的社交预览需在 Settings → Social preview 手动上传 `assets/social-preview.png`。作者信息维护于 `site.config.yaml`、`CITATION.cff` 和许可证，不在页面中编造外部账号链接。发布与供稿细节见 [贡献指南](../CONTRIBUTING_zh.md)。

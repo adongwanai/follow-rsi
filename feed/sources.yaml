@@ -1,5 +1,25 @@
 # Registry is a mapping so explicit ranking weights can sit above sources.
 # HF is a discovery priority; upvotes are popularity signals, never evidence.
+publish_scope:
+  primary: [harness]
+  cross_with_secondary: [harness]
+# Keep discovery broad; only explicitly Harness-labelled reference entries count toward recall.
+recall:
+  scope: harness
+  references:
+    Harness-RSI:
+      url: https://raw.githubusercontent.com/zgcagi/Harness-RSI/main/README.md
+      selection: all
+    awesome-rsi-papers:
+      url: https://raw.githubusercontent.com/Prism-Shadow/awesome-rsi/main/site/src/data/papers.js
+      taxonomy_url: https://raw.githubusercontent.com/Prism-Shadow/awesome-rsi/main/site/src/data/paperTaxonomy.js
+      selection: artifact
+      artifact: Harness code
+    awesome-rsi-methods:
+      url: https://raw.githubusercontent.com/Prism-Shadow/awesome-rsi/main/site/src/data/methods.js
+      taxonomy_url: https://raw.githubusercontent.com/Prism-Shadow/awesome-rsi/main/site/src/data/methodTaxonomy.js
+      selection: artifact
+      artifact: Harness code
 ranking:
   seed_hits: 3
   author_tracked: 2
@@ -61,20 +81,18 @@ sources:
   notes: Verified Atom API on 2026-10-27. Exact requested title/abstract query group; 3-second request pacing.
 - id: s2-citations
   kind: s2_citations
-  enabled: false
+  enabled: true
   schedule: weekly
   params:
     base_url: https://api.semanticscholar.org/graph/v1
-  notes: 'Not verified: S2_API_KEY is absent. Configure the key and verify an authenticated response before enabling. Last
-    author is an operational tracking heuristic, not verified corresponding authorship.'
+  notes: 'Anonymous access verified with DGM metadata after five HTTP 429 responses and a successful retry on 2026-10-27. Anonymous requests use 3.1-second pacing; keyed requests use 1.1 seconds. HTTP 429 uses exponential backoff for up to five retries. Citation pagination is covered offline; a full live citation crawl is not yet verified.'
 - id: s2-authors
   kind: s2_authors
-  enabled: false
+  enabled: true
   schedule: weekly
   params:
     base_url: https://api.semanticscholar.org/graph/v1
-  notes: 'Not verified: S2_API_KEY is absent. Configure the key and verify an authenticated response before enabling. Last
-    author is an operational tracking heuristic, not verified corresponding authorship.'
+  notes: 'Anonymous access is supported at 3.1-second pacing; an optional S2_API_KEY uses 1.1 seconds. HTTP 429 uses exponential backoff for up to five retries. DGM metadata access was verified on 2026-10-27; author-paper pagination is covered offline but not yet verified by a full live crawl. Last author is an operational tracking heuristic, not verified corresponding authorship.'
 - id: hf-daily
   kind: hf_daily
   enabled: true

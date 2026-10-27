@@ -1,4 +1,4 @@
-"""Semantic Scholar citation and author discovery with an API-key boundary."""
+"""Semantic Scholar discovery with keyed or conservatively paced anonymous access."""
 from collections import Counter
 from datetime import datetime, timedelta, timezone
 import os
@@ -7,10 +7,13 @@ import time
 import requests
 from scripts.common import read_yaml
 from .normalize import normalize_record
+from .storage import load_state, save_state
 
 BASE = 'https://api.semanticscholar.org/graph/v1'
 FIELDS = 'paperId,title,abstract,authors,externalIds,publicationDate,url,fieldsOfStudy'
-_last_request = 0.0
+REQUEST_INTERVALS = {'authenticated': 1.1, 'anonymous': 3.1}
+MAX_RATE_LIMIT_RETRIES = 5
+_last_request = None
 
 
 def seed_papers(papers):
@@ -38,16 +41,22 @@ def select_authors(seed_metadata, limit=150):
 def request(path, params=None, session=None):
     global _last_request
     key = os.environ.get('S2_API_KEY')
-    if not key:
-        raise ValueError('S2_API_KEY is not configured; Semantic Scholar is disabled')
-    delay = 1.1 - (time.monotonic() - _last_request)
-    if delay > 0:
-        time.sleep(delay)
-    _last_request = time.monotonic()
-    response = (session or requests).get(BASE + '/' + path, params=params,
-                                        headers={'x-api-key': key, 'User-Agent': 'FollowRSI/0.1'}, timeout=30)
-    response.raise_for_status()
-    return response.json()
+    interval = REQUEST_INTERVALS['authenticated' if key else 'anonymous']
+    headers = {'User-Agent': 'FollowRSI/0.1'}
+    if key:
+        headers['x-api-key'] = key
+    for attempt in range(MAX_RATE_LIMIT_RETRIES + 1):
+        if _last_request is not None:
+            delay = _last_request + interval - time.monotonic()
+            if delay > 0:
+                time.sleep(delay)
+        _last_request = time.monotonic()
+        response = (session or requests).get(BASE + '/' + path, params=params,
+                                            headers=headers, timeout=30)
+        if response.status_code != 429 or attempt == MAX_RATE_LIMIT_RETRIES:
+            response.raise_for_status()
+            return response.json()
+        time.sleep(interval * 2 ** attempt)
 
 
 def parse_json(payload, source_id='s2-citations', seed_id=None, author_tracked=False, now=None):
@@ -84,9 +93,16 @@ def pages(path, params, session=None):
 
 def fetch(source, root, now=None, session=None):
     current = now or datetime.now(timezone.utc)
+    mode = 'authenticated' if os.environ.get('S2_API_KEY') else 'anonymous'
+    state = load_state(root)
+    source_state = state['sources'].setdefault(source['id'], {
+        'consecutive_failures': 0, 'consecutive_errors': 0, 'seen_ids': [], 'weekly': {}})
+    source_state.update(auth_mode=mode, min_interval_seconds=REQUEST_INTERVALS[mode])
+    # Persist before the network request so failures and exhausted 429s retain the mode.
+    save_state(root, state)
     cutoff = (current - timedelta(days=30)).date().isoformat()
     seeds = seed_papers(read_yaml(Path(root) / 'data' / 'papers.yaml')['papers'])
-    records, raw = [], {'format': 's2-json', 'pages': {}, 'seed_metadata': []}
+    records, raw = [], {'format': 's2-json', 'auth_mode': mode, 'pages': {}, 'seed_metadata': []}
     if source['kind'] == 's2_citations':
         for seed in seeds:
             payloads = pages(f"paper/arXiv:{seed['arxiv']}/citations", {'fields': FIELDS}, session)

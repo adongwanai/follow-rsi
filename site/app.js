@@ -11,8 +11,12 @@ const LABELS = {
 const VALUES = {chain:['链','Chain'],tree:['树','Tree'],graph:['图','Graph'],yes:['有','Yes'],partial:['部分','Partial'],no:['没有','No'],unknown:['未审','Unknown'],na:['不适用','N/A'],self:['自改','Self'],external:['他改','External'],trained:['训练出的改进者','Trained'],self_human_reviewed:['自改 · 人工审查','Self, human reviewed'],ground_truth:['真值验证','Ground truth'],proxy:['代理信号','Proxy'],self_generated_tests:['自生成测试','Self-generated tests'],demonstrations:['人类示范','Demonstrations'],self_judgment:['模型自评','Self-judgment'],offline:['离线','Offline'],online:['在线持续','Online'],test_time:['测试时','Test time'],during_run:['运行中','During run']};
 const $ = id => document.getElementById(id);
 const esc = value => String(value ?? '').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-let lang=localStorage.getItem('harness.lang')==='en'?'en':'zh', view='papers', openId=null, lastFocus=null, drawerIds=[];
-const savedTheme=localStorage.getItem('harness.theme');
+const preferences={
+ get(key){try{return localStorage.getItem(key);}catch(error){if(error.name!=='SecurityError')throw error;return null;}},
+ set(key,value){try{localStorage.setItem(key,value);}catch(error){if(error.name!=='SecurityError')throw error;}}
+};
+let lang=preferences.get('harness.lang')==='en'?'en':'zh', view='papers', openId=null, lastFocus=null, drawerIds=[];
+const savedTheme=preferences.get('harness.theme');
 if(['auto','light','dark'].includes(savedTheme))document.documentElement.dataset.theme=savedTheme;
 const state={q:'',sections:[],must:true,verify:false,reviewed:false,filters:{},sort:'newest'};
 const t=(zh,en)=>lang==='zh'?zh:en;
@@ -109,7 +113,7 @@ function render(){
  $('result-count').textContent=t(`显示 ${list.length} / ${state.sections.includes('candidates')?(state.sections.length===1?D.stats.candidates:D.stats.total):D.stats.included} 篇`,`Showing ${list.length} / ${state.sections.includes('candidates')?(state.sections.length===1?D.stats.candidates:D.stats.total):D.stats.included} papers`);
  if(view==='map'){renderMap(main);return;}
  if(view==='routes'){
-  main.innerHTML=`<h2 class="page-h">${t('从哪里读起','Where to start')}</h2><p class="page-sub">${t('前两条和最后一条所有人都读，其余按自己的方向选一条。每条路线回答一个具体问题。','Start with the first two routes and the final one, then choose a route for your interests. Each route answers a concrete question.')}</p><div class="routes">${D.routes.map(r=>`<article class="route"><h3>${esc(r['name_'+lang])}</h3><p>${esc(r['question_'+lang])}</p><div class="chain">${r.papers.map((id,i)=>chip(id,i+1)).join('<span class="arr" aria-hidden="true">→</span>')}</div></article>`).join('')}</div>`;return;
+  main.innerHTML=`<h2 class="page-h">${t('从哪里读起','Where to start')}</h2><p class="page-sub">${t('前两条和最后一条所有人都读，其余按自己的方向选一条。每条路线回答一个具体问题。','Start with the first two routes and the final one, then choose a route for your interests. Each route answers a concrete question.')}</p><div class="routes">${D.routes.map(r=>`<article class="route" data-reading-order="${r.papers.join(' ')}"><h3>${esc(r['name_'+lang])}</h3><p>${esc(r['question_'+lang])}</p><div class="chain">${r.papers.map((id,i)=>chip(id,i+1)).join('<span class="arr" aria-hidden="true">→</span>')}</div></article>`).join('')}</div>`;return;
  }
  if(view==='gaps'){
   const inline=s=>esc(s).replace(/\[([^\]]+)\]\(\.\.\/papers\/([a-z0-9-]+)\.md\)/g,'<a href="#p-$2">$1</a>');
@@ -123,18 +127,53 @@ function render(){
 }
 
 function renderMap(main){
- const directions=[
-  ['Harness / 脚手架 RSI','Harness / scaffold RSI','提示 · 工具 · 记忆 · 技能 · 控制流 · 改进器','Prompts · tools · memory · skills · control flow · the improver',''],
-  ['模型 / 权重 RSI','Model-weight RSI','模型用自己产生的数据训练自己','Models train on their own data',null],
-  ['数据与任务 RSI','Data & task RSI','数据配比 · 课程 · 环境','Data mixtures · curricula · environments',null],
-  ['训练算法 / AI 研发','AI-for-AI RSI','训练算法 · 模型研发 · 研究流程','Training algorithms · model R&D · research',null],
-  ['经验与世界模型','Experience & world models','记忆 · 规则手册 · 世界模型 · 探索','Memory · rulebooks · world models · exploration',null],
-  ['元 RSI','Meta-level RSI','改进负责产生改进的机制','Improving the mechanism that produces improvements',null],
-  ['具身与物理 RSI','Embodied RSI','机器人在仿真或真机中递归改进','Robots improving in simulation or reality',null]
+ const examples=items=>`<div class="map-examples">${items.map(([label,id])=>id?`<button type="button" data-open="${id}">${esc(label)}</button>`:`<span>${esc(label)}</span>`).join('<span class="map-separator" aria-hidden="true">·</span>')}</div>`;
+ const tile=(title,description,works=[],extra='')=>`<article class="map-tile ${extra}"><h4>${title}</h4>${description?`<p>${description}</p>`:''}${works.length?examples(works):''}</article>`;
+ const planned=[
+  ['model_weights',t('模型 / 权重 RSI','Model-weight RSI'),t('模型用自己产生的数据训练自己','Models train on their own data'),[['RSIPO'],['Terminal-RSI'],['RISE']]],
+  ['data_task',t('数据与任务 RSI','Data & task RSI'),t('数据配比 · 任务与课程 · 环境','Data mixtures · curricula · environments'),[['NeoHorse-1'],['ClawLoop']]],
+  ['ai4ai',t('训练算法 / AI 研发','AI-for-AI RSI'),t('训练算法 · 模型研发 · 研究流程','Training algorithms · R&D · research'),[['Frontis-MA1'],['SwarmRSI']]],
+  ['experience_world_model',t('经验与世界模型','Experience & world models'),t('记忆 · 规则手册 · 世界模型 · 探索','Memory · rulebooks · world models · exploration'),[['Memento 3'],['RSIAgent']]],
+  ['meta',t('元 RSI','Meta-level RSI'),t('改进「负责改进的机制」本身','Improving the improver itself'),[['Hyperagents','hyperagents'],['Meta^n','meta-n'],['HSI','hsi']]],
+  ['embodied',t('具身与物理 RSI','Embodied RSI'),t('机器人在仿真或真机中递归改进','Robots improving in sim or reality'),[['EMHO','emho'],['Physical RSI']]]
  ];
- const tile=(title,description,section,count,feature=false)=>`<button type="button" class="map-tile ${feature?'map-focus':''}" data-map-section="${section}"><h3>${esc(title)}</h3><p>${esc(description)}</p><span class="mono">${count} ${t('篇 · 查看证据 →','papers · view evidence →')}</span></button>`;
- const sectionCount=section=>P.filter(p=>p.status!=='candidate'&&section.split(',').includes(p.section)).length;
- main.innerHTML=`<h2 class="page-h">${t('RSI 研究版图','The RSI research map')}</h2><p class="page-sub">${t('按每一轮被改进、并带入下一轮的对象划分。证据库聚焦 Harness；每日动态覆盖七个方向，审核通过后发布。','Organized by what improves and carries into the next round. The evidence base focuses on harness RSI; the daily feed covers seven directions after human review.')}</p><section class="map-section"><h3>${t('改进对象','What improves')}</h3><div class="map-grid">${directions.map(([zh,en,descZh,descEn,section],i)=>section!==null?tile(t(zh,en),t(descZh,descEn),section,D.stats.included,true):`<a class="map-tile" href="daily/index.html"><h3>${t(zh,en)}</h3><p>${t(descZh,descEn)}</p><span class="note">${t('查看已审核的每日动态 →','View human-reviewed daily updates →')}</span></a>`).join('')}</div></section><section class="map-section"><h3>${t('协同与支撑方向','Coordination and support')}</h3><div class="map-support">${[['coevolution','模型与 Harness 协同','Model–harness co-evolution','交替更新与联合优化','Alternating updates and joint optimization'],['improver','改进器自身进化','Evolving the improver','搜索策略和改进机制','Search strategies and improvement mechanisms'],['evaluation','评测、归因与可信度','Evaluation, attribution & trust','收益来自哪里，能否复现','Where gains come from and whether they reproduce'],['survey_theory','理论与综述','Theory & surveys','范围、假设与理论依据','Scope, assumptions and theoretical foundations']].map(([section,zh,en,descZh,descEn])=>tile(t(zh,en),t(descZh,descEn),section,sectionCount(section))).join('')}</div></section><section class="map-section"><h3>${t('横切维度','Cross-cutting dimensions')}</h3><p class="page-sub">${t('谁来改 · 反馈来源 · 改进时机 · 链 / 树 / 图 · 证据强度','Who edits · feedback · timing · chain / tree / graph · evidence')}</p><button class="btn" data-map-section="" type="button">${t('按证据与分类筛选论文','Filter papers by evidence and classification')}</button></section><p class="note"><a href="${D.config.repository_url}/blob/main/assets/rsi-map-${lang==='zh'?'zh-':''}light.svg">${t('打开完整方向图 · 含应用场景与代表工作','Open the complete map, with applications and representative papers')}</a></p>`;
+ const subdirections=[
+  ['evolve_main',t('整体 Harness 搜索与演化','Harness search & evolution')],
+  ['generalize',t('泛化、正则、准入与成本','Generalization, admission & cost')],
+  ['evidence_selection',t('任务与证据选择','Task & evidence selection')],
+  ['improver',t('改进器自身进化','Evolving the improver')],
+  ['component',t('组件级进化','Component-level evolution')],
+  ['coevolution',t('模型与 Harness 协同','Model–harness co-evolution')]
+ ];
+ const section=(id,title,description,columns,content)=>`<section class="map-section" data-map-row="${id}"><div class="map-section-heading"><h3>${title}</h3><p>${description}</p></div><div class="map-grid map-cols-${columns}">${content}</div></section>`;
+ const harness=`<article class="map-tile map-focus"><div class="map-focus-heading"><h4><button type="button" class="map-title-button" data-map-section="">${t('Harness / 脚手架 RSI','Harness / scaffold RSI')}</button></h4><button type="button" class="map-count" data-map-section="">${t('当前专题','Current topic')} · <b data-map-total>${D.stats.included}</b> ${t('篇','papers')} →</button></div><p>${t('提示 · 工具 · 记忆 · 技能 · 控制流 · 改进器本身','Prompts · tools · memory · skills · control flow · the improver')}</p>${examples([['AHE','ahe'],['Self-Harness','self-harness'],['DarwinX','darwinx'],['RRSI','rrsi'],['AIDE²','aide2']])}<div class="map-subdirections">${subdirections.map(([id,label])=>`<button type="button" data-map-section="${id}"><span>${label}</span><b class="mono">${D.stats.sections[id]}</b></button>`).join('')}</div><p class="map-count-note">${t('总数含奠基、评测与综述；以上为六个方法子方向。','The total includes foundations, evaluation and surveys; these are six method subdirections.')}</p></article>`;
+ const directions=harness+planned.map(([id,title,description,works])=>`<article class="map-tile map-planned" data-map-plan="${id}"><h4><button type="button" class="map-title-button">${title}</button></h4><p>${description}</p>${examples(works)}<span class="map-status">${t('规划中 · 参与投票 →','Planned · vote for the next topic →')}</span></article>`).join('');
+ const cooperation=[
+  tile(t('单层改进','Single-layer'),t('只改一类对象','One kind of object'),[[t('大多数工作','Most work')]]),
+  tile(t('模型与 Harness 协同','Model–harness co-evolution'),t('Harness 与权重交替或联合更新','Harness and weights updated together'),[['HarnessX','harnessx'],['Self-HPO','self-hpo'],['CoEvo-RSI','coevo-rsi']]),
+  tile(t('多层统一框架','Unified multi-layer'),t('模型、数据、Harness 统一调度','Model, data and harness scheduled jointly'),[['MetaRSI / RSI²','metarsi']])
+ ].join('');
+ const applications=[
+  [t('编码与终端','Coding & terminal'),[['DGM','dgm'],['Ouroboros','ouroboros']]],
+  [t('AI 研究与 MLE','AI research & MLE'),[['AIDE²','aide2'],['RHI','rhi']]],
+  [t('科学发现','Scientific discovery'),[['SwarmRSI'],['ScienceBuddy']]],
+  [t('企业流程','Enterprise workflows'),[['StarHarness','starharness'],['OO-Harness','oo-harness']]],
+  [t('电脑操作','Computer use'),[['Agent S4','agent-s4'],['PILOT','pilot']]]
+ ].map(([title,works])=>tile(title,'',works)).join('');
+ const support=[
+  [t('评测与基准','Benchmarks'),[['Evo-Bench','evo-bench'],['RSIGym','rsigym']]],
+  [t('归因与可信度','Attribution & trust'),[['HDA','hda'],['Auditing','auditing-product']]],
+  [t('理论与综述','Theory & surveys'),[['Self-Evolving Agent Harness','self-evolving-agent-harness']]],
+  [t('安全与治理','Safety & governance'),[['Trusting Trust','trusting-trust-revisited']]]
+ ].map(([title,works])=>tile(title,'',works)).join('');
+ const cross=[
+  [t('谁来改','Who edits'),t('自改 · 他改 · 训练出的改进者','self · external · trained')],
+  [t('反馈来源','Feedback'),t('真值 · 代理信号 · 自评','ground truth · proxy · self')],
+  [t('递归深度','Recursion depth'),'L1–L5'],
+  [t('改进时机','Timing'),t('离线 · 在线 · 测试时','offline · online · test time')],
+  [t('证据强度','Evidence'),t('留出集 · 同预算 · 跨模型','held-out · budget · transfer')]
+ ].map(([title,description])=>tile(title,description,[],'map-cross')).join('');
+ main.innerHTML=`<h2 class="page-h">${t('RSI 研究版图','The RSI research map')}</h2><p class="page-sub map-intro">${t('按「每一轮被改进、并带入下一轮的是什么」划分。Harness 是当前证据库专题；可点击的代表工作已在目录中。','Organized by what gets improved and carried into the next round. Harness is the current evidence-base topic; clickable examples have catalog entries.')}</p>${section('objects',t('改进对象','What improves'),t('主轴：每一轮被改进、并带入下一轮的对象','Main axis: the object improved and carried into the next round'),4,directions)}<aside class="map-vote" id="map-vote" hidden tabindex="-1" role="status"><p>${t('下一个专题由读者投票决定','Readers vote to choose the next topic')}</p><a href="${esc(D.config.repository_url.replace(/\/$/,''))}/discussions" target="_blank" rel="noopener">${t('去 GitHub Discussions 投票与讨论 →','Vote and discuss on GitHub Discussions →')}</a></aside>${section('cooperation',t('协同方式','How they combine'),t('一次改一类对象，还是多类一起改','One kind of object, or several at once'),3,cooperation)}${section('applications',t('应用场景','Where'),t('在哪里自我改进','Where self-improvement happens'),5,applications)}${section('support',t('支撑方向','Support'),t('怎么衡量、怎么解释、怎么管住','How it is measured, explained and governed'),4,support)}${section('cross',t('横切维度','Cross-cutting'),t('给自己的论文定位','Dimensions for positioning your own paper'),5,cross)}<p class="note map-foot"><a href="${esc(D.config.repository_url.replace(/\/$/,''))}/blob/main/assets/rsi-map-${lang==='zh'?'zh-':''}light.svg">${t('打开原始 SVG 方向图','Open the original SVG research map')}</a></p>`;
 }
 
 function paperLinks(p){
@@ -144,31 +183,49 @@ function paperLinks(p){
  return links.map(([label,url])=>`<a href="${esc(url)}" target="_blank" rel="noopener">${esc(label)}</a>`).join('');
 }
 function sequence(){return drawerIds.map(id=>BY[id]);}
-function openDrawer(id){
+function updateHash(hash,replace=false){
+ if(location.hash==='#'+hash)return;
+ try{history[replace?'replaceState':'pushState'](null,'','#'+hash);}catch(error){if(error.name!=='SecurityError')throw error;}
+}
+function showView(next,updateUrl=true){
+ if(openId)closeDrawer(false);
+ view=next;render();
+ if(updateUrl)updateHash(view);
+}
+function showPaper(id,updateUrl=true,readingOrder=null){openDrawer(id,readingOrder);if(updateUrl)updateHash('p-'+id);}
+function shareUrl(id){
+ const base=D.config.base_url||(/^https?:$/.test(location.protocol)?new URL('.',location.href).href:null);
+ if(!base)return null;
+ try{const url=new URL('p/'+id+'.html',base.replace(/\/$/,'')+'/');return /^https?:$/.test(url.protocol)?url.href:null;}
+ catch(error){if(!(error instanceof TypeError))throw error;return null;}
+}
+function openDrawer(id,readingOrder=null){
  if(!BY[id]){closeDrawer(false);$('main').innerHTML=`<p class="empty">${t('没有找到这篇论文。','Paper not found.')}</p>`;return;}
  if(!openId)lastFocus=document.activeElement;
- if(!openId||!drawerIds.includes(id)){const list=matching();drawerIds=(list.some(p=>p.id===id)?list:P.filter(p=>p.section===BY[id].section).sort((a,b)=>b.date.localeCompare(a.date))).map(p=>p.id);}
+ if(readingOrder)drawerIds=readingOrder;
+ else if(!openId||!drawerIds.includes(id)){const list=matching();drawerIds=(list.some(p=>p.id===id)?list:P.filter(p=>p.section===BY[id].section).sort((a,b)=>b.date.localeCompare(a.date))).map(p=>p.id);}
  openId=id;const p=BY[id],known=FIELDS.filter(k=>p.evidence[k]!=='unknown'),unknown=FIELDS.filter(k=>p.evidence[k]==='unknown');
  const list=sequence(),index=list.findIndex(x=>x.id===id),routes=D.routes.filter(r=>r.papers.includes(id)),related=P.filter(x=>x.section===p.section&&x.id!==id).sort((a,b)=>b.date.localeCompare(a.date)).slice(0,4);
- $('drawer').innerHTML=`<div class="dhead"><span class="mono note">${esc(S[p.section][lang])}</span><button class="iconbtn" type="button" id="dclose">${t('关闭','Close')} Esc</button></div><article class="receipt">${p.must_read?'<span class="stamp">MUST READ</span>':''}<div class="sec">${p.date}${p.orgs?' · '+esc(p.orgs.join(' · ')):''}</div><h2 id="dtitle">${esc(p.title)}</h2><div class="links">${paperLinks(p)}</div>${verify(p)}${p.status==='candidate'?`<span class="tag verify">${t('候选','Candidate')}</span>`:''}<div class="block"><h4>${t('一句话','Summary')}</h4><p>${esc(p['summary_'+lang])}</p></div>${p['result_'+lang]?`<div class="block"><h4>${t('关键结果','Key result')}</h4><p>${esc(p['result_'+lang])}</p></div>`:''}${lang==='en'?'<p class="note">Machine translation of the curated Chinese text.</p>':''}${known.length?`<dl class="kv">${known.map(k=>`<dt>${localized(LABELS[k])}</dt><dd>${localized(VALUES[p.evidence[k]])}${CHECKS.includes(k)?mark(p,k):''}</dd>`).join('')}</dl>`:''}${unknown.length?`<details class="unreviewed"><summary>${t(`另有 ${unknown.length} 项未审`,`${unknown.length} other fields not yet reviewed`)}</summary><ul>${unknown.map(k=>`<li>${localized(LABELS[k])}: unknown</li>`).join('')}</ul></details>`:''}${p.must_read?`<div class="pending">${t('计划中：精读笔记 · 视频 · 可延伸的 idea','Planned: reading notes · video · research ideas')}<!-- TODO --></div>`:''}</article><div class="receipt-nav"><button type="button" class="iconbtn" id="prev" ${index===0?'disabled':''}>← ${t('上一篇','Previous')}</button><button type="button" class="iconbtn" id="next" ${index===list.length-1?'disabled':''}>${t('下一篇','Next')} →</button></div><section class="related"><h3>${t('出现在哪些阅读路线','Reading routes featuring this paper')}</h3>${routes.length?routes.map(r=>`<p class="note">${esc(r['name_'+lang])}</p><div class="chain">${r.papers.map((rid,i)=>chip(rid,i+1)).join('')}</div>`).join(''):`<p class="note">${t('尚未编入阅读路线。','Not assigned to a reading route.')}</p>`}<h3>${t('同方向的相关论文','More in this direction')}</h3><div class="chain">${related.map(x=>chip(x.id)).join('')}</div></section><div class="sharewrap"><h4>${t('分享卡片','Share card')}</h4><img class="sharepreview" src="cards/${id}.png" alt="${esc(p.title)} · ${t('分享卡片','share card')}${p.needs_reading?' · 待细读 / Needs verification':''}" width="1080" height="1350" loading="lazy"><div class="copyrow"><button class="btn" type="button" id="copy">${t('复制链接','Copy link')}</button><a class="btn" href="cards/${id}.png" download="${id}.png">${t('下载分享卡片','Download card')}</a></div><p class="note" id="copymsg" role="status"></p></div>`;
+ $('drawer').innerHTML=`<div class="dhead"><span class="mono note">${esc(S[p.section][lang])}</span><button class="iconbtn" type="button" id="dclose">${t('关闭','Close')} Esc</button></div><article class="receipt">${p.must_read?'<span class="stamp">MUST READ</span>':''}<div class="sec">${p.date}${p.orgs?' · '+esc(p.orgs.join(' · ')):''}</div><h2 id="dtitle">${esc(p.title)}</h2><div class="links">${paperLinks(p)}</div>${verify(p)}${p.status==='candidate'?`<span class="tag verify">${t('候选','Candidate')}</span>`:''}<div class="block"><h4>${t('一句话','Summary')}</h4><p>${esc(p['summary_'+lang])}</p></div>${p['result_'+lang]?`<div class="block"><h4>${t('关键结果','Key result')}</h4><p>${esc(p['result_'+lang])}</p></div>`:''}${lang==='en'?'<p class="note">Machine translation of the curated Chinese text.</p>':''}${known.length?`<dl class="kv">${known.map(k=>`<dt>${localized(LABELS[k])}</dt><dd>${localized(VALUES[p.evidence[k]])}${CHECKS.includes(k)?mark(p,k):''}</dd>`).join('')}</dl>`:''}${unknown.length?`<details class="unreviewed"><summary>${t(`另有 ${unknown.length} 项未审`,`${unknown.length} other fields not yet reviewed`)}</summary><ul>${unknown.map(k=>`<li>${localized(LABELS[k])}: unknown</li>`).join('')}</ul></details>`:''}${p.must_read?`<div class="pending">${t('计划中：精读笔记 · 视频 · 可延伸的 idea','Planned: reading notes · video · research ideas')}<!-- TODO --></div>`:''}</article><div class="receipt-nav"><button type="button" class="iconbtn" id="prev" ${index===0?'disabled':''}>← ${t('上一篇','Previous')}</button><button type="button" class="iconbtn" id="next" ${index===list.length-1?'disabled':''}>${t('下一篇','Next')} →</button></div><section class="related"><h3>${t('出现在哪些阅读路线','Reading routes featuring this paper')}</h3>${routes.length?routes.map(r=>`<p class="note">${esc(r['name_'+lang])}</p><div class="chain" data-reading-order="${r.papers.join(' ')}">${r.papers.map((rid,i)=>chip(rid,i+1)).join('')}</div>`).join(''):`<p class="note">${t('尚未编入阅读路线。','Not assigned to a reading route.')}</p>`}<h3>${t('同方向的相关论文','More in this direction')}</h3><div class="chain">${related.map(x=>chip(x.id)).join('')}</div></section><div class="sharewrap"><h4>${t('分享卡片','Share card')}</h4><img class="sharepreview" src="cards/${id}.png" alt="${esc(p.title)} · ${t('分享卡片','share card')}${p.needs_reading?' · 待细读 / Needs verification':''}" width="1080" height="1350" loading="lazy"><div class="copyrow"><button class="btn" type="button" id="copy">${t('复制链接','Copy link')}</button><a class="btn" href="cards/${id}.png" download="${id}.png">${t('下载分享卡片','Download card')}</a></div><p class="note" id="copymsg" role="status"></p></div>`;
  $('drawer').hidden=false;$('scrim').hidden=false;$('app').inert=true;document.body.style.overflow='hidden';$('drawer').scrollTop=0;$('dclose').focus();
  $('dclose').onclick=()=>closeDrawer();$('prev').onclick=()=>adjacent(-1);$('next').onclick=()=>adjacent(1);
- $('copy').onclick=async()=>{if(!D.config.base_url&&!/^https?:$/.test(location.protocol)){$('copymsg').textContent=t('请从已发布的网站复制分享链接。','Open the published site to copy a shareable link.');return;}const url=new URL('p/'+id+'.html',D.config.base_url?D.config.base_url.replace(/\/$/,'')+'/':location.href).href;try{await navigator.clipboard.writeText(url);$('copymsg').textContent=t('已复制链接。','Link copied.');}catch(error){$('copymsg').textContent=t('请复制：','Copy this URL: ')+url;}};
+ $('copy').onclick=async()=>{const url=shareUrl(id);if(!url){$('copymsg').textContent=t('请从已发布的网站复制分享链接。','Open the published site to copy a shareable link.');return;}$('copymsg').textContent=t('请复制：','Copy this URL: ')+url;if(location.origin==='null'||!navigator.clipboard)return;try{await navigator.clipboard.writeText(url);$('copymsg').textContent=t('已复制链接。','Link copied.');}catch(error){if(!['NotAllowedError','SecurityError'].includes(error.name))throw error;}};
 }
-function adjacent(direction){const list=sequence(),i=list.findIndex(p=>p.id===openId)+direction;if(i>=0&&i<list.length)location.hash='p-'+list[i].id;}
-function closeDrawer(updateHash=true){openId=null;drawerIds=[];$('drawer').hidden=true;$('scrim').hidden=true;$('app').inert=false;document.body.style.overflow='';if(updateHash){try{history.replaceState(null,'','#'+view);}catch(error){if(error.name!=='SecurityError')throw error;}}if(lastFocus?.isConnected&&!lastFocus.closest('[hidden]'))lastFocus.focus();else $('main').focus();}
-function route(){const hash=location.hash.slice(1);if(hash.startsWith('p-')){openDrawer(hash.slice(2));return;}if(openId)closeDrawer(false);view=['routes','gaps','map'].includes(hash)?hash:'papers';render();}
+function adjacent(direction){const list=sequence(),i=list.findIndex(p=>p.id===openId)+direction;if(i>=0&&i<list.length)showPaper(list[i].id);}
+function closeDrawer(updateUrl=true){openId=null;drawerIds=[];$('drawer').hidden=true;$('scrim').hidden=true;$('app').inert=false;document.body.style.overflow='';if(updateUrl)updateHash(view,true);if(lastFocus?.isConnected&&!lastFocus.closest('[hidden]'))lastFocus.focus();else $('main').focus();}
+function route(){const hash=location.hash.slice(1);if(hash.startsWith('p-')){showPaper(hash.slice(2),false);return;}showView(['routes','gaps','map'].includes(hash)?hash:'papers',false);}
 $('q').addEventListener('input',()=>{state.q=$('q').value.trim().toLowerCase();render();});
 $('sort').onchange=()=>{state.sort=$('sort').value;render();};
 $('filter-open').onclick=()=>{const expanded=$('filter-panel').classList.toggle('expanded');$('filter-open').setAttribute('aria-expanded',String(expanded));};
 $('clear').onclick=()=>{Object.assign(state,{q:'',sections:[],must:false,verify:false,reviewed:false,filters:{}});$('q').value='';chrome();render();};
-$('lang').onclick=()=>{lang=lang==='zh'?'en':'zh';localStorage.setItem('harness.lang',lang);chrome();render();if(openId)openDrawer(openId);};
-$('theme').onclick=()=>{const themes=['auto','light','dark'];document.documentElement.dataset.theme=themes[(themes.indexOf(document.documentElement.dataset.theme||'auto')+1)%3];localStorage.setItem('harness.theme',document.documentElement.dataset.theme);chrome();renderFacets();};
+$('lang').onclick=()=>{lang=lang==='zh'?'en':'zh';preferences.set('harness.lang',lang);chrome();render();if(openId)openDrawer(openId);};
+$('theme').onclick=()=>{const themes=['auto','light','dark'];document.documentElement.dataset.theme=themes[(themes.indexOf(document.documentElement.dataset.theme||'auto')+1)%3];preferences.set('harness.theme',document.documentElement.dataset.theme);chrome();renderFacets();};
 $('scrim').onclick=()=>closeDrawer();
 document.addEventListener('click',event=>{
- const open=event.target.closest('[data-open]');if(open){if(location.hash==='#p-'+open.dataset.open)openDrawer(open.dataset.open);else location.hash='p-'+open.dataset.open;return;}
- const mapFilter=event.target.closest('[data-map-section]');if(mapFilter){Object.assign(state,{q:'',sections:mapFilter.dataset.mapSection?mapFilter.dataset.mapSection.split(','):[],must:false,verify:false,reviewed:false,filters:{}});$('q').value='';view='papers';location.hash='papers';chrome();render();$('main').focus();return;}
- const nav=event.target.closest('[data-view]');if(nav){location.hash=nav.dataset.view;return;}
+ const open=event.target.closest('[data-open],a[href^="#p-"]');if(open){event.preventDefault();const readingOrder=open.closest('[data-reading-order]')?.dataset.readingOrder.split(' ');showPaper(open.dataset.open||open.getAttribute('href').slice(3),true,readingOrder);return;}
+ const mapFilter=event.target.closest('[data-map-section]');if(mapFilter){Object.assign(state,{q:'',sections:mapFilter.dataset.mapSection?mapFilter.dataset.mapSection.split(','):[],must:false,verify:false,reviewed:false,filters:{}});$('q').value='';chrome();showView('papers');$('main').focus();return;}
+ const planned=event.target.closest('[data-map-plan]');if(planned){$('map-vote').hidden=false;$('map-vote').focus();return;}
+ const nav=event.target.closest('[data-view]');if(nav){showView(nav.dataset.view);return;}
  const toggle=event.target.closest('[data-toggle]');if(toggle){state[toggle.dataset.toggle]=!state[toggle.dataset.toggle];toggle.setAttribute('aria-pressed',String(state[toggle.dataset.toggle]));render();return;}
  const help=event.target.closest('[data-help]');if(help){const expanded=help.getAttribute('aria-expanded')!=='true';help.setAttribute('aria-expanded',String(expanded));$('help-'+help.dataset.help).hidden=!expanded;return;}
  const facet=event.target.closest('[data-field]');if(facet){const {field,value}=facet.dataset,selected=state.filters[field]||[];state.filters[field]=selected.includes(value)?selected.filter(v=>v!==value):[...selected,value];render();document.querySelector(`[data-field="${field}"][data-value="${value}"]`).focus();return;}
@@ -186,4 +243,5 @@ document.addEventListener('keydown',event=>{
  }
 });
 window.addEventListener('hashchange',route);
+window.addEventListener('popstate',route);
 chrome();render();route();

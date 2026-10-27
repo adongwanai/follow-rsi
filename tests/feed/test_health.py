@@ -1,10 +1,21 @@
 from unittest.mock import Mock
+from pathlib import Path
+import shutil
+import pytest
+from scripts.common import ROOT
 import json
 from scripts.feed.health import update_health, compute_metrics, version_alerts, publication_times
 from scripts.feed.storage import load_state, save_items
 from scripts.feed.normalize import normalize_record
 
 NOW = '2026-10-27T12:00:00+00:00'
+
+
+@pytest.fixture(autouse=True)
+def scope_config(tmp_path):
+    (tmp_path / 'feed').mkdir()
+    for name in ('sources.yaml', 'taxonomy.yaml'):
+        shutil.copyfile(ROOT / 'feed' / name, tmp_path / 'feed' / name)
 
 
 def test_three_empty_runs_open_once_and_recovery_closes(tmp_path):
@@ -53,7 +64,7 @@ def test_version_alerts_and_retraction_are_explicit(tmp_path):
 
 def test_metrics_preserve_recall_and_report_first_guard_failure(tmp_path):
     paper = normalize_record({'title': 'Test', 'arxiv_id': '2610.10001', 'published': '2026-10-20', 'source_hits': ['hf-daily']}, now=NOW)
-    paper.update(llm={'label': 'include'}, summary_zh='摘要', initial_guard_failed=True,
+    paper.update(llm={'label': 'include', 'primary': 'harness', 'harness_sub': 'component', 'secondary': []}, summary_zh='摘要', initial_guard_failed=True,
                  review={'week': '2026-W44', 'decision': 'accept', 'reviewed_at': NOW})
     save_items(tmp_path, [paper])
     daily = tmp_path / 'site/daily/2026-10-28.json'
@@ -72,7 +83,7 @@ def test_pending_and_deferred_items_do_not_lower_reviewed_precision(tmp_path):
     for index, decision in enumerate(['accept', 'reject', 'defer', 'pending']):
         item = normalize_record({'title': decision, 'arxiv_id': f'2610.{index:05}',
                                  'published': '2026-10-20'}, now=NOW)
-        item.update(llm={'label': 'include'}, review={'week': '2026-W44', 'decision': decision})
+        item.update(llm={'label': 'include', 'primary': 'harness', 'harness_sub': 'component', 'secondary': []}, review={'week': '2026-W44', 'decision': decision})
         items.append(item)
     result = compute_metrics(tmp_path, items=items, week='2026-W44')
     assert result['found'] == 4 and result['accepted'] == 1

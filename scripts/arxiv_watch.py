@@ -78,7 +78,7 @@ def watch(dry_run=False):
     pages = json.loads(gh('api', '--paginate', '--slurp', f'repos/{repo}/issues?state=all&per_page=100'))
     known |= issue_ids(issue for page in pages for issue in page)
     query = urlencode({'search_query': QUERY, 'start': 0, 'max_results': 100, 'sortBy': 'submittedDate', 'sortOrder': 'descending'})
-    request = Request('https://export.arxiv.org/api/query?' + query, headers={'User-Agent': 'awesome-harness-evolution/1.0 (weekly candidate discovery)'})
+    request = Request('https://export.arxiv.org/api/query?' + query, headers={'User-Agent': 'follow-rsi/1.0 (weekly candidate discovery)'})
     with urlopen(request, timeout=60) as response:
         entries = parse_feed(response.read())
     candidates = select_candidates(entries, known)

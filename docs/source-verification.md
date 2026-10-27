@@ -2,7 +2,7 @@
 
 Verified on 2026-10-27 using metadata-only HTTP requests with `FollowRSI/0.1` User-Agent. No PDF or X/Twitter requests were made. Enabled means the endpoint returned a parseable response during verification; it does not promise future availability.
 
-The registry uses `{ranking, sources}` so the requested top-level ranking weights and per-source list can coexist. Health/cursors remain in `data/feed/state.json`.
+The registry uses `{publish_scope, recall, ranking, sources}` so publication scope, reference selection, ranking weights and per-source configuration coexist. Health/cursors remain in `data/feed/state.json`.
 
 | Source | Enabled | Evidence |
 |---|---|---|
@@ -16,11 +16,13 @@ The registry uses `{ranking, sources}` so the requested top-level ranking weight
 | GitHub releases | yes | Agent-S API returned HTTP 200 and 2 release records; StarHarness API returned HTTP 200 with an empty list. A different unauthenticated Agent-S request returned 403; CI should use GITHUB_TOKEN. The returned empty list is valid data, not proof of active releases. |
 | Anthropic research / news | no | Official research/news pages returned HTML without advertised RSS/Atom links. `/rss.xml` and `/news/rss.xml` returned 404. No official feed endpoint was verified. |
 | Prime Intellect | no | `/blog/rss.xml`, `/rss.xml` and `/feed.xml` each returned 404. No valid feed was found among tested official endpoints. |
-| Semantic Scholar citations / authors | no | S2_API_KEY was absent. No authenticated request was made; endpoint adapters are tested with an explicitly synthetic API-contract fixture. Configure the key, verify a real response and then enable. |
+| Semantic Scholar citations / authors | yes | Anonymous DGM metadata (`ARXIV:2505.22954`) returned 200 after five 429 responses on 2026-10-27 (100.19 seconds total). Title and paper identity matched. Citation and author-paper pagination are covered by explicit synthetic fixtures, but a complete live crawl has not been verified. No authenticated request was made. |
 
 HF is the owner-prioritized discovery source. A 14-day run requests each of the 14 calendar dates, retains the original paper metadata and upvotes, and deduplicates repeated paper IDs. Its keyword prefilter is editable and visible in `feed/sources.yaml`; it deliberately admits broad agent/memory/skill matches so the LLM and owner can decide relevance.
 
 Popularity is not evidence. Sorting weights are seed_hits=3, author_tracked=2, hf_upvotes=0.1, code_released=1, with owner picks ahead of automatic ordering. No classifier confidence or unverifiable quality score is part of ranking.
+
+Semantic Scholar requests use optional `x-api-key` authentication with 1.1-second pacing, or anonymous access with 3.1-second pacing. HTTP 429 has exponential backoff and permits at most five retries; other errors propagate. Per-source `auth_mode` and `min_interval_seconds` are recorded before fetching, including failures.
 
 Semantic Scholar limitations: the adapter filters citation and author results using the paper publicationDate within 30 days; the API does not provide a citation-added timestamp. Undated S2 results stay in the raw response and are not assigned an invented date. The last-listed author is an operational tracking heuristic, not verified corresponding authorship.
 

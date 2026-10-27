@@ -1,6 +1,6 @@
 # Contributing
 
-Edit curated evidence-base paper information only in `data/papers.yaml`. It is the catalog's single source of truth. Do not manually change generated README blocks, receipt blocks, JSON, badges, or share cards. Reading routes live in `data/routes.yaml`; deployment URLs live in `data/site.yaml`. Feed discovery and owner review have a separate [operating guide](docs/feed-setup.md).
+Edit curated evidence-base paper information only in `data/papers.yaml`. It is the catalog's single source of truth. Do not manually change generated README blocks, receipt blocks, JSON, badges, or share cards. Reading routes live in `data/routes.yaml`; deployment URLs live in `site.config.yaml`. Feed discovery and owner review have a separate [operating guide](docs/feed-setup.md).
 
 Every number and every evidence change needs a source page or table number in the PR. Changing `unknown` to `yes` or `no` requires explicit supporting evidence. Do not infer evidence from an abstract, a code link, a paper title, or familiarity with a method. Omitted evidence fields become `unknown`. Use `partial` or `na` only with a cited reason. Topology is a descriptive classification, not an evidence score; leave it `unknown` without a source.
 
@@ -10,7 +10,7 @@ English summaries and results are translations of their corresponding Chinese fi
 
 You may edit handwritten sections outside `<!-- AUTO:...:START -->` / `<!-- AUTO:...:END -->`, including notes, videos, direction overviews, and ideas. Keep unfilled material as `<!-- TODO -->`. Preserve the AUTO markers. A changed title inside the handwritten page heading must be updated manually; the receipt block updates automatically.
 
-`README.md` is the canonical Chinese README; `README_en.md` is the English source. The build copies the Chinese README to `README_zh.md` for existing links, so edit the canonical file instead of the mirror.
+`README.md` is the default Chinese README; `README_zh.md` keeps the alternate Chinese entry point and `README_en.md` is English. The build updates AUTO blocks independently in all three files and preserves every byte outside those blocks, including placeholders.
 
 ```sh
 python3 -m venv .venv
@@ -35,7 +35,7 @@ The badge records held-out evaluation, matched budget, cross-model transfer, and
 
 ## Publication
 
-The repository is `adongwanai/follow-rsi` and Pages is `https://adongwanai.github.io/follow-rsi`. For a fork, update `repository`, `repository_url`, `base_url`, author fields and optional `newsletter_url` in `data/site.yaml`, plus author information in `CITATION.cff` and the licenses. Rebuild and rerender cards after changing public URLs. Set Pages to GitHub Actions and upload `assets/social-preview.png` in Settings → Social preview.
+The repository is `adongwanai/follow-rsi` and Pages is `https://adongwanai.github.io/follow-rsi`. For a fork, update `repository`, `repository_url`, `base_url`, author fields and optional `newsletter_url` in `site.config.yaml`, plus author information in `CITATION.cff` and the licenses. Rebuild and rerender cards after changing public URLs. Set Pages to GitHub Actions and upload `assets/social-preview.png` in Settings → Social preview.
 
 Python 3.11 is used in CI. `requirements.txt` includes PyYAML, jsonschema, Jinja2, pytest, requests, feedparser and the official OpenAI SDK, which also handles the configured DeepSeek endpoint. Playwright is optional for the separate screenshot/media step. The QR encoder is vendored JavaScript with its license; it adds no runtime package or network request. See [development notes](docs/development.md).
 

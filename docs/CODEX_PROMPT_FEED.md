@@ -1,4 +1,4 @@
-> 当前项目约定（2026-10-27）：仓库为 `adongwanai/follow-rsi`，网站为 https://adongwanai.github.io/follow-rsi/。默认中文入口为 `README.md`，英文入口为 `README_en.md`，`README_zh.md` 是中文镜像。部署配置唯一来源是 `data/site.yaml`。人工审核闸门始终保留；真实接入、测试结果和未完成项分别见 `feed-setup.md`、`acceptance.md`、`data-audit.md`。下文是 owner 提供的任务规范，不能据此宣称验收已经通过。
+> 当前项目约定（2026-10-27）：仓库为 `adongwanai/follow-rsi`，网站为 https://adongwanai.github.io/follow-rsi/。默认中文入口为 `README.md`，英文入口为 `README_en.md`，`README_zh.md` 是独立保留手写区的中文备用入口。部署配置唯一来源是 `site.config.yaml`。人工审核闸门始终保留；真实接入、测试结果和未完成项分别见 `feed-setup.md`、`acceptance.md`、`data-audit.md`。下文是 owner 提供的任务规范，不能据此宣称验收已经通过。
 
 # 第二期任务：Follow RSI（递归自我改进进展追踪）
 
