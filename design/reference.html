@@ -1,0 +1,428 @@
+<title>Harness Evolution Receipts</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@700;900&display=swap">
+<style>
+/* Layout: an audit ledger. Hero = the thesis plus two "receipt stubs" carrying the field's hardest numbers;
+   below, a sticky filter bar over a dated ledger; each paper opens as a perforated receipt. */
+:root{
+  --paper:#F1F2F4; --surface:#FFFFFF; --sunk:#E8EAEE;
+  --ink:#14161C; --ink-2:#585D69; --rule:#D6D9E0;
+  --accent:#2A33D4; --accent-soft:#E4E6FF; --on-accent:#FFFFFF;
+  --yes:#1E7F48; --part:#A86C10; --no:#C23838; --unk:#8B909B;
+  --f-display:"Noto Serif SC","Songti SC","STSong",Georgia,serif;
+  --f-body:"Noto Sans SC","PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Menlo,monospace;
+  --r:6px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --paper:#0E1015; --surface:#161920; --sunk:#1C2029;
+  --ink:#E8EAF0; --ink-2:#9BA1AD; --rule:#2A2F3A;
+  --accent:#8D93FF; --accent-soft:#22264A; --on-accent:#0E1015;
+  --yes:#4CC38A; --part:#E0AE4C; --no:#EE7070; --unk:#6F7581; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --paper:#0E1015; --surface:#161920; --sunk:#1C2029;
+  --ink:#E8EAF0; --ink-2:#9BA1AD; --rule:#2A2F3A;
+  --accent:#8D93FF; --accent-soft:#22264A; --on-accent:#0E1015;
+  --yes:#4CC38A; --part:#E0AE4C; --no:#EE7070; --unk:#6F7581; color-scheme:dark}
+
+*{box-sizing:border-box}
+body{background:var(--paper);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.6;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:30;background:var(--paper)}
+a{color:var(--accent)}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.wrap{max-width:1120px;margin:0 auto}
+.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+
+/* top bar */
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-block:18px 0}
+.brand{font-family:var(--f-mono);font-size:13px;letter-spacing:.04em;color:var(--ink-2)}
+.brand b{color:var(--ink);font-weight:600}
+.views{display:flex;gap:4px;background:var(--sunk);padding:3px;border-radius:999px}
+.views button{border:0;background:none;cursor:pointer;font-size:13px;color:var(--ink-2);padding:5px 12px;border-radius:999px}
+.views button:hover{color:var(--ink)}
+.views button[aria-current="page"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgb(0 0 0 / .08)}
+
+/* hero */
+.hero{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:40px;align-items:end;padding-block:44px 36px;
+  background-image:radial-gradient(var(--rule) 1px,transparent 1.2px);background-size:18px 18px;background-position:-9px -9px}
+.eyebrow{font-family:var(--f-mono);font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);margin:0 0 14px}
+h1{font-family:var(--f-display);font-weight:900;font-size:clamp(34px,5.4vw,60px);line-height:1.12;margin:0;text-wrap:balance;letter-spacing:-.01em}
+h1 em{font-style:normal;background:linear-gradient(transparent 62%,var(--accent-soft) 62%)}
+.lede{max-width:34em;color:var(--ink-2);font-size:16px;margin:18px 0 0}
+.meta{display:flex;flex-wrap:wrap;gap:6px 18px;margin-top:22px;font-family:var(--f-mono);font-size:12.5px;color:var(--ink-2)}
+.meta b{color:var(--ink);font-weight:600}
+.stubs{display:grid;gap:14px}
+.stub{all:unset;cursor:pointer;display:grid;grid-template-columns:auto 1fr;gap:4px 16px;align-items:baseline;
+  background:var(--surface);border:1px solid var(--rule);border-radius:var(--r);padding:16px 18px 16px 20px;position:relative;
+  transition:transform .15s ease,border-color .15s ease}
+.stub::before{content:"";position:absolute;left:-1px;top:14px;bottom:14px;border-left:2px dashed var(--rule)}
+.stub:hover{transform:translateY(-2px);border-color:var(--accent)}
+.stub:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.stub .src{grid-column:1/-1;font-family:var(--f-mono);font-size:11.5px;color:var(--ink-2);letter-spacing:.04em}
+.stub .big{font-family:var(--f-mono);font-weight:600;font-size:44px;line-height:1;letter-spacing:-.03em;color:var(--ink)}
+.stub .big small{font-size:22px;color:var(--ink-2)}
+.stub .txt{font-size:14px;color:var(--ink-2)}
+.stub .txt b{color:var(--ink);font-weight:500}
+
+/* toolbar */
+.bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--paper);border-bottom:1px solid var(--rule);padding-block:12px}
+.bar-row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.search{flex:1 1 260px;min-width:0;display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--rule);border-radius:var(--r);padding:0 12px}
+.search input{all:unset;flex:1;min-width:0;padding:10px 0;font-size:14px}
+.search kbd{font-family:var(--f-mono);font-size:11px;color:var(--ink-2);border:1px solid var(--rule);border-radius:4px;padding:0 5px}
+.toggles{display:flex;flex-wrap:wrap;gap:6px}
+.chip{border:1px solid var(--rule);background:var(--surface);border-radius:999px;padding:5px 11px;font-size:13px;cursor:pointer;display:inline-flex;gap:6px;align-items:center;white-space:nowrap}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.chip .n{font-family:var(--f-mono);font-size:11.5px;opacity:.7}
+.sections{display:flex;gap:6px;overflow-x:auto;padding-block:10px 2px;scrollbar-width:thin}
+.legend{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12px;color:var(--ink-2);padding-top:8px}
+.legend span{display:inline-flex;align-items:center;gap:5px}
+
+/* evidence marks: shape + color */
+.ev{width:12px;height:12px;border-radius:2px;display:inline-block;flex:none;position:relative}
+.ev.yes{background:var(--yes)}
+.ev.partial{background:linear-gradient(135deg,var(--part) 50%,transparent 50%);box-shadow:inset 0 0 0 1.5px var(--part)}
+.ev.no{box-shadow:inset 0 0 0 1.5px var(--no)}
+.ev.no::after{content:"";position:absolute;inset:2px;background:linear-gradient(45deg,transparent 42%,var(--no) 42% 58%,transparent 58%),linear-gradient(-45deg,transparent 42%,var(--no) 42% 58%,transparent 58%)}
+.ev.unknown{box-shadow:inset 0 0 0 1.5px var(--unk);border-radius:50%;opacity:.7}
+.ev.na{background:var(--sunk)}
+
+/* ledger */
+main{padding-block:8px 64px}
+.group{margin-top:34px}
+.group h2{font-family:var(--f-display);font-weight:700;font-size:22px;margin:0 0 2px;text-wrap:balance}
+.group .gsub{display:flex;gap:12px;align-items:baseline;font-family:var(--f-mono);font-size:12px;color:var(--ink-2);margin-bottom:10px}
+.rows{border-top:1px solid var(--ink)}
+.row{all:unset;box-sizing:border-box;cursor:pointer;display:grid;grid-template-columns:96px minmax(0,1fr) 92px;gap:6px 20px;width:100%;
+  padding:14px 8px;border-bottom:1px solid var(--rule);align-items:start}
+.row:hover{background:var(--surface)}
+.row:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.row .date{font-family:var(--f-mono);font-size:12.5px;color:var(--ink-2);padding-top:2px}
+.row .t{font-weight:500;font-size:15.5px;line-height:1.4}
+.row .o{font-size:12.5px;color:var(--ink-2);margin-top:2px}
+.row .s{font-size:13.5px;color:var(--ink-2);margin-top:6px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.row .marks{display:flex;gap:5px;justify-content:flex-end;padding-top:4px}
+.tag{display:inline-block;font-family:var(--f-mono);font-size:10.5px;letter-spacing:.06em;padding:1px 6px;border-radius:3px;margin-left:8px;vertical-align:2px}
+.tag.must{background:var(--accent);color:var(--on-accent)}
+.tag.verify{box-shadow:inset 0 0 0 1px var(--part);color:var(--part)}
+.empty{padding:40px 8px;color:var(--ink-2)}
+
+/* routes & gaps */
+.page-h{font-family:var(--f-display);font-weight:900;font-size:clamp(26px,3.6vw,38px);margin:40px 0 6px;text-wrap:balance}
+.page-sub{color:var(--ink-2);max-width:40em;margin:0 0 24px}
+.routes{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,340px),1fr));gap:14px}
+.route{background:var(--surface);border:1px solid var(--rule);border-radius:var(--r);padding:18px}
+.route h3{margin:0;font-size:16px}
+.route p{margin:4px 0 14px;font-size:13.5px;color:var(--ink-2)}
+.chain{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.chain .arr{color:var(--ink-2);font-family:var(--f-mono);font-size:12px}
+.pchip{all:unset;cursor:pointer;font-size:13px;padding:4px 9px;border-radius:4px;background:var(--sunk)}
+.pchip:hover,.pchip:focus-visible{background:var(--accent-soft);color:var(--accent)}
+.gaps{display:grid;gap:0;border-top:1px solid var(--ink)}
+.gap{display:grid;grid-template-columns:minmax(0,280px) minmax(0,1fr);gap:8px 28px;padding:18px 4px;border-bottom:1px solid var(--rule)}
+.gap h3{margin:0;font-family:var(--f-display);font-size:18px;font-weight:700}
+.gap p{margin:0 0 10px;color:var(--ink-2);max-width:42em}
+
+/* drawer = receipt */
+.scrim{position:fixed;inset:0;background:rgb(10 12 18 / .38);z-index:40}
+.drawer{position:fixed;top:0;right:0;bottom:0;width:min(560px,100%);z-index:50;background:var(--paper);overflow-y:auto;
+  padding:calc(env(safe-area-inset-top,0px) + 18px) max(18px,env(safe-area-inset-right,0px)) calc(env(safe-area-inset-bottom,0px) + 28px) 18px;
+  box-shadow:-12px 0 40px rgb(0 0 0 / .18)}
+.dhead{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:12px}
+.iconbtn{border:1px solid var(--rule);background:var(--surface);border-radius:var(--r);padding:6px 10px;cursor:pointer;font-size:13px}
+.receipt{background:var(--surface);border-radius:2px;padding:26px 22px 26px;position:relative}
+.receipt::before{content:"";position:absolute;left:0;right:0;top:-6px;height:12px;
+  background:radial-gradient(circle at 8px 0,var(--paper) 6px,transparent 6.5px) 0 6px/16px 12px repeat-x}
+.receipt .sec{font-family:var(--f-mono);font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-2)}
+.receipt h2{font-family:var(--f-display);font-weight:900;font-size:24px;line-height:1.3;margin:6px 0 8px;text-wrap:balance}
+.links{display:flex;flex-wrap:wrap;gap:6px 14px;font-family:var(--f-mono);font-size:12.5px;margin-bottom:6px}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:4px 16px;font-family:var(--f-mono);font-size:12.5px;margin:16px 0;padding:14px 0;border-block:1px dashed var(--rule)}
+.kv dt{color:var(--ink-2)}
+.kv dd{margin:0;display:flex;align-items:center;gap:7px;justify-content:flex-end;text-align:right}
+.block{margin-top:14px}
+.block h4{font-family:var(--f-mono);font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-2);margin:0 0 4px;font-weight:500}
+.block p{margin:0}
+.soon{margin-top:18px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.soon div{border:1px dashed var(--rule);border-radius:var(--r);padding:10px;font-size:12.5px;color:var(--ink-2);text-align:center}
+.stamp{position:absolute;top:18px;right:18px;font-family:var(--f-mono);font-size:11px;font-weight:600;letter-spacing:.12em;color:var(--accent);
+  border:1.5px solid var(--accent);border-radius:3px;padding:3px 7px;transform:rotate(4deg)}
+
+/* share card preview */
+.sharewrap{margin-top:22px}
+.sharewrap h4{font-family:var(--f-mono);font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-2);margin:0 0 8px;font-weight:500}
+.share{aspect-ratio:4/5;max-width:100%;width:100%;background:var(--ink);color:var(--paper);border-radius:10px;padding:8% 8% 7%;display:flex;flex-direction:column;
+  background-image:radial-gradient(color-mix(in srgb,var(--paper) 14%,transparent) 1px,transparent 1.3px);background-size:16px 16px}
+.share .k{font-family:var(--f-mono);font-size:12px;letter-spacing:.1em;opacity:.7}
+.share .h{font-family:var(--f-display);font-weight:900;font-size:clamp(20px,5.2vw,30px);line-height:1.25;margin:12px 0 10px;text-wrap:balance}
+.share .l{font-size:14px;opacity:.85;line-height:1.55}
+.share .res{margin-top:auto;font-size:13.5px;line-height:1.5;border-top:1px solid color-mix(in srgb,var(--paper) 25%,transparent);padding-top:12px}
+.share .evrow{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:14px 0}
+.share .evrow div{font-family:var(--f-mono);font-size:10.5px;border:1px solid color-mix(in srgb,var(--paper) 30%,transparent);border-radius:4px;padding:6px;text-align:center;line-height:1.3}
+.share .evrow b{display:block;font-size:15px;margin-bottom:2px}
+.share .foot{display:flex;justify-content:space-between;font-family:var(--f-mono);font-size:11px;opacity:.65;margin-top:14px}
+.copyrow{display:flex;gap:8px;align-items:center;margin-top:12px;flex-wrap:wrap}
+.btn{border:0;background:var(--accent);color:var(--on-accent);border-radius:var(--r);padding:8px 14px;cursor:pointer;font-size:13.5px;font-weight:500}
+.note{font-size:12px;color:var(--ink-2)}
+
+footer{border-top:1px solid var(--rule);padding-block:22px 40px;font-size:12.5px;color:var(--ink-2);display:flex;flex-wrap:wrap;gap:8px 20px;justify-content:space-between}
+
+@media (max-width:820px){
+  .hero{grid-template-columns:1fr;gap:26px;padding-block:30px 26px}
+  .row{grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"date marks" "body body";padding:12px 4px}
+  .row .date{grid-area:date}.row .marks{grid-area:marks}.row .body{grid-area:body}
+  .gap{grid-template-columns:1fr}
+  .soon{grid-template-columns:1fr}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+<div class="wrap">
+  <header class="topbar">
+    <div class="brand"><b>awesome-harness-evolution</b> · with receipts</div>
+    <nav class="views" aria-label="视图">
+      <button type="button" data-view="papers">论文</button>
+      <button type="button" data-view="routes">阅读路线</button>
+      <button type="button" data-view="gaps">研究空白</button>
+    </nav>
+  </header>
+
+  <section class="hero" aria-labelledby="h1">
+    <div>
+      <p class="eyebrow">Harness 自进化 · 证据库</p>
+      <h1 id="h1">每一篇论文，<br>都要<em>拿出凭证</em>。</h1>
+      <p class="lede">Agent 开始改写自己的提示、工具、记忆和控制流。可提升有多少来自真正的改进，又有多少来自过拟合和多花的算力？这里逐篇记下证据。</p>
+      <div class="meta mono" id="meta"></div>
+    </div>
+    <div class="stubs">
+      <button class="stub" data-open="hda" type="button">
+        <span class="src">HDA · arXiv 2610.22466</span>
+        <span class="big">54<small>%</small></span>
+        <span class="txt">搜索集上的演化收益，平均 <b>54%</b> 来自过拟合，<b>14%</b> 来自多花的测试时算力</span>
+      </button>
+      <button class="stub" data-open="auditing-product" type="button">
+        <span class="src">Auditing the Product · arXiv 2610.27610</span>
+        <span class="big">4<small>/26</small></span>
+        <span class="txt">声称改进了「改进流程」的论文里，只有 <b>4 篇</b>在同起点、同预算下做了前后代对比</span>
+      </button>
+    </div>
+  </section>
+</div>
+
+<div class="bar" id="bar">
+  <div class="wrap">
+    <div class="bar-row">
+      <label class="search" for="q"><span aria-hidden="true">⌕</span>
+        <input id="q" type="search" placeholder="搜索论文、机构、机制或数字" autocomplete="off"><kbd>/</kbd></label>
+      <div class="toggles" id="toggles"></div>
+    </div>
+    <div class="sections" id="sections" role="group" aria-label="方向"></div>
+    <div class="legend" aria-label="证据图例">
+      <span><i class="ev yes"></i>有</span><span><i class="ev partial"></i>部分</span><span><i class="ev no"></i>没有</span><span><i class="ev unknown"></i>未审</span>
+      <span class="mono">列顺序：留出集 · 同预算对照 · 跨模型迁移 · 报告成本</span>
+    </div>
+  </div>
+</div>
+
+<div class="wrap">
+  <main id="main"></main>
+  <footer>
+    <span>数据截至 <span class="mono" id="asof"></span> · 每篇都核对过 arXiv 或 Hugging Face 页面</span>
+    <span>代码 MIT · 内容 CC BY 4.0</span>
+  </footer>
+</div>
+
+<div class="scrim" id="scrim" hidden></div>
+<aside class="drawer" id="drawer" hidden aria-modal="true" role="dialog" aria-labelledby="dtitle"></aside>
+
+<script>
+const DATA = {"meta": {"as_of": "2026-10-27", "sections": {"foundations": {"zh": "奠基与前置", "en": "Foundations"}, "evolve_main": {"zh": "1.1 搜索与演化主线", "en": "1.1 Search & evolution (frozen model)"}, "generalize": {"zh": "1.2 泛化、正则、准入与成本", "en": "1.2 Generalization, regularization, admission & cost"}, "evidence_selection": {"zh": "1.3 任务与证据选择", "en": "1.3 Task & evidence selection"}, "improver": {"zh": "二、改进器自身进化", "en": "2. Evolving the improver (meta / multi-level)"}, "component": {"zh": "三、组件级进化", "en": "3. Component-level evolution (skills, memory, context, interfaces)"}, "coevolution": {"zh": "四、模型与 Harness 协同进化", "en": "4. Model–harness co-evolution"}, "evaluation": {"zh": "五、评测、归因与可信度", "en": "5. Evaluation, attribution & trustworthiness"}, "survey_theory": {"zh": "六、综述与理论", "en": "6. Surveys & theory"}, "candidates": {"zh": "延伸候选（未正式收录）", "en": "Candidates (not yet reviewed)"}}}, "papers": [{"id": "godel-machines", "title": "Gödel Machines", "arxiv": "cs/0309048", "date": "2003", "section": "foundations", "orgs": ["Schmidhuber"], "edit_targets": ["any_code"], "summary_zh": "自指式自改进的理论原型：只有在证明改写有益后才改。几乎所有 RSI 论文的引言都会提到。"}, {"id": "stop", "title": "STOP: Self-Taught Optimizer", "arxiv": "2310.02304", "date": "2023", "section": "foundations", "must_read": true, "edit_targets": ["improver"], "summary_zh": "让「改进代码的程序」去改进自己，是 LLM 时代递归自改进脚手架的起点；也讨论了绕过沙箱等安全问题。"}, {"id": "dspy", "title": "DSPy", "arxiv": "2310.03714", "date": "2023", "section": "foundations", "edit_targets": ["prompt"], "summary_zh": "把「编译」提示流水线作为优化问题，是文本优化器一系的代表基线。"}, {"id": "voyager", "title": "Voyager", "arxiv": "2305.16291", "date": "2023", "section": "foundations", "edit_targets": ["skills"], "summary_zh": "技能以代码形式累积并复用，是技能、记忆类 Harness 演化的前身。"}, {"id": "adas", "title": "ADAS: Automated Design of Agentic Systems", "arxiv": "2408.08435", "date": "2024", "section": "foundations", "must_read": true, "edit_targets": ["workflow", "control_flow"], "summary_zh": "Meta Agent Search：元 Agent 在代码空间里不断写出新 Agent，并保留档案。「Harness 即代码」的搜索范式从这里开始。"}, {"id": "aflow", "title": "AFlow", "arxiv": "2410.10762", "date": "2024", "section": "foundations", "edit_targets": ["workflow"], "summary_zh": "用 MCTS 搜索代码表示的工作流，是工作流级自动优化的标准基线。"}, {"id": "godel-agent", "title": "Gödel Agent", "arxiv": "2410.04444", "date": "2024", "section": "foundations", "edit_targets": ["control_flow", "improver"], "summary_zh": "让 Agent 在运行时检查并修改自己的代码，含改进逻辑本身，是自指式 Agent 的代表实现。"}, {"id": "sica", "title": "SICA: A Self-Improving Coding Agent", "arxiv": "2504.15228", "date": "2025", "section": "foundations", "must_read": true, "evidence": {"who_edits": "self"}, "summary_zh": "执行者与改进者是同一个 Agent，直接改自己的 Python 代码；「自改」路线的典型对比对象。"}, {"id": "dgm", "title": "Darwin Gödel Machine", "arxiv": "2505.22954", "date": "2025", "section": "foundations", "must_read": true, "evidence": {"who_edits": "self"}, "summary_zh": "用开放式演化档案替代「证明有益」，在 SWE-bench 与 Polyglot 上持续自改。复现前先看 Reflections on Trusting Trust, Revisited（容器 git 历史可泄露答案）。"}, {"id": "alphaevolve", "title": "AlphaEvolve", "arxiv": "2506.13131", "date": "2025", "section": "foundations", "edit_targets": ["program"], "summary_zh": "不改 Harness，但其「提案—评估—档案」循环被大量 Harness 演化工作沿用。"}, {"id": "ace", "title": "ACE: Agentic Context Engineering", "arxiv": "2510.04618", "date": "2025", "section": "foundations", "edit_targets": ["context"], "summary_zh": "把上下文当成持续演化的 playbook，是最常对比的上下文类基线。"}, {"id": "hgm", "title": "Huxley-Gödel Machine", "arxiv": "2510.21614", "date": "2025", "section": "foundations", "evidence": {"who_edits": "self"}, "summary_zh": "用谱系级的元生产力指标指导自改搜索，是 DGM 路线的重要改进；HGM-Dual 直接建立在它之上。"}, {"id": "meta-harness", "title": "Meta-Harness", "arxiv": "2603.28052", "date": "2026-03", "section": "foundations", "must_read": true, "orgs": ["Stanford", "MIT", "KRAFTON"], "evidence": {"who_edits": "external", "cross_model_transfer": true}, "summary_zh": "编码 Agent 通过文件系统读取所有历史候选的源码、分数和完整轨迹来搜索 Harness。窗口内最常见的对比基线。", "result_zh": "一个数学推理 Harness 在 5 个留出模型上平均 +4.7 分。"}, {"id": "ahe", "title": "AHE: Agentic Harness Engineering", "arxiv": "2604.25850", "date": "2026-04", "section": "evolve_main", "must_read": true, "orgs": ["Fudan"], "evidence": {"who_edits": "external", "cross_model_transfer": true}, "summary_zh": "三个「可观测性」支柱：组件文件化、轨迹分层蒸馏、每次编辑附带可证伪的预测，下一轮核验。", "result_zh": "Terminal-Bench 2 pass@1 十轮从 69.7% 到 77.0%，超过 Codex-CLI；跨模型家族迁移 +5.1–10.1pp。"}, {"id": "demoevolve", "title": "DemoEvolve", "arxiv": "2605.24539", "date": "2026-05", "section": "evolve_main", "orgs": ["Tsinghua", "AgiBot"], "evidence": {"who_edits": "external", "feedback": "demonstrations"}, "summary_zh": "稀疏奖励的长程随机环境里，用人类示范轨迹指导编辑者诊断和定位 Harness 问题。", "result_zh": "Liar's Dice 上自演化可行；Balatro 上自演化被噪声误导，加示范后同预算下更好。"}, {"id": "self-harness", "title": "Self-Harness: Harnesses That Improve Themselves", "arxiv": "2606.09498", "date": "2026-06", "section": "evolve_main", "must_read": true, "orgs": ["Shanghai AI Lab"], "evidence": {"who_edits": "self", "held_out": true, "cross_model_transfer": "partial"}, "summary_zh": "弱点挖掘 → 最小化修改提案 → 回归测试后才接受；不依赖更强的外部模型。", "result_zh": "TB2.0 留出集：MiniMax M2.5 40.5%→61.9%，Qwen3.5-35B-A3B 23.8%→38.1%，GLM-5 42.9%→57.1%。"}, {"id": "tthe", "title": "TTHE: Test-Time Harness Evolution", "arxiv": "2607.08124", "date": "2026-07-09", "section": "evolve_main", "evidence": {"who_edits": "self", "feedback": "proxy", "timing": "test_time", "cross_model_transfer": true}, "summary_zh": "测试时只用无标签执行轨迹演化候选 Harness 种群；求解器、提议器、裁判共用一个冻结模型，各有不同 Harness。", "result_zh": "BIRD 执行准确率 12.7%→48.7%（十次投票基线 16.0%）；演化出的 Harness 可迁移到其他模型。"}, {"id": "harnessbank", "title": "HarnessBank: Semantic Gene-Bank Search with Gated Verification for Agent-Harness Self-Evolution", "arxiv": "2607.13683", "date": "2026-07-15", "section": "evolve_main", "needs_reading": true, "evidence": {"who_edits": "external"}, "summary_zh": "任务 Agent 与独立演化 Agent 分离；用语义坐标组织「Harness 基因库」做质量多样性搜索，分阶段筛选候选以减少完整评估。", "result_zh": "针对搜索坍缩、任务过拟合和不可验证的提升；定量结果待细读。"}, {"id": "rhi", "title": "RHI: Recursive Harness Self-Improvement", "arxiv": "2607.15524", "date": "2026-07-17", "section": "evolve_main", "orgs": ["Sakana AI", "UC Berkeley"], "evidence": {"who_edits": "external", "cost_reported": true}, "edit_targets": ["prompt", "context"], "summary_zh": "Harness 写成提示级规范，用自身修订历史上的成对反馈迭代；收益主要来自上下文管理与 Agent 间信息流。被递归修改的是任务 Harness，不是改进器。", "result_zh": "30 个合成 ML 研究任务上，低推理强度 Agent 超过最高推理强度设置，成本最多降 60%。"}, {"id": "drevo", "title": "DREvo: Distilling Recalibrated Historical Experience for Harness Self-Evolution", "arxiv": "2607.26722", "date": "2026-07-29", "section": "evolve_main", "needs_reading": true, "evidence": {"who_edits": "external"}, "summary_zh": "把历史证据锚定到函数级，随当前版本重新校准其有效性，再蒸馏成按角色区分的搜索意图。", "result_zh": "覆盖化学与法律推理、TB2.0、SWE-bench Verified；演化曲线比 Meta-Harness 平稳，提议器上下文保持在约 2.9K token。"}, {"id": "darwinx", "title": "DarwinX: Evolving Agent Harnesses Through Natural Selection", "arxiv": "2608.07545", "date": "2026-07-31", "section": "evolve_main", "must_read": true, "orgs": ["Salesforce"], "evidence": {"who_edits": "external", "held_out": true, "cross_model_transfer": "unknown"}, "summary_zh": "Harness 种群选择；「保持并扩展」契约只接受在已评估任务上不退化的变体；归档保留多条谱系并合并互补的专家 Harness。不退化只在有限评估集上检查。", "result_zh": "TB2.1 75.5%→83.2%；TerminalWorld 留出集 68.3%；WebArena-Infinity 43.5%→93.0%；不加修改迁移到 SWE-bench Verified。"}, {"id": "mgm", "title": "Mendel Gödel Machine: Recursive Self-Improving Coding Agents via Comparative Evolution", "arxiv": "2608.07645", "date": "2026-08-07", "section": "evolve_main", "evidence": {"who_edits": "self"}, "summary_zh": "DGM 路线：同一 Agent 跨任务的表现比较，加上不同谱系在同一任务上的轨迹比较，驱动变异与杂交。", "result_zh": "证明收敛更快；SWE-bench、Polyglot 上超过单轨迹基线。"}, {"id": "ouroboros", "title": "Ouroboros: A Self-Developing Coding Harness with Reviewed Core Evolution", "arxiv": "2608.08311", "date": "2026-08-08", "section": "evolve_main", "evidence": {"who_edits": "self_human_reviewed", "timing": "online"}, "summary_zh": "工具、提示、上下文组装、核心代码经审查提交后成为运行时；护栏在演化压力下保持权威。", "result_zh": "TB2.1 86.74%（轨迹审计后），OSWorld-Verified 90.69%（冻结快照）；公开部署 Hope 持续演化 161 天。"}, {"id": "evo-harness", "title": "Evo-Harness", "arxiv": "2608.15071", "date": "2026-08", "section": "evolve_main", "evidence": {"who_edits": "external", "timing": "online"}, "edit_targets": ["skills"], "summary_zh": "在线 Harness 学习：任务顺序到来，把一次性执行上下文编译成 Markdown 技能。与 Harness Updating ≠ Benefit 同实验室。", "result_zh": "5 个 benchmark 全部提升；模型自判反馈会导致退化，强求解器受益更多。"}, {"id": "autosaddler", "title": "AutoSaddler: Automatic Harness Optimization with Durable Updates from Agent Execution Traces", "arxiv": "2608.23041", "date": "2026-08-24", "section": "evolve_main", "must_read": true, "evidence": {"who_edits": "external", "held_out": true}, "edit_targets": ["prompt", "tools", "middleware"], "summary_zh": "离线 mini-batch：失败轨迹深度诊断 → 覆盖提示、工具、中间件的结构化代码补丁 → 验证集与 EvoDAG 做泛化感知选择。理解完整工程闭环的入口。", "result_zh": "GAIA2、SWE-Bench Pro、TB2.0 相对基础 Harness +9.0/+9.6/+10.0pp，比最强自动化基线高 7.4/4.4/6.7pp；消融支持深度调试、定向修改、泛化选择三要素。"}, {"id": "starharness", "title": "StarHarness: Evolving Harnesses with Stratified Search for Enterprise Environments", "arxiv": "2608.24804", "date": "2026-08-25", "section": "evolve_main", "orgs": ["ServiceNow", "Mila"], "code": "https://github.com/ServiceNow/StarHarness", "evidence": {"who_edits": "external", "held_out": true, "disjoint_evolution_set": true, "cross_model_transfer": true, "code_released": true}, "summary_zh": "按基础 Harness 的失败行为分层构造演化池；提议器可见的搜索任务、不可见的选择任务、最终留出任务三者分开。", "result_zh": "ITBench SRE 等三个企业环境上，每个接受 4–12 次修改后全基准 +20–35pp；演化外任务上收益仍在，不重新演化即可迁移到 GPT 与 Qwen 系列。"}, {"id": "recuris", "title": "Recuris", "arxiv": "2608.24876", "date": "2026-08", "section": "evolve_main", "orgs": ["Princeton"], "evidence": {"who_edits": "external"}, "edit_targets": ["memory", "skills"], "summary_zh": "固定 Meta-Agent：工作记忆跟踪进度，经验记忆供技能，对技能记忆做局部、经验证的更新。", "result_zh": "37 组中 35 组提升；tau-bench 上 Opus 5 +15.6 到 87.9%。"}, {"id": "modularrsi", "title": "ModularRSI: Modular and Generalizable Recursive Harness Self-Improvement", "arxiv": "2609.14857", "date": "2026-09-14", "section": "evolve_main", "must_read": true, "evidence": {"held_out": true, "disjoint_evolution_set": true, "cross_model_transfer": true}, "summary_zh": "Harness 拆成执行循环、工具使用、观测管理、上下文管理、完成检测五模块，受限范围内独立演化再合并；成功与失败轨迹对比；2,000 个与评测不相交的演化任务。", "result_zh": "TB2.0 47.57→52.43，SWE-Bench Verified 73.40→76.45；跨模型迁移有效。"}, {"id": "emho", "title": "EMHO", "arxiv": "2610.08432", "date": "2026-10", "section": "evolve_main", "needs_reading": true, "tags": ["embodied"], "evidence": {"who_edits": "external"}, "summary_zh": "具身场景：冻结 VLM，从稀疏、弱诊断性的交互反馈中修改 Harness，并支持合并为共享 Harness。", "result_zh": "定量结果待细读。"}, {"id": "riseharness", "title": "RiseHarness: Harness Self-Evolution for Long-Horizon Terminal Agents", "arxiv": "2610.27435", "date": "2026-10-20", "section": "evolve_main", "evidence": {"held_out": true, "reliability_metric": true}, "summary_zh": "针对重复运行时时成时败的任务：结合 Agent 轨迹与运行时内部追踪，用 Harness Handbook 把行为映射到源码，并检索其他框架的实现作参考。", "result_zh": "Pass@1 与 Pass^4（四次全过的任务比例）都提高，Pass@4 只小幅上升，收益主要在可靠性；可迁移到未参与演化的基准。"}, {"id": "oo-harness", "title": "Object-Oriented Harness: Evolving Agent Harnesses through Object-Oriented Design", "arxiv": "2610.28380", "date": "2026-10-20", "section": "evolve_main", "orgs": ["UIUC", "Google Cloud AI Research"], "evidence": {"who_edits": "external", "held_out": true}, "summary_zh": "演化出 Harness 类的继承层次，专门化版本继承基类或已有子类；测试时路由器按任务和基础执行的证据选版本。", "result_zh": "对比 Meta-Harness、AHE 与 Adaptive Auto-Harness，在三个长程基准上主指标都最高（三次运行均值）。"}, {"id": "hgm-dual", "title": "HGM-Dual: Lineage-Aware Guided Agent Harness Optimization for Long-Horizon Planning", "arxiv": "2610.30042", "date": "2026-10-21", "section": "evolve_main", "evidence": {"who_edits": "external", "matched_budget_baseline": "partial"}, "summary_zh": "建立在 HGM 之上：把祖先改了什么、哪些行为改善或回退组织成谱系上下文；每个父版本同时生成开放探索子代和针对主要约束违例的专门子代。", "result_zh": "长程规划任务上比最强基线最多高 14.45%（相对）；用 HGM 变体 1/2 到 1/4 的评估预算达到相同最终性能。"}, {"id": "harbor", "title": "HARBOR", "arxiv": "2604.20938", "date": "2026-04", "section": "generalize", "evidence": {"cost_reported": true}, "edit_targets": ["config"], "summary_zh": "不改代码，而是在固定组件的 Harness 配置空间上做成本感知的贝叶斯优化。", "result_zh": "与 Meta-Harness 类「改代码」路线互补，可作为配置搜索基线。"}, {"id": "harnesscompass", "title": "HarnessCompass: Guiding Automatic Harness Evolution toward Generalizable and Effective Agent Harnesses", "arxiv": "2608.01918", "date": "2026-08-03", "section": "generalize", "evidence": {"cross_model_transfer": true}, "summary_zh": "三条原则：泛化门控限制任务特化修改；第一人称「主动反馈」补充轨迹证据；组件分轨优化再整合，减少相互干扰。", "result_zh": "报告 SWE-bench Verified 五轮提升并检验跨任务、跨模型迁移；但 CHASE 在 OfficeQA 上发现其门控不保证留出提升。"}, {"id": "harnessevolve", "title": "HarnessEvolve: Learning from Reference Trajectories for Reliable Agent Self-Evolution", "arxiv": "2609.00829", "date": "2026-09", "section": "generalize", "summary_zh": "把「给定标准答案后重放」得到的参考轨迹与失败轨迹对齐做信用分配；质量门过滤答案硬编码与提示膨胀，性能门防遗忘。", "result_zh": "消融：去掉参考轨迹后 CloudCoreNetwork-QA 从 86.9 跌到 57.8。"}, {"id": "sol-pi", "title": "SoL-Pi: Recursively Scaling Auto-Research Loops for Efficient Agent Harness", "arxiv": "2609.20519", "date": "2026-09", "section": "generalize", "orgs": ["NVIDIA", "MIT"], "evidence": {"held_out": true, "cost_reported": true}, "summary_zh": "在大量环境中扩展 auto-research 循环，筛选 token 效率机制；候选冻结后才做留出评估。", "result_zh": "EdgeBench 性能与 Pi 相当，token 流量降 44.7–49.0%，API 成本降约三分之一。"}, {"id": "chase", "title": "Bad Genius: Counterfactual-Guided Harness Evolution Beyond Task-Specific Shortcuts (CHASE)", "arxiv": "2609.18366", "date": "2026-09", "section": "generalize", "summary_zh": "用反事实挑战者拦截只对特定任务有效的「捷径」编辑，按最差情况选择最终 Harness。", "result_zh": "OfficeQA Pro V2 达 30.37%，最差情况得分最高；适合作为「泛化」论点的对照。"}, {"id": "rrsi", "title": "RRSI: Regularized Recursive Harness Self-Improvement", "arxiv": "2609.24972", "date": "2026-09", "section": "generalize", "must_read": true, "orgs": ["Google"], "evidence": {"held_out": true, "cross_model_transfer": "unknown", "cost_reported": true}, "summary_zh": "退火编辑预算 + critic 筛掉 benchmark 特化提案 + pruner 删掉无效改动。", "result_zh": "五个分布外基准上迁移优于 Meta-Harness、AHE、TTHE、HarnessX，最高 +4.7；单任务 token 2.42M（无正则演化为 3.80M）。"}, {"id": "harnesspro", "title": "HarnessPro: Recursive Harness Self-Improvement with Pareto Optimization for Performance-Cost Trade-offs", "arxiv": "2610.26770", "date": "2026-10-19", "section": "generalize", "evidence": {"feedback": "self_generated_tests", "cost_reported": true}, "summary_zh": "无标签：用模型生成的测试评价候选，不访问标准答案或官方测试；按性能与成本的不同偏好产出 lite、medium、heavy 三档。", "result_zh": "GPT-5.5 + Codex 配置下，heavy 相对 RHO 平均通过率 +2.0pp，单任务成本降 26.1%。"}, {"id": "mad-rsi", "title": "MaD-RSI: Model-as-Data for Recursive Self-Improvement of Agent Harnesses", "arxiv": "2610.28201", "date": "2026-10-20", "section": "generalize", "needs_reading": true, "evidence": {"cross_model_transfer": true}, "summary_zh": "把多个异构模型的失败轨迹当作证据，直接优化一个共享 Harness，把跨模型泛化变成优化目标。", "result_zh": "摘要称泛化更好、成本更低，未给出数字。"}, {"id": "task-coevolve", "title": "Task-CoEvolve: Efficient Harness Optimization via Adaptive Validation Task Selection", "arxiv": "2608.20169", "date": "2026-08", "section": "evidence_selection", "needs_reading": true, "summary_zh": "自适应选择最能区分候选 Harness 的验证任务，并校正非均匀采样对全集性能估计的偏差；与搜索侧提效正交。", "result_zh": "目标是降低每个候选的评估成本；定量结果待细读。"}, {"id": "ecdysis", "title": "ECDYSIS: Efficient and Effective Training of Runtime Harnesses for LLM Agents", "arxiv": "2609.11677", "date": "2026-09", "section": "evidence_selection", "summary_zh": "用「失败是否跨任务反复出现」区分模型局限与 Harness 本身的缺陷，只让反复出现的 Harness 缺陷驱动持久修改。", "result_zh": "演化出的 Harness 推理准确率比现有演化方法高 18.56%，训练最多快 1.84 倍。"}, {"id": "activesaddler", "title": "ActiveSaddler: Automated Curriculum Learning for Agent Harness Optimization", "arxiv": "2610.00906", "date": "2026-10-01", "section": "evidence_selection", "orgs": ["Microsoft"], "evidence": {"matched_budget_baseline": true}, "summary_zh": "把反复出现的失败抽象成动态增加的失败模式，用非平稳多臂赌博机在已知弱点与新场景间分配任务，课程随 Harness 一起变。", "result_zh": "同一优化器下，相比事先固定任务顺序，GAIA2 与 TB2.0 测试 Pass@1 分别 +4.4、+7.5pp。"}, {"id": "ssr", "title": "Forging More Tasks into Better Harnesses: Agentic Harness Evolution via Successive Scale Racing (SSR)", "arxiv": "2610.28815", "date": "2026-10-20", "section": "evidence_selection", "summary_zh": "按任务质量与覆盖构造多种证据组合，各生成候选 Harness，再用小预算逐轮竞赛淘汰。", "result_zh": "动机：AHE 在 80 个任务时最高 63.0%，扩到 200 个反而降到 57.7%；SSR 在任务池从 40 扩到 200 时通过率持续上升。"}, {"id": "hyperagents", "title": "Hyperagents (DGM-H)", "arxiv": "2603.19461", "date": "2026-03", "section": "improver", "must_read": true, "orgs": ["Meta FAIR", "UBC"], "route": "editable_procedure", "summary_zh": "任务 Agent 与元 Agent 合并成同一个可编辑程序，元层修改程序本身也可改。", "result_zh": "在编码、论文评审、机器人奖励设计、奥赛数学批改上都超过 DGM；元层改进可跨领域迁移。最常引的元改进基线。"}, {"id": "last-harness", "title": "The Last Harness You'll Ever Build", "arxiv": "2604.21003", "date": "2026-04", "section": "improver", "needs_reading": true, "route": "editable_procedure", "summary_zh": "两层框架：内层针对单任务优化工作 Agent；外层 Meta-Evolution Agent 优化评估器、演化策略、信息流等「演化循环本身」。", "result_zh": "概念清晰，适合引为两层形式化的来源；定量结果待细读。"}, {"id": "metaskill-evolve", "title": "MetaSkill-Evolve", "arxiv": "2607.05297", "date": "2026-07", "section": "improver", "orgs": ["LMU"], "route": "editable_procedure", "summary_zh": "每个分支带一个「元技能」，参数化分析、检索、分配、提案、演化五个 Agent；任务技能快循环、元技能慢循环。", "result_zh": "冻结 Gemma-4 31B：OfficeQA +23.54、SealQA +16.09、ALFWorld +1.92；元技能在任务技能进入平台期后最有用。"}, {"id": "hsi", "title": "Hierarchical Self-Improvement: A Framework for Task-Specific Evolvable Agent Harnesses", "arxiv": "2608.08466", "date": "2026-08-09", "section": "improver", "route": "editable_procedure", "summary_zh": "同一个冻结模型在三个层级工作：任务 Harness、改写它的演化器、改写演化器策略的元演化器；最外层锚点冻结。单谱系设计便于归因。", "result_zh": "报告了边界：超出骨干能力的任务（NLE）上没有提升。"}, {"id": "harness-r1", "title": "Harness-R1", "arxiv": "2608.02276", "date": "2026-08", "section": "improver", "orgs": ["SJTU", "Xiaohongshu"], "route": "trained_improver", "evidence": {"who_edits": "trained"}, "summary_zh": "把「根据失败轨迹编辑可执行 Harness」当作策略，冷启动 SFT 后用 GRPO 在线训练。", "result_zh": "WebShop、ALFWorld、DBBench 上把 Qwen3.5-9B 从 44.3% 提到 53.6%。"}, {"id": "meta-n", "title": "Meta^n", "arxiv": "2608.24735", "date": "2026-08", "section": "improver", "must_read": true, "route": "fixed_procedure_recursive_input", "summary_zh": "元操作固定，只递归它的输入，层数由收敛决定。", "result_zh": "八类 benchmark 超过已有自改进 Agent；ARC-AGI-2 唯一得分高于零。"}, {"id": "metarsi", "title": "MetaRSI / RSI²", "arxiv": "2609.06396", "date": "2026-09", "section": "improver", "needs_reading": true, "route": "editable_procedure", "summary_zh": "用统一 Loop Kernel 把模型、数据、Harness 三类改进写成可调度算子，元层修订调度策略。", "result_zh": "中文媒体报道：3B 激活参数模型平均 +10.9 分；须核对正文。"}, {"id": "harness-learning-tta", "title": "Harness Learning Enables Generalizable Test-Time Adaptation", "arxiv": "2609.35738", "date": "2026-09", "section": "improver", "needs_reading": true, "route": "trained_improver", "evidence": {"who_edits": "trained"}, "summary_zh": "用修订后 Harness 的任务表现作奖励，强化学习训练 Harness 提案者。", "result_zh": "训练后的提案者在多轮测试时适配中持续改进，并能泛化到新的适配上下文；定量结果待细读。"}, {"id": "aide2", "title": "AIDE²: Recursive Self-Improvement of AI Research Agents", "arxiv": "2609.26457", "date": "2026-09-22", "section": "improver", "must_read": true, "orgs": ["Weco AI"], "route": "improver_is_improved", "evidence": {"who_edits": "self", "held_out": true}, "summary_zh": "研究 Agent 改自己的代码，提升的正是它做研究（即改进）的效率；用隐藏评测做选择。", "result_zh": "8 天 7 次连续改进，迁移到 4 个留出 benchmark；奖励作弊率 55% 降到 32%。"}, {"id": "mixture-branches", "title": "Mixture of Self-Improving Branches for Agent Harness Optimization", "arxiv": "2609.37834", "date": "2026-09", "section": "improver", "route": "adaptive_search", "summary_zh": "把搜索分成多个分支，每个分支有自己演化中的开发子集和提案策略；部署版本与路由配置只按开发集选。", "result_zh": "相对 Meta-Harness：奥赛数学 +34.8%、TB2.0 +11.6%、SWE-bench Lite +3.8%（相对提升）。"}, {"id": "milo", "title": "MILO: Automated Harness Discovery via Orchestrated Multi-Agent Evolution", "arxiv": "2609.38349", "date": "2026-09-29", "section": "improver", "route": "adaptive_search", "summary_zh": "多个演化岛维护谱系树与历史记忆，保留失败突变作负面证据；编排器调整谱系嫁接、分化、修改 Agent 分配和课程。", "result_zh": "Opus 4.8 下 TB2.1、PaperBench、DeepSWE 相对初始 Harness +12.0%、+28.3%、+10.3%，此前最好的搜索方法为 +4.5%、+18.3%、0%。"}, {"id": "harness2", "title": "Harness²: Recursive Agent Harnessing for an Open World", "arxiv": "2610.14224", "date": "2026-10-09", "section": "improver", "route": "editable_procedure", "evidence": {"feedback": "proxy"}, "summary_zh": "开放世界、无真值验证器：任务层用「提出—试探—组合」对比步引导编辑，上层把编辑经验沉淀到持续改进 Harness。", "result_zh": "单步 WorkBuddy-Bench 最高 +11.5。"}, {"id": "rsiflow", "title": "RSIFlow: Adaptive Self-Improvement Workflows with an Evolving Meta-Agent", "arxiv": "2610.21791", "date": "2026-10-15", "section": "improver", "needs_reading": true, "route": "editable_procedure", "summary_zh": "按轨迹诊断瓶颈，动态选择面向不同组件的改进工作流；元 Agent 把结果提炼成组件技能与跨组件原则，再更新自己的 Harness。", "result_zh": "六个基准、两个基础模型上评估；定量结果待细读。"}, {"id": "skillopt-lite", "title": "SkillOpt-Lite: Better and Faster Agent Self-evolution via One Line of Vibe", "arxiv": "2607.03451", "date": "2026-07-03", "section": "component", "code": "https://github.com/EvolvingLMMs-Lab/SkillOpt-Lite", "edit_targets": ["skills", "whole_harness"], "evidence": {"code_released": true}, "summary_zh": "把技能优化形式化为零阶优化，精简为文件系统轨迹探索、共性属性挖掘、独立验证准入三步；已接入 VS Code Copilot。适合轻量原型。", "result_zh": "LiveMath：GPT-5.5 +8.8、GPT-5.4-nano +25.4；HarnessOpt 让 nano 在 SpreadsheetBench 上达 0.7758，高于标准流程下的 GPT-5.5（0.7620）。"}, {"id": "living-harness", "title": "Living-Harness Is an Interactive-Agent Evolver", "arxiv": "2607.26598", "date": "2026-07-29", "section": "component", "needs_reading": true, "edit_targets": ["memory", "state_graph"], "summary_zh": "把完成的轨迹和评估信号写入情景记忆（触发条件、失败模式、恢复动作）和状态图（修复边、转移规则）；工具与基础上下文保持冻结。", "result_zh": "不等同于执行程序重写；定量结果待细读。"}, {"id": "pilot", "title": "PILOT in the Loop: Live Self-Improvement for Long-Horizon Agents", "arxiv": "2608.26530", "date": "2026-08-28", "section": "component", "edit_targets": ["skills", "memory"], "evidence": {"timing": "during_run"}, "summary_zh": "监督者—工作者结构：监督者在运行中实时纠偏或中止工作者，同时把本次暴露的流程和失败模式沉淀为持久技能与记忆。", "result_zh": "TB2.0 上比对应 Harness 最多高 9.8pp；自改进设置下 GLM-5.1 +14.6、Kimi-K2.6 +12.4。"}, {"id": "contextevo", "title": "Beyond Skill Evolution: Self-Evolving Context Management Policies for Long-Horizon Agent Harnesses (ContextEvo)", "arxiv": "2609.34649", "date": "2026-09", "section": "component", "edit_targets": ["context"], "summary_zh": "从长程轨迹学习覆盖信息全生命周期的上下文策略；作者指出基于经验和技能的演化在长程任务上效果差。", "result_zh": "从开源 Pi-agent 出发，在三个长程基准上达到或超过 Codex、OpenCode、OpenClaw。"}, {"id": "agent-s4", "title": "Evolving Agent Interfaces (Agent S4)", "arxiv": "2610.28601", "date": "2026-10-20", "section": "component", "orgs": ["Simular"], "code": "https://github.com/simular-ai/Agent-S", "edit_targets": ["interfaces"], "evidence": {"feedback": "proxy", "held_out": true, "code_released": true, "cost_reported": true}, "summary_zh": "元 Agent 阅读合成任务上的无成功标签轨迹，写入并修订接口仓库；种群选择按元 Agent 看不到的验证任务决定保留哪些仓库。", "result_zh": "OSWorld V2 上 Qwen3.8-27B 达 21.3%，是固定接口的 3.8 倍，高于 Opus 4.8（20.6%）与 GPT-5.5（13.0%）；ScienceBoard 41.4%→58.6%。"}, {"id": "sia", "title": "SIA: Self Improving AI with Harness & Weight Updates", "arxiv": "2605.27276", "date": "2026-05", "section": "coevolution", "orgs": ["Hexo Labs", "Oxford"], "weight_update": "LoRA + PPO/GRPO", "summary_zh": "Feedback-Agent 读完整轨迹，在「改 Harness」和「更新权重」之间选择。局限：选择策略是静态的，两个优化器共用同一验证器，有 Goodhart 风险。", "result_zh": "LawBench 仅改 Harness 50%，加权重更新达 70.1%；CUDA kernel 加速 14.02 倍。"}, {"id": "harnessforge", "title": "HarnessForge: Joint Harness and Policy Evolution for Adaptive Agent Systems", "arxiv": "2606.01779", "date": "2026-06", "section": "coevolution", "orgs": ["Beihang", "Tsinghua"], "weight_update": "harness-conditioned policy alignment", "summary_zh": "把 Agent 系统形式化为「Harness—策略对」：故障引导裁剪 Harness，再在幸存 Harness 下对齐策略。", "result_zh": "Qwen3-4B/8B 五个 benchmark 上最多超最强基线 12.0%；同一轮配对优于错配。"}, {"id": "harnessx", "title": "HarnessX: A Composable, Adaptive, and Evolvable Agent Harness Foundry", "arxiv": "2606.14249", "date": "2026-06", "section": "coevolution", "must_read": true, "orgs": ["Xiaomi (Darwin Agent Team)"], "code": "https://github.com/Darwin-Agent/HarnessX", "weight_update": "cross-harness GRPO", "evidence": {"code_released": true}, "summary_zh": "类型化 Harness 原语 + 替换代数；AEGIS 把轨迹转成 Harness 更新；同一任务在不同 Harness 版本下的轨迹合并做 GRPO。", "result_zh": "15 个模型—基准配置中 14 个提升，平均 +14.5%（最高 +44.0%）；交替加入权重更新后峰值再 +4.7%。SWE-bench Verified 上 GPT-5.4 在第 3 轮达峰后回落。"}, {"id": "co-harness", "title": "Co-Harness: Co-Evolving Harnesses and Model Weights for LLM Agents", "arxiv": "2607.22688", "date": "2026-07", "section": "coevolution", "needs_reading": true, "weight_update": "alternating with harness updates", "summary_zh": "Harness Critic 把每条失败归因到五个 Harness 维度之一，按复现频率、严重度聚合成一份 Harness Diff，不达标则拒绝。", "result_zh": "失败归因分类表可直接复用；定量结果待细读。"}, {"id": "evoharness-rl", "title": "EvoHarness-RL: Learning Self-Evolving Runtime Harness for Long-Horizon LLM Agents", "arxiv": "2608.05446", "date": "2026-08", "section": "coevolution", "orgs": ["UIUC", "Meta"], "weight_update": "SFT + cost-aware GRPO", "summary_zh": "不是改 Harness 代码，而是训练模型在运行时读写和整合 Belief、Progress、Experience 三类外部状态。", "result_zh": "ALFWorld 上 Qwen3-8B 从 47.9% 到 96.9%（未见任务 86.6%）；观察到「Harness 退火」，调用频率降到每回合约一次。"}, {"id": "helix", "title": "HELIX", "arxiv": "2608.13951", "date": "2026-08", "section": "coevolution", "orgs": ["HKUDS"], "weight_update": "training data only", "summary_zh": "build–update–rebuild 的可审计实现。", "result_zh": "只跑了一轮，未实际训练更新后的模型；适合作为问题形式化的参考。"}, {"id": "safeevolve", "title": "SafeEvolve", "arxiv": "2609.02786", "date": "2026-09", "section": "coevolution", "weight_update": "policy training", "tags": ["safety"], "summary_zh": "把 Harness—策略协同演化用于安全对齐：同时看攻击与有害服从率以及效用。", "result_zh": "演化出的 Harness 可跨策略迁移，但弱策略执行不了这些指导，说明需要协同演化。"}, {"id": "co-evolving-harnesses-models", "title": "Co-Evolving Harnesses and Models", "arxiv": "2609.09134", "date": "2026-09", "section": "coevolution", "must_read": true, "weight_update": "on-policy expert correction + SFT", "summary_zh": "先用弱模型演化 Harness；发现让弱模型模仿强模型完整轨迹会破坏契合；改为只让专家重写弱模型自己轨迹中出错的那一轮。", "result_zh": "7 个企业任务上，全轨迹模仿导致 4–30 分退化；在策略纠正在不破坏 Harness 增益的前提下继续提升。"}, {"id": "mass", "title": "MASS", "arxiv": "2610.12176", "date": "2026-10", "section": "coevolution", "orgs": ["Sakana AI"], "weight_update": "SFT on self-generated trajectories", "summary_zh": "与 RHI 同团队：演化多 Agent 工作流后在自生成轨迹上 SFT，改进后的模型又成为更好的优化器与评估器。", "result_zh": "两轮后单位输出 token 性能为基座的 1.2–1.6 倍。"}, {"id": "self-hpo", "title": "Self-Evolving Coding Agents via Harness-Policy Optimization (Self-HPO)", "arxiv": "2610.22791", "date": "2026-10-16", "section": "coevolution", "orgs": ["Microsoft Research", "UVA", "CMU"], "code": "https://github.com/MSR-Orchard/Self-HPO", "weight_update": "RL", "evidence": {"who_edits": "self", "code_released": true, "evolved_harness_released": true}, "summary_zh": "H-step 由当前策略分析自身失败并提出 Harness 候选；P-step 在选定 Harness 下做 RL；仍未解决的任务成为下一轮搜索集。", "result_zh": "Qwen3.5-35B-A3B 在三个 SWE-bench 上平均 57.8%→64.8%，优于只改一边；用 Opus 4.8 当外部提议器的 HPO 达 66.3%，自我提议还没追上强外部提议器。"}, {"id": "coevo-rsi", "title": "CoEvo-RSI: When Harnesses Evolve, Which Models Should Follow?", "arxiv": "2610.25078", "date": "2026-10-18", "section": "coevolution", "weight_update": "checkpoint selection/merge + SFT", "summary_zh": "元 Agent 借共享演化档案双向继承历史 Harness 与模型检查点，用自身拒绝采样轨迹微调，缓解「脑体错配」。", "result_zh": "Qwen3.5-9B 在 TraceElephant 上超 DeepSeek-V4-Pro 14.16 分。"}, {"id": "harnessadapt-rl", "title": "Training the Whole Agent, Not Just the Model (HarnessAdapt-RL)", "arxiv": "2610.28069", "date": "2026-10-20", "section": "coevolution", "weight_update": "RL", "summary_zh": "RL 期间，一个教师生成任务相关的机制级技能，另一个根据反复出现的交互问题演化工具和 hooks；只保留使通过率或可训练率提高且另一指标不降的修改。", "result_zh": "9B 模型在三个 SWE-bench 上平均 pass@1 比 GRPO 高 9.6pp；部署时去掉演化出的工具和 hooks 最多损失 7.7pp，交付物是模型与 Harness 的组合。"}, {"id": "herd", "title": "HERD: Harness-Evolving Recursive Distillation for Continual Learning", "arxiv": "2610.31401", "date": "2026-10-22", "section": "coevolution", "needs_reading": true, "weight_update": "drift-constrained self-distillation", "summary_zh": "Harness 侧持续修订技能，并在有界记忆里保留技能解释不了的高残差样例；参数侧用双锚点（上一检查点与基座）约束漂移，把经验吸收进权重。", "result_zh": "在 25 阶段的 TRACE+17 任务流上显著减少遗忘；定量结果待细读。"}, {"id": "harness-updating-not-benefit", "title": "Harness Updating Is Not Harness Benefit", "arxiv": "2605.30621", "date": "2026-05", "section": "evaluation", "must_read": true, "orgs": ["Penn State", "UCSC", "Amazon"], "kind": "capability_decomposition", "summary_zh": "「产出好更新」的能力与模型强弱几乎无关（Qwen3.5-9B 接近 Claude Opus 4.6）；「从更新中获益」则非单调，中等模型获益最大。"}, {"id": "rethinking-evaluation", "title": "Rethinking the Evaluation of Harness Evolution for Agents", "arxiv": "2607.12227", "date": "2026-07-14", "section": "evaluation", "must_read": true, "orgs": ["AI2", "UW"], "kind": "evaluation_critique", "code": "https://github.com/rethinking-harness-evolution", "evidence": {"matched_budget_baseline": true, "held_out": true, "code_released": true}, "summary_zh": "同等反馈与推理预算下，TB2.1 上 Harness 演化未胜过并行采样和顺序修正；留出任务上 Opus 4.6 只 +1.2、GPT-5.4 不变。但在反馈更细、动态更多的长程游戏上优势明显。"}, {"id": "self-authored-verification", "title": "Self-Authored Verification Is Unreliable", "arxiv": "2607.24300", "date": "2026-07", "section": "evaluation", "kind": "verification", "summary_zh": "由 Agent 自己写测试来验收改进时，自评分与真实表现严重背离；提出引入少量外部信任的封闭验收循环。"}, {"id": "autoharnessbench", "title": "AutoHarnessBench", "url": "https://www.autoharnessbench.com/blog/", "date": "2026-07", "section": "evaluation", "kind": "benchmark", "summary_zh": "固定权重下的 Harness 搜索评测，公开反馈与留出评估分离；目前以项目网站形式发布。"}, {"id": "harnessopt-bench", "title": "HarnessOpt-Bench: Evaluating LLMs at Harness Optimization", "arxiv": "2608.06301", "date": "2026-08-06", "section": "evaluation", "orgs": ["Scale AI"], "kind": "benchmark", "summary_zh": "优化器拿到种子 Harness 和固定评估预算，提交后在搜索期间不可见的测试集上计分。5 个前沿模型、111 次运行：优化器模型本身比它用的编码 Harness 更重要，原生 Harness 并不总是更好。"}, {"id": "evo-bench", "title": "Evo-Bench: Can Language Models Improve Agent Harness?", "arxiv": "2608.09096", "date": "2026-08", "section": "evaluation", "orgs": ["RUC", "BOSS Zhipin"], "kind": "benchmark", "summary_zh": "专门评测模型「演化 Harness」的能力，按任务对 Harness 质量的敏感度选题；最强演化者比 CodeAct 种子 +16.6，接近人工 Harness；办公类任务仍落后。"}, {"id": "harnessdev", "title": "HarnessDev: Can LLMs Create and Evolve Their Own Agent Harness?", "arxiv": "2609.01437", "date": "2026-09", "section": "evaluation", "needs_reading": true, "kind": "benchmark", "summary_zh": "测 LLM 能否创建并演化自己的 Harness；与 Rethinking 一致，评测任务与演化任务分开后提升明显变小。"}, {"id": "evoharnessbench", "title": "EvoHarnessBench", "arxiv": "2609.04280", "date": "2026-09", "section": "evaluation", "kind": "benchmark", "summary_zh": "评测 Agent 能否跟上「不断增长的 Harness」（工具、技能、子 Agent 逐步加入）；揭示适应新能力与保留旧能力之间的张力。"}, {"id": "trusting-trust-revisited", "title": "Reflections on Trusting Trust, Revisited", "arxiv": "2609.17817", "date": "2026-09", "section": "evaluation", "kind": "safety", "tags": ["safety"], "summary_zh": "用投毒 benchmark 污染自修改编码 Agent；顺带发现 DGM 与 Hyperagents 的容器里可从 git 历史拿到答案，已被作者确认。复现这两个基线前必看。"}, {"id": "reuse", "title": "REUSE", "arxiv": "2609.33180", "date": "2026-09", "section": "evaluation", "kind": "statistical_theory", "summary_zh": "反复用同一批 benchmark 做选择时的误差控制，以及累计提升的有效下界。"}, {"id": "rsigym", "title": "RSIGym", "arxiv": "2610.10310", "date": "2026-10", "section": "evaluation", "kind": "environment", "summary_zh": "含仅改 Harness 的轨道：权重固定时自主改 DSH Harness，Terminal-Bench 从 30.34% 到 40.82%；另报告一次预算绕过行为。"}, {"id": "hda", "title": "Harness-Delta Attribution: Dissecting Gains From Harness Evolution", "arxiv": "2610.22466", "date": "2026-10-15", "section": "evaluation", "must_read": true, "kind": "attribution", "code": "https://github.com/Wenwen-D/HarnessDeltaAttribution", "evidence": {"matched_budget_baseline": true, "held_out": true, "code_released": true}, "summary_zh": "用「算力对齐基线」和「去捷径版演化 Harness」两个对照，把收益拆成过拟合、测试时扩展和剩余的可泛化上界。11 个执行模型、三个演化框架、21 个显著设置中，前两者平均占 54% 和 14%；验证集门控不足以防过拟合。"}, {"id": "arc-agi-3-controlled", "title": "Can LLMs Improve Their Own Harness? A Controlled Study on ARC-AGI-3", "arxiv": "2610.30499", "date": "2026-10-21", "section": "evaluation", "kind": "controlled_study", "evidence": {"held_out": true}, "summary_zh": "模型从最小仓库构建完整 Harness，在 5 个开发游戏上运行并修改两次，再在 20 个留出游戏上评估。27 条谱系中两次修改平均留出 RHAE 只 +2.80，95% 区间 [-1.44, 7.35]，开发集提升高估了泛化。"}, {"id": "auditing-product", "title": "Auditing the Product, Not the Recursion", "arxiv": "2610.27610", "date": "2026-10", "section": "evaluation", "kind": "meta_research", "summary_zh": "114 篇研究中，声称改进了「改进流程」的 26 篇里只有 4 篇在相同起点、相同预算下比较了前后两代流程。"}, {"id": "rsi-in-ai-survey", "title": "RSI in AI: From Bounded Self-Refinement to Autonomous Research Loops", "arxiv": "2607.07663", "date": "2026-07", "section": "survey_theory", "kind": "survey", "summary_zh": "覆盖 1,250 篇，按「改什么」与「谁来验证」两轴分类；结论是自改进的可信度取决于验证。"}, {"id": "self-improvements-survey", "title": "Self-Improvements in Modern Agentic Systems: A Survey", "arxiv": "2607.13104", "date": "2026-07", "section": "survey_theory", "kind": "survey", "summary_zh": "把 Agent 写成「基础模型 + 操作脚手架」，自改进形式化为更新算子；含评测协议建议。"}, {"id": "self-evolving-coding-agents", "title": "Self-Evolving Coding Agents", "arxiv": "2608.03392", "date": "2026-08", "section": "survey_theory", "kind": "survey", "summary_zh": "编码 Agent 视角，有专门的 Harness 协同演化章节，并提出「新旧模型 × 新旧 Harness」的 2×2 对照评测。"}, {"id": "harness-engineering-anatomy", "title": "Harness Engineering: Anatomy, Architecture, and Evolution of Coding Agents", "arxiv": "2609.00006", "date": "2026-09", "section": "survey_theory", "kind": "source_code_study", "summary_zh": "对 11 个编码 Agent 的源码拆解，归纳出七个子系统；整理了「Harness Engineering」一词的来源。适合引用定义。"}, {"id": "safe-harness-self-evolution", "title": "Safe Harness Self-Evolution: A Theoretical Analysis of Feasibility and Limits", "arxiv": "2609.08175", "date": "2026-09", "section": "survey_theory", "kind": "theory", "summary_zh": "在固定参考分布上，被认证的改进可以累积；但在不受限的组合下，当前改进不能保证后续还能改进。适合为准入规则找理论依据。"}, {"id": "last-ai-built-by-humans", "title": "The Last AI Built by Humans", "arxiv": "2609.11873", "date": "2026-09", "section": "survey_theory", "kind": "survey", "summary_zh": "L1–L5 自主性分级，可用来为自己的方法定位。"}, {"id": "generalized-agent-iteration", "title": "Generalized Agent Iteration", "arxiv": "2609.13406", "date": "2026-09", "section": "survey_theory", "kind": "theory", "summary_zh": "用「改进机制是否属于 Agent」与「评价标准是否外部锚定」两轴区分普通迭代与 RSI。"}, {"id": "audit-the-scaffold", "title": "Audit the Scaffold, Not the Checkpoint", "arxiv": "2609.34924", "date": "2026-09", "section": "survey_theory", "kind": "theory_empirical", "summary_zh": "「平稳性二分」：可达编辑集合不扩张时，迭代自修改必然收益递减；SWE-bench 上每轮提升趋于零。解释「过早饱和」的好材料。"}, {"id": "self-evolving-agent-harness", "title": "Self-Evolving Agent Harness", "arxiv": "2610.18813", "date": "2026-10-13", "section": "survey_theory", "must_read": true, "orgs": ["Zhongguancun Academy", "USTC"], "kind": "theory_survey", "code": "https://github.com/zgcagi/Harness-RSI", "summary_zh": "把 Harness 自进化拆成「更新对象」与「提案/准入机制」，给出持续 PAC 学习下的泛化界、保留界与基于新鲜验证数据的准入规则。理论界依赖明确假设。"}, {"id": "reharness", "title": "Recurrent Harness for Agentic Continual Learning (ReHarness)", "arxiv": "2610.12668", "date": "2026-10", "section": "candidates", "status": "candidate", "summary_zh": "面向持续学习的循环 Harness，在流式在线协议下增加反向修订。"}, {"id": "shaper", "title": "Self-Evolving Embodied Agents via Skill-Harness Evolution (SHAPER)", "arxiv": "2608.11350", "date": "2026-08", "section": "candidates", "status": "candidate", "tags": ["embodied"], "summary_zh": "具身场景下冻结模型，同时演化技能与上下文代码 Harness。"}, {"id": "sbco", "title": "SBCO: Self-Supervised, Verifier-Grounded Harness Optimization For Planning Agents", "arxiv": "2608.10157", "date": "2026-08", "section": "candidates", "status": "candidate", "summary_zh": "面向有显式约束的规划任务，用固定元 Agent 和学到的验证器库做块坐标上升。"}, {"id": "self-evolving-multi-task", "title": "Self-Evolving Harness on Multiple Tasks with the Agent as Its Own Optimizer", "arxiv": "2609.38372", "date": "2026-09", "section": "candidates", "status": "candidate", "summary_zh": "每批演化混合五个领域的基准，只在留出任务上计分。"}, {"id": "stitch", "title": "Composing Task-specific Agent Harnesses at Test Time with Reusable Primitives (STITCH)", "arxiv": "2609.38912", "date": "2026-09", "section": "candidates", "status": "candidate", "summary_zh": "测试时用可复用原语组装任务专用 Harness，比固定 Harness 最多高 12 分。"}, {"id": "jit-agent", "title": "JIT-Agent: Scaling Harness Intelligence via Just-in-Time Harness Evolution", "arxiv": "2608.25593", "date": "2026-08", "section": "candidates", "status": "candidate", "summary_zh": "在模块化的 Harness 设计空间上做即时演化。"}], "routes": [{"name_zh": "打基础", "question_zh": "「搜索 Agent 设计」与「自改代码」两条源头各自是什么？", "papers": ["adas", "dgm", "meta-harness", "hyperagents"]}, {"name_zh": "方法主线", "question_zh": "最常见的对比基线各自解决了什么？", "papers": ["ahe", "self-harness", "darwinx", "modularrsi", "rrsi"]}, {"name_zh": "工程闭环与长程可靠性", "question_zh": "怎样从失败轨迹定位到代码、控制修改范围、验证跨任务收益？", "papers": ["autosaddler", "modularrsi", "riseharness"]}, {"name_zh": "改进器自身进化", "question_zh": "搜索策略或元 Agent 怎样持续更新，证据够不够？", "papers": ["hsi", "meta-n", "aide2", "milo", "harness2", "rsiflow"]}, {"name_zh": "没有答案标签", "question_zh": "用什么代理信号选版本，怎样控制错误反馈？", "papers": ["tthe", "harness2", "harnesspro", "agent-s4"]}, {"name_zh": "多任务与跨模型泛化", "question_zh": "怎样避免只适配一组任务或一个模型？", "papers": ["harnesscompass", "starharness", "mad-rsi", "oo-harness"]}, {"name_zh": "任务与证据选择", "question_zh": "下一轮用哪些任务、哪些失败来驱动修改？", "papers": ["activesaddler", "ssr", "ecdysis", "task-coevolve"]}, {"name_zh": "模型与 Harness 协同", "question_zh": "什么时候改 Harness、什么时候改权重，收益怎样拆分？", "papers": ["harnessx", "co-evolving-harnesses-models", "self-hpo", "harnessadapt-rl"]}, {"name_zh": "实验设计（所有人必读）", "question_zh": "同预算下，收益来自可迁移改进、额外计算还是过拟合？基线有没有泄露答案？", "papers": ["rethinking-evaluation", "hda", "harnessopt-bench", "auditing-product", "trusting-trust-revisited"]}], "gaps": [{"title": "什么任务值得演化 Harness", "text": "Rethinking 在 TB2.1 上未胜过测试时扩展，HDA 把大部分收益归为过拟合与额外计算；但长程游戏上优势明显。「任务对 Harness 的敏感度」本身可以做成系统分析，Evo-Bench 的选题指标是起点。", "refs": ["rethinking-evaluation", "hda", "evo-bench"]}, {"title": "无真值验证器时的准入", "text": "Evo-Harness 与 Self-Authored Verification 都发现自判会误导演化；Harness²、TTHE、HarnessPro、Agent S4 各给了代理信号方案，但都没有分析代理信号何时失效。", "refs": ["evo-harness", "self-authored-verification", "harness2", "tthe", "harnesspro", "agent-s4"]}, {"title": "改 Harness 还是改权重", "text": "SIA 的选择策略是静态的；Self-HPO 显示交替更新优于只改一边，但自我提议（64.8）仍不及强外部提议器（66.3）；HarnessForge、CoEvo-RSI、Co-Evolving 都指向「匹配性」，但怎么度量匹配性仍是空白。", "refs": ["sia", "self-hpo", "harnessforge", "coevo-rsi", "co-evolving-harnesses-models"]}, {"title": "证明元层真的变好", "text": "Auditing 统计只有 4/26 的工作做了同起点、同预算的前后代对比；ARC-AGI-3 受控研究的留出提升区间跨过零。", "refs": ["auditing-product", "arc-agi-3-controlled"]}, {"title": "证据选择的理论", "text": "SSR、ActiveSaddler、ECDYSIS 都是实证规则；REUSE 与 Safe Harness Self-Evolution 给了部分统计理论，但还没人把「选哪些失败」和泛化界连起来。", "refs": ["ssr", "activesaddler", "ecdysis", "reuse", "safe-harness-self-evolution"]}, {"title": "稀疏反馈、长程与具身", "text": "DemoEvolve、EMHO、HSI 都报告了失败或边界；RiseHarness 用 Pass^r 说明可靠性是和覆盖率不同的优化目标。", "refs": ["demoevolve", "emho", "hsi", "riseharness"]}, {"title": "安全与可审计", "text": "投毒 benchmark、答案泄露、预算绕过都已被实际观察到；把「自改过程的可审计性」做成可度量指标，目前仍少有人做。", "refs": ["trusting-trust-revisited", "rsigym", "self-authored-verification"]}]};
+const SECTIONS = DATA.meta.sections;
+const ORDER = Object.keys(SECTIONS);
+const P = DATA.papers;
+const BY = Object.fromEntries(P.map(p => [p.id, p]));
+const KEY_EV = [["held_out","留出集"],["matched_budget_baseline","同预算对照"],["cross_model_transfer","跨模型迁移"],["cost_reported","报告成本"]];
+const ALL_EV = [...KEY_EV,["disjoint_evolution_set","不相交演化集"],["reliability_metric","可靠性指标"],["code_released","开源代码"],["evolved_harness_released","公开演化出的 Harness"]];
+const VAL = {yes:"有",partial:"部分",no:"没有",unknown:"未审",na:"不适用"};
+const WHO = {self:"自改",external:"他改",trained:"训练出的改进者",self_human_reviewed:"自改 · 人工审查",unknown:"未审"};
+const FB = {ground_truth:"真值验证",proxy:"代理信号",self_generated_tests:"自生成测试",demonstrations:"人类示范",self_judgment:"模型自评",unknown:"未审"};
+const TM = {offline:"离线",online:"在线持续",test_time:"测试时",during_run:"运行中",unknown:"未审"};
+const ev = (p,k) => (p.evidence && p.evidence[k]) || "unknown";
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const mark = v => `<i class="ev ${v}" title="${VAL[v]||v}"></i>`;
+
+const core = P.filter(p => p.section !== "candidates");
+const reviewed = core.reduce((a,p)=>a+ALL_EV.filter(([k])=>ev(p,k)!=="unknown").length,0);
+const cover = Math.round(reviewed / (core.length*ALL_EV.length) * 100);
+document.getElementById("meta").innerHTML =
+  `<span><b>${core.length}</b> 篇收录</span><span><b>${core.filter(p=>p.must_read).length}</b> 篇必读</span>` +
+  `<span><b>${core.filter(p=>p.needs_reading).length}</b> 篇待细读</span><span>证据字段已审 <b>${cover}%</b></span>`;
+document.getElementById("asof").textContent = DATA.meta.as_of;
+
+const state = {q:"", section:"all", must:false, verify:false, held:false, budget:false, code:false};
+const TOGGLES = [["must","必读"],["held","有留出集"],["budget","有同预算对照"],["code","开源代码"],["verify","待细读"]];
+const tg = document.getElementById("toggles");
+tg.innerHTML = TOGGLES.map(([k,l])=>`<button class="chip" type="button" data-t="${k}" aria-pressed="false">${l}</button>`).join("");
+tg.addEventListener("click", e => { const b = e.target.closest("[data-t]"); if(!b) return;
+  state[b.dataset.t] = !state[b.dataset.t]; b.setAttribute("aria-pressed", state[b.dataset.t]); render(); });
+
+const secEl = document.getElementById("sections");
+function renderSections(){
+  const cnt = s => P.filter(p => s==="all" ? p.section!=="candidates" : p.section===s).length;
+  secEl.innerHTML = [["all","全部"],...ORDER.map(s=>[s,SECTIONS[s].zh])].map(([s,l]) =>
+    `<button class="chip" type="button" data-s="${s}" aria-pressed="${state.section===s}">${esc(l)}<span class="n">${cnt(s)}</span></button>`).join("");
+}
+secEl.addEventListener("click", e => { const b = e.target.closest("[data-s]"); if(!b) return; state.section = b.dataset.s; renderSections(); render(); });
+
+const qEl = document.getElementById("q");
+qEl.addEventListener("input", () => { state.q = qEl.value.trim().toLowerCase(); render(); });
+document.addEventListener("keydown", e => {
+  if (e.key === "/" && document.activeElement !== qEl && !drawerOpen()) { e.preventDefault(); qEl.focus(); }
+  if (e.key === "Escape" && drawerOpen()) closeDrawer();
+});
+
+function match(p){
+  if (state.section==="all" ? p.section==="candidates" : p.section!==state.section) return false;
+  if (state.must && !p.must_read) return false;
+  if (state.verify && !p.needs_reading) return false;
+  if (state.held && ev(p,"held_out")!=="yes") return false;
+  if (state.budget && ev(p,"matched_budget_baseline")!=="yes") return false;
+  if (state.code && ev(p,"code_released")!=="yes") return false;
+  if (!state.q) return true;
+  return [p.title,p.id,p.arxiv,(p.orgs||[]).join(" "),p.summary_zh,p.result_zh].join(" ").toLowerCase().includes(state.q);
+}
+
+function rowHTML(p){
+  return `<button class="row" type="button" data-open="${p.id}">
+    <span class="date">${esc(p.date)}</span>
+    <span class="body"><span class="t">${esc(p.title)}${p.must_read?'<span class="tag must">必读</span>':''}${p.needs_reading?'<span class="tag verify">待细读</span>':''}</span>
+      ${p.orgs?`<span class="o">${esc(p.orgs.join(" · "))}</span>`:""}
+      <span class="s">${esc(p.summary_zh)}</span></span>
+    <span class="marks" aria-label="证据">${KEY_EV.map(([k])=>mark(ev(p,k))).join("")}</span></button>`;
+}
+
+function renderPapers(main){
+  const groups = ORDER.map(s => [s, P.filter(p => p.section===s && match(p)).sort((a,b)=>String(a.date).localeCompare(String(b.date)))]).filter(([,l])=>l.length);
+  main.innerHTML = groups.length ? groups.map(([s,list]) => `<section class="group"><h2>${esc(SECTIONS[s].zh)}</h2>
+    <div class="gsub"><span>${esc(SECTIONS[s].en)}</span><span>${list.length} 篇</span></div>
+    <div class="rows">${list.map(rowHTML).join("")}</div></section>`).join("")
+    : `<p class="empty">没有符合条件的论文。试试清除筛选，或换个关键词。</p>`;
+}
+
+function chipFor(id){ const p = BY[id]; return p ? `<button class="pchip" type="button" data-open="${id}">${esc(short(p))}</button>` : ""; }
+function short(p){ const t = p.title; const m = t.match(/\(([^)]+)\)\s*$/); if (m) return m[1]; return t.split(/[:：]/)[0]; }
+
+function renderRoutes(main){
+  main.innerHTML = `<h2 class="page-h">从哪里读起</h2><p class="page-sub">前两条和最后一条所有人都读，其余按自己的方向选一条。每条路线回答一个具体问题。</p>
+  <div class="routes">${DATA.routes.map(r => `<article class="route"><h3>${esc(r.name_zh)}</h3><p>${esc(r.question_zh)}</p>
+    <div class="chain">${r.papers.map(chipFor).join('<span class="arr">→</span>')}</div></article>`).join("")}</div>`;
+}
+
+function renderGaps(main){
+  main.innerHTML = `<h2 class="page-h">还没人做透的问题</h2><p class="page-sub">每一条都以收录论文为证据。适合给自己的论文找切入点。</p>
+  <div class="gaps">${DATA.gaps.map(g => `<article class="gap"><h3>${esc(g.title)}</h3><div><p>${esc(g.text)}</p>
+    <div class="chain">${g.refs.map(chipFor).join("")}</div></div></article>`).join("")}</div>`;
+}
+
+let view = "papers";
+function render(){
+  const main = document.getElementById("main");
+  document.getElementById("bar").hidden = view !== "papers";
+  document.querySelectorAll(".views [data-view]").forEach(a => a.dataset.view===view ? a.setAttribute("aria-current","page") : a.removeAttribute("aria-current"));
+  if (view==="routes") renderRoutes(main); else if (view==="gaps") renderGaps(main); else renderPapers(main);
+}
+
+/* drawer */
+const dr = document.getElementById("drawer"), scrim = document.getElementById("scrim");
+let lastFocus = null;
+/* Some hosts (sandboxed srcdoc frames) refuse URL updates; the page must keep working without them. */
+function setHash(h){ try { history.replaceState(null, "", "#"+h); } catch (e) {} }
+function shareURL(id){
+  const base = location.href.split("#")[0];
+  return /^https?:/.test(base) ? base + "#p-" + id : null;
+}
+const drawerOpen = () => !dr.hidden;
+function openDrawer(id, push=true){
+  const p = BY[id]; if(!p) return;
+  lastFocus = document.activeElement;
+  const ax = p.arxiv, hf = ax && !ax.startsWith("cs/");
+  const links = [ax?`<a href="https://arxiv.org/abs/${ax}" target="_blank" rel="noopener">arXiv ${esc(ax)}</a>`:"",
+    hf?`<a href="https://huggingface.co/papers/${ax}" target="_blank" rel="noopener">HF Papers</a>`:"",
+    p.url?`<a href="${esc(p.url)}" target="_blank" rel="noopener">项目页</a>`:"",
+    p.code?`<a href="${esc(p.code)}" target="_blank" rel="noopener">代码</a>`:""].join("");
+  const e = p.evidence || {};
+  const rows = [
+    ...(p.weight_update?[["权重更新",esc(p.weight_update)]]:[]),
+    ["谁来改", WHO[e.who_edits||"unknown"]||esc(e.who_edits)],
+    ["反馈来源", FB[e.feedback||"unknown"]||esc(e.feedback)],
+    ["改进时机", TM[e.timing||"unknown"]||esc(e.timing)],
+    ...ALL_EV.map(([k,l]) => [l, `${VAL[ev(p,k)]} ${mark(ev(p,k))}`])
+  ];
+  dr.innerHTML = `<div class="dhead"><span class="mono note">${esc(SECTIONS[p.section].zh)}</span>
+    <button class="iconbtn" type="button" id="dclose">关闭 Esc</button></div>
+  <article class="receipt">
+    ${p.must_read?'<span class="stamp">MUST READ</span>':''}
+    <div class="sec">${esc(p.date)}${p.orgs?" · "+esc(p.orgs.join(" · ")):""}</div>
+    <h2 id="dtitle">${esc(p.title)}</h2>
+    <div class="links">${links}</div>
+    ${p.needs_reading?'<span class="tag verify" style="margin:0">待细读 · 数字以正文为准</span>':''}
+    <div class="block"><h4>一句话</h4><p>${esc(p.summary_zh)}</p></div>
+    ${p.result_zh?`<div class="block"><h4>关键结果</h4><p>${esc(p.result_zh)}</p></div>`:""}
+    <dl class="kv">${rows.map(([k,v])=>`<dt>${k}</dt><dd>${v}</dd>`).join("")}</dl>
+    <div class="soon"><div>精读笔记<br>筹备中</div><div>视频讲解<br>筹备中</div><div>可延伸的 idea<br>筹备中</div></div>
+  </article>
+  <div class="sharewrap"><h4>分享卡片</h4>
+    <div class="share" aria-label="分享卡片预览">
+      <div class="k">HARNESS EVOLUTION · RECEIPT</div>
+      <div class="h">${esc(short(p))}</div>
+      <div class="l">${esc(p.summary_zh)}</div>
+      <div class="evrow">${KEY_EV.map(([k,l])=>`<div><b>${{yes:"✓",partial:"◐",no:"✕",unknown:"?",na:"–"}[ev(p,k)]}</b>${l}</div>`).join("")}</div>
+      ${p.result_zh?`<div class="res">${esc(p.result_zh)}</div>`:""}
+      <div class="foot"><span>${esc(ax?("arXiv "+ax):p.date)}</span><span>awesome-harness-evolution</span></div>
+    </div>
+    <div class="copyrow"><button class="btn" type="button" id="copy">复制这篇的链接</button><span class="note" id="copymsg">仓库版本会为每篇生成 1080×1350 的 PNG，可直接发小红书。</span></div>
+  </div>`;
+  dr.hidden = false; scrim.hidden = false; dr.scrollTop = 0;
+  document.getElementById("dclose").addEventListener("click", closeDrawer);
+  document.getElementById("copy").addEventListener("click", () => {
+    const url = shareURL(p.id);
+    const msg = document.getElementById("copymsg");
+    if (!url) { msg.textContent = "预览环境里拿不到页面地址；部署到 GitHub Pages 后，这里会复制形如 …/#p-" + p.id + " 的链接。"; return; }
+    (navigator.clipboard ? navigator.clipboard.writeText(url) : Promise.reject())
+      .then(() => { msg.textContent = "已复制链接。"; })
+      .catch(() => { msg.textContent = url; });
+  });
+  document.getElementById("dclose").focus();
+  if (push) setHash("p-"+id);
+}
+function closeDrawer(){
+  dr.hidden = true; scrim.hidden = true;
+  if (location.hash.startsWith("#p-")) setHash(view);
+  if (lastFocus && lastFocus.focus) lastFocus.focus();
+}
+scrim.addEventListener("click", closeDrawer);
+document.addEventListener("click", e => { const o = e.target.closest("[data-open]"); if (o) openDrawer(o.dataset.open); });
+
+function route(){
+  const h = location.hash.slice(1);
+  if (h.startsWith("p-")) { if (!["papers","routes","gaps"].includes(view)) view="papers"; render(); openDrawer(h.slice(2), false); return; }
+  view = ["routes","gaps"].includes(h) ? h : "papers";
+  if (drawerOpen()) { dr.hidden = true; scrim.hidden = true; }
+  render();
+}
+function setView(v){
+  view = v;
+  if (drawerOpen()) { dr.hidden = true; scrim.hidden = true; }
+  render();
+  document.getElementById("main").scrollIntoView({block:"start"});
+  setHash(v);
+}
+document.querySelector(".views").addEventListener("click", e => {
+  const b = e.target.closest("[data-view]"); if (b) setView(b.dataset.view);
+});
+window.addEventListener("hashchange", route);
+renderSections(); route();
+</script>
