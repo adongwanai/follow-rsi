@@ -13,16 +13,18 @@ Follow RSI 每天发现论文，owner 审核后发布「今日动态」；每周
 
 当前模型是 `deepseek-flash`。提示词回归的 include recall 为 95.9%、include precision 为 98.9%、主方向准确率为 90.8%；三个数值门槛均达到，但整轮结果仍是 **incomplete**：2 条论文身份待核对，1 条 schema 错误，27 条 curator seed 标签仍需 owner 复核。详见 [评测报告](../feed/eval/report.md) 和 [评测集说明](../feed/eval/README.md)。不能把这些离线评测指标填成本周线上审核准确率。
 
-`LLM_API_KEY` 已配置到当前仓库的 GitHub Secrets。`S2_API_KEY` 尚未配置，因此两路 Semantic Scholar 信源保持停用；真实 S2 请求和完整多信源验收仍未完成。已核实的来源与停用原因见 [信源验证记录](source-verification.md)。
+`LLM_API_KEY` 已配置到当前仓库的 GitHub Secrets。`S2_API_KEY` 尚未配置，Semantic Scholar 使用匿名调用；真实论文元数据请求已验证，完整引用与作者分页抓取仍待验证。已核实的来源与限制见 [信源验证记录](source-verification.md)。
+
+第一阶段只发布 Harness 及明确关联 Harness 的横切研究。初轮 82 条待审经范围过滤后，44 条进入审核队列（其中 5 条分类错误需人工处理），其余 38 条完整双语记录进入月度归档；归档不等于人工接受。首期仍待 owner 审核，公开日报和 Atom 因而没有条目。
 
 ## 配置密钥与地址
 
-仓库地址、Pages 地址、作者和订阅入口只在 [data/site.yaml](../data/site.yaml) 配置，不另建 `site.config.yaml`。模型的非敏感默认值在 [feed/model.yaml](../feed/model.yaml)；同名环境变量可覆盖默认值。
+仓库地址、Pages 地址、作者和订阅入口只在 [site.config.yaml](../site.config.yaml) 配置。模型的非敏感默认值在 [feed/model.yaml](../feed/model.yaml)；同名环境变量可覆盖默认值。
 
 | 名称 | 用途与申请入口 |
 | --- | --- |
 | `LLM_API_KEY` | 当前使用 [DeepSeek API Keys](https://platform.deepseek.com/api_keys)。也可使用 [OpenAI API Keys](https://platform.openai.com/api-keys)，并同步设置 provider、model、base URL。API 账户需要可用额度。 |
-| `S2_API_KEY` | 在 [Semantic Scholar Academic Graph API](https://www.semanticscholar.org/product/api#api-key-form) 申请；获批后验证真实响应，再启用引用与作者追踪。 |
+| `S2_API_KEY` | 可选，在 [Semantic Scholar Academic Graph API](https://www.semanticscholar.org/product/api#api-key-form) 申请；无 key 时匿名调用，配置后通过 `x-api-key` 请求头发送。 |
 | `GITHUB_TOKEN` | GitHub Actions 自动提供，无需另申请 PAT。工作流按任务声明内容、PR、issue、Actions 和 Pages 权限。 |
 | `GH_TOKEN` | 工作流把默认 `GITHUB_TOKEN` 传给 `gh`；本地只读验证可使用自己的 GitHub 登录或令牌。 |
 
@@ -122,15 +124,19 @@ python -m scripts.feed.ci publish [--date YYYY-MM-DD | --week YYYY-WWW | --pr-nu
 
 ## 信源、排序与运行状态
 
-信源登记表 [feed/sources.yaml](../feed/sources.yaml) 使用顶层 `ranking` 和 `sources`；游标与运行状态只写入 `data/feed/state.json`。新增来源时填写唯一 ID、kind、schedule、params、notes，先验证真实接口能返回正确格式，再设 `enabled: true`。停用只改为 `false` 并说明原因，保留历史记录。
+信源登记表 [feed/sources.yaml](../feed/sources.yaml) 使用顶层 `publish_scope`、`recall`、`ranking` 和 `sources`；游标与运行状态只写入 `data/feed/state.json`。新增来源时填写唯一 ID、kind、schedule、params、notes，先验证真实接口能返回正确格式，再设 `enabled: true`。停用只改为 `false` 并说明原因，保留历史记录。
 
-当前启用 arXiv 三组检索、HF、Sakana、METR、OpenAI、DeepMind、Weco 官方 feed 和 GitHub releases。Anthropic、Prime Intellect 未找到经过核实的官方 RSS；S2 缺少密钥，均保持停用。GitHub release 空列表可以是正常响应。博客带 arXiv 链接时会补取论文元数据；无论文链接的保留为独立实验室动态。
+`publish_scope.primary: [harness]` 允许 Harness 主方向；横切方向必须同时含 `secondary: [harness]` 才能发布。其他主方向不会因带有 Harness 次标签而自动进入范围。范围外的 `include` 和 `borderline` 仍分类、生成双语摘要，保存在 `data/feed/archive/<YYYY-MM>.jsonl`，不进审核单；发布时再次校验范围。分类错误可进入待审，但修正为范围内方向后才能接受。实验室动态同样需要明确 Harness 方向。
+
+当前启用 arXiv 三组检索、HF、Sakana、METR、OpenAI、DeepMind、Weco 官方 feed、GitHub releases 和 S2。Anthropic、Prime Intellect 未找到经过核实的官方 RSS，保持停用。GitHub release 空列表可以是正常响应。博客带 arXiv 链接时会补取论文元数据；无论文链接的保留为独立实验室动态。
+
+S2 有 key 时请求至少间隔 1.1 秒，无 key 时至少 3.1 秒；HTTP 429 按指数退避，最多重试 5 次，其他错误显式报告。`state.json` 记录每路来源的 `auth_mode` 与 `min_interval_seconds`。匿名元数据请求已实际经历 5 次 429 后成功；这不代表完整分页抓取已验收。
 
 方向内排序权重为 `seed_hits: 3`、`author_tracked: 2`、`hf_upvotes: 0.1`、`code_released: 1`，owner 精选置顶。这些是可解释的发现和热度信号，不是证据评分。S2 按论文 `publicationDate` 检查近 30 天，不能据此知道引用关系是哪天新增的；最后列出的作者只是追踪启发式，不视为已验证的通讯作者。
 
 每个来源连续 3 次为空、失败或降级会触发单个 `Source down: <id>` issue，恢复后关闭。arXiv API 持续失败会使用分类 RSS 做关键词过滤，并记录 `degraded`；不能把降级当作完整 API 覆盖。状态页和徽章显示最近成功抓取的时间，超过 48 小时变红；它表示抓取是否新鲜，不表示当天已经人工审核或发布。
 
-`data/feed/metrics.json` 分周记录发现、人工接受、判断准确率、时效、信源产出和数字护栏首次失败率；空样本显示未知，不伪造百分比。时效应结合当期发布快照阅读，不能用最近抓取时间代替。每周 `recall` 对照公开清单，产出 `review/<周>.misses.yaml`；关键词只给建议，不自动修改来源配置。
+`data/feed/metrics.json` 分周记录发现、人工接受、判断准确率、时效、信源产出、数字护栏首次失败率和 `archive_by_direction`；空样本显示未知，不伪造百分比。时效应结合当期发布快照阅读，不能用最近抓取时间代替。每周 `recall` 只对照 Harness 参考条目：zgcagi/Harness-RSI 全部条目，以及 Prism-Shadow/awesome-rsi 明确标为 `artifact: Harness code` 的条目。参考分类缺失时显式报告失败，不改为全表召回。输出为 `review/<周>.misses.yaml`；关键词只给建议，不自动修改来源配置。
 
 ```sh
 python -m scripts.feed.cli health

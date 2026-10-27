@@ -1,6 +1,6 @@
 'use strict';
 const data=window.HARNESS_DATA, card=document.getElementById('card');
-const params=new URLSearchParams(location.search),isOG=params.get('og')==='1',lang=params.get('lang')==='en'?'en':'zh';
+const params=new URLSearchParams(location.search),isOG=params.get('og')==='1'||!params.has('id'),lang=params.get('lang')==='en'?'en':'zh';
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const t=(zh,en)=>lang==='zh'?zh:en;
 const keys=['held_out','matched_budget_baseline','cross_model_transfer','cost_reported'];
@@ -15,15 +15,15 @@ function qr(url){
 function bottom(p){
  const target=data.config.repository_url;
  const short=target?target.replace(/^https?:\/\//,'').replace(/\/$/,''):'github.com/'+data.config.repository;
- return `<div class="card-bottom"><div class="card-footer">${p?.arxiv?'arXiv '+esc(p.arxiv):p?esc(p.date):'follow-rsi'}<br>${isOG?'Code MIT · Content CC BY 4.0':'follow-rsi'}<div class="return-url">${esc(short)}</div></div><div class="qr">${qr(target)}<div class="qr-label">${t('扫码查看完整证据','Scan for the full evidence')}</div></div></div>`;
+ return `<div class="card-bottom"><div class="card-footer">${p?.arxiv?'arXiv '+esc(p.arxiv):p?esc(p.date):'Code MIT · Content CC BY 4.0'}<br>Follow RSI<div class="return-url">${esc(short)}</div></div><div class="qr">${qr(target)}<div class="qr-label">${t('扫码查看完整证据','Scan for the full evidence')}</div></div></div>`;
 }
 if(isOG){
  card.classList.add('og');card.innerHTML=`<p class="card-kicker">FOLLOW RSI · WITH RECEIPTS</p><div class="og-top"><div><h1>每一篇论文，<br>都要拿出凭证。</h1><p class="og-subtitle">Every paper. Show the evidence.</p></div><div class="og-stubs"><div class="og-stub"><span>HDA</span><b>54%</b><span>搜索集收益来自过拟合</span></div><div class="og-stub"><span>AUDITING</span><b>4/26</b><span>同起点、同预算比较</span></div></div></div>${bottom(null)}`;
 }else{
  const p=data.papers.find(p=>p.id===params.get('id'));
- if(!p)throw new Error('Unknown paper id');
+ if(!p){card.innerHTML=`<h1>${t('未找到这篇论文','Paper not found')}</h1><p><a href="index.html">${t('返回证据库','Back to the evidence base')}</a></p>`;}else{
  card.innerHTML=`<p class="card-kicker">FOLLOW RSI · RECEIPT</p><h1>${esc(p.short_title)}</h1><div class="card-flags">${p.must_read?'<span class="card-flag">MUST READ</span>':''}${p.needs_reading?'<span class="card-flag verify">待细读 / Needs verification</span>':''}${p.status==='candidate'?'<span class="card-flag verify">候选 / Candidate</span>':''}</div><p class="card-summary">${esc(p['summary_'+lang])}</p><div class="card-evidence">${keys.map((k,i)=>`<div><b>${symbols[p.evidence[k]]}</b>${labels[i]}</div>`).join('')}</div>${p['result_'+lang]?`<p class="card-result">${esc(p['result_'+lang])}</p>`:''}${bottom(p)}`;
-}
+}}
 (async()=>{
  await document.fonts.ready;
  const title=card.querySelector('h1'),summary=card.querySelector('.card-summary'),result=card.querySelector('.card-result');
@@ -32,5 +32,8 @@ if(isOG){
   for(const [el,min] of [[title,40],[summary,25],[result,24]])if(el){const size=parseFloat(getComputedStyle(el).fontSize);if(size>min){el.style.fontSize=(size-1)+'px';changed=true;}}
   if(!changed)throw new Error('Share card content overflows');
  }
+ const fitPreview=()=>{card.style.zoom=Math.min(1,innerWidth/card.offsetWidth);};
+ fitPreview();
+ window.addEventListener('resize',fitPreview);
  document.documentElement.dataset.cardReady='true';
 })();

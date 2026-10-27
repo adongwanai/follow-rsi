@@ -2,6 +2,7 @@
 from collections import Counter
 import json
 from pathlib import Path
+import re
 import shutil
 import subprocess
 
@@ -18,7 +19,7 @@ from validate import validate
 def project(tmp_path):
     for directory in ('data', 'scripts/templates', 'directions'):
         shutil.copytree(ROOT / directory, tmp_path / directory, ignore=shutil.ignore_patterns('feed'))
-    for name in ('README.md', 'README_en.md'):
+    for name in ('README.md', 'README_zh.md', 'README_en.md', 'site.config.yaml'):
         shutil.copy(ROOT / name, tmp_path / name)
     return tmp_path
 
@@ -108,14 +109,17 @@ def test_idempotence_and_authored_blocks(project):
     build(project)
     path = project / 'papers/hda.md'
     path.write_text(path.read_text().replace('<!-- TODO -->', 'Handwritten audit notes: keep this.', 1))
-    for name in ('README.md', 'README_en.md'):
+    names = ('README.md', 'README_zh.md', 'README_en.md')
+    for name in names:
         path = project/name
-        path.write_text(path.read_text() + '\nAuthored footer: keep verbatim.\n')
+        path.write_text(path.read_text() + f'\nAuthored footer in {name}: <SITE_URL> / <GITHUB_USER>.\n')
+    def handwritten(path):
+        return re.sub(r'(<!-- AUTO:([A-Z_]+):START -->).*?(<!-- AUTO:\2:END -->)',
+                      r'\1\3', path.read_text(), flags=re.S)
+    before = {name: handwritten(project/name) for name in names}
     build(project)
     assert 'Handwritten audit notes: keep this.' in (project/'papers/hda.md').read_text()
-    for name in ('README.md', 'README_en.md'):
-        assert (project/name).read_text().endswith('Authored footer: keep verbatim.\n')
-    assert (project/'README_zh.md').read_bytes() == (project/'README.md').read_bytes()
+    assert {name: handwritten(project/name) for name in names} == before
     def git(*args):
         return subprocess.run(['git', *args], cwd=project, check=True, capture_output=True, text=True)
     git('init', '-q')
@@ -131,3 +135,12 @@ def test_auto_markers_fail_closed():
     for text in ('nothing', '<!-- AUTO:X:END --><!-- AUTO:X:START -->', '<!-- AUTO:X:START --><!-- AUTO:X:START --><!-- AUTO:X:END -->'):
         with pytest.raises(ValueError):
             replace_block(text, 'X', 'replacement')
+
+
+def test_retired_repository_name_is_absent():
+    retired = ('awesome-' + 'harness-evolution').encode()
+    paths = subprocess.check_output(
+        ['git', 'ls-files', '-z', '--cached', '--others', '--exclude-standard'], cwd=ROOT
+    ).decode().strip('\0').split('\0')
+    matches = [name for name in paths if (ROOT/name).is_file() and retired in (ROOT/name).read_bytes()]
+    assert not matches, matches

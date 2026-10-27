@@ -17,7 +17,7 @@ WEEK = "2026-W44"
 
 
 def make_repo(root):
-    for path in ("feed/taxonomy.yaml", "feed/sources.yaml", "data/site.yaml", "data/schema.json"):
+    for path in ("feed/taxonomy.yaml", "feed/sources.yaml", "site.config.yaml", "data/schema.json"):
         target = root / path
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy(ROOT / path, target)
@@ -125,8 +125,8 @@ def test_move_requires_valid_direction_and_cannot_be_an_accept_pick(tmp_path):
     write_review(root, lambda review: review["items"][1].update(decision="move"))
     with pytest.raises(ValueError, match="requires direction"):
         validate_review(root, WEEK)
-    write_review(root, lambda review: review["items"][1].update(direction_override="ai4ai"))
-    assert approved_items(root, WEEK)[0]["llm"]["primary"] == "ai4ai"
+    write_review(root, lambda review: review["items"][1].update(direction_override="harness/improver"))
+    assert approved_items(root, WEEK)[0]["llm"]["harness_sub"] == "improver"
     write_review(root, lambda review: review["items"][1].update(direction_override="invented-category"))
     with pytest.raises(ValueError, match="invalid primary"):
         validate_review(root, WEEK)

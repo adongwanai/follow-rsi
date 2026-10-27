@@ -25,7 +25,7 @@ def test_explicit_false_and_non_harness_papers_do_not_promote(tmp_path):
     accept_one(root)
     write_review(root, lambda review: review["items"][1].update(promote_to_repo=False))
     assert promote_candidates(root, date=DAY)["count"] == 0
-    write_review(root, lambda review: review["items"][1].update(promote_to_repo=True, direction_override="ai4ai"))
+    write_review(root, lambda review: review["items"][1].update(promote_to_repo=True, direction_override={"primary": "evaluation_benchmark", "secondary": ["harness"]}))
     assert promote_candidates(root, date=DAY)["count"] == 0
 
 

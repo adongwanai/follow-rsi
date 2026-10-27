@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+import xml.etree.ElementTree as ET
 
 import jsonschema
 import pytest
@@ -118,6 +119,24 @@ def test_empty_weekly_picks_section_is_absent_and_intro_guard_retries(tmp_path):
     assert "Owner's picks" not in (root / "digests" / f"{WEEK}.en.md").read_text()
 
 
+def test_atom_publishes_daily_editions_once_and_ignores_weekly_updates(tmp_path):
+    root = make_daily_repo(tmp_path)
+    ready_week(root)
+    publish_week(root, WEEK, now="2026-11-01T23:55:00Z")
+    atom = ET.parse(root / "site/feed/atom.xml").getroot()
+    ns = {"a": "http://www.w3.org/2005/Atom"}
+    assert [entry.findtext("a:id", namespaces=ns) for entry in atom.findall("a:entry", ns)] == [
+        "urn:follow-rsi:daily:" + DAY]
+    assert atom.findtext("a:updated", namespaces=ns) == DAY + "T12:00:00Z"
+    config = read_yaml(root / "site.config.yaml")
+    assert atom.find("a:link[@rel='alternate']", ns).get("href") == config["base_url"].rstrip("/") + "/daily/"
+    assert (root / "site/weekly" / f"{WEEK}.html").exists()
+    assert json.loads((root / "site/weekly" / f"{WEEK}.json").read_text())["week"] == WEEK
+    feed = json.loads((root / "site/feed/latest.json").read_text())
+    assert feed["weeks"] == [WEEK] and feed["dates"] == [DAY]
+    assert feed["updated_at"] == "2026-11-01T23:55:00Z"
+
+
 def test_false_quick_evidence_downgraded_before_publishing(tmp_path):
     root = make_daily_repo(tmp_path)
     accept_daily(root)
@@ -133,6 +152,10 @@ def test_empty_archive_is_honest_and_does_not_replace_existing_feed(tmp_path):
     feed = root / "site/feed/latest.json"
     assert json.loads(feed.read_text())["items"] == []
     assert "awaiting owner review" in (root / "site/daily/index.html").read_text()
+    atom = (root / "site/feed/atom.xml").read_text()
+    assert '<?xml-stylesheet type="text/xsl" href="atom.xsl"?>' in atom
+    assert 'rel="related"' in atom and "/pulls" in atom
+    assert "<entry>" not in atom and (root / "site/feed/atom.xsl").exists()
     before = feed.read_bytes()
     initialize_public(root)
     assert before == feed.read_bytes()

@@ -192,19 +192,14 @@ def paper_card(p, sections):
 
 def build(root=ROOT):
     data, routes = validate(root)
-    config = read_yaml(root / 'data/site.yaml')
+    config = read_yaml(root / 'site.config.yaml')
     stats = compute_stats(data)
     env = Environment(loader=FileSystemLoader(root / 'scripts/templates'), autoescape=select_autoescape(['html', 'svg']), keep_trailing_newline=True)
-    for lang, filename in [('zh', 'README.md'), ('en', 'README_en.md')]:
+    for lang, filename in [('zh', 'README.md'), ('zh', 'README_zh.md'), ('en', 'README_en.md')]:
         text = (root / filename).read_text()
         for name, content in readme_blocks(data, routes, stats, lang, config, root).items():
             text = replace_block(text, name, content)
-        # Only explicit deployment placeholders may be substituted outside AUTO blocks.
-        text = text.replace('<SITE_URL>', config['base_url'] or '<SITE_URL>')
-        text = text.replace('<GITHUB_USER>', config['repository'].split('/')[0])
         write(root / filename, text)
-    # Keep the former Chinese entry point as a generated mirror.
-    write(root / 'README_zh.md', (root / 'README.md').read_text())
     for p in data['papers']:
         path = root / 'papers' / (p['id'] + '.md')
         text = path.read_text() if path.exists() else f"# {p['title']}\n\n<!-- AUTO:CARD:START -->\n<!-- AUTO:CARD:END -->\n\n## 精读笔记\n\n<!-- TODO -->\n\n## 视频\n\n<!-- TODO -->\n\n## 可延伸的 idea\n\n<!-- TODO -->\n\n## 相关论文\n\n<!-- TODO -->\n"

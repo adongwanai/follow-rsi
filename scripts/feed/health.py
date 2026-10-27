@@ -6,6 +6,7 @@ import statistics
 import subprocess
 import tempfile
 from .storage import load_items, load_state, save_state, write_json
+from .scope import archive_counts, direction_of, in_scope, load_scope
 
 
 def timestamp(value):
@@ -136,12 +137,15 @@ def publication_times(root):
 
 def compute_metrics(root, items=None, week=None):
     items = load_items(root) if items is None else items
+    scope = load_scope(root)
     week = week or week_of(datetime.now(timezone.utc).isoformat())
     found = [p for p in items if p['kind'] == 'paper' and week_of(p['first_seen']) == week]
     reviewed = [p for p in items if p['kind'] == 'paper' and p.get('review', {}).get('week') == week]
-    accepted = [p for p in reviewed if p['review']['decision'] in {'accept', 'move'} and not p.get('retracted')]
+    accepted = [p for p in reviewed if p['review']['decision'] in {'accept', 'move'} and not p.get('retracted')
+                and in_scope(direction_of(p), scope)]
     included = [p for p in reviewed if p.get('llm', {}).get('label') == 'include'
-                and p['review']['decision'] in {'accept', 'move', 'reject'}]
+                and p['review']['decision'] in {'accept', 'move', 'reject'}
+                and in_scope(direction_of(p), scope)]
     accepted_include = [p for p in included if p['review']['decision'] in {'accept', 'move'}]
     yields = {}
     for item in accepted:
@@ -158,12 +162,15 @@ def compute_metrics(root, items=None, week=None):
     metrics = json.loads(path.read_text(encoding='utf-8')) if path.exists() else {'weeks': {}}
     previous = metrics.setdefault('weeks', {}).get(week, {})
     metrics['weeks'][week] = {**previous, 'found': len(found), 'accepted': len(accepted),
+                             'archive_by_direction': archive_counts(root, week),
                              'precision': len(accepted_include) / len(included) if included else None,
                              'latency_days': statistics.median(latencies) if latencies else None,
                              'source_yield': yields, 'guard_fail_rate': guard_failures / len(attempted) if attempted else None}
     write_json(path, metrics)
     state = load_state(root)
     for source, entry in state['sources'].items():
-        entry['total_accepted'] = sum(p.get('review', {}).get('decision') in {'accept', 'move'} and source in p['source_hits'] for p in items)
+        entry['total_accepted'] = sum(p.get('review', {}).get('decision') in {'accept', 'move'}
+                                      and in_scope(direction_of(p), scope) and not p.get('retracted')
+                                      and source in p['source_hits'] for p in items)
     save_state(root, state)
     return metrics['weeks'][week]

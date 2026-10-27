@@ -1,17 +1,25 @@
 /* Publication is static; this switch only changes presentation. */
-const weeklyLanguage = localStorage.getItem('harness.lang') === 'en' ? 'en' : 'zh';
+let weeklyLanguage = 'zh', weeklyTheme = 'auto';
+try {
+  weeklyLanguage = localStorage.getItem('harness.lang') === 'en' ? 'en' : 'zh';
+  weeklyTheme = localStorage.getItem('harness.theme') || 'auto';
+} catch (error) {
+  if (error.name !== 'SecurityError') throw error;
+}
 document.documentElement.dataset.lang = weeklyLanguage;
 document.documentElement.lang = weeklyLanguage === 'zh' ? 'zh-CN' : 'en';
 document.getElementById('language').addEventListener('click', () => {
   const language = document.documentElement.dataset.lang === 'en' ? 'zh' : 'en';
   document.documentElement.dataset.lang = language;
   document.documentElement.lang = language === 'zh' ? 'zh-CN' : 'en';
-  localStorage.setItem('harness.lang', language);
+  try { localStorage.setItem('harness.lang', language); }
+  catch (error) { if (error.name !== 'SecurityError') throw error; }
 });
-document.documentElement.dataset.theme = localStorage.getItem('harness.theme') || 'auto';
+document.documentElement.dataset.theme = weeklyTheme;
 document.getElementById('theme').addEventListener('click', () => {
   const themes = ['auto', 'light', 'dark'];
   const theme = themes[(themes.indexOf(document.documentElement.dataset.theme) + 1) % 3];
   document.documentElement.dataset.theme = theme;
-  localStorage.setItem('harness.theme', theme);
+  try { localStorage.setItem('harness.theme', theme); }
+  catch (error) { if (error.name !== 'SecurityError') throw error; }
 });

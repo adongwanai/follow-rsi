@@ -53,17 +53,19 @@ def issue_client(enabled):
 def process_items(root, stage, workers=4, client=None):
     from scripts.feed.judge import judge_item, summarize_item
     from scripts.feed.llm import FeedLLM
+    from scripts.feed.scope import archive_out_of_scope
     items = load_items(root)
     if stage == 'judge':
         todo = [item for item in items if item['kind'] == 'paper' and not item.get('in_repo')
                 and not item.get('llm', {}).get('label')]
         operation = judge_item
     else:
-        todo = [item for item in items if item.get('label') in ('include','borderline')
+        todo = [item for item in items if item.get('llm', {}).get('label') in ('include','borderline')
                 and not item.get('in_repo') and 'summary_zh' not in item]
         operation = summarize_item
     if not todo:
-        return {'stage':stage, 'processed':0}
+        return {'stage':stage, 'processed':0,
+                'archived':archive_out_of_scope(root) if stage == 'summarize' else 0}
     client = client or FeedLLM.from_env(root)
     counts = {}
     with ThreadPoolExecutor(max_workers=workers) as pool:
@@ -75,7 +77,8 @@ def process_items(root, stage, workers=4, client=None):
             counts[label] = counts.get(label, 0) + 1
             if index == 1 or index % 10 == 0 or index == len(todo):
                 print(f'{stage}: {index}/{len(todo)} processed; {counts}', flush=True)
-    return {'stage':stage, 'processed':len(todo), 'labels':counts}
+    return {'stage':stage, 'processed':len(todo), 'labels':counts,
+            'archived':archive_out_of_scope(root) if stage == 'summarize' else 0}
 
 
 def run_stage(root, stage, *, schedule='daily', days=3, sources=None, week=None, date=None,

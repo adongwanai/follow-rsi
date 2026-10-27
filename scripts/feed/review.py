@@ -16,6 +16,7 @@ import yaml
 from scripts.common import ROOT, read_yaml
 from scripts.feed.guard import check_summary, enforce_evidence, unknown_evidence
 from scripts.feed.storage import load_items, save_items
+from scripts.feed.scope import archive_out_of_scope, load_scope, require_scope, scope_status
 
 DECISIONS = ("pending", "accept", "reject", "move", "defer")
 OWNER_FIELDS = ("decision", "direction_override", "summary_override", "promote_to_repo", "note")
@@ -118,6 +119,8 @@ def queue_review(root=ROOT, week=None, items=None):
         week = f"{year}-W{number:02d}"
     week_bounds(week)
     source_items = load_items(root) if items is None else items
+    scope = load_scope(root)
+    archive_out_of_scope(root, source_items)
     path = root / "review" / f"{week}.yaml"
     previous = read_yaml(path) if path.exists() else {"items": [], "picks": [], "lab_updates": []}
     old = {row["id"]: row for row in previous["items"]}
@@ -143,6 +146,8 @@ def queue_review(root=ROOT, week=None, items=None):
             continue
         if label not in ("include", "borderline", "error"):
             continue  # Fetch-only runs have not produced a reviewable judgement.
+        if label != "error" and scope_status(item.get("llm", {}), scope) == "out_of_scope":
+            continue
         row = _review_row(item)
         if item["id"] in old:
             prior = old[item["id"]]
@@ -226,6 +231,7 @@ def validate_review(root=ROOT, week=None):
         raise ValueError("Review week does not match its filename")
     items = {item["id"]: item for item in load_items(root)}
     taxonomy = read_yaml(root / "feed/taxonomy.yaml")
+    scope = load_scope(root)
     seen = set()
     accepted = {}
     for row in review["items"]:
@@ -247,6 +253,7 @@ def validate_review(root=ROOT, week=None):
         if row["decision"] in APPROVED or row.get("summary_override") is not None:
             checked = effective_item(item, row, taxonomy)
             if row["decision"] in APPROVED:
+                require_scope(checked, scope)
                 accepted[key] = checked
     accepted_arxiv = {row.get("arxiv_id") for row in review["items"] if row["decision"] == "accept"}
     picked = [pick["arxiv_id"] for pick in review["picks"]]
@@ -263,6 +270,9 @@ def validate_review(root=ROOT, week=None):
             raise ValueError(f"{key}: lab update source changed")
         if items[key].get("retracted") and row["decision"] == "accept":
             raise ValueError(f"{key}: retracted updates cannot be published")
+        if row["decision"] == "accept":
+            direction = _direction(items[key], {**row, "llm": items[key].get("llm", {})}, taxonomy)
+            require_scope({"id": key, "direction": direction}, scope)
     return review
 
 
@@ -360,13 +370,17 @@ def queue_daily_review(root=ROOT, date=None, items=None, carried_reviews=None):
     previous = [read_yaml(path) for path in sorted(directory.glob("????-??-??.yaml"))
                 if path.stem <= day]
     previous += list(carried_reviews or [])
+    source_items = load_items(root) if items is None else items
+    scope = load_scope(root)
+    taxonomy = read_yaml(root / "feed/taxonomy.yaml")
+    archive_out_of_scope(root, source_items)
     old = {}
     for review in sorted(previous, key=lambda value: value["date"]):
         if review["date"] <= day:
             for row in [*review["items"], *review["lab_updates"]]:
                 old[row["id"]] = (review["date"], row)
     rows, excluded, labs = [], [], []
-    for item in load_items(root) if items is None else items:
+    for item in source_items:
         if str(item.get("first_seen") or item["published"])[:10] > day:
             continue
         if item.get("in_repo") or item.get("retracted"):
@@ -380,6 +394,7 @@ def queue_daily_review(root=ROOT, date=None, items=None, carried_reviews=None):
         if lab:
             row = {"id": item["id"], "title": item["title"], "kind": item["kind"],
                    "links": item.get("links", {}), "source_hash": source_hash(item),
+                   "llm": deepcopy(item.get("llm", {})), "direction_override": None,
                    "decision": "pending", "note": ""}
         else:
             label = item.get("llm", {}).get("label")
@@ -404,6 +419,12 @@ def queue_daily_review(root=ROOT, date=None, items=None, carried_reviews=None):
                 row["decision"] = "pending"
             if prior_day < day:
                 row["carried_from"] = prior.get("carried_from", prior_day)
+        if row.get("llm", {}).get("label") != "error":
+            direction = row.get("llm", {})
+            if row.get("direction_override"):
+                direction = _direction(item, row, taxonomy)
+            if scope_status(direction, scope) == "out_of_scope":
+                continue
         (labs if lab else rows).append(row)
     rows.sort(key=lambda row: (
         not (row["llm"].get("label") in ("borderline", "error") or row["guard_failed"]
@@ -423,6 +444,7 @@ def validate_daily_review(root=ROOT, date=None):
         raise ValueError("Review date does not match its filename")
     sources = {item["id"]: item for item in load_items(root)}
     taxonomy = read_yaml(root / "feed/taxonomy.yaml")
+    scope = load_scope(root)
     seen = set()
     for lab, rows in ((False, review["items"]), (True, review["lab_updates"])):
         for row in rows:
@@ -451,7 +473,11 @@ def validate_daily_review(root=ROOT, date=None):
                 if row.get("summary_override") is not None:
                     _summary_fields(item, row)
                 if row["decision"] in APPROVED:
-                    effective_item(item, row, taxonomy)
+                    require_scope(effective_item(item, row, taxonomy), scope)
+            elif row.get("direction_override") is not None or row["decision"] == "accept":
+                direction = _direction(item, {**row, "llm": item.get("llm", {})}, taxonomy)
+                if row["decision"] == "accept":
+                    require_scope({"id": key, "direction": direction}, scope)
     return review
 
 
@@ -503,13 +529,14 @@ def interactive_daily_review(root=ROOT, date=None, input_fn=input, output_fn=pri
             command = input_fn("[a] accept / [r] reject / [m] move direction / [s] defer until tomorrow: ").strip().lower()
             if command not in ("a", "r", "m", "s"):
                 output_fn("Enter a, r, m, or s.")
-            elif command == "m" and row in review["lab_updates"]:
-                output_fn("Lab updates support accept, reject, or defer.")
             else:
                 break
         row["decision"] = {"a": "accept", "r": "reject", "m": "move", "s": "defer"}[command]
-        if command == "m":
+        lab = row in review["lab_updates"]
+        if command == "m" or (command == "a" and lab and not row.get("direction_override")):
             row["direction_override"] = input_fn("Direction (for example harness/improver): ").strip()
+        if command == "m" and lab:
+            row["decision"] = "accept"
         _write_yaml(path, review)
     output_fn(f"Saved {path}. Deferred entries return in the next daily queue.")
     return review
@@ -519,11 +546,14 @@ def daily_editions_for_week(root=ROOT, week=None):
     start, end = week_bounds(week)
     withdrawn = {item["id"] for item in load_items(root) if item.get("retracted")}
     editions = []
+    scope = load_scope(root)
     for path in sorted((Path(root) / "site/daily").glob("????-??-??.json")):
         if str(start) <= path.stem <= str(end):
             edition = json.loads(path.read_text())
             if not edition.get("reviewed_only") or edition.get("demo"):
                 raise ValueError("Weekly editions require daily owner-approved publications")
+            for item in [*edition["items"], *edition["lab_updates"]]:
+                require_scope(item, scope)
             edition["items"] = [item for item in edition["items"] if item["id"] not in withdrawn]
             edition["lab_updates"] = [item for item in edition["lab_updates"] if item["id"] not in withdrawn]
             editions.append(edition)
