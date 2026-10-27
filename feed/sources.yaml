@@ -1,0 +1,163 @@
+# Registry is a mapping so explicit ranking weights can sit above sources.
+# HF is a discovery priority; upvotes are popularity signals, never evidence.
+ranking:
+  seed_hits: 3
+  author_tracked: 2
+  hf_upvotes: 0.1
+  code_released: 1
+sources:
+- id: arxiv-harness
+  kind: arxiv_query
+  enabled: true
+  schedule: daily
+  params:
+    query: ((cat:cs.AI OR cat:cs.CL OR cat:cs.LG OR cat:cs.MA OR cat:cs.SE OR cat:cs.RO OR cat:cs.NE) AND ((ti:"harness evolution"
+      OR abs:"harness evolution") OR (ti:"harness optimization" OR abs:"harness optimization") OR (ti:"self-evolving harness"
+      OR abs:"self-evolving harness") OR (ti:"harness self-improvement" OR abs:"harness self-improvement") OR ((ti:"agent
+      harness" OR abs:"agent harness") AND ((ti:evolv* OR abs:evolv*) OR (ti:optimiz* OR abs:optimiz*) OR (ti:"self-improv*"
+      OR abs:"self-improv*"))) OR ((ti:scaffold OR abs:scaffold) AND (ti:"self-improv*" OR abs:"self-improv*")) OR (ti:"automated
+      design of agent*" OR abs:"automated design of agent*") OR ((ti:"meta-agent" OR abs:"meta-agent") AND ((ti:evolv* OR
+      abs:evolv*) OR (ti:"self-improv*" OR abs:"self-improv*")))))
+    fallback_keywords: &id001
+    - harness
+    - scaffold
+    - recursive self
+    - self-improv
+    - self-evolv
+    - self-modif
+    - agent
+    - skill
+    - memory
+    - world model
+    - self-play
+    - AI scientist
+    - automated AI research
+    - continual learning
+  notes: Verified Atom API on 2026-10-27. Exact requested title/abstract query group; 3-second request pacing.
+- id: arxiv-rsi
+  kind: arxiv_query
+  enabled: true
+  schedule: daily
+  params:
+    query: ((cat:cs.AI OR cat:cs.CL OR cat:cs.LG OR cat:cs.MA OR cat:cs.SE OR cat:cs.RO OR cat:cs.NE) AND ((ti:"recursive
+      self-improvement" OR abs:"recursive self-improvement") OR (ti:"self-improving agent*" OR abs:"self-improving agent*")
+      OR (ti:"self-evolving agent*" OR abs:"self-evolving agent*") OR (ti:"self-modifying" OR abs:"self-modifying") OR (ti:"Gödel
+      machine" OR abs:"Gödel machine") OR (ti:"Godel machine" OR abs:"Godel machine") OR ((ti:"open-ended" OR abs:"open-ended")
+      AND (ti:agent OR abs:agent) AND (ti:"self-improv*" OR abs:"self-improv*"))))
+    fallback_keywords: *id001
+  notes: Verified Atom API on 2026-10-27. Exact requested title/abstract query group; 3-second request pacing.
+- id: arxiv-adjacent
+  kind: arxiv_query
+  enabled: true
+  schedule: daily
+  params:
+    query: ((cat:cs.AI OR cat:cs.CL OR cat:cs.LG OR cat:cs.MA OR cat:cs.SE OR cat:cs.RO OR cat:cs.NE) AND ((ti:"skill evolution"
+      OR abs:"skill evolution") OR ((ti:"experience-driven" OR abs:"experience-driven") AND (ti:agent OR abs:agent)) OR (ti:"automated
+      AI research" OR abs:"automated AI research") OR ((ti:"AI scientist" OR abs:"AI scientist") AND (ti:"self-improv*" OR
+      abs:"self-improv*")) OR ((ti:"self-play" OR abs:"self-play") AND (ti:"zero data" OR abs:"zero data")) OR ((ti:"continual
+      learning" OR abs:"continual learning") AND (ti:agent OR abs:agent) AND ((ti:harness OR abs:harness) OR (ti:skill OR
+      abs:skill) OR (ti:memory OR abs:memory)))))
+    fallback_keywords: *id001
+  notes: Verified Atom API on 2026-10-27. Exact requested title/abstract query group; 3-second request pacing.
+- id: s2-citations
+  kind: s2_citations
+  enabled: false
+  schedule: weekly
+  params:
+    base_url: https://api.semanticscholar.org/graph/v1
+  notes: 'Not verified: S2_API_KEY is absent. Configure the key and verify an authenticated response before enabling. Last
+    author is an operational tracking heuristic, not verified corresponding authorship.'
+- id: s2-authors
+  kind: s2_authors
+  enabled: false
+  schedule: weekly
+  params:
+    base_url: https://api.semanticscholar.org/graph/v1
+  notes: 'Not verified: S2_API_KEY is absent. Configure the key and verify an authenticated response before enabling. Last
+    author is an operational tracking heuristic, not verified corresponding authorship.'
+- id: hf-daily
+  kind: hf_daily
+  enabled: true
+  schedule: daily
+  params:
+    url: https://huggingface.co/api/daily_papers
+    keywords: *id001
+  notes: Primary supplementary discovery source per owner preference. Verified HTTP 200 JSON list with original title, summary,
+    authors, upvotes, githubRepo. Backfills every requested date; never uses the HF ai_summary field.
+- id: rss-sakana
+  kind: rss
+  enabled: true
+  schedule: daily
+  params:
+    url: https://sakana.ai/feed.xml
+    lookback_days: 14
+  notes: Verified RSS/Atom HTTP 200 on 2026-10-27. This is a broad institutional feed; arXiv links become paper source hits,
+    other posts require owner selection.
+- id: rss-metr
+  kind: rss
+  enabled: true
+  schedule: daily
+  params:
+    url: https://metr.org/feed.xml
+    lookback_days: 14
+  notes: Verified RSS/Atom HTTP 200 on 2026-10-27. This is a broad institutional feed; arXiv links become paper source hits,
+    other posts require owner selection.
+- id: rss-openai
+  kind: rss
+  enabled: true
+  schedule: daily
+  params:
+    url: https://openai.com/news/rss.xml
+    lookback_days: 14
+  notes: Verified RSS/Atom HTTP 200 on 2026-10-27. This is a broad institutional feed; arXiv links become paper source hits,
+    other posts require owner selection.
+- id: rss-deepmind
+  kind: rss
+  enabled: true
+  schedule: daily
+  params:
+    url: https://deepmind.google/blog/rss.xml
+    lookback_days: 14
+  notes: Verified RSS/Atom HTTP 200 on 2026-10-27. This is a broad institutional feed; arXiv links become paper source hits,
+    other posts require owner selection.
+- id: rss-weco
+  kind: rss
+  enabled: true
+  schedule: daily
+  params:
+    url: https://www.weco.ai/blog/rss.xml
+    lookback_days: 14
+  notes: Verified RSS/Atom HTTP 200 on 2026-10-27. This is a broad institutional feed; arXiv links become paper source hits,
+    other posts require owner selection.
+- id: rss-anthropic-research
+  kind: rss
+  enabled: false
+  schedule: daily
+  params:
+    url: https://www.anthropic.com/research
+  notes: Research page is HTML, has no advertised RSS/Atom link. /rss.xml and /news/rss.xml returned 404. Disabled; no third-party
+    substitute configured.
+- id: rss-anthropic-news
+  kind: rss
+  enabled: false
+  schedule: daily
+  params:
+    url: https://www.anthropic.com/news
+  notes: News page is HTML, has no advertised RSS/Atom link. /rss.xml and /news/rss.xml returned 404. Disabled; no third-party
+    substitute configured.
+- id: rss-prime-intellect
+  kind: rss
+  enabled: false
+  schedule: daily
+  params:
+    url: https://www.primeintellect.ai/blog
+  notes: /blog/rss.xml, /rss.xml and /feed.xml returned 404; no valid feed verified. Disabled; no third-party substitute configured.
+- id: github-releases
+  kind: github_releases
+  enabled: true
+  schedule: daily
+  params:
+    url: https://api.github.com/repos/{owner}/{repo}/releases
+    lookback_days: 14
+  notes: Verified HTTP 200 JSON list from simular-ai/Agent-S (2 releases) and ServiceNow/StarHarness (empty list). One unauthenticated
+    request hit HTTP403; GITHUB_TOKEN is recommended in CI. Only version and link are published.

@@ -3,38 +3,259 @@
   "title": "Follow RSI reviewed public feed",
   "type": "object",
   "additionalProperties": false,
-  "required": ["version", "reviewed_only", "updated_at", "weeks", "items"],
+  "required": [
+    "version",
+    "reviewed_only",
+    "updated_at",
+    "weeks",
+    "items"
+  ],
   "properties": {
-    "version": {"const": 1},
-    "reviewed_only": {"const": true},
-    "updated_at": {"type": ["string", "null"]},
-    "weeks": {"type": "array", "maxItems": 4, "uniqueItems": true, "items": {"type": "string", "pattern": "^\\d{4}-W\\d{2}$"}},
-    "items": {"type": "array", "items": {"$ref": "#/$defs/item"}}
+    "version": {
+      "const": 1
+    },
+    "reviewed_only": {
+      "const": true
+    },
+    "updated_at": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "weeks": {
+      "type": "array",
+      "maxItems": 4,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^\\d{4}-W\\d{2}$"
+      }
+    },
+    "items": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/item"
+      }
+    },
+    "dates": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+      }
+    }
   },
   "$defs": {
-    "evidence": {"type": "object", "additionalProperties": false, "required": ["value", "quote"], "properties": {
-      "value": {"enum": ["yes", "unknown"]}, "quote": {"type": ["string", "null"]}
-    }, "allOf": [{"if": {"properties": {"value": {"const": "yes"}}}, "then": {"properties": {"quote": {"type": "string", "minLength": 5, "maxLength": 60}}}}]},
-    "item": {"type": "object", "additionalProperties": false,
-      "required": ["id", "arxiv_id", "version", "title", "short_title", "authors", "published", "direction", "summary_zh", "summary_en", "evidence_quick", "evidence_notice", "links", "week", "review_decision", "repo_id"],
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "value",
+        "quote"
+      ],
       "properties": {
-        "id": {"type": "string"}, "arxiv_id": {"type": ["string", "null"]}, "version": {"type": ["integer", "string", "null"]},
-        "title": {"type": "string"}, "short_title": {"type": "string"}, "authors": {"type": "array", "items": {"type": "string"}}, "published": {"type": "string"},
-        "direction": {"type": "object", "additionalProperties": false, "required": ["primary", "harness_sub", "secondary"], "properties": {
-          "primary": {"enum": ["harness", "model_weights", "data_task", "ai4ai", "experience_world_model", "meta", "embodied", "evaluation_benchmark", "theory_survey", "safety_governance"]},
-          "harness_sub": {"enum": ["evolve_main", "generalize", "evidence_selection", "improver", "component", "coevolution", null]},
-          "secondary": {"type": "array", "maxItems": 2, "items": {"type": "string"}}
-        }},
-        "summary_zh": {"type": "string"}, "summary_en": {"type": "string"},
-        "evidence_quick": {"type": "object", "additionalProperties": false, "required": ["held_out", "matched_budget", "cross_model", "code_released"], "properties": {
-          "held_out": {"$ref": "#/$defs/evidence"}, "matched_budget": {"$ref": "#/$defs/evidence"}, "cross_model": {"$ref": "#/$defs/evidence"}, "code_released": {"$ref": "#/$defs/evidence"}
-        }},
-        "evidence_notice": {"const": "Automated, unverified"},
-        "source_hits": {"type": "array", "items": {"type": "string"}},
-        "hf_upvotes": {"type": "integer", "minimum": 0},
-        "links": {"type": "object", "additionalProperties": {"type": "string", "pattern": "^https?://"}},
-        "week": {"type": "string", "pattern": "^\\d{4}-W\\d{2}$"},
-        "review_decision": {"enum": ["accept", "move"]}, "repo_id": {"type": ["string", "null"]}
+        "value": {
+          "enum": [
+            "yes",
+            "unknown"
+          ]
+        },
+        "quote": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "value": {
+                "const": "yes"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "quote": {
+                "type": "string",
+                "minLength": 5,
+                "maxLength": 60
+              }
+            }
+          }
+        }
+      ]
+    },
+    "item": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "arxiv_id",
+        "version",
+        "title",
+        "short_title",
+        "authors",
+        "published",
+        "direction",
+        "summary_zh",
+        "summary_en",
+        "evidence_quick",
+        "evidence_notice",
+        "links",
+        "week",
+        "review_decision",
+        "repo_id"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "arxiv_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "version": {
+          "type": [
+            "integer",
+            "string",
+            "null"
+          ]
+        },
+        "title": {
+          "type": "string"
+        },
+        "short_title": {
+          "type": "string"
+        },
+        "authors": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "published": {
+          "type": "string"
+        },
+        "direction": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "primary",
+            "harness_sub",
+            "secondary"
+          ],
+          "properties": {
+            "primary": {
+              "enum": [
+                "harness",
+                "model_weights",
+                "data_task",
+                "ai4ai",
+                "experience_world_model",
+                "meta",
+                "embodied",
+                "evaluation_benchmark",
+                "theory_survey",
+                "safety_governance"
+              ]
+            },
+            "harness_sub": {
+              "enum": [
+                "evolve_main",
+                "generalize",
+                "evidence_selection",
+                "improver",
+                "component",
+                "coevolution",
+                null
+              ]
+            },
+            "secondary": {
+              "type": "array",
+              "maxItems": 2,
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "summary_zh": {
+          "type": "string"
+        },
+        "summary_en": {
+          "type": "string"
+        },
+        "evidence_quick": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "held_out",
+            "matched_budget",
+            "cross_model",
+            "code_released"
+          ],
+          "properties": {
+            "held_out": {
+              "$ref": "#/$defs/evidence"
+            },
+            "matched_budget": {
+              "$ref": "#/$defs/evidence"
+            },
+            "cross_model": {
+              "$ref": "#/$defs/evidence"
+            },
+            "code_released": {
+              "$ref": "#/$defs/evidence"
+            }
+          }
+        },
+        "evidence_notice": {
+          "const": "Automated, unverified"
+        },
+        "source_hits": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "hf_upvotes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "links": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string",
+            "pattern": "^https?://"
+          }
+        },
+        "week": {
+          "type": "string",
+          "pattern": "^\\d{4}-W\\d{2}$"
+        },
+        "review_decision": {
+          "enum": [
+            "accept",
+            "move"
+          ]
+        },
+        "repo_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "review_date": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+        }
       }
     }
   }

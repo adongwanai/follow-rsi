@@ -1,0 +1,54 @@
+name: Follow RSI prompt evaluation
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+    paths:
+      - 'feed/prompts/**'
+      - 'feed/model.yaml'
+  workflow_dispatch:
+permissions:
+  contents: read
+  pull-requests: write
+concurrency:
+  group: follow-rsi-state-${{ github.repository }}
+  cancel-in-progress: false
+jobs:
+  evaluate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      # Never execute a PR checkout with an API key. ci.py imports only checked
+      # prompt text (named-variable interpolation) and the model name as data.
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+      - run: python -m pip install -r requirements.txt
+      - name: Evaluate trusted code with proposed prompt inputs
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          LLM_API_KEY: ${{ (github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository) && secrets.LLM_API_KEY || '' }}
+          LLM_PROVIDER: ${{ vars.LLM_PROVIDER }}
+          LLM_MODEL: ${{ vars.LLM_MODEL }}
+          LLM_BASE_URL: ${{ vars.LLM_BASE_URL }}
+        run: python -m scripts.feed.ci evaluate
+      - name: Preserve evaluation report as a PR artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: follow-rsi-eval-${{ github.event.pull_request.number || github.run_id }}
+          path: |
+            feed/eval/report.json
+            feed/eval/report.md
+            feed/eval/metadata-status.json
+      - name: Persist default-branch evaluation cache
+        if: always() && github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python -m scripts.feed.ci commit --message "Update Follow RSI prompt evaluation" --paths feed/eval data/feed/cache

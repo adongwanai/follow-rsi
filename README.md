@@ -44,6 +44,8 @@ AI 正在学会改进自己。我们为它的每一步留下记录。
 
 今日动态负责「新」，证据库负责「准」，深度解读负责「懂」。
 
+**当前进度（2026-10-27）**：证据库、阅读路线、方向图和[中英导读](https://adongwanai.github.io/follow-rsi/guide.html)已上线。首轮 HF 回溯已完成，日报与周报等待首次人工审核；20 篇必读的全文证据审读、精读笔记和视频仍在待办中。详见[验收记录与待办](docs/acceptance.md)。
+
 ## RSI 研究版图
 
 按「每一轮被改进、并带入下一轮的是什么」划分出七个方向，再从协同方式、应用场景、支撑方向和横切维度四个角度展开。Harness 是证据库的重点。
@@ -400,6 +402,12 @@ flowchart LR
 - **公开 JSON 订阅源**：[`https://adongwanai.github.io/follow-rsi/feed/latest.json`](https://adongwanai.github.io/follow-rsi/feed/latest.json)，欢迎接入你自己的 Agent
 - **中文内容**：公众号、小红书、B 站「阿东玩AI」<!-- TODO: 账号链接 -->
 - **Agent Skill**：在 Claude Code、OpenClaw 里按方向订阅（即将上线）
+
+## 部署与审核
+
+- [运行与审核](docs/feed-setup.md)：密钥配置、每日审核 PR、周精选和订阅发布。
+- [开发与构建](docs/development.md)：本地预览、数据校验、测试与图片生成。
+- [验收记录](docs/acceptance.md)：真实运行结果、证据覆盖和尚未完成的内容。
 
 ## 参与
 

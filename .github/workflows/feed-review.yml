@@ -1,0 +1,87 @@
+name: Follow RSI owner review
+on:
+  schedule:
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Create today's review queue or validate an existing PR
+        type: choice
+        options: [queue, check]
+        default: queue
+      date:
+        description: Review date YYYY-MM-DD (blank means today in UTC)
+        type: string
+        default: ''
+      pr_number:
+        description: Existing review or candidate PR number for check mode
+        type: string
+        default: ''
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+    paths:
+      - 'review/**'
+      - 'data/papers.yaml'
+permissions:
+  contents: read
+concurrency:
+  group: follow-rsi-state-${{ github.repository }}
+  cancel-in-progress: false
+jobs:
+  validate-owner-decisions:
+    if: >-
+      (github.event_name == 'workflow_dispatch' && inputs.mode == 'check') ||
+      (github.event_name == 'pull_request_target' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      (startsWith(github.event.pull_request.head.ref, 'feed/review-') ||
+      startsWith(github.event.pull_request.head.ref, 'feed/picks-') ||
+      startsWith(github.event.pull_request.head.ref, 'feed/candidates-')))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+      statuses: write
+    steps:
+      # Execute trusted code and stage only the proposed YAML through GitHub's API.
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+      - run: python -m pip install -r requirements.txt
+      - name: Reject pending, stale, or invalid decisions
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number || inputs.pr_number }}
+        run: python -m scripts.feed.ci check-pr --pr-number "$PR_NUMBER"
+  queue:
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.mode != 'check')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      actions: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+      - run: python -m pip install -r requirements.txt
+      - name: Carry forward owner decisions and create the daily review PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REVIEW_DATE: ${{ inputs.date }}
+        shell: bash
+        run: |
+          args=()
+          if [[ -n "$REVIEW_DATE" ]]; then args+=(--date "$REVIEW_DATE"); fi
+          python -m scripts.feed.ci queue-daily-pr "${args[@]}"

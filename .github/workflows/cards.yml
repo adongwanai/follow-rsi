@@ -1,0 +1,43 @@
+name: Render share cards
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'data/papers.yaml'
+      - 'data/site.yaml'
+      - 'site/card*'
+      - 'site/style.css'
+      - 'site/vendor/**'
+      - 'scripts/render_cards.py'
+      - '.github/workflows/cards.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: follow-rsi-state-${{ github.repository }}
+  cancel-in-progress: false
+jobs:
+  cards:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+      - run: pip install -r requirements.txt playwright
+      - run: python -m playwright install --with-deps chromium
+      - run: sudo apt-get update && sudo apt-get install -y fonts-noto-cjk fonts-noto-core
+      - run: python scripts/build.py && python scripts/render_cards.py
+      - name: Commit generated cards
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add site/cards site/og.png assets/social-preview.png
+          if ! git diff --cached --quiet; then
+            git commit -m 'chore: refresh share cards'
+            git pull --rebase origin main
+            git push origin HEAD:main
+          fi

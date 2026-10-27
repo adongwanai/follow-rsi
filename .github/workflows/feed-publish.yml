@@ -1,0 +1,64 @@
+name: Follow RSI publish
+on:
+  pull_request_target:
+    types: [closed]
+  workflow_dispatch:
+    inputs:
+      date:
+        description: Merged daily review date YYYY-MM-DD (select only one input)
+        type: string
+        default: ''
+      week:
+        description: Merged weekly-picks ISO week (select only one input)
+        type: string
+        default: ''
+      pr_number:
+        description: Merged owner-review PR number (select only one input)
+        type: string
+        default: ''
+permissions:
+  contents: write
+  pull-requests: write
+  actions: write
+concurrency:
+  group: follow-rsi-state-${{ github.repository }}
+  cancel-in-progress: false
+jobs:
+  publish:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.pull_request.merged == true &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      (startsWith(github.event.pull_request.head.ref, 'feed/review-') ||
+      startsWith(github.event.pull_request.head.ref, 'feed/picks-')))
+    runs-on: ubuntu-latest
+    steps:
+      # ci.py checks the human owner's approval and the exact merged YAML.
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+      - run: python -m pip install -r requirements.txt playwright
+      - run: python -m playwright install --with-deps chromium
+      - run: sudo apt-get update && sudo apt-get install -y fonts-noto-cjk
+      - name: Publish approved daily or weekly edition, then dispatch Pages
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+          LLM_PROVIDER: ${{ vars.LLM_PROVIDER }}
+          LLM_MODEL: ${{ vars.LLM_MODEL }}
+          LLM_BASE_URL: ${{ vars.LLM_BASE_URL }}
+          REVIEW_DATE: ${{ inputs.date }}
+          REVIEW_WEEK: ${{ inputs.week }}
+          PR_NUMBER: ${{ inputs.pr_number }}
+        shell: bash
+        run: |
+          args=()
+          if [[ -n "$REVIEW_DATE" ]]; then args+=(--date "$REVIEW_DATE"); fi
+          if [[ -n "$REVIEW_WEEK" ]]; then args+=(--week "$REVIEW_WEEK"); fi
+          if [[ -n "$PR_NUMBER" ]]; then args+=(--pr-number "$PR_NUMBER"); fi
+          python -m scripts.feed.ci publish "${args[@]}"
