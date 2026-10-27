@@ -13,10 +13,13 @@
 | 网站 | 1280 / 400px、浅色 / 深色检查通过；筛选、OR/AND 组合、短名、排序、语言记忆、键盘焦点、详情切换正常。线上方向图与手机布局已验证。 |
 | 图片 | 104 张 1080×1350 分享卡及社交预览生成；真实仓库 URL 和二维码已写入。owner 提供的 8 张 SVG 原样保留。 |
 | README | 默认中文；README_en.md 为英文，README_zh.md 保留为中文镜像。自动统计与折叠证据库、方向图、阅读路线已接入。 |
+| GitHub 自动化 | [128 项测试](https://github.com/adongwanai/follow-rsi/actions/runs/40489111622)、[分享卡生成](https://github.com/adongwanai/follow-rsi/actions/runs/40489111664)与 [Pages 部署](https://github.com/adongwanai/follow-rsi/actions/runs/40489271404)均在真实 Actions runner 上通过。Pages 已切为 workflow 模式。 |
 | HF 真实运行 | 回溯 2026-10-14 至 2026-10-27，共 275 篇唯一条目；8 篇已在原库。其余 267 篇得到 50 include、27 borderline、185 exclude、5 schema error。 |
 | 摘要 | 77 组中英文摘要，最终数字护栏失败 0；82 篇待审、185 篇排除供抽查。没有替 owner 作出接受决定。 |
 | 日报与周报 | 离线验证日报、周精选、Atom、JSON schema、延迟指标、defer 顺延、撤稿与候选提案。真实数据演示仅保存在 Git 忽略的 build/demo/，明确标为自动通过的演示。 |
 | 密钥 | LLM 密钥在本地忽略文件和 GitHub Secrets 中；发布前对暂存文件扫描实际密钥，没有命中。 |
+
+首期 [owner 审核 PR #1](https://github.com/adongwanai/follow-rsi/pull/1) 已由 Actions 创建：82 篇待审，185 篇排除项供抽查。审核检查因 `pending` 状态按预期阻止发布；这不是构建或测试失败。线上 `feed/status.json`、徽章、日报与周报入口均返回 HTTP 200，公开 feed 通过 schema 校验且保持 0 篇，未越过人工审核。
 
 浏览器对比见 [截图](screenshots/index.html)。具体运行步骤见 [feed-setup.md](feed-setup.md)，原始数据问题见 [data-audit.md](data-audit.md)。
 

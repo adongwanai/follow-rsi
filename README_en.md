@@ -44,7 +44,7 @@ So Follow RSI does three things: **keep up with the frontier, check the receipts
 
 Today keeps you current. The evidence base keeps you accurate. Deep dives help you understand.
 
-**Current status (2026-10-27):** The evidence base, reading routes, direction map and [bilingual guide](https://adongwanai.github.io/follow-rsi/guide.html) are live. The first HF backfill is complete; daily and weekly editions await the first owner review. Full-text evidence reviews for the 20 must-reads, detailed notes and videos remain planned. See the [acceptance record and remaining work](docs/acceptance.md).
+**Current status (2026-10-27):** The evidence base, reading routes, direction map and [bilingual guide](https://adongwanai.github.io/follow-rsi/guide.html) are live. The first HF backfill is complete, with [82 pending records in the first review PR](https://github.com/adongwanai/follow-rsi/pull/1). Daily and weekly editions await owner approval. Full-text evidence reviews for the 20 must-reads, detailed notes and videos remain planned. See the [acceptance record and remaining work](docs/acceptance.md).
 
 ## The RSI research map
 
