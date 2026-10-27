@@ -115,7 +115,8 @@ def run_stage(root, stage, *, schedule='daily', days=3, sources=None, week=None,
                 'items':len(result['items']), 'path':str(root/'review/daily'/f'{date}.yaml')}
     if stage == 'publish':
         from scripts.feed.review import apply_daily_review
-        from scripts.feed.digest import publish_day
+        from scripts.feed.digest import publish_day, require_publishable_day
+        require_publishable_day(root, date)
         apply_daily_review(root, date)
         return publish_day(root, date)
     raise ValueError(f'Unknown pipeline stage: {stage}')
@@ -216,7 +217,7 @@ def main():
             (interactive_daily_review if args.command=='review' else validate_daily_review)(args.root,date)
             result = {'date':date,'status':'validated' if args.command=='check-review' else 'saved'}
     elif args.command == 'publish':
-        from scripts.feed.digest import publish_week,publish_day,publish_demo
+        from scripts.feed.digest import publish_week,publish_day,publish_demo,require_publishable_day
         from scripts.feed.review import apply_daily_review,validate_weekly_picks
         if args.demo:
             result = publish_demo(args.root,week,render_card=args.render_card)
@@ -224,6 +225,7 @@ def main():
             validate_weekly_picks(args.root,week)
             result = publish_week(args.root,week,render_card=args.render_card)
         else:
+            require_publishable_day(args.root,date)
             apply_daily_review(args.root,date)
             result = publish_day(args.root,date)
     elif args.command == 'promote':

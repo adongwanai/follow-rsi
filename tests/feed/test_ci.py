@@ -284,6 +284,34 @@ def test_weekly_release_reuses_tag_and_propagates_lookup_failure(ci_environment,
     assert api.call_count == 3
 
 
+@pytest.mark.parametrize('selector', [{'review_date': '2026-10-27'}, {'pr_number': 8}])
+def test_withdrawn_daily_ci_republish_stops_before_review_or_provenance_changes(ci_environment, monkeypatch, selector):
+    from scripts.feed import review
+    day = '2026-10-27'
+    path = ci_environment / 'review/daily' / f'{day}.yaml'
+    path.parent.mkdir(parents=True)
+    path.write_text('Original owner-approved review')
+    receipt = ci_environment / 'data/feed/review-provenance' / f'{day}.json'
+    receipt.parent.mkdir(parents=True)
+    receipt.write_text(json.dumps({'date': day, 'github_pr': 1, 'merge_commit': 'original-owner-merge'}))
+    (ci_environment / 'data/feed/withdrawn-editions.json').write_text(json.dumps({
+        day: {'reason': 'Historical backfill was published as daily news', 'withdrawn_at': day + 'T13:00:00Z'}}))
+    request = {'kind': 'daily', 'date': day, 'path': f'review/daily/{day}.yaml'}
+    monkeypatch.setattr(ci, 'publication_pr', Mock(return_value=(merged_pr(), [request], 'owner')))
+    validate, configure, apply = Mock(), Mock(), Mock()
+    monkeypatch.setattr(ci, 'validate_request', validate)
+    monkeypatch.setattr(ci, 'configure_model', configure)
+    monkeypatch.setattr(review, 'apply_daily_review', apply)
+    monkeypatch.delenv('LLM_API_KEY', raising=False)
+    before = {str(p.relative_to(ci_environment)): p.read_bytes() for p in ci_environment.rglob('*') if p.is_file()}
+    with pytest.raises(ValueError, match=f'{day} was withdrawn: Historical backfill'):
+        ci.publish(ci_environment, **selector)
+    assert before == {str(p.relative_to(ci_environment)): p.read_bytes() for p in ci_environment.rglob('*') if p.is_file()}
+    validate.assert_not_called()
+    configure.assert_not_called()
+    apply.assert_not_called()
+
+
 @pytest.mark.parametrize('kind', ['daily', 'weekly'])
 def test_daily_and_weekly_publications_have_distinct_outputs(ci_environment, monkeypatch, kind):
     from scripts.feed import review, digest, promote

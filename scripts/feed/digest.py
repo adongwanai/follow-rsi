@@ -313,7 +313,7 @@ def _render_day(root, edition, editions, directions, config):
     directory = root / "site/daily"
     directory.mkdir(parents=True, exist_ok=True)
     context = {"editions": ordered, "directions": directions, "config": config,
-               "evidence_labels": EVIDENCE_LABELS}
+               "evidence_labels": EVIDENCE_LABELS, "withdrawn_editions": load_withdrawn_editions(root)}
     if edition:
         (root / "daily").mkdir(exist_ok=True)
         for lang, suffix in (("zh", ".md"), ("en", ".en.md")):
@@ -325,9 +325,22 @@ def _render_day(root, edition, editions, directions, config):
         env.get_template("daily.html").render(edition=ordered[-1] if ordered else None, **context), encoding="utf-8")
 
 
+def load_withdrawn_editions(root):
+    path = Path(root) / "data/feed/withdrawn-editions.json"
+    return json.loads(path.read_text()) if path.exists() else {}
+
+
+def require_publishable_day(root, date):
+    """A withdrawn edition stays unpublished without changing its owner review."""
+    withdrawn = load_withdrawn_editions(root)
+    if date in withdrawn:
+        raise ValueError(f"Daily edition {date} was withdrawn: {withdrawn[date]['reason']}")
+
+
 def publish_day(root=ROOT, date=None, client=None, now=None):
     """Publish a reviewed daily snapshot. A day without approvals has no edition."""
     root = Path(root)
+    require_publishable_day(root, date)
     review = validate_daily_review(root, date)
     accepted = approved_daily_items(root, date)
     labs = [row for row in review["lab_updates"] if row["decision"] == "accept"]

@@ -451,13 +451,15 @@ def weekly_release(root, week, commit):
 
 def publish(root=ROOT, review_date=None, week=None, pr_number=None):
     from .review import apply_daily_review
-    from .digest import publish_day, publish_week
+    from .digest import publish_day, publish_week, require_publishable_day
     from .promote import promote_candidates
     from .llm import FeedLLM
     from .storage import write_json
     require_ci(root)
     pr, requests, owner = publication_pr(root, review_date, week, pr_number)
     request = requests[0]
+    if request['kind'] == 'daily':
+        require_publishable_day(root, request['date'])
     validate_request(root, request)
     configure_model(root)
     client = FeedLLM.from_env(root) if os.environ.get('LLM_API_KEY') else None

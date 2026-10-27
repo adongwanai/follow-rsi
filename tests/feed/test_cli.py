@@ -1,14 +1,16 @@
 """The complete offline pipeline must stop at the owner gate and resume safely."""
 from copy import deepcopy
 import json
+import sys
 
 import pytest
 
 from scripts.common import read_yaml
-from scripts.feed import fetch_arxiv
+from scripts.feed import cli, fetch_arxiv
 from scripts.feed.cli import configure, run_pipeline, run_stage
 from scripts.feed.guard import unknown_evidence
 from scripts.feed.storage import load_items
+from test_daily import accept_daily, make_daily_repo
 from test_review import make_repo
 
 DAY = '2026-10-27'
@@ -70,6 +72,26 @@ def test_empty_pipeline_does_not_publish_an_edition(tmp_path, monkeypatch):
     result = run_pipeline(root, date=DAY)
     assert result[-1]['status'] == 'no_approved_items'
     assert not (root / f'daily/{DAY}.md').exists()
+
+
+@pytest.mark.parametrize('entrypoint', ['stage', 'command'])
+def test_withdrawn_cli_publication_cannot_apply_review_or_change_provenance(tmp_path, monkeypatch, entrypoint):
+    root = make_daily_repo(tmp_path)
+    accept_daily(root)
+    receipt = root / 'data/feed/review-provenance' / f'{DAY}.json'
+    receipt.parent.mkdir()
+    receipt.write_text(json.dumps({'date': DAY, 'github_pr': 1, 'merge_commit': 'original-owner-merge'}))
+    (root / 'data/feed/withdrawn-editions.json').write_text(json.dumps({
+        DAY: {'reason': 'Historical backfill was published as daily news', 'withdrawn_at': DAY + 'T13:00:00Z'}}))
+    monkeypatch.setattr(cli, 'configure', lambda *args: None)
+    monkeypatch.setattr(sys, 'argv', ['feed', '--root', str(root), 'publish', '--date', DAY])
+    before = {str(path.relative_to(root)): path.read_bytes() for path in root.rglob('*') if path.is_file()}
+    with pytest.raises(ValueError, match=f'{DAY} was withdrawn: Historical backfill'):
+        if entrypoint == 'stage':
+            run_stage(root, 'publish', date=DAY)
+        else:
+            cli.main()
+    assert before == {str(path.relative_to(root)): path.read_bytes() for path in root.rglob('*') if path.is_file()}
 
 
 def test_explicit_environment_file_is_never_executed(tmp_path, monkeypatch):

@@ -40,8 +40,12 @@ def test_pending_daily_review_writes_no_public_outputs(tmp_path):
     assert not (root / "daily").exists()
 
 
-def test_daily_feed_schema_latest_index_and_idempotence(tmp_path):
+@pytest.mark.parametrize("withdrawn_date", [None, "2026-10-26"])
+def test_daily_feed_schema_latest_index_and_idempotence(tmp_path, withdrawn_date):
     root = make_daily_repo(tmp_path)
+    if withdrawn_date:
+        (root / "data/feed/withdrawn-editions.json").write_text(json.dumps({
+            withdrawn_date: {"reason": "Earlier edition withdrawn", "withdrawn_at": DAY + "T09:00:00Z"}}))
     accept_daily(root)
     report = publish_day(root, DAY, now=DAY + "T12:00:00Z")
     assert report["published"] and report["accepted"] == 1
@@ -61,6 +65,30 @@ def test_daily_feed_schema_latest_index_and_idempotence(tmp_path):
     publish_day(root, DAY)
     after = {str(path.relative_to(root)): path.read_bytes() for path in (root / "site").rglob("*") if path.is_file()}
     assert before == after
+
+
+def test_withdrawn_daily_republish_preserves_review_provenance_and_empty_public_feed(tmp_path):
+    root = make_daily_repo(tmp_path)
+    accept_daily(root)
+    provenance = {"github_pr": 1, "owner_login": "owner", "merge_commit": "original-owner-merge"}
+    apply_daily_review(root, DAY, provenance=provenance)
+    publish_day(root, DAY, now=DAY + "T12:00:00Z")
+    receipt = root / "data/feed/review-provenance" / f"{DAY}.json"
+    receipt.parent.mkdir()
+    receipt.write_text(json.dumps({"date": DAY, **provenance}))
+    (root / "data/feed/withdrawn-editions.json").write_text(json.dumps({
+        DAY: {"reason": "Historical backfill was published as daily news", "withdrawn_at": DAY + "T13:00:00Z"}}))
+    for path in (root / "site/daily" / f"{DAY}.json", root / "site/daily" / f"{DAY}.html",
+                 root / "daily" / f"{DAY}.md", root / "daily" / f"{DAY}.en.md"):
+        path.unlink()
+    _write_feed(root, [], read_yaml(root / "site.config.yaml"), set())
+    initialize_public(root)
+    before = {str(path.relative_to(root)): path.read_bytes() for path in root.rglob("*") if path.is_file()}
+    with pytest.raises(ValueError, match=f"{DAY} was withdrawn: Historical backfill"):
+        publish_day(root, DAY, now=DAY + "T14:00:00Z")
+    assert before == {str(path.relative_to(root)): path.read_bytes() for path in root.rglob("*") if path.is_file()}
+    assert json.loads((root / "site/feed/latest.json").read_text())["items"] == []
+    assert "<entry>" not in (root / "site/feed/atom.xml").read_text()
 
 
 def test_no_daily_acceptance_preserves_latest_index(tmp_path):
