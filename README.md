@@ -83,7 +83,7 @@ AI 正在学会改进自己。我们为它的每一步留下记录。
 
 <!-- AUTO:STATS:START -->
 
-98 篇正式收录 · 6 篇候选 · 20 篇必读 · 13 篇待细读。
+98 篇正式收录 · 26 篇候选 · 20 篇必读 · 13 篇待细读。
 
 证据字段已审 **6.5%**（77/1176，每篇 8 项核查 + 4 项分类）；其中 8 项核查已审 **5.5%**（43/784）。统计仅含正式收录；已审指值非 `unknown`，包含 `no`、`partial`、`na`，不表示达标。
 
@@ -100,7 +100,7 @@ AI 正在学会改进自己。我们为它的每一步留下记录。
 | 四、模型与 Harness 协同进化 | 13 |
 | 五、评测、归因与可信度 | 14 |
 | 六、综述与理论 | 9 |
-| 延伸候选（未正式收录） | 6 |
+| 延伸候选（未正式收录） | 26 |
 
 </details>
 
@@ -347,7 +347,7 @@ AI 正在学会改进自己。我们为它的每一步留下记录。
 
 ### 延伸候选（未正式收录）
 
-<details><summary>6 篇论文</summary>
+<details><summary>26 篇论文</summary>
 
 | 日期 | 论文 | 机构 | 核心机制 | 关键结果 | 证据 | 页面 |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -357,6 +357,26 @@ AI 正在学会改进自己。我们为它的每一步留下记录。
 | 2026-09 | [Self-Evolving Harness on Multiple Tasks with the Agent as Its Own Optimizer](https://arxiv.org/abs/2609.38372) |  | 每批演化混合五个领域的基准，只在留出任务上计分。 |  | ❔ ❔ ❔ ❔ | [证据卡](papers/self-evolving-multi-task.md) |
 | 2026-09 | [Composing Task-specific Agent Harnesses at Test Time with Reusable Primitives (STITCH)](https://arxiv.org/abs/2609.38912) |  | 测试时用可复用原语组装任务专用 Harness，比固定 Harness 最多高 12 分。 |  | ❔ ❔ ❔ ❔ | [证据卡](papers/stitch.md) |
 | 2026-10 | [Recurrent Harness for Agentic Continual Learning (ReHarness)](https://arxiv.org/abs/2610.12668) |  | 面向持续学习的循环 Harness，在流式在线协议下增加反向修订。 |  | ❔ ❔ ❔ ❔ | [证据卡](papers/reharness.md) |
+| 2026-10-05 | [MemPilot: Orchestrating On-Demand Multimodal Memory Curation for LLM Agents](https://arxiv.org/abs/2610.06830) **待细读 / Needs verification** |  | MemPilot 改进性能–成本–延迟偏好下的按需记忆整理，用强化学习优化多步 LLM 策略，在检索 query-agnostic 记忆与委托异构 LLM/VLM 按查询整理多模态历史间选择，并控制证据量、指令、模型与视觉访问；在五个多模态 agent-memory 基准上，偏好扫描的前沿宽于现有 trade-off-aware 基线。 |  | ❔ ❔ ❔ ❔ | [证据卡](papers/feed-2610-06830.md) |
+| 2026-10-08 | [FlowState: Execution State as Memory for Long-Horizon LLM Agents](https://arxiv.org/abs/2609.34565) **待细读 / Needs verification** |  | FlowState 将执行状态作为可跨请求保留与回溯的记忆，通过 Incremental State Update 维护当前状态、由 Progressive State Access 按需展开历史状态与证据。与使用同一 DeepSeek-V4-Flash 模型的全上下文基线相比，它在 τ^3-Bench 上的平均通过率提升 13.95 个百分点，总 token 消耗降低 40.6%。 |  | ❔ ❔ ❔ ❔ | [证据卡](papers/feed-2609-34565.md) |
+| 2026-10-11 | [VIEWCRAFT: Evolving What Multimodal Agents See and How They Read It](https://arxiv.org/abs/2610.15915) **待细读 / Needs verification** |  | ViewCraft 联合演化可执行证据接口与其阅读过程，用失败轨迹指导修订、重放和配对评估保留有效改动，在八个基准上平均比 direct execution 提升 6.1 points，且每个基准都有增益。 |  | ❔ ❔ ❔ ❔ | [证据卡](papers/feed-2610-15915.md) |
+| 2026-10-12 | [DuoDiscover: Scaling Autonomous Discovery Beyond the Evaluation Bottleneck](https://arxiv.org/abs/2610.17184) **待细读 / Needs verification** |  | DuoDiscover 让编码智能体群各自协同发现优化目标与快速代理评估器 yardstick，并以保真度测试剔除漂移的代理，绕开真实评估昂贵的瓶颈。在评估耗时长达 28 hours 的 CPU 微架构优化任务上，作者称其 16.7 days 内超过 AlphaEvolve-based ArchAgent v2 与最佳人类设计，增益达 ArchAgent v2 的 1.65times。 |  | ❔ ❔ ❔ ❔ | [证据卡](papers/feed-2610-17184.md) |
+| 2026-10-12 | [EAU: Environment-Agent-User Co-evolution for Training User-Centric Agents](https://arxiv.org/abs/2610.16523) **待细读 / Needs verification** |  | EAU 让用户模拟器、环境与智能体在多轮强化学习训练中协同演化，通过监测轨迹并热替换针对性修改来改进用户模拟器、环境和奖励设置；在基准和模型上，总体得分较最强基线提高 14.7--15.0%，ColBench 成功任务完成率最多提高 36.7%。 |  | ❔ ❔ ❔ ❔ | [证据卡](papers/feed-2610-16523.md) |
+| 2026-10-13 | [Pack Light, CarryOn: Building Object-Oriented Context for Long-Horizon Agents](https://arxiv.org/abs/2610.18784) **待细读 / Needs verification** |  | CarryOn将长程智能体上下文从交互历史改为围绕可复用任务对象组织，通过跨折叠维护载体记录并按证据与环境检查修订受影响记录，保留未受影响记录并更新执行上下文；在OSWorld 2.0和BrowseComp-Plus上分别提升5.8%和7.0%，总token用量分别减少51.9%和22.9%。 |  | ❔ ❔ ❔ ❔ | [证据卡](papers/feed-2610-18784.md) |
+| 2026-10-13 | [Socratic Skill Learning: Interleaving Teaching and Practice for Transferable Agent Skills](https://arxiv.org/abs/2610.17860) **待细读 / Needs verification** |  | 提出 Socratic Skill Learning（SSL），将专家教学与学生实操交错进行，学生始终是唯一的环境操作者与 Skill 作者，可提问、测试并改写建议，从而学到可迁移的智能体技能；Issue-Guided SSL 在主队列上达到 0.805 utility，比 Fixed-Window SSL 少用 61.7% 的 Educator tokens 和 16.9% 的总获取 tokens。 |  | ❔ ❔ ❔ ❔ | [证据卡](papers/feed-2610-17860.md) |
+| 2026-10-14 | [SwarmRSI: Recursive Self-Improvement through Evolving Scientific Agent Swarm](https://arxiv.org/abs/2610.20431) **待细读 / Needs verification** |  | 提出 SwarmRSI 框架，用 Feedback-Guided Swarm Mutation 依据其他智能体的实验反馈修正假设及其实现，并用 Complementary Swarm Recombination 复用保留的假设与互补程序组件，由 Recursive Swarm Evolution 将两者整合为反馈回路；在 OpenProblems、NatureBench 与 MLE-Bench Lite 上取得 SOTA 表现。 |  | ❔ ❔ ❔ ❔ | [证据卡](papers/feed-2610-20431.md) |
+| 2026-10-15 | [CarryOn: A Dual-Loop Harness for Personalized and Reliable Robot Assistance](https://arxiv.org/abs/2610.21453) **待细读 / Needs verification** |  | CarryOn 通过规划环持续维护并更新用户与场景上下文、执行环监督动作并在失败时调用可复用恢复技能，来增强冻结的 VLA 策略；在真实机器人和仿真中，它将已安全微调 VLA 的违规率从 52.6% 降至 6.1%。 |  | ❔ ❔ ❔ ❔ | [证据卡](papers/feed-2610-21453.md) |
+| 2026-10-15 | [TokenEconomizer: Experience-Driven Black-Box Cost Control for Coding Agents](https://arxiv.org/abs/2610.22732) **待细读 / Needs verification** |  | 提出外部控制器 TokenEconomizer，通过选择注入的操作微技能、剪除持续无关的工具并判断何时干预无效失败循环，降低连续编码任务中的 token 成本，在 Claude Code、Codex 与 GitHub Copilot CLI 上平均减少 18.4-30.9% 的 token 成本而任务成功率相当。 |  | ❔ ❔ ❔ ❔ | [证据卡](papers/feed-2610-22732.md) |
+| 2026-10-15 | [Librarian Agents: Training LLMs to Curate Long-Context Workspaces that Anticipate Future Queries](https://arxiv.org/abs/2610.22273) **待细读 / Needs verification** |  | Librarian Agents 让 builder agent 把原始文档组织成含合成文件与引用链接的层级文件系统，并用强化学习优化构建策略以提升下游答题准确率；在 BrowseComp-Plus 上比最强检索与预计算基线高 33 个百分点。 |  | ❔ ❔ ❔ ❔ | [证据卡](papers/feed-2610-22273.md) |
+| 2026-10-16 | [DiscoveryRSI: Recursively Learning to Discover Valuable Hypotheses](https://arxiv.org/abs/2610.23839) **待细读 / Needs verification** |  | DiscoveryRSI 改进从研究过程学习有价值假设的方式，通过多智能体演化搜索构建假设树、把研究方案编译为可执行 Harbor 任务并递归学习，其 DiscoveryRSI-27B 的假设与模型截止后发表研究的对应率达到 6.3%，高于 GPT-6 Luna 的 2.5% 和 Claude Opus 5 的 2.3%。 |  | ❔ ❔ ❔ ❔ | [证据卡](papers/feed-2610-23839.md) |
+| 2026-10-16 | [HexaShell: A Thin Harness for Exploring the Limits of VLM Agents as Robot Coding Agents](https://arxiv.org/abs/2610.23479) **待细读 / Needs verification** |  | HexaShell 以薄封装改进 VLM 编码智能体控制机器人的方式：仅把经命令行发出的命令转成双臂动作，并让智能体在失败后读日志、编写基于 triangulation 的工具；在 42 个 RoboDojo 任务上，作者称取得 39.7% 成功率和 48.0 进度分，达到新的 state of the art。 |  | ❔ ❔ ❔ ❔ | [证据卡](papers/feed-2610-23479.md) |
+| 2026-10-17 | [Co-adaptive Rule Routing and Constraining for Structured Knowledge Retrieval](https://arxiv.org/abs/2610.14465) **待细读 / Needs verification** |  | CoRE 在无预定义查询-规则对的情况下联合学习为每个查询分配推理规则并在该规则约束下检索证据，通过路由策略的强化学习与规则约束检索器的对比学习交替共适应，在 STaRK-QA 数据集上验证了有效性。 |  | ❔ ❔ ❔ ❔ | [证据卡](papers/feed-2610-14465.md) |
+| 2026-10-18 | [Epi: Towards a Persistent, Self-Improving Agent for Autonomous Research](https://arxiv.org/abs/2610.24944) **待细读 / Needs verification** |  | Épi 借助持久研究历史、分层记忆、分支与独立评审及固定验证器，让自主研究智能体跨会话延续实验并从积累的经验中改进方法；作者称其产出 120 项创纪录结果，例如将 n-queens 常数的区间收窄约 84 倍。 |  | ❔ ❔ ❔ ❔ | [证据卡](papers/feed-2610-24944.md) |
+| 2026-10-19 | [Remembering Has a Price: Learning Memory Worth under Resource Constraints](https://arxiv.org/abs/2610.26453) **待细读 / Needs verification** |  | 为应对资源受限下现有终身记忆方法效果有限的问题，提出轻量在线记忆框架 TokenWorth，从稀疏执行反馈学习依赖查询的记忆价值并用于检索与有界记忆管理；在三个 LifelongAgentBench 环境及本地与 API 部署中，其任务成功率最高且输出 token 最少。 |  | ❔ ❔ ❔ ❔ | [证据卡](papers/feed-2610-26453.md) |
+| 2026-10-19 | [Which Agent's Skill Should Change? Group-Relative Credit Assignment for Evolving Multi-Agent Teams](https://arxiv.org/abs/2610.27227) **待细读 / Needs verification** |  | GRSE（Group-Relative Skill Evolution）在同一技能库下多次执行每个问题，通过对比执行结果把团队奖励归因到 agent-skill 对，并诊断失败；它在 HotpotQA 和除 open-domain 外的所有 LoCoMo 类别上优于 MASkills，多跳问题增益最大（+6.7 和 +3.2 F1）。 |  | ❔ ❔ ❔ ❔ | [证据卡](papers/feed-2610-27227.md) |
+| 2026-10-19 | [Unsupervised Tool Evolution for Coding Agents in Data-Lake Analytics](https://arxiv.org/abs/2610.27327) **待细读 / Needs verification** |  | 提出无监督工具演化方法 TEAL，由 Explorer 从数据湖、Critic 从 Worker 轨迹提议工具，仅当 Worker 重跑时无需额外步骤即采用且答案有轨迹证据支持才保留，在 KramaBench 与 LakeQA 上评估；15 步预算下使 Sonnet-5 分别提升 9.3 点和 21.7 点。 |  | ❔ ❔ ❔ ❔ | [证据卡](papers/feed-2610-27327.md) |
+| 2026-10-21 | [From VLM Planners to Robotic Agents: Self-Evolving Harnesses for History-Dependent Manipulation](https://arxiv.org/abs/2610.29560) **待细读 / Needs verification** |  | 将高层VLM规划器组织为带可编辑harness的机器人智能体，用观测与执行反馈维护任务上下文，并通过环境推演自我进化harness以应对历史依赖操作；在RoboMME上，SERA自主选择配置达到51.38%总体成功率，无自我进化时为44.38%。 |  | ❔ ❔ ❔ ❔ | [证据卡](papers/feed-2610-29560.md) |
+| 2026-10-26 | [Skill^{infty}: Recursive Self-Improvement for Agent Skill Optimization](https://arxiv.org/abs/2610.35434) **待细读 / Needs verification** |  | Skill^{infty} 把技能优化做成递归自我改进，meta agent 按 meta-skill 优化任务技能，并用同一流程改写 meta-skill 本身，该 meta-skill 与任务技能解耦、可在多个任务上精炼后跨域复用；在 83 个 SkillsBench 任务上通过率为 60.7%，高于人工整理技能的 56.4% 和 SkillEvolver 的 54.5%。 |  | ❔ ❔ ❔ ❔ | [证据卡](papers/feed-2610-35434.md) |
 
 </details>
 
