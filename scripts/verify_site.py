@@ -63,6 +63,12 @@ def verify(output=None):
             page.on('pageerror', lambda error: errors.append(str(error)))
             page.goto(base + '/site/index.html')
             stats = page.evaluate('HARNESS_DATA.stats')
+            expect(page.locator('#sort')).to_have_value('oldest')
+            for group in page.locator('.rows').all():
+                dates = group.locator('.row .date').all_text_contents()
+                assert dates == sorted(dates)
+            recent_dates = page.evaluate('HARNESS_DATA.stats.recent_ids.map(id => HARNESS_DATA.papers.find(p => p.id === id).date)')
+            assert recent_dates == sorted(recent_dates)
             expect(page.locator('#result-count')).to_contain_text(f"{stats['must_read']} / {stats['included']}")
             assert page.locator('[data-view]').evaluate_all('(buttons)=>buttons.map(b=>b.dataset.view)') == ['papers', 'map', 'routes', 'gaps']
             assert not page.locator('.foundations').get_attribute('open')
@@ -114,9 +120,10 @@ def verify(output=None):
             checks.append('sort modes and language/theme persistence')
             page.goto(base+'/site/index.html#p-hda')
             expect(page.locator('#dtitle')).to_contain_text('Harness-Delta Attribution')
-            page.keyboard.press('ArrowRight')
-            expect(page.locator('#dtitle')).not_to_contain_text('Harness-Delta Attribution')
+            expect(page.locator('#next')).to_be_disabled()
             page.keyboard.press('ArrowLeft')
+            expect(page.locator('#dtitle')).not_to_contain_text('Harness-Delta Attribution')
+            page.keyboard.press('ArrowRight')
             expect(page.locator('#dtitle')).to_contain_text('Harness-Delta Attribution')
             page.keyboard.press('Escape')
             page.goto(base+'/site/index.html#routes')
@@ -153,7 +160,7 @@ def verify(output=None):
                 try { history.replaceState(null, '', '#blocked'); return false; }
                 catch (error) { return error.name === 'SecurityError'; }
             }''')
-            for target, content in [('map', '.map-focus'), ('routes', '.route'), ('gaps', '.gap'), ('papers', '.row')]:
+            for target, content in [('map', '.map-focus'), ('routes', '.route'), ('gaps', '.gap'), ('papers', '.row:visible')]:
                 frame.locator(f'[data-view="{target}"]').click()
                 expect(frame.locator(content).first).to_be_visible()
                 expect(frame.locator(f'[data-view="{target}"]')).to_have_attribute('aria-current', 'page')
@@ -167,9 +174,10 @@ def verify(output=None):
                 frame.locator('#copy').click()
                 expect(frame.locator('#copymsg')).to_contain_text('请从已发布的网站复制分享链接')
             sandbox.evaluate('(value)=>HARNESS_DATA.config.base_url=value', public_base)
-            frame.locator('#next').click()
-            expect(frame.locator('#dtitle')).not_to_contain_text('Harness-Delta Attribution')
+            expect(frame.locator('#next')).to_be_disabled()
             frame.locator('#prev').click()
+            expect(frame.locator('#dtitle')).not_to_contain_text('Harness-Delta Attribution')
+            frame.locator('#next').click()
             expect(frame.locator('#dtitle')).to_contain_text('Harness-Delta Attribution')
             frame.locator('#dclose').click()
             expect(frame.locator('#drawer')).not_to_be_visible()

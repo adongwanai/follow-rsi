@@ -1,5 +1,7 @@
+from copy import deepcopy
 import json
 from pathlib import Path
+import re
 import xml.etree.ElementTree as ET
 
 import jsonschema
@@ -119,6 +121,59 @@ def test_empty_weekly_picks_section_is_absent_and_intro_guard_retries(tmp_path):
     assert "Owner's picks" not in (root / "digests" / f"{WEEK}.en.md").read_text()
 
 
+def test_daily_and_weekly_body_order_is_chronological_without_reordering_picks(tmp_path):
+    root = make_daily_repo(tmp_path)
+    sources = load_items(root)
+    earlier = next(item for item in sources if item["arxiv_id"] == "2610.99992")
+    earlier.update(published="2026-10-25T10:00:00Z", seed_hits=[], hf_upvotes=0)
+    earlier_lab = deepcopy(next(item for item in sources if item["kind"] == "release"))
+    earlier_lab.update(id="release:https://example.org/release/0", title="Earlier lab update",
+                       release_version="v0", published="2026-10-25T10:00:00Z",
+                       links={"url": "https://example.org/release/0"})
+    save_items(root, [earlier, earlier_lab])
+    queue_daily_review(root, DAY)
+    def approve(review):
+        for row in review["items"]:
+            row["decision"] = "accept"
+        for row in review["lab_updates"]:
+            row.update(decision="accept", direction_override="harness/component")
+    write_daily(root, approve)
+    publish_day(root, DAY, now=DAY + "T12:00:00Z")
+    queue_weekly_picks(root, WEEK)
+    picks = [{"arxiv_id": ident, "why_zh": "人工精选。", "why_en": "Owner selection."}
+             for ident in ("2610.99991", "2610.99992")]
+    write_picks(root, picks=picks)
+    publish_week(root, WEEK)
+    for kind, period in (("daily", DAY), ("weekly", WEEK)):
+        manifest = json.loads((root / "site" / kind / f"{period}.json").read_text())
+        assert [item["arxiv_id"] for item in manifest["items"]] == ["2610.99992", "2610.99991"]
+        assert [item["release_version"] for item in manifest["lab_updates"]] == ["v0", "v1"]
+        html = (root / "site" / kind / f"{period}.html").read_text()
+        assert re.findall(r'<article class="weekly-paper">.*?<h3>(.*?)</h3>', html, re.S) == [
+            "Offline Borderline Fixture", "Offline Fixture"]
+        assert html.index("https://example.org/release/0") < html.index("https://example.org/release/1")
+    assert manifest["picks"] == picks
+    assert re.findall(r'<article class="weekly-pick">.*?<h3>(.*?)</h3>', html, re.S) == [
+        "Offline Fixture: Persistent Skill Evolution", "Offline Borderline Fixture"]
+    feed = json.loads((root / "site/feed/latest.json").read_text())
+    assert [item["arxiv_id"] for item in feed["items"]] == ["2610.99992", "2610.99991"]
+
+
+def test_weekly_archive_uses_chronological_order_after_backfill_and_initialization(tmp_path):
+    root = make_daily_repo(tmp_path)
+    ready_week(root)
+    publish_week(root, WEEK)
+    earlier_week = "2026-W43"
+    queue_weekly_picks(root, earlier_week)
+    publish_week(root, earlier_week)
+    path = root / "site/weekly/index.html"
+    html = path.read_text()
+    assert html.index(f'href="{earlier_week}.html"') < html.index(f'href="{WEEK}.html"')
+    path.unlink()
+    initialize_public(root)
+    assert path.read_text() == html
+
+
 def test_atom_publishes_daily_editions_once_and_ignores_weekly_updates(tmp_path):
     root = make_daily_repo(tmp_path)
     ready_week(root)
@@ -171,8 +226,11 @@ def test_feed_uses_four_calendar_weeks_and_removes_retracted_items(tmp_path):
     publish_week(root, WEEK)
     manifest = json.loads((root / "site/weekly" / f"{WEEK}.json").read_text())
     older = {**manifest, "week": "2026-W40"}
-    result = _write_feed(root, [older, manifest], {"base_url": None, "author_name": "Owner"}, {"arxiv:2610.99991"})
-    assert result["weeks"] == [WEEK] and result["items"] == []
+    boundary = {**manifest, "week": "2026-W41"}
+    middle = {**manifest, "week": "2026-W42"}
+    result = _write_feed(root, [manifest, older, middle, boundary],
+                         {"base_url": None, "author_name": "Owner"}, {"arxiv:2610.99991"})
+    assert result["weeks"] == ["2026-W41", "2026-W42", WEEK] and result["items"] == []
 
 
 def test_private_demo_cannot_mutate_owner_queue_or_public_feed(tmp_path):
@@ -225,6 +283,8 @@ def test_retractions_remove_daily_weekly_text_picks_and_cards_without_owner_chan
 def test_new_daily_version_updates_feed_and_latest_page_without_rewriting_previous_day(tmp_path):
     root = make_daily_repo(tmp_path)
     ready_week(root)
+    # A backfilled earlier edition may be published after the next edition.
+    publish_day(root, DAY, now=NEXT + "T18:00:00Z")
     first_page = (root / "site/daily" / f"{DAY}.html").read_bytes()
     item = next(item for item in load_items(root) if item["id"] == "arxiv:2610.99991")
     item.update(version=2, title="Revised Fixture: Persistent Skill Evolution")
@@ -235,12 +295,19 @@ def test_new_daily_version_updates_feed_and_latest_page_without_rewriting_previo
     publish_day(root, NEXT, now=NEXT + "T12:00:00Z")
     feed = json.loads((root / "site/feed/latest.json").read_text())
     assert len(feed["items"]) == 1 and feed["items"][0]["version"] == 2
-    assert feed["items"][0]["review_date"] == NEXT and feed["dates"] == [NEXT, DAY]
-    assert NEXT in (root / "site/daily/index.html").read_text()
+    assert feed["items"][0]["review_date"] == NEXT and feed["dates"] == [DAY, NEXT]
+    latest = (root / "site/daily/index.html").read_text()
+    assert "<h3>Revised Fixture</h3>" in latest
+    assert latest.index(f'href="{DAY}.html"') < latest.index(f'href="{NEXT}.html"')
     assert (root / "site/daily" / f"{DAY}.html").read_bytes() == first_page
     publish_week(root, WEEK)
     manifest = json.loads((root / "site/weekly" / f"{WEEK}.json").read_text())
     assert len(manifest["items"]) == 1 and manifest["items"][0]["version"] == 2
+    atom = ET.parse(root / "site/feed/atom.xml").getroot()
+    ns = {"a": "http://www.w3.org/2005/Atom"}
+    assert [entry.findtext("a:id", namespaces=ns) for entry in atom.findall("a:entry", ns)] == [
+        "urn:follow-rsi:daily:" + DAY, "urn:follow-rsi:daily:" + NEXT]
+    assert atom.findtext("a:updated", namespaces=ns) == NEXT + "T18:00:00Z"
 
 
 def test_metrics_exclude_deferred_include_and_use_first_daily_publication(tmp_path):

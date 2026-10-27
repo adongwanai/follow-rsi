@@ -70,7 +70,7 @@ def compute_stats(data):
         'evidence_coverage': coverage(FIELDS), 'check_coverage': coverage(CHECKS),
         'with_recorded_checks': sum(any(evidence(p)[k] != 'unknown' for k in CHECKS) for p in core),
         'months': {f'2026-{m:02}': sum(p['date'].startswith(f'2026-{m:02}') for p in core) for m in range(3, 11)},
-        'recent_ids': sorted(recent, key=lambda pid: next(p['date'] for p in core if p['id'] == pid), reverse=True),
+        'recent_ids': sorted(recent, key=lambda pid: next(p['date'] for p in core if p['id'] == pid)),
     }
 
 

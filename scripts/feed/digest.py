@@ -248,9 +248,9 @@ def _write_feed(root, editions, config, retracted):
     items = {item["id"]: item for edition in reversed(last) for item in edition["items"] if item["id"] not in retracted}
     updated = max((entry.get("updated_at", entry["published_at"]) for entry in editions), default=None)
     result = {"version": 1, "reviewed_only": True, "updated_at": updated,
-              "weeks": sorted({edition["week"] for edition in last}, reverse=True),
-              "dates": sorted({edition["date"] for edition in last if "date" in edition}, reverse=True),
-              "items": list(items.values())}
+              "weeks": sorted({edition["week"] for edition in last}),
+              "dates": sorted({edition["date"] for edition in last if "date" in edition}),
+              "items": sorted(items.values(), key=lambda item: (item["published"], item["id"]))}
     schema_path = root / "site/feed/schema.json"
     schema_path.parent.mkdir(parents=True, exist_ok=True)
     schema_path.write_text((TEMPLATES / "feed-schema.json").read_text(), encoding="utf-8")
@@ -273,7 +273,7 @@ def _write_feed(root, editions, config, retracted):
     element(feed, "link", rel="alternate", href=(base + "/daily/") if base else "../daily/")
     if config.get("repository_url"):
         element(feed, "link", rel="related", href=config["repository_url"].rstrip("/") + "/pulls")
-    for edition in sorted(daily, key=lambda row: row["published_at"], reverse=True):
+    for edition in sorted(daily, key=lambda row: row["date"]):
         period = edition["date"]
         entry = element(feed, "entry")
         element(entry, "id", "urn:follow-rsi:daily:" + period)
@@ -294,7 +294,7 @@ def _render_edition(root, edition, editions, directions, config):
         (root / "digests" / (week + suffix)).write_text(_markdown(edition, lang, directions, config), encoding="utf-8")
     (root / "site/weekly" / f"{week}.trend.svg").write_text(_trend(editions, week, directions), encoding="utf-8")
     env = Environment(loader=FileSystemLoader(TEMPLATES), autoescape=select_autoescape(["html", "xml"]))
-    context = {"edition": edition, "editions": sorted(editions, key=lambda row: row["week"], reverse=True),
+    context = {"edition": edition, "editions": sorted(editions, key=lambda row: row["week"]),
                "directions": directions, "config": config, "evidence_labels": EVIDENCE_LABELS,
                "hf_discovered": sum("hf-daily" in item.get("source_hits", []) for item in edition["items"])}
     for template, output in (("weekly.html", f"{week}.html"), ("index.html", "index.html"),
@@ -309,7 +309,7 @@ def _published(root, kind):
 
 def _render_day(root, edition, editions, directions, config):
     env = Environment(loader=FileSystemLoader(TEMPLATES), autoescape=select_autoescape(["html"]))
-    ordered = sorted(editions, key=lambda value: value["date"], reverse=True)
+    ordered = sorted(editions, key=lambda value: value["date"])
     directory = root / "site/daily"
     directory.mkdir(parents=True, exist_ok=True)
     context = {"editions": ordered, "directions": directions, "config": config,
@@ -322,7 +322,7 @@ def _render_day(root, edition, editions, directions, config):
         (directory / (edition["date"] + ".html")).write_text(
             env.get_template("daily.html").render(edition=edition, **context), encoding="utf-8")
     (directory / "index.html").write_text(
-        env.get_template("daily.html").render(edition=ordered[0] if ordered else None, **context), encoding="utf-8")
+        env.get_template("daily.html").render(edition=ordered[-1] if ordered else None, **context), encoding="utf-8")
 
 
 def publish_day(root=ROOT, date=None, client=None, now=None):
@@ -335,10 +335,11 @@ def publish_day(root=ROOT, date=None, client=None, now=None):
         return {"date": date, "accepted": 0, "published": False, "manifest": None}
     week = day_week(date)
     sources = {item["id"]: item for item in load_items(root)}
+    labs.sort(key=lambda row: (sources[row["id"]]["published"], row["id"]))
     config = read_yaml(root / "site.config.yaml")
     directions = _directions(read_yaml(root / "feed/taxonomy.yaml"))
     ranking = read_yaml(root / "feed/sources.yaml")["ranking"]
-    accepted.sort(key=lambda item: (-_rank(item, ranking), item["id"]))
+    accepted.sort(key=lambda item: (item["published"], -_rank(item, ranking), item["id"]))
     repository = read_yaml(root / "data/papers.yaml")["papers"]
     rows = {row["id"]: row for row in review["items"]}
     public = [{**_public_item(item, rows[item["id"]], week, repository), "review_date": date}
@@ -380,15 +381,14 @@ def publish_week(root=ROOT, week=None, client=None, now=None, render_card=False)
     config = read_yaml(root / "site.config.yaml")
     directions = _directions(read_yaml(root / "feed/taxonomy.yaml"))
     ranking = read_yaml(root / "feed/sources.yaml")["ranking"]
-    picked = [pick["arxiv_id"] for pick in review["picks"]]
-    public.sort(key=lambda item: (picked.index(item["arxiv_id"]) if item.get("arxiv_id") in picked else 3,
-                                  -_rank(sources[item["id"]], ranking), item["id"]))
+    public.sort(key=lambda item: (item["published"], -_rank(sources[item["id"]], ranking), item["id"]))
     counts = {key: sum(item["direction"]["primary"] == key for item in public) for key in directions}
     manifest = root / "site/weekly" / f"{week}.json"
     previous = json.loads(manifest.read_text()) if manifest.exists() else None
     stamp = now or (previous["published_at"] if previous else datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z"))
     start, end = week_bounds(week)
     lab_updates = list({item["id"]: item for edition in daily for item in edition["lab_updates"]}.values())
+    lab_updates.sort(key=lambda item: (sources[item["id"]]["published"], item["id"]))
     edition = {"week": week, "start": str(start), "end": str(end), "published_at": stamp,
                "reviewed_only": True, "items": public, "counts": counts, "picks": review["picks"],
                "editor_note_zh": review.get("editor_note_zh", ""), "editor_note_en": review.get("editor_note_en", ""),
@@ -494,7 +494,7 @@ def initialize_public(root=ROOT):
     if not editions or not target.exists():
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(env.get_template("index.html").render(
-            editions=sorted(editions, key=lambda row: row["week"], reverse=True), config=config), encoding="utf-8")
+            editions=sorted(editions, key=lambda row: row["week"]), config=config), encoding="utf-8")
     public = root / "site/feed/latest.json"
     if public.exists():
         current = json.loads(public.read_text())
