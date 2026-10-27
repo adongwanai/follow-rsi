@@ -49,6 +49,43 @@ def test_local_health_never_writes_issues_and_counts_unique_items(tmp_path):
     assert (tmp_path / 'site/badges/feed-updated.json').read_bytes() == (tmp_path / 'badges/feed-updated.json').read_bytes()
 
 
+def test_enabled_source_missing_two_calendar_days_opens_once_and_run_closes(tmp_path):
+    (tmp_path / 'feed/sources.yaml').write_text('sources:\n- id: hf-daily\n  kind: hf_daily\n  enabled: true\n  schedule: daily\n')
+    client = Mock()
+    client.find.return_value = None
+    client.create.return_value = 12
+    update_health(tmp_path, [], '2026-10-25T23:00:00Z', client)
+    update_health(tmp_path, [], '2026-10-26T23:00:00Z', client)
+    client.create.assert_not_called()
+    update_health(tmp_path, [], '2026-10-27T00:00:00Z', client)
+    update_health(tmp_path, [], '2026-10-27T12:00:00Z', client)
+    client.create.assert_called_once()
+    assert client.create.call_args.args[0] == 'Source not run: hf-daily'
+    update_health(tmp_path, [{'source_id': 'hf-daily', 'ok': False, 'count': 0,
+                              'error': 'HTTP 503'}], NOW, client)
+    client.close.assert_called_once_with(12)
+    row = load_state(tmp_path)['sources']['hf-daily']
+    assert row['last_ok'] is False and row['last_error'] == 'HTTP 503'
+    assert row['missing_days'] == 0
+
+
+def test_daily_fetch_records_every_enabled_source_including_failures(tmp_path, monkeypatch):
+    from scripts.feed import fetch_arxiv, fetch_hf, fetch_rss, fetch_s2, fetch_github
+    from scripts.common import read_yaml
+    import requests
+    for module in (fetch_arxiv, fetch_hf, fetch_s2, fetch_github):
+        monkeypatch.setattr(module, 'fetch', Mock(return_value=([], {'format': 'mock'})))
+    monkeypatch.setattr(fetch_rss, 'fetch', Mock(side_effect=requests.HTTPError('503 unavailable')))
+    result = fetch_arxiv.fetch_sources(tmp_path, days=14, now=NOW)
+    enabled = {s['id'] for s in read_yaml(tmp_path / 'feed/sources.yaml')['sources'] if s['enabled']}
+    assert {o['source_id'] for o in result['outcomes']} == enabled
+    state = load_state(tmp_path)
+    assert all(state['sources'][ident]['last_run'] == NOW for ident in enabled)
+    assert all(not state['sources'][ident]['last_ok'] for ident in enabled if ident.startswith('rss-'))
+    status = json.loads((tmp_path / 'site/feed/status.json').read_text())
+    assert {o['source_id'] for o in status['last_fetch']['sources']} == enabled
+
+
 def test_version_alerts_and_retraction_are_explicit(tmp_path):
     paper = normalize_record({'title': 'Test', 'arxiv_id': '2610.10001v2', 'in_repo': True}, now=NOW)
     paper.update(version_changed=True, repo_id='test')

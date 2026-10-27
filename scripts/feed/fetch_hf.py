@@ -4,7 +4,7 @@ import requests
 from .normalize import normalize_record
 
 
-def parse_json(payload, source_id='hf-daily', keywords=(), now=None):
+def parse_json(payload, source_id='hf-daily', keywords=(), now=None, daily_date=None):
     if not isinstance(payload, list):
         raise ValueError('HF daily endpoint must return a JSON list')
     items = []
@@ -22,6 +22,9 @@ def parse_json(payload, source_id='hf-daily', keywords=(), now=None):
             'source_hits': [source_id], 'hf_upvotes': paper.get('upvotes', row.get('upvotes', 0)),
             'code_links': [paper['githubRepo']] if paper.get('githubRepo') else [],
             'hf_submitted_at': paper.get('submittedOnDailyAt') or row.get('publishedAt', ''),
+            # Membership in a queried daily list is distinct from submission,
+            # paper publication, and the time this tracker first fetched it.
+            'hf_daily_dates': [daily_date] if daily_date else [],
         }, now=now))
     return items
 
@@ -37,5 +40,6 @@ def fetch(source, now=None, session=None, days=3):
         response.raise_for_status()
         payload = response.json()
         payloads[date] = payload
-        records.extend(parse_json(payload, source['id'], source['params'].get('keywords', []), current.isoformat()))
+        records.extend(parse_json(payload, source['id'], source['params'].get('keywords', []),
+                                  current.isoformat(), daily_date=date))
     return records, {'format': 'hf-json-days', 'days': payloads}

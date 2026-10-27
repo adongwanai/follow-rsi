@@ -66,10 +66,11 @@ def test_route_reference_rejected(project):
 def test_translations_and_chinese_outputs_are_faithful():
     data, _ = validate()
     zh = (ROOT / 'README.md').read_text()
-    assert (ROOT / 'README_zh.md').read_text() == zh
+    assert (ROOT / 'README_zh.md').read_text() == '[中文首页 → README.md](README.md)\n'
+    catalog = (ROOT / 'PAPERS.md').read_text()
     for paper in data['papers']:
         receipt = (ROOT / 'papers' / (paper['id'] + '.md')).read_text()
-        row = next(line for line in zh.splitlines() if line.startswith('| ' + paper['date'] + ' |') and f"papers/{paper['id']}.md" in line)
+        row = next(line for line in catalog.splitlines() if line.startswith('| ' + paper['date'] + ' |') and f"papers/{paper['id']}.md" in line)
         for field in ('summary', 'result'):
             original = paper.get(field + '_zh', '')
             assert original in receipt
@@ -94,7 +95,7 @@ def test_coverage_marks_and_social_pages():
         if paper.get('needs_reading'):
             assert by_id[paper['id']]['verification_label'] == '待细读 / Needs verification'
             assert 'Needs verification' in badge['message']
-            for name in ('README.md', 'README_en.md', 'README_zh.md'):
+            for name in ('PAPERS.md',):
                 row = next(line for line in (ROOT/name).read_text().splitlines() if line.startswith('| ' + paper['date'] + ' |') and f"papers/{paper['id']}.md" in line)
                 assert '待细读 / Needs verification' in row
         receipt = (ROOT / 'papers' / (paper['id'] + '.md')).read_text()
@@ -107,9 +108,10 @@ def test_coverage_marks_and_social_pages():
 
 def test_idempotence_and_authored_blocks(project):
     build(project)
-    path = project / 'papers/hda.md'
-    path.write_text(path.read_text().replace('<!-- TODO -->', 'Handwritten audit notes: keep this.', 1))
-    names = ('README.md', 'README_zh.md', 'README_en.md')
+    path = project / 'notes/hda.md'
+    path.parent.mkdir(exist_ok=True)
+    path.write_text('## 精读笔记\n\nHandwritten audit notes: keep this.\n')
+    names = ('README.md', 'README_en.md')
     for name in names:
         path = project/name
         path.write_text(path.read_text() + f'\nAuthored footer in {name}: <SITE_URL> / <GITHUB_USER>.\n')
@@ -144,3 +146,18 @@ def test_retired_repository_name_is_absent():
     ).decode().strip('\0').split('\0')
     matches = [name for name in paths if (ROOT/name).is_file() and retired in (ROOT/name).read_bytes()]
     assert not matches, matches
+
+
+def test_readme_scope_counts_and_no_empty_sections():
+    data, _ = validate()
+    stats = compute_stats(data)
+    assert stats['scopes'] == {'core': 61, 'harness_eval': 15, 'background': 16, 'general_rsi': 6}
+    assert sum(stats['scopes'].values()) == stats['included']
+    assert stats['must_read_fully_reviewed'] == 0
+    for name in ('README.md', 'README_en.md'):
+        text = (ROOT / name).read_text()
+        assert len(text.splitlines()) <= 200
+        assert not any(word in text for word in ('TODO', '<AUTHOR_NAME>', 'incomplete', 'Social preview'))
+    assert not (ROOT / 'stats.json').exists()
+    for path in (ROOT / 'papers').glob('*.md'):
+        assert '<!-- TODO' not in path.read_text()

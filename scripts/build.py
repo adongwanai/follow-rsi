@@ -70,7 +70,10 @@ def compute_stats(data):
         'evidence_coverage': coverage(FIELDS), 'check_coverage': coverage(CHECKS),
         'with_recorded_checks': sum(any(evidence(p)[k] != 'unknown' for k in CHECKS) for p in core),
         'months': {f'2026-{m:02}': sum(p['date'].startswith(f'2026-{m:02}') for p in core) for m in range(3, 11)},
-        'recent_ids': sorted(recent, key=lambda pid: next(p['date'] for p in core if p['id'] == pid)),
+        'recent_ids': sorted(recent, key=lambda pid: next(p['date'] for p in core if p['id'] == pid), reverse=True),
+        'scopes': dict(Counter(p['scope'] for p in core)),
+        # No full-text completion receipts have been recorded; partial fields are not completion.
+        'must_read_fully_reviewed': 0,
     }
 
 
@@ -95,74 +98,120 @@ def read_gaps(root):
             for (a, b), (c, d) in zip(zh_items, en_items)]
 
 
+SCOPE_NAMES = {
+    'core': ('Harness 自进化方法', 'Harness evolution methods'),
+    'harness_eval': ('Harness 专项评测与理论', 'Harness evaluation and theory'),
+    'background': ('奠基、前史与基线', 'Foundations and baselines'),
+    'general_rsi': ('通用 RSI', 'General RSI'),
+    'candidates': ('延伸候选', 'Candidates'),
+}
+CLASS_NAMES = {'who_edits': ('谁来改', 'Who edits'), 'feedback': ('反馈来源', 'Feedback'),
+               'timing': ('改进时机', 'Timing'), 'topology': ('演化结构', 'Topology')}
+VALUE_ZH = {'yes': '有', 'no': '没有', 'partial': '部分', 'unknown': '未审', 'na': '不适用',
+            'self': '自身', 'external': '外部改进器', 'trained': '训练出的改进器',
+            'self_human_reviewed': '自身修改、人工审核', 'ground_truth': '标准答案',
+            'proxy': '代理信号', 'self_generated_tests': '自生成测试', 'demonstrations': '示范',
+            'self_judgment': '自我判断', 'offline': '离线', 'online': '在线',
+            'test_time': '测试时', 'during_run': '运行中', 'chain': '链', 'tree': '树', 'graph': '图'}
+
+
+def latest_edition(root):
+    daily = [json.loads(path.read_text()) for path in (root / 'site/daily').glob('????-??-??.json')]
+    recaps = [json.loads(path.read_text()) for path in (root / 'site/recaps').glob('*.json')]
+    reviewed = [edition for edition in daily + recaps if edition.get('reviewed_only') and not edition.get('demo')]
+    if not reviewed:
+        return None
+    latest = max(reviewed, key=lambda e: e.get('end', e.get('date', '')))
+    retrospective = latest.get('kind') == 'retrospective'
+    return {**latest, 'url': f"recaps/{latest['start']}--{latest['end']}.html" if retrospective else f"daily/{latest['date']}.html"}
+
+
 def readme_metrics(root, lang):
-    """Publish weekly metrics only from a reviewed, published edition."""
-    zh = lang == 'zh'
-    header = ('| 本周发现 | 本周收录 | 自动判断准确率 | 漏检（对照公开清单） | 中位时效 |'
-              if zh else '| Found this week | Accepted | Auto-judgment precision | Misses vs. public lists | Median latency |')
-    lines = [header, '| :---: | :---: | :---: | :---: | :---: |']
     editions = [json.loads(path.read_text()) for path in (root / 'site/weekly').glob('????-W??.json')]
-    published = [edition for edition in editions if edition.get('reviewed_only') and not edition.get('demo')]
-    if published:
-        latest = max(published, key=lambda edition: edition['week'])
-        metrics = latest['metrics']
-        precision = '—' if metrics['precision'] is None else f"{metrics['precision']:.1%}"
-        latency = '—' if metrics['latency_days'] is None else f"{metrics['latency_days']:g} {'天' if zh else 'days'}"
-        misses = metrics.get('recall_vs_reference', {}).get('missed', '—')
-        lines += [f"| {metrics['found']} | {metrics['accepted']} | {precision} | {misses} | {latency} |", '',
-                  f"[{'最近发布' if zh else 'Latest edition'}: {latest['week']}](digests/{latest['week']}{'' if zh else '.en'}.md)"]
-    else:
-        lines.append('| — | — | — | — | — |')
-    evaluation = root / 'feed/eval/report.json'
-    if evaluation.exists():
-        report = json.loads(evaluation.read_text())
-        status = 'passed' if report.get('thresholds_passed') else report['status'] if report['status'] != 'complete' else 'failed'
-        lines += ['', f"{'提示词回归评测' if zh else 'Prompt regression evaluation'}: **{status}** · [" + ('报告' if zh else 'report') + '](feed/eval/report.md).']
-    return '\n'.join(lines)
+    published = [e for e in editions if e.get('reviewed_only') and not e.get('demo')]
+    if not published:
+        return ''
+    latest = max(published, key=lambda e: e['week'])
+    return f"[{'本周质量指标' if lang == 'zh' else 'Weekly metrics'}](digests/{latest['week']}{'' if lang == 'zh' else '.en'}.md)"
+
+
+def source_summary(root, lang, config):
+    path = root / 'site/feed/status.json'
+    if not path.exists():
+        return '尚无成功运行的信源记录。' if lang == 'zh' else 'No successful source run has been recorded.'
+    state = json.loads(path.read_text())
+    successful = [key for key, value in state.get('sources', {}).items() if value.get('enabled') and value.get('last_success')]
+    failed = [key for key, value in state.get('sources', {}).items() if value.get('enabled') and value.get('last_ok') is False]
+    zh = lang == 'zh'
+    text = ('已实际运行成功：' if zh else 'Sources with recorded successful runs: ') + ' · '.join(successful) + '。'
+    if failed:
+        text += (' 本次失败：' if zh else ' Failed in the latest run: ') + ' · '.join(failed) + '。'
+    return text + f" [{'信源状态' if zh else 'Source status'}]({config['base_url'].rstrip('/')}/feed/status.json)."
 
 
 def readme_blocks(data, routes, stats, lang, config, root):
     papers, sections = data['papers'], data['meta']['sections']
     zh = lang == 'zh'
-    cov, checks = stats['evidence_coverage'], stats['check_coverage']
-    base = (config['base_url'] or '<SITE_URL>').rstrip('/')
-    badge_values = [('证据库' if zh else 'evidence_base', f"{stats['included']}_{'篇' if zh else 'papers'}", '2A33D4'),
-                    ('必读' if zh else 'must-read', f"{stats['must_read']}", '14161C'),
+    base = config['base_url'].rstrip('/')
+    badge_values = [('方法论文' if zh else 'methods', str(stats['scopes']['core']), '2A33D4'),
+                    ('必读' if zh else 'must-read', str(stats['must_read']), '14161C'),
                     ('更新' if zh else 'updated', stats['as_of'], '14161C'),
                     ('内容' if zh else 'content', 'CC_BY_4.0', '14161C')]
     badges = ' '.join(f'![{name}](https://img.shields.io/badge/{quote(name.replace("-", "--"))}-{quote(value.replace("-", "--"))}-{color})'
                       for name, value, color in badge_values)
-    badges += f' ![feed](https://img.shields.io/endpoint?url={quote(base + "/badges/feed-updated.json", safe="")})'
-    if zh:
-        overview = f"{stats['included']} 篇正式收录 · {stats['candidates']} 篇候选 · {stats['must_read']} 篇必读 · {stats['needs_reading']} 篇待细读。"
-        coverage = f"证据字段已审 **{cov['ratio']:.1%}**（{cov['reviewed']}/{cov['total']}，每篇 8 项核查 + {len(CLASSES)} 项分类）；其中 8 项核查已审 **{checks['ratio']:.1%}**（{checks['reviewed']}/{checks['total']}）。统计仅含正式收录；已审指值非 `unknown`，包含 `no`、`partial`、`na`，不表示达标。"
+    scopes = stats['scopes']
+    counts = (f"{scopes['core']} 篇方法 · {scopes['harness_eval']} 篇 Harness 评测与理论 · {scopes['background'] + scopes['general_rsi']} 篇奠基与通用 RSI。"
+              if zh else f"{scopes['core']} methods · {scopes['harness_eval']} Harness evaluation and theory · {scopes['background'] + scopes['general_rsi']} foundations and general RSI papers.")
+    latest = latest_edition(root)
+    today = []
+    if latest:
+        title = latest.get('title_zh' if zh else 'title_en') or latest['date']
+        today = [f"**[{title}]({base}/{latest['url']})** · {len(latest['items'])} " + ('篇，经人工审核。' if zh else 'papers, human reviewed.'), '']
+        for item in latest['items'][:5]:
+            sub = item['direction'].get('harness_sub')
+            section = sections[sub][lang] if sub else ('评测与理论' if zh else 'Evaluation and theory')
+            today.append(f"- [{item.get('short_title', item['title'])}]({item['links'].get('arxiv') or item['links'].get('url')}) · {section} · {item.get('summary_'+lang, '')}")
+        today += ['', f"[{'阅读本期全部内容' if zh else 'Read this edition'} →]({base}/{latest['url']})"]
     else:
-        overview = f"{stats['included']} included · {stats['candidates']} candidates · {stats['must_read']} must-reads · {stats['needs_reading']} need verification."
-        coverage = f"Evidence fields **{cov['ratio']:.1%} reviewed so far** ({cov['reviewed']}/{cov['total']}; 8 checks + {len(CLASSES)} classifications per paper). The 8 audit checks alone are **{checks['ratio']:.1%} reviewed so far** ({checks['reviewed']}/{checks['total']}). Included papers only; reviewed means non-`unknown`, including `no`, `partial`, and `na`, not a pass rate."
-    stat_lines = [overview, '', coverage, '', '<details><summary>' + ('各方向篇数' if zh else 'Paper counts by direction') + '</summary>', '', '| 方向 / Section | 篇数 / Papers |', '| --- | ---: |']
-    stat_lines += [f"| {sections[s][lang]} | {count} |" for s, count in stats['sections'].items()]
-    stat_lines += ['', '</details>']
-    must = '\n'.join(f"{i}. [{p['title']}](papers/{p['id']}.md){flag(p)}" for i, p in enumerate(must_reads(papers, routes), 1))
+        today = ['今天没有新的 Harness 自进化论文。审核通过后发布，旧论文不冒充今日新作。' if zh else 'No new reviewed Harness evolution edition today. Historical discoveries are kept separate.']
+    must = ['| 日期 | 论文 | 一句话 | 证据 |' if zh else '| Date | Paper | In one line | Evidence |', '| --- | --- | --- | --- |']
+    for p in must_reads(papers, routes):
+        marks = ' '.join(ICONS[evidence(p)[key]] for key in KEYS)
+        must.append(f"| {p['date']} | [{cell(short(p))}](papers/{p['id']}.md) | {cell(p.get('summary_'+lang,''))} | {marks} |")
+    must += ['', '图标：留出集 · 同预算 · 跨模型 · 成本；❔ 表示未审。' if zh else 'Icons: held-out · matched budget · cross-model · cost; ❔ means not yet reviewed.', '', counts,
+             f"[{'完整清单' if zh else 'Full catalog'}: {stats['included']} + {stats['candidates']} {'候选' if zh else 'candidates'}](PAPERS.md) · [{'在网站筛选' if zh else 'Filter on the site'}]({base}/#papers)"]
     by_id = {p['id']: p for p in papers}
-    rt = ['| 路线 | 顺序 | 问题 |' if zh else '| Route | Order | Question |', '| --- | --- | --- |']
+    rt = ['| 路线 | 顺序 | 读完能回答 |' if zh else '| Route | Order | What you can answer |', '| --- | --- | --- |']
     for r in routes:
-        chain = ' → '.join(f"[{short(by_id[pid])}](papers/{pid}.md){flag(by_id[pid])}" for pid in r['papers'])
+        if not (r['name_zh'] in ('打基础','方法主线') or r['name_zh'].startswith('实验设计')):
+            continue
+        chain = ' → '.join(f"[{short(by_id[pid])}](papers/{pid}.md)" for pid in r['papers'])
         rt.append(f"| {cell(r['name_'+lang])} | {chain} | {cell(r['question_'+lang])} |")
-    tables = ['✅ yes / 有 · ◐ partial / 部分 · ❌ no / 没有 · ❔ unknown / 未审 · — na / 不适用', '',
-              '图标顺序：留出集 · 同预算对照 · 跨模型迁移 · 报告成本。缺失证据不作推断。' if zh else 'Icon order: held-out · matched budget · cross-model transfer · cost. Missing evidence is never inferred.', '']
-    for section in sections:
-        group = sorted([p for p in papers if p['section'] == section], key=lambda p: p['date'])
-        tables += [f"### {sections[section][lang]}", '', f'<details><summary>{len(group)} '+('篇论文' if zh else 'papers')+'</summary>', '',
-                   '| 日期 | 论文 | 机构 | 核心机制 | 关键结果 | 证据 | 页面 |' if zh else '| Date | Paper | Organizations | Mechanism | Key result | Evidence | Page |',
-                   '| --- | --- | --- | --- | --- | --- | --- |']
-        for p in group:
-            e = evidence(p)
-            tables.append('| ' + ' | '.join([p['date'], f"[{cell(p['title'])}]({paper_url(p)}){flag(p)}", cell(' · '.join(p.get('orgs', []))), cell(p.get('summary_'+lang, '')), cell(p.get('result_'+lang, '')), ' '.join(ICONS[e[k]] for k in KEYS), f"[{'证据卡' if zh else 'Receipt'}](papers/{p['id']}.md)"]) + ' |')
-        tables += ['', '</details>', '']
+    rt += ['', f"[{'全部阅读路线' if zh else 'All reading routes'} →]({base}/#routes)"]
     repository = quote(config['repository'], safe='/')
     history = f'[![Star History](https://api.star-history.com/svg?repos={repository}&type=Date)](https://star-history.com/#{repository}&Date)'
-    return {'BADGES': badges, 'STATS': '\n'.join(stat_lines), 'MUST_READ': must, 'ROUTES': '\n'.join(rt),
-            'TABLES': '\n'.join(tables), 'METRICS': readme_metrics(root, lang), 'STAR_HISTORY': history}
+    return {'BADGES': badges, 'TODAY': '\n'.join(today), 'MUST_READ': '\n'.join(must), 'ROUTES': '\n'.join(rt),
+            'SOURCES': source_summary(root, lang, config), 'METRICS': readme_metrics(root, lang), 'STAR_HISTORY': history}
+
+
+def catalog(data, stats, config):
+    lines = ['# Follow RSI · 论文全集', '', f"{stats['included']} 篇正式收录，{stats['candidates']} 篇候选。scope 是阅读范围，不等于全文证据已核验。", '',
+             f"[网站筛选]({config['base_url'].rstrip('/')}/#papers) · [返回首页](README.md)", '',
+             '证据顺序：留出集 · 同预算 · 跨模型 · 成本；❔ 未审，不推断缺失证据。']
+    for scope, names in SCOPE_NAMES.items():
+        group = [p for p in data['papers'] if ('candidates' if p.get('status') == 'candidate' else p['scope']) == scope]
+        lines += ['', f'## {names[0]} · {len(group)} 篇', '', '| 日期 | 论文 | 核心机制 | 关键结果 | 证据 |', '| --- | --- | --- | --- | --- |']
+        for p in sorted(group, key=lambda p: p['date'], reverse=True):
+            marks = ' '.join(ICONS[evidence(p)[key]] for key in KEYS)
+            lines.append(f"| {p['date']} | [{cell(p['title'])}](papers/{p['id']}.md){flag(p)} | {cell(p.get('summary_zh',''))} | {cell(p.get('result_zh',''))} | {marks} |")
+    return '\n'.join(lines) + '\n'
+
+
+def bibtex(p):
+    fields = [('title', p['title']), ('year', p['date'][:4]), ('url', paper_url(p))]
+    if p.get('arxiv'):
+        fields += [('eprint', p['arxiv']), ('archivePrefix', 'arXiv')]
+    return '@misc{' + p['id'] + ',\n' + ',\n'.join('  ' + k + ' = {' + v + '}' for k, v in fields) + '\n}'
 
 
 def paper_card(p, sections):
@@ -175,19 +224,53 @@ def paper_card(p, sections):
              ('**必读 / MUST READ**' if p.get('must_read') else '') + flag(p)]
     if p.get('status') == 'candidate':
         lines += ['', '**候选 / Candidate**']
-    lines += ['', '| 证据字段 / Evidence field | 值 / Value |', '| --- | --- |']
+    if p.get('needs_review'):
+        lines += ['', '**分类待复核**：' + p['review_suggestion_zh']]
+    lines += ['', '| 证据字段 | 记录 |', '| --- | --- |']
     e = evidence(p)
-    lines += [f'| `{k}` | {e[k]} |' for k in FIELDS]
+    for key, names in {**CHECKS, **CLASS_NAMES}.items():
+        lines.append(f"| {names[0]} | {ICONS.get(e[key], '')} {VALUE_ZH[e[key]]} |")
     for field, title in [('summary', '一句话'), ('result', '关键结果')]:
-        if field + '_zh' in p:
+        if p.get(field + '_zh'):
             lines += ['', f"**{title}**：{p[field+'_zh']}"]
-    translation = 'machine translation' if p.get('en_machine_translated') else 'owner translation' if 'en_machine_translated' in p else 'translation planned'
-    lines += ['', f'<details><summary>English · {translation}</summary>', '', flag(p).strip()]
+    lines += ['', '<details><summary>English</summary>', '', '| Evidence field | Record |', '| --- | --- |']
+    for key, names in {**CHECKS, **CLASS_NAMES}.items():
+        value = 'not yet reviewed' if e[key] == 'unknown' else e[key]
+        lines.append(f'| {names[1]} | {ICONS.get(e[key], "")} {value} |')
     for field, title in [('summary', 'Summary'), ('result', 'Key result')]:
-        if field + '_zh' in p:
-            lines += ['', f"**{title}**: {p.get(field+'_en', '<!-- TODO: English translation -->')}"]
+        if p.get(field + '_en'):
+            lines += ['', f"**{title}**: {p[field+'_en']}"]
     lines += ['', '</details>']
     return '\n'.join(lines)
+
+
+def authored_notes(root, p, previous):
+    """Move actual authored sections once; discard only empty TODO scaffolding."""
+    after = previous.split('<!-- AUTO:CARD:END -->', 1)[-1] if previous else ''
+    after = re.sub(r'<!-- AUTO:RELATED:START -->.*?<!-- AUTO:RELATED:END -->', '', after, flags=re.S)
+    # The generated include is refreshed from the notes file, never re-imported.
+    after = re.sub(r'<!-- AUTO:NOTES:START -->.*?<!-- AUTO:NOTES:END -->', '', after, flags=re.S)
+    after = re.sub(r'<!--.*?-->', '', after, flags=re.S)
+    pieces = re.split(r'(?m)(?=^## )', after)
+    authored = '\n\n'.join(piece.strip() for piece in pieces if re.sub(r'(?m)^## .*$', '', piece).strip())
+    path = root / 'notes' / (p['id'] + '.md')
+    if authored:
+        if path.exists() and authored not in path.read_text():
+            raise ValueError(f'Conflicting authored notes for {p["id"]}; merge them manually')
+        if not path.exists():
+            write(path, authored + '\n')
+    return path.read_text().strip() if path.exists() else ''
+
+
+def related_papers(p, papers, routes):
+    def ordinal(value):
+        return date.fromisoformat((value + '-01-01')[:10]).toordinal()
+    same = [other for other in papers if other['id'] != p['id'] and other['section'] == p['section']]
+    adjacent = sorted(same, key=lambda other: (abs(ordinal(other['date']) - ordinal(p['date'])), other['id']))[:4]
+    ids = [other['id'] for other in adjacent]
+    ids += [pid for route in routes if p['id'] in route['papers'] for pid in route['papers'] if pid != p['id']]
+    by_id = {other['id']: other for other in papers}
+    return '\n'.join(f"- [{by_id[pid]['title']}]({pid}.md)" for pid in dict.fromkeys(ids))
 
 
 def build(root=ROOT):
@@ -195,15 +278,24 @@ def build(root=ROOT):
     config = read_yaml(root / 'site.config.yaml')
     stats = compute_stats(data)
     env = Environment(loader=FileSystemLoader(root / 'scripts/templates'), autoescape=select_autoescape(['html', 'svg']), keep_trailing_newline=True)
-    for lang, filename in [('zh', 'README.md'), ('zh', 'README_zh.md'), ('en', 'README_en.md')]:
+    for lang, filename in [('zh', 'README.md'), ('en', 'README_en.md')]:
         text = (root / filename).read_text()
         for name, content in readme_blocks(data, routes, stats, lang, config, root).items():
             text = replace_block(text, name, content)
         write(root / filename, text)
+    write(root / 'PAPERS.md', catalog(data, stats, config))
     for p in data['papers']:
         path = root / 'papers' / (p['id'] + '.md')
-        text = path.read_text() if path.exists() else f"# {p['title']}\n\n<!-- AUTO:CARD:START -->\n<!-- AUTO:CARD:END -->\n\n## 精读笔记\n\n<!-- TODO -->\n\n## 视频\n\n<!-- TODO -->\n\n## 可延伸的 idea\n\n<!-- TODO -->\n\n## 相关论文\n\n<!-- TODO -->\n"
-        write(path, replace_block(text, 'CARD', paper_card(p, data['meta']['sections'])))
+        previous = path.read_text() if path.exists() else ''
+        notes = authored_notes(root, p, previous)
+        text = f"# {p['title']}\n\n<!-- AUTO:CARD:START -->\n<!-- AUTO:CARD:END -->\n"
+        text = replace_block(text, 'CARD', paper_card(p, data['meta']['sections']))
+        if notes:
+            text += '\n<!-- AUTO:NOTES:START -->\n\n' + notes + '\n\n<!-- AUTO:NOTES:END -->\n'
+        related = related_papers(p, data['papers'], routes)
+        if related:
+            text += '\n<!-- AUTO:RELATED:START -->\n\n## 相关论文\n\n' + related + '\n\n<!-- AUTO:RELATED:END -->\n'
+        write(path, text)
         e = evidence(p)
         color = '1E7F48' if all(e[k] == 'yes' for k in KEYS) else '8B909B' if any(e[k] == 'unknown' for k in KEYS) else '2A33D4'
         badge = {'schemaVersion': 1, 'label': 'evidence', 'message': ' · '.join(f'{name} {SYMBOLS[e[k]]}' for k, name in zip(KEYS, ['held-out', 'budget', 'transfer', 'cost'])), 'color': color}
@@ -213,22 +305,34 @@ def build(root=ROOT):
             write(root / folder / (p['id'] + '.json'), dump(badge))
         base = (config['base_url'] or '').rstrip('/')
         write(root / 'site/p' / (p['id'] + '.html'), env.get_template('paper.html').render(p=p, description=p.get('summary_zh','')+flag(p).replace('**',''), image=(base+'/cards/'+p['id']+'.png') if base else '../cards/'+p['id']+'.png', canonical=base+'/p/'+p['id']+'.html' if base else None))
-    enriched = [{**p, 'evidence': evidence(p), 'short_title': short(p), 'verification_label': '待细读 / Needs verification' if p.get('needs_reading') else ''} for p in data['papers']]
+    enriched = [{**p, 'evidence': evidence(p), 'short_title': short(p), 'bibtex': bibtex(p),
+                 'note_url': config['repository_url'] + '/blob/main/notes/' + p['id'] + '.md' if (root / 'notes' / (p['id'] + '.md')).exists() else None, 'verification_label': '待细读 / Needs verification' if p.get('needs_reading') else ''} for p in data['papers']]
     gaps = read_gaps(root)
-    payload = {'meta': data['meta'], 'papers': enriched, 'routes': routes, 'gaps': gaps, 'stats': stats, 'config': config}
+    payload = {'meta': data['meta'], 'papers': enriched, 'routes': routes, 'gaps': gaps, 'stats': stats, 'config': config, 'latest_edition': latest_edition(root)}
     write(root / 'site/papers.json', dump(payload))
     # A generated script also works over file://, where fetch(JSON) is restricted.
     write(root / 'site/data.js', 'window.HARNESS_DATA = ' + json.dumps(payload, ensure_ascii=False).replace('</', '<\\/') + ';\n')
-    for path in ['stats.json', 'site/stats.json']:
-        write(root / path, dump(stats))
+    write(root / 'site/stats.json', dump(stats))
     # Owner artwork is static. Regenerate it explicitly with scripts/make_svgs.py.
     write(root / 'assets/taxonomy.svg', env.get_template('taxonomy.svg').render(sections=data['meta']['sections'], stats=stats))
-    for section in data['meta']['sections']:
-        if section == 'candidates':
-            continue
-        path = root / 'directions' / (section + '.md')
-        if not path.exists():
-            write(path, f"# {data['meta']['sections'][section]['zh']}\n\n## 整体解读 / Overview\n\n<!-- TODO -->\n")
+    from scripts.site_header import render_header
+    for filename, active, marker in [('index.html', 'home', 'SHARED_HEADER'), ('guide.html', 'guide', 'AUTO:HEADER')]:
+        path = root / 'site' / filename
+        if path.exists():
+            text = path.read_text()
+            start, end = f'<!-- {marker}:START -->', f'<!-- {marker}:END -->'
+            if start not in text or end not in text:
+                raise ValueError(f'{filename}: missing shared-header markers')
+            before, rest = text.split(start, 1)
+            _, after = rest.split(end, 1)
+            write(path, before + start + '\n' + render_header(config, active) + '\n' + end + after)
+    if not config.get('discussions_enabled'):
+        print('Discussions are not enabled in site.config.yaml; discussion links are hidden.')
+    citation = root / 'CITATION.cff'
+    if citation.exists():
+        value = citation.read_text()
+        value = re.sub(r'(?m)^  - name: .*$', '  - name: ' + json.dumps(config['author_name'], ensure_ascii=False), value)
+        write(citation, value)
     print(f"Built {stats['included']} included papers, {stats['candidates']} candidates, and {stats['must_read']} must-reads.")
 
 

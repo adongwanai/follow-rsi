@@ -4,7 +4,7 @@ from pathlib import Path
 from unittest.mock import Mock
 import pytest
 from scripts.feed import fetch_arxiv, fetch_hf, fetch_rss, fetch_s2, fetch_github
-from scripts.feed.normalize import normalize_record, split_arxiv
+from scripts.feed.normalize import normalize_record, split_arxiv, arxiv_ids
 
 FIX = Path(__file__).parent / 'fixtures'
 NOW = '2026-10-27T12:00:00+00:00'
@@ -23,6 +23,12 @@ def test_arxiv_ids_old_versions_and_retraction():
     item = normalize_record({'arxiv_id': '2610.10001v2', 'title': 'Test', 'comments': 'This manuscript was withdrawn.'}, now=NOW)
     assert item['version'] == 2 and item['retracted']
     assert item['id'] == 'arxiv:2610.10001'
+
+
+def test_rss_financial_archive_link_is_not_an_old_arxiv_identifier():
+    sec = 'https://www.sec.gov/Archives/edgar/data/1526520/000110465925041251/example.htm'
+    assert split_arxiv(sec) == (None, 0)
+    assert arxiv_ids(sec + ' and https://arxiv.org/abs/cs/0309048v3') == ['cs/0309048']
 
 
 def test_arxiv_invalid_boundary_and_rate_limit(monkeypatch):
@@ -59,6 +65,39 @@ def test_hf_covers_each_requested_day_without_network():
     dates = [call.kwargs['params']['date'] for call in session.get.call_args_list]
     assert dates[0] == '2026-10-27' and dates[-1] == '2026-10-14'
     assert len(raw['days']) == 14 and len(records) == 14
+    assert [item['hf_daily_dates'] for item in records] == [[date] for date in dates]
+
+
+def test_hf_daily_date_comes_only_from_the_queried_day():
+    raw = json.loads((FIX / 'hf.json').read_text())
+    raw[0]['paper']['publishedAt'] = '2026-10-01T00:00:00Z'
+    raw[0]['paper']['submittedOnDailyAt'] = '2026-10-06T00:00:00Z'
+    raw[0]['publishedAt'] = '2026-10-07T00:00:00Z'
+    result = fetch_hf.parse_json(raw, now=NOW, daily_date='2026-10-14')[0]
+    assert result['hf_daily_dates'] == ['2026-10-14']
+    assert result['published'] == '2026-10-01T00:00:00Z'
+    assert result['hf_submitted_at'] == '2026-10-06T00:00:00Z'
+    assert result['first_seen'] == NOW
+    assert fetch_hf.parse_json(raw, now=NOW)[0]['hf_daily_dates'] == []
+
+
+def test_normalize_preserves_observed_daily_dates_without_inference():
+    result = normalize_record({'title': 'Observed paper', 'arxiv_id': '2610.10001',
+                              'hf_daily_dates': ['2026-10-15', '2026-10-14', '2026-10-15']}, now=NOW)
+    assert result['hf_daily_dates'] == ['2026-10-14', '2026-10-15']
+    assert normalize_record({'title': 'No observed date', 'arxiv_id': '2610.10002',
+                             'published': '2026-10-01', 'hf_submitted_at': '2026-10-06'}, now=NOW)['hf_daily_dates'] == []
+
+
+@pytest.mark.parametrize(('dates', 'announced', 'source'), [
+    ({'published': '2026-10-14T00:00:00Z', 'hf_submitted_at': '2026-10-20'}, '2026-10-14', 'published'),
+    ({'hf_submitted_at': '2026-10-20T00:00:00Z'}, '2026-10-20', 'hf_submitted_at'),
+    ({}, '', 'unknown'),
+])
+def test_announced_preserves_paper_date_and_never_uses_fetch_time(dates, announced, source):
+    item = normalize_record({'title': 'Paper', 'arxiv_id': '2610.10001', **dates}, now=NOW)
+    assert item['announced'] == announced
+    assert item['announced_source'] == source
 
 
 def test_s2_schema_mock_and_author_heuristic():
@@ -131,3 +170,36 @@ def test_rss_post_dates_filter_before_hydration():
     source = {'id': 'rss-lab', 'params': {'url': 'https://example.com/feed', 'lookback_days': 14}}
     items, raw = fetch_rss.fetch(source, datetime(2026, 10, 27, tzinfo=timezone.utc), session)
     assert items == []
+
+
+def test_arxiv_fourteen_calendar_days_include_today(monkeypatch):
+    request = Mock(return_value='<feed xmlns="http://www.w3.org/2005/Atom"/>')
+    monkeypatch.setattr(fetch_arxiv, 'request', request)
+    source = {'id': 'arxiv-harness', 'params': {'query': 'ti:harness'}}
+    _, raw = fetch_arxiv.fetch(source, days=14, now=datetime(2026, 10, 27, tzinfo=timezone.utc))
+    assert 'submittedDate:[202610140000 TO 202610272359]' in raw['query']
+    assert '20261013' not in request.call_args.args[0]['search_query']
+
+
+def test_rss_fourteen_day_window_excludes_thirteenth_and_includes_fourteenth():
+    session = Mock()
+    entries = ''.join(f'<item><title>Day {day}</title><link>https://example.com/{day}</link>'
+                      f'<pubDate>{weekday}, {day} Oct 2026 00:00:00 GMT</pubDate></item>'
+                      for day, weekday in [(13, 'Tue'), (14, 'Wed'), (27, 'Tue')])
+    session.get.return_value.text = f'<rss version="2.0"><channel><title>Lab</title>{entries}</channel></rss>'
+    source = {'id': 'rss-lab', 'params': {'url': 'https://example.com/feed', 'lookback_days': 14}}
+    items, _ = fetch_rss.fetch(source, datetime(2026, 10, 27, tzinfo=timezone.utc), session)
+    assert [item['published'][:10] for item in items] == ['2026-10-14', '2026-10-27']
+
+
+def test_github_fourteen_day_window_excludes_thirteenth_and_includes_fourteenth(tmp_path):
+    (tmp_path / 'data').mkdir()
+    (tmp_path / 'data/papers.yaml').write_text('papers:\n- code: https://github.com/example/agent\n')
+    session = Mock()
+    session.get.return_value.json.return_value = [
+        {'draft': False, 'tag_name': f'v{day}', 'published_at': f'2026-10-{day}T00:00:00Z',
+         'html_url': f'https://github.com/example/agent/releases/tag/v{day}'}
+        for day in (13, 14, 27)]
+    source = {'id': 'github-releases', 'params': {'lookback_days': 14}}
+    items, _ = fetch_github.fetch(source, tmp_path, datetime(2026, 10, 27, tzinfo=timezone.utc), session)
+    assert [item['published'][:10] for item in items] == ['2026-10-14', '2026-10-27']

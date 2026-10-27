@@ -48,7 +48,7 @@ def fetch(source, now=None, session=None):
     response = (session or requests).get(source['params']['url'], headers={'User-Agent': USER_AGENT}, timeout=30)
     response.raise_for_status()
     items = parse_feed(response.text, source['id'], current.isoformat())
-    cutoff = (current - timedelta(days=source['params'].get('lookback_days', 14))).date().isoformat()
+    cutoff = (current - timedelta(days=source['params'].get('lookback_days', 14) - 1)).date().isoformat()
     # Undated linked papers are retained for metadata hydration rather than discarded.
     items = [item for item in items if not (item.get('source_published') or item['published'])
              or (item.get('source_published') or item['published'])[:10] >= cutoff]

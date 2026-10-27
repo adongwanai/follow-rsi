@@ -8,28 +8,41 @@
 
 
 
-| 证据字段 / Evidence field | 值 / Value |
+| 证据字段 | 记录 |
 | --- | --- |
-| `held_out` | unknown |
-| `matched_budget_baseline` | unknown |
-| `cross_model_transfer` | unknown |
-| `cost_reported` | unknown |
-| `disjoint_evolution_set` | unknown |
-| `reliability_metric` | unknown |
-| `code_released` | unknown |
-| `evolved_harness_released` | unknown |
-| `who_edits` | unknown |
-| `feedback` | unknown |
-| `timing` | unknown |
-| `topology` | unknown |
+| 留出集 | ❔ 未审 |
+| 同预算对照 | ❔ 未审 |
+| 跨模型迁移 | ❔ 未审 |
+| 报告成本 | ❔ 未审 |
+| 不相交演化集 | ❔ 未审 |
+| 可靠性指标 | ❔ 未审 |
+| 开源代码 | ❔ 未审 |
+| 公开演化出的 Harness | ❔ 未审 |
+| 谁来改 | ❔ 未审 |
+| 反馈来源 | ❔ 未审 |
+| 改进时机 | ❔ 未审 |
+| 演化结构 | ❔ 未审 |
 
 **一句话**：把「给定标准答案后重放」得到的参考轨迹与失败轨迹对齐做信用分配；质量门过滤答案硬编码与提示膨胀，性能门防遗忘。
 
 **关键结果**：消融：去掉参考轨迹后 CloudCoreNetwork-QA 从 86.9 跌到 57.8。
 
-<details><summary>English · machine translation</summary>
+<details><summary>English</summary>
 
-
+| Evidence field | Record |
+| --- | --- |
+| Held-out evaluation | ❔ not yet reviewed |
+| Matched-budget baseline | ❔ not yet reviewed |
+| Cross-model transfer | ❔ not yet reviewed |
+| Cost reported | ❔ not yet reviewed |
+| Disjoint evolution set | ❔ not yet reviewed |
+| Reliability metric | ❔ not yet reviewed |
+| Code released | ❔ not yet reviewed |
+| Evolved harness released | ❔ not yet reviewed |
+| Who edits | ❔ not yet reviewed |
+| Feedback | ❔ not yet reviewed |
+| Timing | ❔ not yet reviewed |
+| Topology | ❔ not yet reviewed |
 
 **Summary**: Aligns reference trajectories obtained by replaying with standard answers against failed trajectories for credit assignment; a quality gate filters hardcoded answers and prompt bloat, while a performance gate prevents forgetting.
 
@@ -39,18 +52,13 @@
 
 <!-- AUTO:CARD:END -->
 
-## 精读笔记
-
-<!-- TODO -->
-
-## 视频
-
-<!-- TODO -->
-
-## 可延伸的 idea
-
-<!-- TODO -->
+<!-- AUTO:RELATED:START -->
 
 ## 相关论文
 
-<!-- TODO -->
+- [Bad Genius: Counterfactual-Guided Harness Evolution Beyond Task-Specific Shortcuts (CHASE)](chase.md)
+- [RRSI: Regularized Recursive Harness Self-Improvement](rrsi.md)
+- [SoL-Pi: Recursively Scaling Auto-Research Loops for Efficient Agent Harness](sol-pi.md)
+- [HarnessCompass: Guiding Automatic Harness Evolution toward Generalizable and Effective Agent Harnesses](harnesscompass.md)
+
+<!-- AUTO:RELATED:END -->

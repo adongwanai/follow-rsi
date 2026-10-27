@@ -66,7 +66,7 @@ def fetch(source, days=3, now=None, session=None):
     current = now or datetime.now(timezone.utc)
     if isinstance(current, str):
         current = datetime.fromisoformat(current.replace('Z', '+00:00'))
-    cutoff = current - timedelta(days=days)
+    cutoff = current - timedelta(days=days - 1)
     date_range = f'submittedDate:[{cutoff:%Y%m%d0000} TO {current:%Y%m%d2359}]'
     query = f'({source["params"]["query"]}) AND {date_range}'
     records, pages = [], []
@@ -106,7 +106,7 @@ def fallback_rss(source, now=None, session=None):
     return records, {'format': 'arxiv-category-rss', 'pages': bodies}
 
 
-def fetch_sources(root, schedule='daily', days=3, now=None, source_ids=None):
+def fetch_sources(root, schedule='daily', days=3, now=None, source_ids=None, issue_client=None):
     """Fetch enabled registry sources; report failures explicitly without losing other sources."""
     from . import fetch_s2, fetch_hf, fetch_rss, fetch_github
     current = now or datetime.now(timezone.utc)
@@ -164,4 +164,6 @@ def fetch_sources(root, schedule='daily', days=3, now=None, source_ids=None):
         except (requests.RequestException, ET.ParseError, ValueError) as error:
             outcomes.append({'source_id': 'arxiv-hydration', 'ok': False, 'count': 0,
                              'error': str(error), 'degraded': False})
+    from .health import update_health
+    update_health(root, outcomes, now=current, issue_client=issue_client)
     return {'records': records, 'outcomes': outcomes, 'raw_paths': paths}

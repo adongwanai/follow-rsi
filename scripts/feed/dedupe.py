@@ -2,7 +2,7 @@
 from copy import deepcopy
 from .normalize import split_arxiv, title_tokens
 
-LIST_FIELDS = ('source_hits', 'seed_hits', 'code_links', 'categories', 'aliases')
+LIST_FIELDS = ('source_hits', 'seed_hits', 'code_links', 'categories', 'aliases', 'hf_daily_dates')
 
 
 def similar_titles(left, right):

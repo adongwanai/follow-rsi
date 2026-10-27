@@ -7,7 +7,7 @@ on:
       days:
         description: Calendar days to backfill (HF requests every day)
         type: number
-        default: 3
+        default: 2
 permissions:
   contents: write
   issues: write
@@ -34,11 +34,16 @@ jobs:
           S2_API_KEY: ${{ secrets.S2_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          DAYS: ${{ inputs.days || 3 }}
+          DAYS: ${{ inputs.days || 2 }}
           LLM_PROVIDER: ${{ vars.LLM_PROVIDER }}
           LLM_MODEL: ${{ vars.LLM_MODEL }}
           LLM_BASE_URL: ${{ vars.LLM_BASE_URL }}
-        run: python -m scripts.feed.cli run --stage all --until summarize --schedule daily --days "$DAYS" --issues
+        run: |
+          if [ "$DAYS" -gt 3 ]; then
+            echo "Historical backfill: new discoveries are backlog-only; they cannot enter today's feed." >> "$GITHUB_STEP_SUMMARY"
+          fi
+          python -m scripts.feed.cli run --stage all --until summarize --schedule daily --days "$DAYS" --issues
+          python -c 'import json; from pathlib import Path; s=json.loads(Path("site/feed/status.json").read_text()); print("Source runs: " + json.dumps(s["last_fetch"], ensure_ascii=False))' >> "$GITHUB_STEP_SUMMARY"
       - name: Persist source metadata, caches and health even after a failed stage
         if: always()
         env:

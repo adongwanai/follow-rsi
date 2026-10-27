@@ -17,11 +17,11 @@ REVIEW_PATH = re.compile(r'^review/(\d{4}-W\d{2})\.yaml$')
 DAILY_PATH = re.compile(r'^review/daily/(\d{4}-\d{2}-\d{2})\.yaml$')
 DAILY_BRANCH = re.compile(r'^feed/review-(\d{4}-\d{2}-\d{2})$')
 PICKS_BRANCH = re.compile(r'^feed/picks-(\d{4})-w(\d{2})$')
-PROMPT_NAMES = {'relevance', 'classify', 'evidence', 'summarize', 'translate', 'digest_intro'}
+PROMPT_NAMES = {'relevance', 'classify', 'harness_gate', 'evidence', 'summarize', 'translate', 'digest_intro'}
 EVAL_MARKER = '<!-- follow-rsi-eval -->'
 STATE_PATHS = ['data/feed', 'site/feed/status.json', 'badges/feed-updated.json', 'site/badges/feed-updated.json', 'review']
 PUBLIC_PATHS = ['data/feed', 'feed/eval/labeled.yaml', 'daily', 'digests', 'README.md', 'README_zh.md',
-                'README_en.md', 'stats.json', 'papers', 'site', 'assets', 'badges']
+                'README_en.md', 'PAPERS.md', 'papers', 'site', 'assets', 'badges']
 
 
 def valid_week(value):
@@ -223,15 +223,33 @@ def queue_daily_pr(root=ROOT, review_date=None):
     switch_review_branch(root, branch, base)
     review = queue_daily_review(root, review_date, carried_reviews=carried)
     commit_paths(root, f'Queue Follow RSI daily owner review {review_date}',
-                 [f'review/daily/{review_date}.yaml', f'review/daily/{review_date}.excluded.yaml'], push=False)
+                 [f'review/daily/{review_date}.yaml', f'review/daily/{review_date}.excluded.yaml', f'review/backlog/{review_date}.yaml'], push=False)
     run(['git', 'push', '--set-upstream', 'origin', branch], root)
     rows = [*review['items'], *review['lab_updates']]
     pending = sum(row['decision'] in {'pending', 'defer'} for row in rows)
-    body = (f'Daily owner review for Follow RSI {review_date}: {len(review["items"])} papers and {len(review["lab_updates"])} lab updates.\n\n'
-            f'{pending} decisions remain pending/deferred. Set decisions to accept, reject, move or defer. Pending blocks merging; defer rolls forward without publishing.\n\n'
-            'The queue preserves owner edits from the open reviews below. No decision is published until this PR receives owner approval and is merged.\n\n')
+    counts = {
+        'In window': sum(row.get('window_status') == 'in_window' for row in rows),
+        'Backlog': sum(row.get('window_status') == 'backlog' for row in rows),
+        'Harness gate': sum(row.get('gate', {}).get('verdict') == 'harness' for row in rows),
+        'Borderline': sum(row.get('gate', {}).get('verdict') == 'borderline' for row in rows),
+        'In evidence library': sum(bool(row.get('in_repo')) for row in rows),
+    }
+    title = f'Review: Follow RSI {review_date}'
+    report_path = Path(root) / 'feed/eval/gate-report.json'
+    report = json.loads(report_path.read_text()) if report_path.exists() else None
+    warning = ''
+    if not report or not report.get('thresholds_passed'):
+        title = '[GATE BELOW THRESHOLD] ' + title
+        metrics = report.get('metrics', {}).get('harness', {}) if report else {}
+        warning = f"Harness gate: precision={metrics.get('precision', 'not evaluated')}, recall={metrics.get('recall', 'not evaluated')}; required ≥0.85 / ≥0.90.\n\n"
+    body = warning + '| ' + ' | '.join(counts) + ' |\n| ' + ' | '.join('---:' for _ in counts) + ' |\n| ' + ' | '.join(str(value) for value in counts.values()) + ' |\n\n'
+    body += (f'Daily owner review for Follow RSI {review_date}: {len(review["items"])} papers and {len(review["lab_updates"])} lab updates.\n\n'
+             f'{pending} decisions remain deferred. Set accept, reject, move, defer or backlog explicitly. '
+             'Accept requires in_window; backlog approves historical material for the weekly supplement only. '
+             'Defer rolls forward without publication.\n\n'
+             'Owner edits from open reviews are preserved. Nothing publishes before owner approval and merge.\n\n')
     body += '\n'.join('- ' + pr['url'] for pr in previous) + '\n'
-    url = upsert_pr(root, branch, base, f'Review: Follow RSI {review_date}', body)
+    url = upsert_pr(root, branch, base, title, body)
     # The replacement exists before any previous queue is closed.
     for pr in previous:
         gh(['pr', 'close', str(pr['number']), '--repo', os.environ['GITHUB_REPOSITORY']], root)
@@ -388,7 +406,7 @@ def candidate_pr(root, proposal, base):
     run(['python', 'scripts/build.py'], root)
     run(['python', 'scripts/render_cards.py', '--ids', *proposal['candidate_ids']], root)
     commit_paths(root, proposal['title'], ['data/papers.yaml', 'README.md', 'README_zh.md', 'README_en.md',
-                                         'stats.json', 'papers', 'site', 'assets', 'badges'], push=False)
+                                         'PAPERS.md', 'papers', 'site', 'assets', 'badges'], push=False)
     # A previous merged proposal can leave a remote branch. No force push is used.
     run(['git', 'push', '--set-upstream', 'origin', branch], root)
     body = Path(proposal['body_path']).read_text(encoding='utf-8')
@@ -513,6 +531,16 @@ def stage_eval_inputs(root, number, head_sha):
             if not isinstance(candidate['model'], str) or not candidate['model'].strip():
                 raise ValueError('Model name must be a nonempty string')
             os.environ['LLM_MODEL'] = candidate['model']
+            stages = candidate.get('stages', {})
+            for stage, settings in stages.items():
+                if stage not in {'classify', 'harness_gate'} or not isinstance(settings, dict):
+                    raise ValueError('Only classify and harness_gate stage settings are supported')
+                if set(settings) - {'model', 'samples', 'timeout_seconds'}:
+                    raise ValueError('Stage settings cannot change API credentials or destinations')
+                if not isinstance(settings.get('model'), str) or not settings['model'].strip():
+                    raise ValueError('Stage model name must be a nonempty string')
+            config['stages'] = stages
+            (Path(root) / path).write_text(yaml.safe_dump(config, sort_keys=False), encoding='utf-8')
 
 
 def comment_eval(root, number, report):
@@ -542,8 +570,11 @@ def evaluate(root=ROOT):
         stage_eval_inputs(root, pr['number'], pr['head']['sha'])
     if os.environ.get('LLM_API_KEY'):
         cache_metadata(root)
-    report = run_evaluation(root)
-    markdown = (Path(root) / 'feed/eval/report.md').read_text(encoding='utf-8')
+    harness = (Path(root) / 'feed/eval/harness-gate-cases.yaml').exists()
+    prefix = 'gate-report' if harness else 'report'
+    report = run_evaluation(root, label_file='harness-gate-cases.yaml' if harness else 'labeled.yaml',
+                            report_prefix=prefix)
+    markdown = (Path(root) / 'feed/eval' / (prefix + '.md')).read_text(encoding='utf-8')
     if os.environ.get('GITHUB_STEP_SUMMARY'):
         with Path(os.environ['GITHUB_STEP_SUMMARY']).open('a', encoding='utf-8') as handle:
             handle.write(markdown + '\n')

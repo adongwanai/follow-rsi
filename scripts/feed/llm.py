@@ -8,7 +8,7 @@ import re
 from jinja2 import Environment, StrictUndefined
 from jsonschema import ValidationError, validate
 
-from scripts.common import ROOT
+from scripts.common import ROOT, read_yaml
 
 
 class LLMConfigurationError(ValueError):
@@ -17,6 +17,40 @@ class LLMConfigurationError(ValueError):
 
 class LLMError(RuntimeError):
     """An externally produced result failed and must be sent to human review."""
+
+
+def stage_settings(name, root=ROOT, default_model=None):
+    path = Path(root) / 'feed/model.yaml'
+    config = read_yaml(path) if path.exists() else {}
+    stage = config.get('stages', {}).get(name, {})
+    model = stage.get('model', default_model or config.get('model'))
+    flash_gate = name == 'harness_gate' and model is not None and 'flash' in model.lower()
+    return {'model': model,
+            'samples': max(2 if flash_gate else 1, stage.get('samples', 1)),
+            'temperature': stage.get('temperature', 0.7 if flash_gate else 0),
+            'timeout_seconds': stage.get('timeout_seconds', 60)}
+
+
+def truncate_fields(data):
+    """Bound generated prose before schema validation; record each truncation."""
+    changed = []
+
+    def visit(value, path=()):
+        if isinstance(value, dict):
+            for key, entry in value.items():
+                limit = 80 if key == 'reason_zh' else 60 if key == 'why_zh' else (
+                    200 if key == 'quote' or key.endswith('_quote') else None)
+                if limit is not None and isinstance(entry, str) and len(entry) > limit:
+                    value[key] = entry[:limit]
+                    changed.append('.'.join((*path, key)))
+                else:
+                    visit(entry, (*path, key))
+        elif isinstance(value, list):
+            for index, entry in enumerate(value):
+                visit(entry, (*path, str(index)))
+
+    visit(data)
+    return changed
 
 
 def read_prompt(name, root=ROOT):
@@ -35,8 +69,12 @@ def validate_result(name, result, schema):
             raise ValueError('harness_sub is required exactly when primary is harness')
         if result['primary'] in result['secondary']:
             raise ValueError('primary must not be repeated in secondary')
-    elif name == 'translate' and len(result['summary_en'].split()) > 45:
-        raise ValueError('English summary exceeds 45 words')
+    elif name == 'summarize':
+        han = re.findall(r'[\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff\U00020000-\U000323af]', result['summary_zh'])
+        if len(han) > 60:
+            raise ValueError('Chinese summary exceeds 60 Han characters')
+    elif name == 'translate' and len(result['summary_en'].split()) > 30:
+        raise ValueError('English summary exceeds 30 words')
 
 
 class FeedLLM:
@@ -68,6 +106,8 @@ class FeedLLM:
 
     def run(self, name, item, variables=None, feedback=None, retry_token=None):
         source, schema = read_prompt(name, self.root)
+        settings = stage_settings(name, self.root, self.model)
+        model = settings['model']
         context = {**item, **(variables or {})}
         prompt = Environment(undefined=StrictUndefined, autoescape=False).from_string(source).render(**context)
         if feedback:
@@ -78,7 +118,7 @@ class FeedLLM:
         prompt_hash = hashlib.sha256(prompt.encode()).hexdigest()
         identity = item.get('arxiv_id') or item['id']
         cache_key = hashlib.sha256(json.dumps(
-            [identity, item.get('version', 1), prompt_hash, self.model],
+            [identity, item.get('version', 1), prompt_hash, model, settings['temperature']],
             ensure_ascii=False, separators=(',', ':')).encode()).hexdigest()
         cache_path = self.root / 'data/feed/cache' / (cache_key + '.json')
         if cache_path.exists():
@@ -98,8 +138,8 @@ class FeedLLM:
         for attempt in range(2):
             try:
                 response = self.transport.chat.completions.create(
-                    model=self.model, temperature=0, messages=messages,
-                    response_format=response_format,
+                    model=model, temperature=settings['temperature'], messages=messages,
+                    response_format=response_format, timeout=settings['timeout_seconds'],
                 )
             except Exception as error:
                 # The SDK may expose provider-specific errors. Preserve the cause and
@@ -110,6 +150,7 @@ class FeedLLM:
                 if content is None:
                     raise ValueError('Model returned no JSON content')
                 data = json.loads(content)
+                truncated = truncate_fields(data)
                 validate_result(name, data, schema)
             except (json.JSONDecodeError, ValidationError, ValueError) as error:
                 failures.append(str(error))
@@ -126,9 +167,10 @@ class FeedLLM:
                     messages.append({'role': 'user', 'content': correction})
                     continue
                 raise LLMError(f'{name} invalid after one retry: ' + failures[-1][:1200]) from error
-            result = {'data': data, 'model': self.model, 'provider': self.provider,
+            result = {'data': data, 'model': model, 'provider': self.provider,
                       'prompt_hash': prompt_hash, 'template_hash': hashlib.sha256(source.encode()).hexdigest(),
                       'cache_key': cache_key, 'cached': False, 'retry_count': attempt,
+                      'truncated_fields': truncated,
                       'response_prompt_hash': hashlib.sha256(json.dumps(messages, ensure_ascii=False, sort_keys=True).encode()).hexdigest()}
             cache_path.parent.mkdir(parents=True, exist_ok=True)
             cache_path.write_text(json.dumps(result, ensure_ascii=False, sort_keys=True, indent=2) + '\n', encoding='utf-8')
