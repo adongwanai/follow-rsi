@@ -19,7 +19,7 @@ AI 正在学会改进自己。我们为它的每一步留下记录。
 
 <!-- AUTO:BADGES:END -->
 
-[**今日动态**](https://adongwanai.github.io/follow-rsi/daily/) · [**每周精选**](https://adongwanai.github.io/follow-rsi/weekly/) · [**证据库**](https://adongwanai.github.io/follow-rsi/) · [阅读路线](https://adongwanai.github.io/follow-rsi/#routes) · [研究空白](directions/open-problems.md) · [English](README.md)
+[**今日动态**](https://adongwanai.github.io/follow-rsi/daily/) · [**每周精选**](https://adongwanai.github.io/follow-rsi/weekly/) · [**证据库**](https://adongwanai.github.io/follow-rsi/) · [阅读路线](https://adongwanai.github.io/follow-rsi/#routes) · [研究空白](directions/open-problems.md) · [English](README_en.md)
 
 </div>
 
