@@ -75,7 +75,9 @@ def test_hf_daily_date_comes_only_from_the_queried_day():
     raw[0]['publishedAt'] = '2026-10-07T00:00:00Z'
     result = fetch_hf.parse_json(raw, now=NOW, daily_date='2026-10-14')[0]
     assert result['hf_daily_dates'] == ['2026-10-14']
-    assert result['published'] == '2026-10-01T00:00:00Z'
+    assert result['hf_reported_published'] == '2026-10-01T00:00:00Z'
+    assert result['published'] == result['updated'] == result['announced'] == ''
+    assert result['metadata_pending'] and result['announced_source'] == 'unknown'
     assert result['hf_submitted_at'] == '2026-10-06T00:00:00Z'
     assert result['first_seen'] == NOW
     assert fetch_hf.parse_json(raw, now=NOW)[0]['hf_daily_dates'] == []
@@ -157,11 +159,91 @@ def test_registry_dispatch_selects_hf_and_persists_raw(tmp_path, monkeypatch):
     arxiv = Mock()
     monkeypatch.setattr(fetch_hf, 'fetch', hf)
     monkeypatch.setattr(fetch_arxiv, 'fetch', arxiv)
+    monkeypatch.setattr(fetch_arxiv, 'fetch_ids', Mock(return_value=[normalize_record({
+        'arxiv_id': '2610.35001', 'title': 'Hydrated fixture',
+        'published': '2026-10-26T00:00:00Z', 'updated': '2026-10-26T00:00:00Z',
+        'published_source': 'arxiv'}, now=NOW)]))
     result = fetch_arxiv.fetch_sources(tmp_path, days=14, now=NOW, source_ids=['hf-daily'])
     assert result['outcomes'][0]['count'] == 1
     assert hf.call_args.kwargs['days'] == 14
     arxiv.assert_not_called()
     assert (tmp_path / 'data/feed/raw/hf-daily/2026-10-27.json').exists()
+    assert result['raw_paths'] == ['data/feed/raw/hf-daily/2026-10-27.json']
+
+
+@pytest.fixture
+def hf_dates_source(tmp_path, monkeypatch):
+    (tmp_path / 'feed').mkdir()
+    (tmp_path / 'feed/sources.yaml').write_text(
+        'sources:\n- id: hf-daily\n  kind: hf_daily\n  schedule: daily\n  enabled: true\n  params: {}\n')
+    raw = [{'paper': {'id': '2601.15351', 'title': 'Publication date verification fixture',
+                     'summary': 'Original HF abstract retained for review.',
+                     'publishedAt': '2026-10-23T12:00:00Z',
+                     'submittedOnDailyAt': '2026-10-27T01:00:00Z'}}]
+    records = fetch_hf.parse_json(raw, now=NOW, daily_date='2026-10-27')
+    monkeypatch.setattr(fetch_hf, 'fetch', Mock(return_value=(records, {'format': 'fixture', 'rows': raw})))
+    paper = normalize_record({'arxiv_id': '2601.15351v2', 'title': raw[0]['paper']['title'],
+                              'published': '2026-01-21T12:00:00Z', 'updated': '2026-10-23T12:00:00Z',
+                              'published_source': 'arxiv', 'source_hits': ['arxiv-version-check']}, now=NOW)
+    return tmp_path, records[0], paper
+
+
+def test_hf_hydration_uses_arxiv_dates_without_changing_recommendation_or_abstract(hf_dates_source, monkeypatch):
+    from scripts.feed.dedupe import dedupe_items
+    from scripts.feed.window import publication_dates
+    root, raw, paper = hf_dates_source
+    hydrate = Mock(return_value=[paper])
+    monkeypatch.setattr(fetch_arxiv, 'fetch_ids', hydrate)
+    result = fetch_arxiv.fetch_sources(root, now=NOW, source_ids=['hf-daily'])
+    item = normalize_record(result['records'][0], now=NOW)
+    hydrate.assert_called_once_with(['2601.15351'], now=NOW)
+    assert item['version'] == 2 and not item['metadata_pending']
+    assert item['published'] == paper['published'] and item['updated'] == paper['updated']
+    assert item['announced'] == '2026-01-21' and item['announced_source'] == 'arxiv'
+    assert item['hf_reported_published'] == '2026-10-23T12:00:00Z'
+    assert item['hf_daily_dates'] == ['2026-10-27'] and item['abstract'] == raw['abstract']
+    timing = publication_dates(item, '2026-10-27', '2026-10-25')
+    assert timing['news_date'] == '2026-10-27' and timing['announced'] == '2026-01-21'
+    # Existing same-version records can contain the formerly trusted HF date.
+    old = normalize_record({**raw, 'version': 2, 'published': '2026-10-23T12:00:00Z',
+                            'metadata_pending': False}, now=NOW)
+    old['review'] = {'decision': 'defer', 'note': 'Keep owner note'}
+    merged = dedupe_items([item], [old])[0]
+    assert merged['published'] == paper['published'] and merged['announced'] == '2026-01-21'
+    assert merged['announced_source'] == merged['published_source'] == 'arxiv'
+    assert merged['review'] == old['review']
+
+
+@pytest.mark.parametrize('response', ['network_error', 'wrong_identity', 'missing_identity', 'missing_date'])
+def test_hf_failed_hydration_keeps_dates_unknown_and_reports_failure(hf_dates_source, monkeypatch, response):
+    import requests
+    from scripts.feed.dedupe import dedupe_items
+    from scripts.feed.window import publication_dates
+    root, raw, paper = hf_dates_source
+    if response == 'network_error':
+        hydrate = Mock(side_effect=requests.HTTPError('503 metadata unavailable'))
+    else:
+        returned = [] if response == 'missing_identity' else [{**paper,
+            **({'arxiv_id': '2601.99999', 'id': 'arxiv:2601.99999'} if response == 'wrong_identity'
+               else {'published': ''})}]
+        hydrate = Mock(return_value=returned)
+    monkeypatch.setattr(fetch_arxiv, 'fetch_ids', hydrate)
+    result = fetch_arxiv.fetch_sources(root, now=NOW, source_ids=['hf-daily'])
+    item = normalize_record(result['records'][0], now=NOW)
+    outcome = next(row for row in result['outcomes'] if row['source_id'] == 'arxiv-hydration')
+    assert outcome['ok'] is False and outcome['error']
+    assert item['metadata_pending'] and item['metadata_error'] == outcome['error']
+    assert item['published'] == item['updated'] == item['announced'] == ''
+    assert item['announced_source'] == 'unknown'
+    assert item['hf_reported_published'] == '2026-10-23T12:00:00Z'
+    assert item['hf_daily_dates'] == ['2026-10-27'] and item['abstract'] == raw['abstract']
+    timing = publication_dates(item, '2026-10-27', '2026-10-25')
+    assert timing['announced'] == '' and timing['announced_source'] == 'unknown'
+    old = normalize_record({**raw, 'published': '2026-10-23T12:00:00Z',
+                            'metadata_pending': False}, now=NOW)
+    merged = dedupe_items([item], [old])[0]
+    assert merged['published'] == merged['updated'] == merged['announced'] == ''
+    assert merged['metadata_error'] == outcome['error']
 
 
 def test_rss_post_dates_filter_before_hydration():

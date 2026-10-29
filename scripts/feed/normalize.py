@@ -82,9 +82,12 @@ def normalize_record(raw, now=None):
     item['first_seen'] = raw.get('first_seen') or now or utc_now()
     item['published'] = str(raw.get('published') or '')
     item['updated'] = str(raw.get('updated') or item['published'])
-    item['announced'] = item['published'][:10] or str(raw.get('hf_submitted_at') or '')[:10]
-    item['announced_source'] = ('published' if item['published'] else
-                                'hf_submitted_at' if raw.get('hf_submitted_at') else 'unknown')
+    if item.get('metadata_pending') and 'hf_reported_published' in item and not item['published']:
+        item['announced'], item['announced_source'] = '', 'unknown'
+    else:
+        item['announced'] = item['published'][:10] or str(raw.get('hf_submitted_at') or '')[:10]
+        item['announced_source'] = ((item.get('published_source') or 'published') if item['published'] else
+                                    'hf_submitted_at' if raw.get('hf_submitted_at') else 'unknown')
     item['retracted'] = bool(raw.get('retracted') or re.search(r'\b(?:withdrawn|retracted)\b', item['comments'], re.I)
                              or re.search(r'\bthis (?:paper|submission|manuscript) (?:has been|is|was) (?:withdrawn|retracted)\b', item['abstract'], re.I))
     return item

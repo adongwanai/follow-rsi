@@ -19,7 +19,8 @@ def review_window(root, day):
 
 
 def publication_dates(item, day, lower, published_ids=()):
-    announced = item.get('announced') or str(item.get('published') or item.get('hf_submitted_at') or '')[:10]
+    announced = ('' if item.get('announced_source') == 'unknown' else
+                 item.get('announced') or str(item.get('published') or item.get('hf_submitted_at') or '')[:10])
     announced_source = item.get('announced_source') or ('published' if item.get('published') else 'hf_submitted_at' if item.get('hf_submitted_at') else 'unknown')
     recommended = sorted(item.get('hf_daily_dates', []))
     observed = [value for value in recommended if value <= day]

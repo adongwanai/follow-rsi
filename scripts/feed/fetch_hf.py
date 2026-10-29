@@ -17,7 +17,9 @@ def parse_json(payload, source_id='hf-daily', keywords=(), now=None, daily_date=
         items.append(normalize_record({
             'arxiv_id': ident, 'title': title, 'abstract': abstract,
             'authors': [a['name'] for a in paper.get('authors', [])],
-            'published': paper.get('publishedAt') or row.get('publishedAt', ''),
+            # HF may report the current arXiv version date here, not v1.
+            'hf_reported_published': paper.get('publishedAt') or row.get('publishedAt', ''),
+            'metadata_pending': True,
             'links': {'arxiv': f'https://arxiv.org/abs/{ident}', 'hf': f'https://huggingface.co/papers/{ident}'},
             'source_hits': [source_id], 'hf_upvotes': paper.get('upvotes', row.get('upvotes', 0)),
             'code_links': [paper['githubRepo']] if paper.get('githubRepo') else [],

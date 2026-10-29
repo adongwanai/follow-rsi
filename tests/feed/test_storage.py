@@ -1,5 +1,6 @@
 from copy import deepcopy
 from pathlib import Path
+import pytest
 from scripts.feed.storage import load_items, save_items
 from scripts.feed.normalize import normalize_record
 from scripts.feed.dedupe import dedupe_items
@@ -75,6 +76,36 @@ def test_daily_date_union_keeps_dates_and_decisions_across_sources(tmp_path):
     assert save_items(tmp_path, [result]) == 1
     assert len((tmp_path / 'data/feed/items.jsonl').read_text().splitlines()) == 1
     assert save_items(tmp_path, dedupe_items([repeated, arxiv], load_items(tmp_path))) == 0
+
+
+@pytest.mark.parametrize('decision', ['accept', 'reject', 'defer'])
+def test_new_current_hf_recommendation_reopens_backfill_without_changing_owner_review(decision):
+    first = item(hf_daily_dates=['2026-10-14'], backfill_only=True)
+    first.update(summary_zh='人工摘要', llm={'label': 'include'},
+                 review={'kind': 'correction', 'decision': decision, 'note': '保留人工决定'})
+    original = deepcopy(first)
+    fresh = item(hf_daily_dates=['2026-10-29'], first_seen='2026-10-29T12:00:00Z')
+    result = dedupe_items([fresh], [first])[0]
+    assert result['backfill_only'] is False
+    assert result['hf_daily_dates'] == ['2026-10-14', '2026-10-29']
+    for field in ('first_seen', 'summary_zh', 'llm', 'review'):
+        assert result[field] == first[field]
+    assert first == original
+    assert dedupe_items([fresh], [result]) == [result]
+
+
+@pytest.mark.parametrize('old_dates,new_fields', [
+    (['2026-10-14'], {'hf_daily_dates': ['2026-10-14']}),
+    (['2026-10-14'], {'hf_daily_dates': ['2026-10-28']}),
+    (['2026-10-14'], {'hf_daily_dates': ['2026-10-29'], 'source_hits': ['arxiv-harness']}),
+    (['2026-10-14'], {'hf_daily_dates': ['2026-10-29'], 'first_seen': '2026-10-28T12:00:00Z'}),
+    (['2026-10-14'], {'hf_daily_dates': ['2026-10-29'], 'backfill_only': True}),
+    (['2026-10-14', '2026-10-29'], {'hf_daily_dates': ['2026-10-29']}),
+])
+def test_historical_or_unverified_replay_does_not_reopen_backfill(old_dates, new_fields):
+    first = item(hf_daily_dates=old_dates, backfill_only=True)
+    fresh = item(**{'first_seen': '2026-10-29T12:00:00Z', **new_fields})
+    assert dedupe_items([fresh], [first])[0]['backfill_only'] is True
 
 
 def test_legacy_duplicate_migration_preserves_latest_review_and_other_ids(tmp_path):

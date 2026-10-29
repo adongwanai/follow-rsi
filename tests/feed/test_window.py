@@ -2,7 +2,9 @@
 from copy import deepcopy
 import json
 import pytest
-from scripts.feed.window import publication_dates, daily_metadata
+from scripts.feed.window import publication_dates, daily_metadata, review_window
+from scripts.feed.dedupe import dedupe_items
+from scripts.feed.normalize import normalize_record
 from scripts.feed.review import queue_daily_review, validate_daily_review, approved_daily_items
 from scripts.feed.storage import load_items, save_items
 from test_daily import DAY, make_daily_repo, write_daily
@@ -26,6 +28,64 @@ def test_hf_recommendation_is_not_original_paper_date_or_first_seen():
     item['backfill_only'] = True
     item['hf_daily_dates'] = [DAY]
     assert publication_dates(item, DAY, '2026-10-25')['window_status'] == 'backlog'
+
+
+def test_fresh_hf_recommendation_reopens_daily_review_but_keeps_owner_deferral(tmp_path):
+    from scripts.feed.review import source_hash
+    root = make_daily_repo(tmp_path)
+    old = next(row for row in load_items(root) if row['id'] == 'arxiv:2610.99991')
+    old.update(published='2026-10-05', updated='2026-10-05', announced='2026-10-05',
+               hf_daily_dates=['2026-10-14'], backfill_only=True)
+    old['review'] = {'kind': 'correction', 'date': DAY, 'decision': 'defer',
+                     'note': 'Owner requires a full-text check.', 'source_hash': source_hash(old)}
+    fresh = normalize_record({'arxiv_id': old['arxiv_id'], 'title': old['title'],
+                              'published': old['published'], 'source_hits': ['hf-daily'],
+                              'hf_daily_dates': [DAY]}, now=DAY + 'T12:00:00Z')
+    merged = dedupe_items([fresh], [old])[0]
+    save_items(root, [merged])
+    row = next(row for row in queue_daily_review(root, DAY)['items'] if row['id'] == old['id'])
+    assert row['announced'] == old['announced']
+    assert row['news_date'] == DAY and row['window_status'] == 'in_window'
+    assert row['decision'] == 'defer' and row['note'] == old['review']['note']
+    assert approved_daily_items(root, DAY) == []
+    folder = root / 'site/recaps'
+    folder.mkdir(parents=True)
+    (folder / '2026-10-14--2026-10-26.json').write_text(json.dumps({
+        'kind': 'retrospective', 'date': '2026-10-26', 'end': '2026-10-26',
+        'items': [{'id': old['id']}]}))
+    assert daily_metadata(root, merged, DAY)['window_status'] == 'already_published'
+    assert old['id'] not in {row['id'] for row in queue_daily_review(root, DAY)['items']}
+
+
+def test_explicit_backfill_batch_keeps_today_hf_recommendation_out_of_daily(tmp_path):
+    from scripts.feed.cli import run_stage
+    from scripts.feed.storage import write_json
+    root = make_daily_repo(tmp_path)
+    old = next(row for row in load_items(root) if row['id'] == 'arxiv:2610.99991')
+    old.update(backfill_only=True, hf_daily_dates=['2026-10-14'])
+    save_items(root, [old])
+    fresh = normalize_record({'arxiv_id': old['arxiv_id'], 'title': old['title'],
+                              'source_hits': ['hf-daily'], 'hf_daily_dates': [DAY]},
+                             now=DAY + 'T12:00:00Z')
+    write_json(root / 'data/feed/normalized.json', {
+        'records': [fresh], 'batch': {'lookback_days': 14, 'backfill_only': True}})
+    run_stage(root, 'dedupe', date=DAY)
+    merged = next(row for row in load_items(root) if row['id'] == old['id'])
+    assert merged['backfill_only'] is True
+    assert daily_metadata(root, merged, DAY)['window_status'] == 'backlog'
+
+
+def test_gap_window_keeps_the_actual_recommendation_day(tmp_path):
+    folder = tmp_path / 'site/recaps'
+    folder.mkdir(parents=True)
+    (folder / '2026-10-14--2026-10-27.json').write_text(json.dumps({
+        'kind': 'retrospective', 'date': DAY, 'end': DAY, 'items': []}))
+    assert review_window(tmp_path, '2026-10-29') == DAY
+    item = {'id': 'yesterday', 'published': '2026-10-05', 'hf_daily_dates': ['2026-10-28']}
+    timing = daily_metadata(tmp_path, item, '2026-10-29')
+    assert timing['window_status'] == 'in_window'
+    assert timing['news_date'] == '2026-10-28'
+    assert timing['announced'] == '2026-10-05'
 
 
 def test_backlog_cannot_be_accepted_as_daily(tmp_path):
