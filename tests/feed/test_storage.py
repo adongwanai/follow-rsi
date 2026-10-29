@@ -60,6 +60,36 @@ def test_new_source_same_version_does_not_erase_judgement():
     assert result['llm'] == first['llm'] and result['review'] == first['review']
 
 
+@pytest.mark.parametrize('kind', ['post', 'release'])
+def test_corrected_absolute_url_keeps_old_stable_id_and_owner_review(kind):
+    old = normalize_record({'kind': kind, 'id': f'{kind}:/us-midterms-analysis/',
+                            'title': 'Sakana intelligence report',
+                            'links': {'url': 'https://sakana.ai/us-midterms-analysis/'},
+                            'source_hits': ['rss-sakana']}, now=NOW)
+    old['review'] = {'decision': 'defer', 'note': 'Owner still needs to review this post.'}
+    fresh = normalize_record({'kind': kind, 'title': old['title'],
+                              'links': old['links'], 'source_hits': ['rss-sakana']},
+                             now='2026-10-29T12:00:00Z')
+    records = dedupe_items([fresh], [old])
+    assert len(records) == 1 and records[0]['id'] == old['id']
+    assert records[0]['review'] == old['review'] and records[0]['first_seen'] == old['first_seen']
+    assert fresh['id'] in records[0]['aliases']
+    assert dedupe_items([fresh], records) == records
+
+
+@pytest.mark.parametrize('old_kind,new_kind,old_url,new_url', [
+    ('post', 'release', 'https://example.com/same', 'https://example.com/same'),
+    ('post', 'post', 'https://example.com/first', 'https://example.com/second'),
+    ('post', 'post', '/same-relative-path', '/same-relative-path'),
+])
+def test_nonpaper_url_matching_never_merges_kinds_titles_or_relative_paths(old_kind, new_kind, old_url, new_url):
+    old = normalize_record({'kind': old_kind, 'id': 'stable:old', 'title': 'Identical title',
+                            'links': {'url': old_url}}, now=NOW)
+    fresh = normalize_record({'kind': new_kind, 'id': 'stable:new', 'title': old['title'],
+                              'links': {'url': new_url}}, now=NOW)
+    assert len(dedupe_items([fresh], [old])) == 2
+
+
 def test_daily_date_union_keeps_dates_and_decisions_across_sources(tmp_path):
     first = item(hf_daily_dates=['2026-10-14'])
     first.update(summary_zh='已审摘要', label='include', primary='harness',

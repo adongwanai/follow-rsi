@@ -1,5 +1,6 @@
 """Merge arXiv versions and near-identical titles without erasing human decisions."""
 from copy import deepcopy
+from urllib.parse import urlsplit
 from .normalize import split_arxiv, title_tokens
 
 LIST_FIELDS = ('source_hits', 'seed_hits', 'code_links', 'categories', 'aliases', 'hf_daily_dates')
@@ -79,6 +80,12 @@ def dedupe_items(incoming, existing=(), repo_papers=()):
             item['repo_id'] = repo_ids[item['arxiv_id']]
         match = next((i for i, old in enumerate(items) if old['id'] == item['id'] or
                       (item.get('arxiv_id') and old.get('arxiv_id') == item['arxiv_id'])), None)
+        if match is None and item['kind'] in ('post', 'release'):
+            url = item.get('links', {}).get('url', '')
+            parsed = urlsplit(url)
+            if parsed.scheme in ('http', 'https') and parsed.hostname:
+                match = next((i for i, old in enumerate(items) if old['kind'] == item['kind']
+                              and old.get('links', {}).get('url') == url), None)
         if match is None and item['kind'] == 'paper':
             match = next((i for i, old in enumerate(items) if old['kind'] == 'paper' and
                           any(similar_titles(title, item['title']) for title in [old['title'], *old.get('aliases', [])])), None)

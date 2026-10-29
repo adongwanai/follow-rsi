@@ -126,6 +126,34 @@ def test_rss_recording_and_paper_link_hydration():
         fetch_rss.parse_feed('<html>Not a feed</html>', 'bad')
 
 
+@pytest.mark.parametrize('entry_link,expected', [
+    ('<link href="/us-midterms-analysis/" rel="alternate" type="text/html"/>',
+     'https://sakana.ai/us-midterms-analysis/'),
+    ('', 'https://sakana.ai/us-midterms-analysis'),
+])
+def test_rss_sakana_relative_link_or_id_resolves_against_response_url(entry_link, expected):
+    session = Mock()
+    session.get.return_value.url = 'https://sakana.ai/feed.xml'
+    session.get.return_value.text = f'''<feed xmlns="http://www.w3.org/2005/Atom">
+      <title>Blog</title><id>/feed.xml</id><entry>
+        <title>Intelligence Report: SNSのAI分析からみる米中間選挙</title>
+        {entry_link}<id>/us-midterms-analysis</id>
+        <published>2026-10-30T00:00:00+09:00</published>
+      </entry></feed>'''
+    source = {'id': 'rss-sakana', 'params': {'url': 'http://sakana.ai/feed.xml'}}
+    records, _ = fetch_rss.fetch(source, datetime(2026, 10, 29, tzinfo=timezone.utc), session)
+    assert records[0]['links']['url'] == expected
+    assert records[0]['id'] == f'post:{expected}'
+
+
+def test_rss_rejects_entry_without_http_url():
+    body = '''<feed xmlns="http://www.w3.org/2005/Atom"><entry>
+      <title>Invalid URL fixture</title><link href="javascript:alert(1)"/>
+      <id>urn:example:invalid</id></entry></feed>'''
+    with pytest.raises(ValueError, match='absolute HTTP'):
+        fetch_rss.parse_feed(body, 'rss-fixture', NOW, feed_url='https://example.com/feed.xml')
+
+
 def test_github_recorded_versions_and_repository_urls():
     rows = json.loads((FIX / 'github.json').read_text())
     result = fetch_github.parse_json(rows, 'simular-ai/Agent-S', now=NOW)
@@ -248,6 +276,7 @@ def test_hf_failed_hydration_keeps_dates_unknown_and_reports_failure(hf_dates_so
 
 def test_rss_post_dates_filter_before_hydration():
     session = Mock()
+    session.get.return_value.url = 'https://example.com/feed'
     session.get.return_value.text = '''<rss version="2.0"><channel><title>Lab</title><item><title>Old paper link</title><link>https://example.com/old</link><pubDate>Wed, 01 Jan 2025 00:00:00 GMT</pubDate><description>https://arxiv.org/abs/2501.10001</description></item></channel></rss>'''
     source = {'id': 'rss-lab', 'params': {'url': 'https://example.com/feed', 'lookback_days': 14}}
     items, raw = fetch_rss.fetch(source, datetime(2026, 10, 27, tzinfo=timezone.utc), session)
@@ -265,6 +294,7 @@ def test_arxiv_fourteen_calendar_days_include_today(monkeypatch):
 
 def test_rss_fourteen_day_window_excludes_thirteenth_and_includes_fourteenth():
     session = Mock()
+    session.get.return_value.url = 'https://example.com/feed'
     entries = ''.join(f'<item><title>Day {day}</title><link>https://example.com/{day}</link>'
                       f'<pubDate>{weekday}, {day} Oct 2026 00:00:00 GMT</pubDate></item>'
                       for day, weekday in [(13, 'Tue'), (14, 'Wed'), (27, 'Tue')])
