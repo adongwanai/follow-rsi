@@ -17,6 +17,8 @@ RSI papers appear every day, but every claim of improvement needs scrutiny. Foll
 
 ![methods](https://img.shields.io/badge/methods-61-2A33D4) ![must-read](https://img.shields.io/badge/must--read-21-14161C) ![updated](https://img.shields.io/badge/updated-2026--10--30-14161C) ![content](https://img.shields.io/badge/content-CC_BY_4.0-14161C)
 
+[**Deep dive (Chinese): Why AI still struggles with self-improvement →**](https://adongwanai.github.io/follow-rsi/articles/why-ai-self-improvement.html)
+
 <!-- AUTO:BADGES:END -->
 
 [Today](https://adongwanai.github.io/follow-rsi/daily/) · [Weekly picks](https://adongwanai.github.io/follow-rsi/weekly/) · [Evidence base](https://adongwanai.github.io/follow-rsi/#papers) · [Guide](https://adongwanai.github.io/follow-rsi/guide.html) · [中文](README.md)

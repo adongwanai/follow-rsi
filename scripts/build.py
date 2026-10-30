@@ -159,6 +159,9 @@ def readme_blocks(data, routes, stats, lang, config, root):
                     ('内容' if zh else 'content', 'CC_BY_4.0', '14161C')]
     badges = ' '.join(f'![{name}](https://img.shields.io/badge/{quote(name.replace("-", "--"))}-{quote(value.replace("-", "--"))}-{color})'
                       for name, value, color in badge_values)
+    if (root / 'articles/why-ai-self-improvement.md').exists():
+        title = '深度解读：为什么 AI 还不会自我进化' if zh else 'Deep dive (Chinese): Why AI still struggles with self-improvement'
+        badges += f'\n\n[**{title} →**]({base}/articles/why-ai-self-improvement.html)'
     scopes = stats['scopes']
     counts = (f"{scopes['core']} 篇方法 · {scopes['harness_eval']} 篇 Harness 评测与理论 · {scopes['background'] + scopes['general_rsi']} 篇奠基与通用 RSI。"
               if zh else f"{scopes['core']} methods · {scopes['harness_eval']} Harness evaluation and theory · {scopes['background'] + scopes['general_rsi']} foundations and general RSI papers.")
@@ -274,6 +277,9 @@ def related_papers(p, papers, routes):
 
 
 def build(root=ROOT):
+    from scripts.articles import build_articles
+
+    build_articles(root)
     data, routes = validate(root)
     config = read_yaml(root / 'site.config.yaml')
     stats = compute_stats(data)

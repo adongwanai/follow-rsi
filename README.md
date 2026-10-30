@@ -17,6 +17,8 @@ RSI 论文每天都在冒，但不是每个「变强了」都经得起检验。F
 
 ![方法论文](https://img.shields.io/badge/%E6%96%B9%E6%B3%95%E8%AE%BA%E6%96%87-61-2A33D4) ![必读](https://img.shields.io/badge/%E5%BF%85%E8%AF%BB-21-14161C) ![更新](https://img.shields.io/badge/%E6%9B%B4%E6%96%B0-2026--10--30-14161C) ![内容](https://img.shields.io/badge/%E5%86%85%E5%AE%B9-CC_BY_4.0-14161C)
 
+[**深度解读：为什么 AI 还不会自我进化 →**](https://adongwanai.github.io/follow-rsi/articles/why-ai-self-improvement.html)
+
 <!-- AUTO:BADGES:END -->
 
 [今日动态](https://adongwanai.github.io/follow-rsi/daily/) · [每周精选](https://adongwanai.github.io/follow-rsi/weekly/) · [证据库](https://adongwanai.github.io/follow-rsi/#papers) · [导读](https://adongwanai.github.io/follow-rsi/guide.html) · [English](README_en.md)

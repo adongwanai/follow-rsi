@@ -29,6 +29,7 @@ function chrome(){
  $('audit-copy').innerHTML=t('声称改进了「改进流程」的论文里，只有 <b>4 篇</b>在同起点、同预算下做了前后代对比','Of papers claiming to improve the improvement process, only <b>4</b> compare generations with the same starting point and budget');
  $('today-link').textContent=t('看今日动态','Read today’s updates');
  $('guide-link').textContent=t('从导读开始 →','Start with the guide →');
+ $('article-link').textContent=t('深度解读 · 为什么 AI 还不会自我进化','Deep dive (中文) · Why AI still struggles with self-improvement');
  $('q').placeholder=t('搜索论文、机构、机制或数字','Search papers, organizations, mechanisms or numbers');$('q').setAttribute('aria-label',$('q').placeholder);
  $('filter-open').textContent=t('筛选','Filters');$('clear').textContent=t('清除筛选','Clear filters');
  $('sort-label').textContent=t('排序','Sort');$('sort').setAttribute('aria-label',t('排序','Sort'));
