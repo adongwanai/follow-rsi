@@ -133,6 +133,9 @@ def readme_blocks(data, routes, stats, lang, config, root):
     badges = ' '.join(f'![{name}](https://img.shields.io/badge/{quote(name.replace("-", "--"))}-{quote(value.replace("-", "--"))}-{color})'
                       for name, value, color in badge_values)
     badges += f' ![feed](https://img.shields.io/endpoint?url={quote(base + "/badges/feed-updated.json", safe="")})'
+    if (root / 'articles/why-ai-self-improvement.md').exists():
+        title = '深度解读：为什么 AI 还不会自我进化' if zh else 'Deep dive (Chinese): Why AI still struggles with self-improvement'
+        badges += f'\n\n[**{title} →**]({base}/articles/why-ai-self-improvement.html)'
     if zh:
         overview = f"{stats['included']} 篇正式收录 · {stats['candidates']} 篇候选 · {stats['must_read']} 篇必读 · {stats['needs_reading']} 篇待细读。"
         coverage = f"证据字段已审 **{cov['ratio']:.1%}**（{cov['reviewed']}/{cov['total']}，每篇 8 项核查 + {len(CLASSES)} 项分类）；其中 8 项核查已审 **{checks['ratio']:.1%}**（{checks['reviewed']}/{checks['total']}）。统计仅含正式收录；已审指值非 `unknown`，包含 `no`、`partial`、`na`，不表示达标。"
@@ -191,6 +194,9 @@ def paper_card(p, sections):
 
 
 def build(root=ROOT):
+    from scripts.articles import build_articles
+
+    build_articles(root)
     data, routes = validate(root)
     config = read_yaml(root / 'site.config.yaml')
     stats = compute_stats(data)

@@ -17,6 +17,8 @@ AI is learning to improve itself. We keep the record.
 
 ![evidence_base](https://img.shields.io/badge/evidence_base-98_papers-2A33D4) ![must-read](https://img.shields.io/badge/must--read-20-14161C) ![updated](https://img.shields.io/badge/updated-2026--10--27-14161C) ![content](https://img.shields.io/badge/content-CC_BY_4.0-14161C) ![feed](https://img.shields.io/endpoint?url=https%3A%2F%2Fadongwanai.github.io%2Ffollow-rsi%2Fbadges%2Ffeed-updated.json)
 
+[**Deep dive (Chinese): Why AI still struggles with self-improvement →**](https://adongwanai.github.io/follow-rsi/articles/why-ai-self-improvement.html)
+
 <!-- AUTO:BADGES:END -->
 
 [**Today**](https://adongwanai.github.io/follow-rsi/daily/) · [**Weekly picks**](https://adongwanai.github.io/follow-rsi/weekly/) · [**Evidence base**](https://adongwanai.github.io/follow-rsi/) · [Reading routes](https://adongwanai.github.io/follow-rsi/#routes) · [Open problems](directions/open-problems.md) · [中文](README.md)

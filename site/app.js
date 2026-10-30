@@ -46,6 +46,7 @@ function chrome(){
  $('audit-copy').innerHTML=t('声称改进了「改进流程」的论文里，只有 <b>4 篇</b>在同起点、同预算下做了前后代对比','Of papers claiming to improve the improvement process, only <b>4</b> compare generations with the same starting point and budget');
  document.querySelectorAll('[data-repo]').forEach(el=>configureLink(el,D.config.repository_url,'Star on GitHub',t('Star on GitHub · 待发布','Star on GitHub · coming soon')));
  $('guide-link').textContent=t('从这里开始 · Harness 导读','Start here · Harness guide');
+ $('article-link').textContent=t('深度解读 · 为什么 AI 还不会自我进化','Deep dive (中文) · Why AI still struggles with self-improvement');
  configureLink($('newsletter'),D.config.newsletter_url,t('订阅每日动态与周报','Subscribe to daily and weekly updates'),t('周报订阅 · 筹备中','Weekly updates · coming soon'));
  $('q').placeholder=t('搜索论文、机构、机制或数字','Search papers, organizations, mechanisms or numbers');$('q').setAttribute('aria-label',$('q').placeholder);
  $('filter-open').textContent=t('筛选','Filters');$('clear').textContent=t('清除筛选','Clear filters');

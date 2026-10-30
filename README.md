@@ -17,6 +17,8 @@ AI 正在学会改进自己。我们为它的每一步留下记录。
 
 ![证据库](https://img.shields.io/badge/%E8%AF%81%E6%8D%AE%E5%BA%93-98_%E7%AF%87-2A33D4) ![必读](https://img.shields.io/badge/%E5%BF%85%E8%AF%BB-20-14161C) ![更新](https://img.shields.io/badge/%E6%9B%B4%E6%96%B0-2026--10--27-14161C) ![内容](https://img.shields.io/badge/%E5%86%85%E5%AE%B9-CC_BY_4.0-14161C) ![feed](https://img.shields.io/endpoint?url=https%3A%2F%2Fadongwanai.github.io%2Ffollow-rsi%2Fbadges%2Ffeed-updated.json)
 
+[**深度解读：为什么 AI 还不会自我进化 →**](https://adongwanai.github.io/follow-rsi/articles/why-ai-self-improvement.html)
+
 <!-- AUTO:BADGES:END -->
 
 [**今日动态**](https://adongwanai.github.io/follow-rsi/daily/) · [**每周精选**](https://adongwanai.github.io/follow-rsi/weekly/) · [**证据库**](https://adongwanai.github.io/follow-rsi/) · [阅读路线](https://adongwanai.github.io/follow-rsi/#routes) · [研究空白](directions/open-problems.md) · [English](README_en.md)
