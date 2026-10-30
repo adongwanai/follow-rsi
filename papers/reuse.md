@@ -57,6 +57,6 @@
 - [EvoHarnessBench](evoharnessbench.md)
 - [HarnessDev: Can LLMs Create and Evolve Their Own Agent Harness?](harnessdev.md)
 - [Reflections on Trusting Trust, Revisited](trusting-trust-revisited.md)
-- [HarnessOpt-Bench: Evaluating LLMs at Harness Optimization](harnessopt-bench.md)
+- [Aspire: Can Models Self-Evolve from Vague Goals?](aspire.md)
 
 <!-- AUTO:RELATED:END -->

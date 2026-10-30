@@ -15,7 +15,7 @@ RSI papers appear every day, but every claim of improvement needs scrutiny. Foll
 
 <!-- AUTO:BADGES:START -->
 
-![methods](https://img.shields.io/badge/methods-61-2A33D4) ![must-read](https://img.shields.io/badge/must--read-20-14161C) ![updated](https://img.shields.io/badge/updated-2026--10--27-14161C) ![content](https://img.shields.io/badge/content-CC_BY_4.0-14161C)
+![methods](https://img.shields.io/badge/methods-61-2A33D4) ![must-read](https://img.shields.io/badge/must--read-21-14161C) ![updated](https://img.shields.io/badge/updated-2026--10--30-14161C) ![content](https://img.shields.io/badge/content-CC_BY_4.0-14161C)
 
 <!-- AUTO:BADGES:END -->
 
@@ -71,7 +71,7 @@ Legend: ✅ yes · ◐ partial · ❌ no · ❔ not yet reviewed. Every entry mu
 | --- | --- | --- |
 | Foundations | [ADAS](papers/adas.md) → [Darwin Gödel Machine](papers/dgm.md) → [Meta-Harness](papers/meta-harness.md) → [DGM-H](papers/hyperagents.md) | What are the two origins of searching agent designs and modifying one’s own code? |
 | Mainline methods | [AHE](papers/ahe.md) → [Self-Harness](papers/self-harness.md) → [DarwinX](papers/darwinx.md) → [ModularRSI](papers/modularrsi.md) → [RRSI](papers/rrsi.md) | What does each of the most common comparison baselines address? |
-| Experimental design (everyone) | [Rethinking the Evaluation of Harness Evolution for Agents](papers/rethinking-evaluation.md) → [Harness-Delta Attribution](papers/hda.md) → [HarnessOpt-Bench](papers/harnessopt-bench.md) → [Auditing the Product, Not the Recursion](papers/auditing-product.md) → [Reflections on Trusting Trust, Revisited](papers/trusting-trust-revisited.md) | Under matched budgets, do gains come from transferable improvements, extra computation, or overfitting? Do the baselines leak answers? |
+| Experimental design (everyone) | [Rethinking the Evaluation of Harness Evolution for Agents](papers/rethinking-evaluation.md) → [Harness-Delta Attribution](papers/hda.md) → [HarnessDev](papers/harnessdev.md) → [RSIHub](papers/rsihub.md) → [HarnessOpt-Bench](papers/harnessopt-bench.md) → [Auditing the Product, Not the Recursion](papers/auditing-product.md) → [Reflections on Trusting Trust, Revisited](papers/trusting-trust-revisited.md) | Under matched budgets, do gains come from transferable improvements, extra computation, or overfitting? Do the baselines leak answers? |
 
 [All reading routes →](https://adongwanai.github.io/follow-rsi/#routes)
 
@@ -99,6 +99,7 @@ Legend: ✅ yes · ◐ partial · ❌ no · ❔ not yet reviewed. Every entry mu
 | 2026-09 | [Co-Evolving Harnesses and Models](papers/co-evolving-harnesses-models.md) | First evolves a harness using a weak model; finds that making the weak model imitate a strong model’s full trajectories breaks their fit; instead, the expert rewrites only the erroneous turn in the weak model’s own trajectory. | ❔ ❔ ❔ ❔ |
 | 2026-07-14 | [Rethinking the Evaluation of Harness Evolution for Agents](papers/rethinking-evaluation.md) | With equal feedback and inference budgets, harness evolution on TB2.1 does not beat parallel sampling or sequential revision; on held-out tasks, Opus 4.6 gains only +1.2 and GPT-5.4 is unchanged. However, it has a clear advantage in long-horizon games with finer feedback and more dynamics. | ✅ ✅ ❔ ❔ |
 | 2026-10-15 | [Harness-Delta Attribution](papers/hda.md) | Uses a compute-matched baseline and a shortcut-removed evolved harness as two controls to decompose gains into overfitting, test-time scaling, and a remaining upper bound on generalizable gains. Across 11 execution models, three evolution frameworks, and 21 significant settings, the first two account for 54% and 14% on average; validation-set gating is insufficient to prevent overfitting. | ✅ ✅ ❔ ❔ |
+| 2026-09-01 | [HarnessDev](papers/harnessdev.md) | Evaluates creation and iterative revision of reusable harnesses with weights fixed. Creation covers six models and five benchmarks; Evolution uses visible feedback before frozen artifacts are evaluated on 630 held-out SWE-Pro tasks, separating creator and executor roles. | ✅ ❌ ✅ ◐ |
 | 2023 | [STOP](papers/stop.md) | A program that improves code improves itself, marking a starting point for recursive self-improvement scaffolds in the LLM era; it also discusses safety issues such as bypassing sandboxes. | ❔ ❔ ❔ ❔ |
 | 2025 | [SICA](papers/sica.md) | The executor and improver are the same agent, directly modifying its own Python code; a typical comparison for the self-modification approach. | ❔ ❔ ❔ ❔ |
 | 2026-05 | [Harness Updating Is Not Harness Benefit](papers/harness-updating-not-benefit.md) | The ability to produce good updates is almost unrelated to model strength (Qwen3.5-9B is close to Claude Opus 4.6); the ability to benefit from updates is nonmonotonic, with medium-sized models benefiting most. | ❔ ❔ ❔ ❔ |
@@ -106,8 +107,8 @@ Legend: ✅ yes · ◐ partial · ❌ no · ❔ not yet reviewed. Every entry mu
 
 Icons: held-out · matched budget · cross-model · cost; ❔ means not yet reviewed.
 
-61 methods · 15 Harness evaluation and theory · 22 foundations and general RSI papers.
-[Full catalog: 98 + 6 candidates](PAPERS.md) · [Filter on the site](https://adongwanai.github.io/follow-rsi/#papers)
+61 methods · 16 Harness evaluation and theory · 24 foundations and general RSI papers.
+[Full catalog: 101 + 6 candidates](PAPERS.md) · [Filter on the site](https://adongwanai.github.io/follow-rsi/#papers)
 
 <!-- AUTO:MUST_READ:END -->
 

@@ -54,7 +54,7 @@
 
 - [HarnessOpt-Bench: Evaluating LLMs at Harness Optimization](harnessopt-bench.md)
 - [Rethinking the Evaluation of Harness Evolution for Agents](rethinking-evaluation.md)
-- [AutoHarnessBench](autoharnessbench.md)
-- [EvoHarnessBench](evoharnessbench.md)
+- [Aspire: Can Models Self-Evolve from Vague Goals?](aspire.md)
+- [S3Gym: Can LLMs Turn Self-Testing and Self-Judging into Self-Improvement?](s3gym.md)
 
 <!-- AUTO:RELATED:END -->

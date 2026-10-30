@@ -56,6 +56,28 @@ def test_general_rsi_study_cannot_pass_as_harness():
     assert guard_harness(ITEM['abstract'], {**GATE, 'harness_specific': 'no'})['verdict'] == 'borderline'
 
 
+@pytest.mark.parametrize('primary', ['evaluation_benchmark', 'theory_survey'])
+def test_harness_study_does_not_need_to_modify_its_own_evaluator(primary):
+    abstract = 'We compare methods that revise reusable agent harnesses using execution feedback.'
+    gate = {**deepcopy(GATE), 'improved_object': 'none', 'suggested_primary': primary,
+            'study_quote': abstract,
+            'feedback_driven': {'value': 'unclear', 'quote': None},
+            'persists_across_tasks': {'value': 'unclear', 'quote': None}}
+    assert guard_harness(abstract, gate)['verdict'] == 'harness'
+    for bad_quote in (None, 'Invented evidence for a Harness benchmark.'):
+        assert guard_harness(abstract, {**gate, 'study_quote': bad_quote})['verdict'] == 'borderline'
+    assert guard_harness(abstract, {**gate, 'harness_specific': 'no'})['verdict'] == 'borderline'
+
+
+def test_study_quote_cannot_bypass_method_or_other_object_requirements():
+    quote = ITEM['abstract']
+    gate = {**deepcopy(GATE), 'study_quote': quote,
+            'persists_across_tasks': {'value': 'unclear', 'quote': None}}
+    assert guard_harness(quote, gate)['verdict'] == 'borderline'
+    gate.update(suggested_primary='evaluation_benchmark', improved_object='memory_entries')
+    assert guard_harness(quote, gate)['verdict'] == 'other_direction'
+
+
 def test_memory_benchmark_remains_a_study_not_a_memory_method():
     checked = guard_harness(ITEM['abstract'], {**GATE, 'improved_object': 'memory_entries',
                             'suggested_primary': 'evaluation_benchmark',

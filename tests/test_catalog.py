@@ -151,7 +151,7 @@ def test_retired_repository_name_is_absent():
 def test_readme_scope_counts_and_no_empty_sections():
     data, _ = validate()
     stats = compute_stats(data)
-    assert stats['scopes'] == {'core': 61, 'harness_eval': 15, 'background': 16, 'general_rsi': 6}
+    assert stats['scopes'] == {'core': 61, 'harness_eval': 16, 'background': 16, 'general_rsi': 8}
     assert sum(stats['scopes'].values()) == stats['included']
     assert stats['must_read_fully_reviewed'] == 0
     for name in ('README.md', 'README_en.md'):
@@ -161,3 +161,38 @@ def test_readme_scope_counts_and_no_empty_sections():
     assert not (ROOT / 'stats.json').exists()
     for path in (ROOT / 'papers').glob('*.md'):
         assert '<!-- TODO' not in path.read_text()
+
+
+def test_reviewed_series_scope_and_evidence_boundaries():
+    data, routes = validate()
+    by_id = {paper['id']: paper for paper in data['papers']}
+    for paper_id, arxiv_id, scope in (
+        ('rsihub', '2610.32253', 'harness_eval'),
+        ('harnessdev', '2609.01437', 'harness_eval'),
+        ('aspire', '2608.31111', 'general_rsi'),
+        ('s3gym', '2608.31100', 'general_rsi'),
+    ):
+        paper = by_id[paper_id]
+        assert paper['arxiv'] == arxiv_id
+        assert paper['scope'] == scope
+        assert paper['section'] == 'evaluation'
+        assert not paper.get('needs_reading')
+        assert (ROOT / 'notes' / f'{paper_id}.md').is_file()
+
+    # Two execution harnesses using GPT-5.4 do not establish cross-model transfer.
+    assert evidence(by_id['rsihub'])['cross_model_transfer'] == 'no'
+    assert evidence(by_id['rsihub'])['matched_budget_baseline'] == 'unknown'
+    # RQ1 directly re-executes frozen artifacts; RQ2 is not a matched-search control.
+    assert evidence(by_id['harnessdev'])['cross_model_transfer'] == 'yes'
+    assert evidence(by_id['harnessdev'])['matched_budget_baseline'] == 'no'
+    assert evidence(by_id['harnessdev'])['cost_reported'] == 'partial'
+    # Equal interaction budgets in S3Gym are not equal total inference/training costs.
+    assert evidence(by_id['s3gym'])['matched_budget_baseline'] == 'unknown'
+    assert evidence(by_id['s3gym'])['cost_reported'] == 'unknown'
+
+    route = next(r for r in routes if r['name_en'] == 'Experimental design (everyone)')
+    assert route['papers'][route['papers'].index('hda') + 1] == 'harnessdev'
+    assert route['papers'][:4] == ['rethinking-evaluation', 'hda', 'harnessdev', 'rsihub']
+    assert by_id['harnessdev']['must_read']
+    assert {'aspire', 's3gym'}.isdisjoint(route['papers'])
+    assert compute_stats(data)['scopes']['core'] == 61

@@ -1,5 +1,7 @@
 """The complete offline pipeline must stop at the owner gate and resume safely."""
 from copy import deepcopy
+from concurrent.futures import Future
+import hashlib
 import json
 import sys
 
@@ -151,6 +153,117 @@ def test_failed_automatic_judgement_is_retried_without_overwriting_owner_correct
     calls = list(client.calls)
     assert process_items(root, 'judge', workers=1, client=client)['processed'] == 0
     assert client.calls == calls
+
+
+@pytest.mark.parametrize('changed_stage', ['relevance', 'classify', 'harness_gate'])
+def test_changed_prompt_rejudges_old_exclude_once_and_preserves_owner_correction(
+        tmp_path, monkeypatch, changed_stage):
+    root, item = empty_source_repo(tmp_path)
+    prompts = root / 'feed/prompts'
+    prompts.mkdir()
+    for stage in ('relevance', 'classify', 'harness_gate', 'evidence'):
+        (prompts / f'{stage}.md').write_bytes((ROOT / 'feed/prompts' / f'{stage}.md').read_bytes())
+    provenance = {'template_hash': hashlib.sha256((prompts / f'{changed_stage}.md').read_bytes()).hexdigest()}
+    item['llm'] = {'label': 'exclude', changed_stage: (
+        {'samples': [provenance]} if changed_stage == 'harness_gate' else provenance)}
+    item['label'] = 'exclude'
+    item['summary_zh'], item['summary_en'] = '过时摘要', 'Outdated summary'
+    item['review'] = {'kind': 'daily', 'decision': 'defer', 'note': 'Keep the owner note'}
+    corrected = deepcopy(item)
+    corrected.update(id='arxiv:2610.99994', arxiv_id='2610.99994')
+    corrected['review'] = {'kind': 'correction', 'decision': 'reject', 'note': 'Owner decision'}
+    save_items(root, [item, corrected])
+    client = OfflineLLM()
+    original_run = client.run
+
+    def run_with_provenance(name, *args, **kwargs):
+        return {**original_run(name, *args, **kwargs),
+                'template_hash': hashlib.sha256((prompts / f'{name}.md').read_bytes()).hexdigest()}
+
+    monkeypatch.setattr(client, 'run', run_with_provenance)
+    before = (root / 'data/feed/items.jsonl').read_bytes()
+    assert process_items(root, 'judge', workers=1, client=client)['processed'] == 0
+    assert not client.calls
+    assert (root / 'data/feed/items.jsonl').read_bytes() == before
+    with (prompts / f'{changed_stage}.md').open('a') as stream:
+        stream.write('\nUpdated scope rule for the regression fixture.\n')
+
+    assert process_items(root, 'judge', workers=1, client=client)['processed'] == 1
+    updated = {row['id']: row for row in load_items(root)}
+    assert updated[item['id']]['llm']['label'] == 'include'
+    assert updated[item['id']]['review'] == item['review']
+    assert 'summary_zh' not in updated[item['id']] and 'summary_en' not in updated[item['id']]
+    assert updated[corrected['id']] == corrected
+    before = (root / 'data/feed/items.jsonl').read_bytes()
+    calls = list(client.calls)
+    assert process_items(root, 'judge', workers=1, client=client)['processed'] == 0
+    assert client.calls == calls
+    assert (root / 'data/feed/items.jsonl').read_bytes() == before
+
+
+@pytest.mark.parametrize('stage', ['judge', 'summarize'])
+@pytest.mark.parametrize('in_flight', [False, True])
+def test_payment_failure_cancels_unstarted_work_and_keeps_completed_results(
+        tmp_path, monkeypatch, stage, in_flight):
+    from scripts.feed.llm import LLMConfigurationError
+
+    root, template = empty_source_repo(tmp_path)
+    items = []
+    for index in range(5):
+        item = deepcopy(template)
+        item.update(id=f'arxiv:2610.{99990 + index}', arxiv_id=f'2610.{99990 + index}')
+        if stage == 'summarize':
+            item.update(label='include', llm={'label': 'include'})
+        items.append(item)
+    save_items(root, items)
+    failure = LLMConfigurationError('LLM provider returned HTTP 402 (insufficient balance)')
+    futures = []
+    completed = {}
+
+    class ScheduledExecutor:
+        """Fix completion order so queue cancellation has no timing-dependent assertion."""
+        def __init__(self, max_workers):
+            assert max_workers == 2
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+        def submit(self, operation, item, client, root):
+            future = Future()
+            index = len(futures)
+            if index == 1:
+                future.set_exception(failure)
+            elif index in (0, 2):
+                result = deepcopy(item)
+                result.update(label='include', llm={'label': 'include'})
+                if stage == 'summarize':
+                    result.update(summary_zh='完成的摘要', summary_en='Completed summary')
+                completed[item['id']] = result
+                if index == 2 and in_flight:
+                    future.set_running_or_notify_cancel()
+                else:
+                    future.set_result(result)
+            futures.append(future)
+            return future
+
+    def completed_in_order(pending):
+        for future, ident in pending.items():
+            if future.running():
+                future.set_result(completed[ident])
+            yield future
+
+    monkeypatch.setattr(cli, 'ThreadPoolExecutor', ScheduledExecutor)
+    monkeypatch.setattr(cli, 'as_completed', completed_in_order)
+    with pytest.raises(LLMConfigurationError, match='HTTP 402') as error:
+        process_items(root, stage, workers=2, client=OfflineLLM())
+    assert error.value is failure
+    assert all(future.cancelled() for future in futures[3:])
+    saved = {row['id']: row for row in load_items(root)}
+    for item in items:
+        assert saved[item['id']] == completed.get(item['id'], item)
 
 
 @pytest.mark.parametrize('stage', ['judge', 'summarize'])

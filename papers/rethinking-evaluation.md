@@ -57,6 +57,8 @@
 - [Evo-Bench: Can Language Models Improve Agent Harness?](evo-bench.md)
 - [HarnessOpt-Bench: Evaluating LLMs at Harness Optimization](harnessopt-bench.md)
 - [Harness-Delta Attribution: Dissecting Gains From Harness Evolution](hda.md)
+- [HarnessDev: Can LLMs Create and Evolve Their Own Agent Harness?](harnessdev.md)
+- [RSIHub: A Composable Framework for Agent-Evolution Methods](rsihub.md)
 - [Auditing the Product, Not the Recursion](auditing-product.md)
 - [Reflections on Trusting Trust, Revisited](trusting-trust-revisited.md)
 

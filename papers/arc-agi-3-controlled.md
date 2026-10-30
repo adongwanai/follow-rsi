@@ -52,9 +52,9 @@
 
 ## 相关论文
 
+- [RSIHub: A Composable Framework for Agent-Evolution Methods](rsihub.md)
 - [Harness-Delta Attribution: Dissecting Gains From Harness Evolution](hda.md)
 - [Auditing the Product, Not the Recursion](auditing-product.md)
 - [RSIGym](rsigym.md)
-- [EvoHarnessBench](evoharnessbench.md)
 
 <!-- AUTO:RELATED:END -->

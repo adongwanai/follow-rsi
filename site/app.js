@@ -172,7 +172,8 @@ function renderMap(main){
   [t('电脑操作','Computer use'),[['Agent S4','agent-s4'],['PILOT','pilot']]]
  ].map(([title,works])=>tile(title,'',works)).join('');
  const support=[
-  [t('评测与基准','Benchmarks'),[['Evo-Bench','evo-bench'],['RSIGym','rsigym']]],
+  [t('评测与基准','Benchmarks'),[['HarnessDev','harnessdev'],['RSIHub','rsihub'],['Evo-Bench','evo-bench'],['RSIGym','rsigym']]],
+  [t('通用 RSI 评测（不计 Harness）','General RSI evaluation (outside Harness)'),[['Aspire','aspire'],['S³Gym','s3gym']]],
   [t('归因与可信度','Attribution & trust'),[['HDA','hda'],['Auditing','auditing-product']]],
   [t('理论与综述','Theory & surveys'),[['Self-Evolving Agent Harness','self-evolving-agent-harness']]],
   [t('安全与治理','Safety & governance'),[['Trusting Trust','trusting-trust-revisited']]]

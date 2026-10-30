@@ -2,6 +2,7 @@
 import argparse
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -64,6 +65,18 @@ def _needs_gate_migration(item):
         for field in ('feedback_driven', 'persists_across_tasks')))
 
 
+def _needs_prompt_migration(item, root):
+    for stage in ('relevance', 'classify', 'harness_gate'):
+        previous = item.get('llm', {}).get(stage, {})
+        responses = previous.get('samples', []) if stage == 'harness_gate' else [previous]
+        for response in responses:
+            recorded = response.get('template_hash')
+            if recorded and recorded != hashlib.sha256(
+                    (Path(root) / 'feed/prompts' / f'{stage}.md').read_bytes()).hexdigest():
+                return True
+    return False
+
+
 def _backfill_items(root, items):
     from scripts.feed.window import published_editions
     editions = published_editions(root)
@@ -81,7 +94,7 @@ def _backfill_items(root, items):
 def process_items(root, stage, workers=4, client=None):
     from scripts.feed.judge import judge_item, summarize_item
     from scripts.feed.library import curated_item
-    from scripts.feed.llm import FeedLLM
+    from scripts.feed.llm import FeedLLM, LLMConfigurationError
     from scripts.feed.scope import archive_out_of_scope
     items = load_items(root)
     refreshed = {}
@@ -99,7 +112,7 @@ def process_items(root, stage, workers=4, client=None):
     if stage == 'judge':
         todo = [item for item in automatic if item['kind'] == 'paper'
                 and (item.get('llm', {}).get('label') in (None, '', 'error')
-                     or _needs_gate_migration(item))]
+                     or _needs_gate_migration(item) or _needs_prompt_migration(item, root))]
         for item in todo:
             if item.get('llm', {}).get('label'):
                 # Reclassification must not retain a legacy gate or summary.
@@ -115,15 +128,27 @@ def process_items(root, stage, workers=4, client=None):
                 'archived':archive_out_of_scope(root) if stage == 'summarize' else 0}
     client = client or FeedLLM.from_env(root)
     counts = {}
+    configuration_error = None
     with ThreadPoolExecutor(max_workers=workers) as pool:
         pending = {pool.submit(operation, item, client, root): item['id'] for item in todo}
         for index, future in enumerate(as_completed(pending), 1):
-            result = future.result()
+            if future.cancelled():
+                continue
+            try:
+                result = future.result()
+            except LLMConfigurationError as error:
+                if configuration_error is None:
+                    configuration_error = error
+                for queued in pending:
+                    queued.cancel()
+                continue
             save_items(root, [result])
             label = result.get('label', 'unjudged')
             counts[label] = counts.get(label, 0) + 1
             if index == 1 or index % 10 == 0 or index == len(todo):
                 print(f'{stage}: {index}/{len(todo)} processed; {counts}', flush=True)
+    if configuration_error is not None:
+        raise configuration_error
     return {'stage':stage, 'processed':len(todo) + len(refreshed), 'labels':counts,
             'archived':archive_out_of_scope(root) if stage == 'summarize' else 0}
 

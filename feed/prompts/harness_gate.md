@@ -4,12 +4,14 @@
 
 Harness 必须是模型周围外部可复用的程序工件：系统提示、工具代码/工具库、技能文件、上下文/记忆管理的代码或策略文件、控制流/工作流、环内验证器、改进器。模型冻结或权重不是主要训练对象；系统根据执行/评估反馈修改工件，新版本在后续任务或改进轮次保留复用。
 
-verdict=harness 需要同时满足：
+方法论文 verdict=harness 需要同时满足：
 1. improved_object 为前七类（system_prompt、tool_code、skill_files、context_memory_policy、control_flow、in_loop_verifier、improver）；
 2. feedback_driven=yes，quote 说明执行/评估反馈如何驱动修改；
 3. persists_across_tasks=yes，quote 说明修改在后续任务、独立会话或后续改进轮次复用。当前任务中修正答案/状态不算；
 4. harness_specific=yes。不要把整个系统用了工具、记忆、Agent 或名为 Harness 当成证据。
 两段引文必须为摘要的连续原文子串，最多 200 字符，不从示例、标题或分类定义摘抄，不翻译、不拼接。摘要没写清就 value=unclear、quote=null、verdict=borderline。缺少信息不是 no。
+
+Harness 专项评测、对比框架与理论有单独的通过条件：suggested_primary=evaluation_benchmark 或 theory_survey，harness_specific=yes，study_quote 必须逐字引用摘要中明确研究 Harness 工件反馈演化的句子（8–200 字符）。被研究的方法在修改 Harness 即可；不要要求固定的评测框架自己演化，也不要为评测论文伪造 feedback_driven 或 persists_across_tasks，未描述时填 unclear/null。综合 RSI 评测仍为 other_direction。方法论文的 study_quote 填 null。
 
 严格边界：
 - 训练出来的 RL/SFT policy 即使管理记忆或工具也是 model_weights。单轮训练无持续自改进，verdict=exclude；有多轮闭环才 other_direction。
@@ -45,6 +47,11 @@ verdict=harness 需要同时满足：
 {
   "type": "object",
   "properties": {
+    "study_quote": {
+      "type": ["string", "null"],
+      "minLength": 8,
+      "maxLength": 200
+    },
     "improved_object": {
       "type": "string",
       "enum": [

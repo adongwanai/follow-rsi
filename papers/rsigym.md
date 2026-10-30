@@ -57,6 +57,6 @@
 - [Auditing the Product, Not the Recursion](auditing-product.md)
 - [Harness-Delta Attribution: Dissecting Gains From Harness Evolution](hda.md)
 - [Can LLMs Improve Their Own Harness? A Controlled Study on ARC-AGI-3](arc-agi-3-controlled.md)
-- [EvoHarnessBench](evoharnessbench.md)
+- [RSIHub: A Composable Framework for Agent-Evolution Methods](rsihub.md)
 
 <!-- AUTO:RELATED:END -->

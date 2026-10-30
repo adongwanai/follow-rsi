@@ -7,7 +7,7 @@
 #   - date: arXiv first-submission date (YYYY-MM-DD if verified to the day, else YYYY-MM or YYYY)
 
 meta:
-  as_of: "2026-10-27"
+  as_of: "2026-10-30"
   sections:
     foundations:        {zh: "奠基与前置", en: "Foundations"}
     evolve_main:        {zh: "1.1 搜索与演化主线", en: "1.1 Search & evolution (frozen model)"}
@@ -1151,17 +1151,91 @@ papers:
   summary_en: "Specifically evaluates models’ ability to evolve harnesses, selecting tasks by their sensitivity to harness quality; the strongest evolver gains +16.6 over the CodeAct seed and approaches a human-designed harness, while still lagging on office tasks."
   en_machine_translated: true
 
-- id: harnessdev
-  scope: harness_eval
-  title: "HarnessDev: Can LLMs Create and Evolve Their Own Agent Harness?"
-  arxiv: "2609.01437"
-  date: "2026-09"
+- id: aspire
+  scope: general_rsi
+  title: 'Aspire: Can Models Self-Evolve from Vague Goals?'
+  arxiv: '2608.31111'
+  date: '2026-08-31'
   section: evaluation
-  needs_reading: true
   kind: benchmark
-  summary_zh: "测 LLM 能否创建并演化自己的 Harness；与 Rethinking 一致，评测任务与演化任务分开后提升明显变小。"
-  summary_en: "Tests whether LLMs can create and evolve their own harnesses; consistent with Rethinking, gains shrink substantially when evaluation tasks are separated from evolution tasks."
+  orgs:
+  - ByteDance Seed
+  - Singapore University of Technology and Design
+  - M-A-P
+  - TokenWave.AI
+  needs_reading: false
+  summary_zh: 通用 RSI 基准，主体评测模型从模糊目标选择数据并进行参数训练；另有一次 Harness 创建实验，尚未测试新 Harness 继续创建下一代。不计入 Harness 方法数。
+  summary_en: A general RSI benchmark centered on choosing data and training model parameters from vague goals. It also tests a single harness-creation step, without testing the created harness as the developer of another generation; excluded from harness method counts.
+  result_zh: Final-only 的 12 个模型–目标组合各跑 2 次，只有 1 个组合的均值高于基座（+2.67）；adaptive-feedback 的 30 格只有 1 格保留提升（+2.24），该分数受同一评估集反馈选优影响。
+  result_en: Each of 12 model–goal pairs has 2 final-only runs; only 1 pair has a mean above the base (+2.67). Among 30 adaptive-feedback cells, only 1 retains a gain (+2.24), selected using feedback from the same evaluation set.
   en_machine_translated: true
+  evidence:
+    held_out: partial
+    cost_reported: partial
+    reliability_metric: partial
+    timing: offline
+
+- id: s3gym
+  scope: general_rsi
+  title: 'S3Gym: Can LLMs Turn Self-Testing and Self-Judging into Self-Improvement?'
+  arxiv: '2608.31100'
+  date: '2026-08-31'
+  section: evaluation
+  kind: benchmark
+  orgs:
+  - ByteDance Seed
+  - M-A-P
+  - TokenWave.AI
+  needs_reading: false
+  summary_zh: 通用 RSI 基准，在 7 个游戏中比较历史上下文、总结记忆和参数训练 3 条路径。改进对象是经验内容或权重；未见改写记忆管理程序或控制流的证据，不计入 Harness 方法数。
+  summary_en: 'A general RSI benchmark comparing 3 pathways across 7 games: history context, summary memory, and parameter training. It changes experience content or weights; no evidence establishes mutation of memory-management programs or control flow, so it is excluded from harness method counts.'
+  result_zh: 事件级正反馈一致率与下一评估点归一化增益的全基准分块相关为 ρ=−0.010。探索与评估随机种子分离；路径间交互预算对齐不等于总 token、训练算力或成本对齐。
+  result_en: The benchmark-wide blockwise correlation between event-level positive-feedback agreement and normalized gain at the next checkpoint is ρ=−0.010. Exploration and evaluation seeds are disjoint; equal interaction budgets do not establish equal tokens, training compute, or cost.
+  en_machine_translated: true
+  evidence:
+    held_out: 'yes'
+    disjoint_evolution_set: partial
+    feedback: self_judgment
+
+- id: harnessdev
+  title: 'HarnessDev: Can LLMs Create and Evolve Their Own Agent Harness?'
+  arxiv: '2609.01437'
+  date: '2026-09-01'
+  section: evaluation
+  scope: harness_eval
+  kind: benchmark
+  orgs:
+  - ByteDance Seed
+  - Singapore University of Technology and Design
+  - Georgia Institute of Technology
+  - M-A-P
+  - TokenWave.AI
+  summary_zh: 评测模型在权重固定时创建与迭代修改可复用 Harness 的能力。Creation 覆盖六个模型、五个基准；Evolution 根据反馈集修改代码，再冻结版本评估 630 道 SWE-Pro 留出题，并区分创建者与执行器。
+  summary_en: Evaluates creation and iterative revision of reusable harnesses with weights fixed. Creation covers six models and five benchmarks; Evolution uses visible feedback before frozen artifacts are evaluated on 630 held-out SWE-Pro tasks, separating creator and executor roles.
+  result_zh: 五条 self-runtime 轨迹的留出增益为 +1.43 至 +4.44 个百分点（均值 +3.11）；四条全程固定 Gemini 的轨迹中三条退步。每个创建者–执行器组合仅一条演化线，未做匹配搜索预算对照，成本不含完整开发开销。
+  result_en: All five self-runtime trajectories improve on held-out tasks by +1.43 to +4.44 points (mean +3.11), while three of four separate fixed-Gemini trajectories regress. There is one evolution trajectory per creator–executor cell, no matched-search baseline, and incomplete development-cost accounting.
+  edit_targets:
+  - execution loop
+  - tool interface
+  - context management
+  - failure recovery
+  - verification
+  must_read: true
+  needs_reading: false
+  en_machine_translated: true
+  evidence:
+    held_out: 'yes'
+    matched_budget_baseline: 'no'
+    cross_model_transfer: 'yes'
+    cost_reported: partial
+    disjoint_evolution_set: partial
+    reliability_metric: partial
+    code_released: unknown
+    evolved_harness_released: unknown
+    who_edits: external
+    feedback: ground_truth
+    timing: offline
+    topology: chain
 
 - id: evoharnessbench
   scope: background
@@ -1256,6 +1330,49 @@ papers:
   summary_zh: "114 篇研究中，声称改进了「改进流程」的 26 篇里只有 4 篇在相同起点、相同预算下比较了前后两代流程。"
   summary_en: "Among 114 studies, only 4 of the 26 claiming to improve the improvement process compare two successive generations of that process from the same starting point and under the same budget."
   en_machine_translated: true
+
+- id: rsihub
+  title: 'RSIHub: A Composable Framework for Agent-Evolution Methods'
+  arxiv: '2610.32253'
+  date: '2026-10-23'
+  section: evaluation
+  scope: harness_eval
+  kind: framework
+  code: https://github.com/simple-agent-lab/RSIHub
+  orgs:
+  - University of California, Berkeley
+  - University of Science and Technology of China
+  - Douyin Group
+  - Shanghai Jiao Tong University
+  - Tongji University
+  - Beijing Institute for General Artificial Intelligence
+  - Simple Agent Lab
+  summary_zh: 用于实现和比较 Harness 演化方法的开源框架：以 recipe 和算子接入 AHE、Hyperagents、A-Evolve、GEPA，保护评估边界并保存候选谱系；在同一底模下比较 MiniSWE 与 Codex，并保留 sealed 任务检验泛化。
+  summary_en: An open-source framework for implementing and comparing harness-evolution methods. Recipes compose AHE, Hyperagents, A-Evolve, and GEPA with protected evaluation and candidate lineage; experiments compare MiniSWE and Codex under the same underlying model with separate sealed tasks.
+  result_zh: TB2 + MiniSWE 中 Hyperagents 与 A-Evolve 从 56.2 到 69.7（+13.5 个百分点）；排名与留出收益随设置变化。效果为单次点估计，split 列按全基准任务数作分母，未确认完整匹配 token 预算。
+  result_en: On TB2 with MiniSWE, Hyperagents and A-Evolve improve 56.2 to 69.7 (+13.5 points). Rankings and held-out gains vary. Evolution results are single-run estimates; split columns use full-benchmark denominators, and a fully matched token budget was not established.
+  edit_targets:
+  - prompts
+  - skills
+  - tools
+  - orchestration
+  - harness code
+  must_read: false
+  needs_reading: false
+  en_machine_translated: true
+  evidence:
+    held_out: 'yes'
+    matched_budget_baseline: unknown
+    cross_model_transfer: 'no'
+    cost_reported: unknown
+    disjoint_evolution_set: partial
+    reliability_metric: partial
+    code_released: 'yes'
+    evolved_harness_released: unknown
+    who_edits: external
+    feedback: ground_truth
+    timing: offline
+    topology: unknown
 
 # ---------------- 6. Surveys & theory ----------------
 - id: rsi-in-ai-survey

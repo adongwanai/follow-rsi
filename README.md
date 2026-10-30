@@ -15,7 +15,7 @@ RSI 论文每天都在冒，但不是每个「变强了」都经得起检验。F
 
 <!-- AUTO:BADGES:START -->
 
-![方法论文](https://img.shields.io/badge/%E6%96%B9%E6%B3%95%E8%AE%BA%E6%96%87-61-2A33D4) ![必读](https://img.shields.io/badge/%E5%BF%85%E8%AF%BB-20-14161C) ![更新](https://img.shields.io/badge/%E6%9B%B4%E6%96%B0-2026--10--27-14161C) ![内容](https://img.shields.io/badge/%E5%86%85%E5%AE%B9-CC_BY_4.0-14161C)
+![方法论文](https://img.shields.io/badge/%E6%96%B9%E6%B3%95%E8%AE%BA%E6%96%87-61-2A33D4) ![必读](https://img.shields.io/badge/%E5%BF%85%E8%AF%BB-21-14161C) ![更新](https://img.shields.io/badge/%E6%9B%B4%E6%96%B0-2026--10--30-14161C) ![内容](https://img.shields.io/badge/%E5%86%85%E5%AE%B9-CC_BY_4.0-14161C)
 
 <!-- AUTO:BADGES:END -->
 
@@ -71,7 +71,7 @@ RSI 论文每天都在冒，但不是每个「变强了」都经得起检验。F
 | --- | --- | --- |
 | 打基础 | [ADAS](papers/adas.md) → [Darwin Gödel Machine](papers/dgm.md) → [Meta-Harness](papers/meta-harness.md) → [DGM-H](papers/hyperagents.md) | 「搜索 Agent 设计」与「自改代码」两条源头各自是什么？ |
 | 方法主线 | [AHE](papers/ahe.md) → [Self-Harness](papers/self-harness.md) → [DarwinX](papers/darwinx.md) → [ModularRSI](papers/modularrsi.md) → [RRSI](papers/rrsi.md) | 最常见的对比基线各自解决了什么？ |
-| 实验设计（所有人必读） | [Rethinking the Evaluation of Harness Evolution for Agents](papers/rethinking-evaluation.md) → [Harness-Delta Attribution](papers/hda.md) → [HarnessOpt-Bench](papers/harnessopt-bench.md) → [Auditing the Product, Not the Recursion](papers/auditing-product.md) → [Reflections on Trusting Trust, Revisited](papers/trusting-trust-revisited.md) | 同预算下，收益来自可迁移改进、额外计算还是过拟合？基线有没有泄露答案？ |
+| 实验设计（所有人必读） | [Rethinking the Evaluation of Harness Evolution for Agents](papers/rethinking-evaluation.md) → [Harness-Delta Attribution](papers/hda.md) → [HarnessDev](papers/harnessdev.md) → [RSIHub](papers/rsihub.md) → [HarnessOpt-Bench](papers/harnessopt-bench.md) → [Auditing the Product, Not the Recursion](papers/auditing-product.md) → [Reflections on Trusting Trust, Revisited](papers/trusting-trust-revisited.md) | 同预算下，收益来自可迁移改进、额外计算还是过拟合？基线有没有泄露答案？ |
 
 [全部阅读路线 →](https://adongwanai.github.io/follow-rsi/#routes)
 
@@ -99,6 +99,7 @@ RSI 论文每天都在冒，但不是每个「变强了」都经得起检验。F
 | 2026-09 | [Co-Evolving Harnesses and Models](papers/co-evolving-harnesses-models.md) | 先用弱模型演化 Harness；发现让弱模型模仿强模型完整轨迹会破坏契合；改为只让专家重写弱模型自己轨迹中出错的那一轮。 | ❔ ❔ ❔ ❔ |
 | 2026-07-14 | [Rethinking the Evaluation of Harness Evolution for Agents](papers/rethinking-evaluation.md) | 同等反馈与推理预算下，TB2.1 上 Harness 演化未胜过并行采样和顺序修正；留出任务上 Opus 4.6 只 +1.2、GPT-5.4 不变。但在反馈更细、动态更多的长程游戏上优势明显。 | ✅ ✅ ❔ ❔ |
 | 2026-10-15 | [Harness-Delta Attribution](papers/hda.md) | 用「算力对齐基线」和「去捷径版演化 Harness」两个对照，把收益拆成过拟合、测试时扩展和剩余的可泛化上界。11 个执行模型、三个演化框架、21 个显著设置中，前两者平均占 54% 和 14%；验证集门控不足以防过拟合。 | ✅ ✅ ❔ ❔ |
+| 2026-09-01 | [HarnessDev](papers/harnessdev.md) | 评测模型在权重固定时创建与迭代修改可复用 Harness 的能力。Creation 覆盖六个模型、五个基准；Evolution 根据反馈集修改代码，再冻结版本评估 630 道 SWE-Pro 留出题，并区分创建者与执行器。 | ✅ ❌ ✅ ◐ |
 | 2023 | [STOP](papers/stop.md) | 让「改进代码的程序」去改进自己，是 LLM 时代递归自改进脚手架的起点；也讨论了绕过沙箱等安全问题。 | ❔ ❔ ❔ ❔ |
 | 2025 | [SICA](papers/sica.md) | 执行者与改进者是同一个 Agent，直接改自己的 Python 代码；「自改」路线的典型对比对象。 | ❔ ❔ ❔ ❔ |
 | 2026-05 | [Harness Updating Is Not Harness Benefit](papers/harness-updating-not-benefit.md) | 「产出好更新」的能力与模型强弱几乎无关（Qwen3.5-9B 接近 Claude Opus 4.6）；「从更新中获益」则非单调，中等模型获益最大。 | ❔ ❔ ❔ ❔ |
@@ -106,8 +107,8 @@ RSI 论文每天都在冒，但不是每个「变强了」都经得起检验。F
 
 图标：留出集 · 同预算 · 跨模型 · 成本；❔ 表示未审。
 
-61 篇方法 · 15 篇 Harness 评测与理论 · 22 篇奠基与通用 RSI。
-[完整清单: 98 + 6 候选](PAPERS.md) · [在网站筛选](https://adongwanai.github.io/follow-rsi/#papers)
+61 篇方法 · 16 篇 Harness 评测与理论 · 24 篇奠基与通用 RSI。
+[完整清单: 101 + 6 候选](PAPERS.md) · [在网站筛选](https://adongwanai.github.io/follow-rsi/#papers)
 
 <!-- AUTO:MUST_READ:END -->
 

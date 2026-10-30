@@ -155,6 +155,19 @@ def test_network_error_is_visible_without_secret_details(prompt_root):
     assert len(transport.calls) == 1
 
 
+def test_insufficient_balance_stops_batch_instead_of_relabeling_papers(prompt_root):
+    from scripts.feed.judge import judge_item
+    error = RuntimeError('sensitive provider response')
+    error.status_code = 402
+    transport = Transport([error])
+    client = FeedLLM('model-a', transport, root=prompt_root)
+    with pytest.raises(LLMConfigurationError, match='HTTP 402') as caught:
+        judge_item(ITEM, client, prompt_root)
+    assert 'sensitive' not in str(caught.value)
+    assert len(transport.calls) == 1
+    assert not list((prompt_root / 'data/feed/cache').glob('*.json'))
+
+
 def test_deepseek_json_mode_still_validates_schema(prompt_root):
     transport = Transport([{'label': 'include'}, VALID])
     result = FeedLLM('deepseek-flash', transport, root=prompt_root, provider='deepseek').run('relevance', ITEM)

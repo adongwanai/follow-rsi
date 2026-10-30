@@ -53,10 +53,11 @@
 ## 相关论文
 
 - [Can LLMs Improve Their Own Harness? A Controlled Study on ARC-AGI-3](arc-agi-3-controlled.md)
+- [RSIHub: A Composable Framework for Agent-Evolution Methods](rsihub.md)
 - [Auditing the Product, Not the Recursion](auditing-product.md)
 - [RSIGym](rsigym.md)
-- [EvoHarnessBench](evoharnessbench.md)
 - [Rethinking the Evaluation of Harness Evolution for Agents](rethinking-evaluation.md)
+- [HarnessDev: Can LLMs Create and Evolve Their Own Agent Harness?](harnessdev.md)
 - [HarnessOpt-Bench: Evaluating LLMs at Harness Optimization](harnessopt-bench.md)
 - [Reflections on Trusting Trust, Revisited](trusting-trust-revisited.md)
 

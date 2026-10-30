@@ -54,9 +54,11 @@
 
 - [Evo-Bench: Can Language Models Improve Agent Harness?](evo-bench.md)
 - [Rethinking the Evaluation of Harness Evolution for Agents](rethinking-evaluation.md)
-- [EvoHarnessBench](evoharnessbench.md)
-- [HarnessDev: Can LLMs Create and Evolve Their Own Agent Harness?](harnessdev.md)
+- [Aspire: Can Models Self-Evolve from Vague Goals?](aspire.md)
+- [S3Gym: Can LLMs Turn Self-Testing and Self-Judging into Self-Improvement?](s3gym.md)
 - [Harness-Delta Attribution: Dissecting Gains From Harness Evolution](hda.md)
+- [HarnessDev: Can LLMs Create and Evolve Their Own Agent Harness?](harnessdev.md)
+- [RSIHub: A Composable Framework for Agent-Evolution Methods](rsihub.md)
 - [Auditing the Product, Not the Recursion](auditing-product.md)
 - [Reflections on Trusting Trust, Revisited](trusting-trust-revisited.md)
 

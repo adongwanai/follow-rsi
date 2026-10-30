@@ -76,6 +76,11 @@ def guard_scope(abstract, relevance, classification=None):
 def guard_harness(abstract, gate):
     result = deepcopy(gate)
     source = normalized_whitespace(abstract)
+    study = result.get('study_quote')
+    study_supported = (isinstance(study, str) and bool(normalized_whitespace(study))
+                       and normalized_whitespace(study) in source)
+    if 'study_quote' in result and not study_supported:
+        result['study_quote'] = None
     for field in ('feedback_driven', 'persists_across_tasks'):
         quote = result[field]['quote']
         if quote is None or not normalized_whitespace(quote) or normalized_whitespace(quote) not in source:
@@ -87,7 +92,10 @@ def guard_harness(abstract, gate):
             primary = OTHER_OBJECTS[obj]
         result.update(verdict='other_direction', suggested_primary=primary, harness_specific='no')
     elif result['verdict'] == 'harness':
-        if (obj not in HARNESS_OBJECTS or result['feedback_driven']['value'] != 'yes'
+        if result['suggested_primary'] in ('evaluation_benchmark', 'theory_survey'):
+            if not study_supported or result['harness_specific'] != 'yes':
+                result['verdict'] = 'borderline'
+        elif (obj not in HARNESS_OBJECTS or result['feedback_driven']['value'] != 'yes'
                 or result['persists_across_tasks']['value'] != 'yes' or result['harness_specific'] != 'yes'):
             result['verdict'] = 'borderline'
     return result

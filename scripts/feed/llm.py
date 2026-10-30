@@ -142,6 +142,10 @@ class FeedLLM:
                     response_format=response_format, timeout=settings['timeout_seconds'],
                 )
             except Exception as error:
+                if getattr(error, 'status_code', None) == 402:
+                    raise LLMConfigurationError(
+                        'LLM provider returned HTTP 402 (insufficient balance); '
+                        'replenish the account before resuming the batch') from error
                 # The SDK may expose provider-specific errors. Preserve the cause and
                 # fail this item visibly; never cache or accept a failed API call.
                 raise LLMError(f'{name} API error ({type(error).__name__})') from error

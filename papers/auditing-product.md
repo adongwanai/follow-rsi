@@ -55,8 +55,9 @@
 - [RSIGym](rsigym.md)
 - [Harness-Delta Attribution: Dissecting Gains From Harness Evolution](hda.md)
 - [Can LLMs Improve Their Own Harness? A Controlled Study on ARC-AGI-3](arc-agi-3-controlled.md)
-- [EvoHarnessBench](evoharnessbench.md)
+- [RSIHub: A Composable Framework for Agent-Evolution Methods](rsihub.md)
 - [Rethinking the Evaluation of Harness Evolution for Agents](rethinking-evaluation.md)
+- [HarnessDev: Can LLMs Create and Evolve Their Own Agent Harness?](harnessdev.md)
 - [HarnessOpt-Bench: Evaluating LLMs at Harness Optimization](harnessopt-bench.md)
 - [Reflections on Trusting Trust, Revisited](trusting-trust-revisited.md)
 

@@ -57,9 +57,11 @@
 - [EvoHarnessBench](evoharnessbench.md)
 - [HarnessDev: Can LLMs Create and Evolve Their Own Agent Harness?](harnessdev.md)
 - [REUSE](reuse.md)
-- [HarnessOpt-Bench: Evaluating LLMs at Harness Optimization](harnessopt-bench.md)
+- [Aspire: Can Models Self-Evolve from Vague Goals?](aspire.md)
 - [Rethinking the Evaluation of Harness Evolution for Agents](rethinking-evaluation.md)
 - [Harness-Delta Attribution: Dissecting Gains From Harness Evolution](hda.md)
+- [RSIHub: A Composable Framework for Agent-Evolution Methods](rsihub.md)
+- [HarnessOpt-Bench: Evaluating LLMs at Harness Optimization](harnessopt-bench.md)
 - [Auditing the Product, Not the Recursion](auditing-product.md)
 
 <!-- AUTO:RELATED:END -->

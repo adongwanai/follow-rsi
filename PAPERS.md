@@ -1,6 +1,6 @@
 # Follow RSI · 论文全集
 
-98 篇正式收录，6 篇候选。scope 是阅读范围，不等于全文证据已核验。
+101 篇正式收录，6 篇候选。scope 是阅读范围，不等于全文证据已核验。
 
 [网站筛选](https://adongwanai.github.io/follow-rsi/#papers) · [返回首页](README.md)
 
@@ -72,15 +72,16 @@
 | 2026-04 | [The Last Harness You'll Ever Build](papers/last-harness.md) **待细读 / Needs verification** | 两层框架：内层针对单任务优化工作 Agent；外层 Meta-Evolution Agent 优化评估器、演化策略、信息流等「演化循环本身」。 | 概念清晰，适合引为两层形式化的来源；定量结果待细读。 | ❔ ❔ ❔ ❔ |
 | 2026-03 | [Hyperagents (DGM-H)](papers/hyperagents.md) | 任务 Agent 与元 Agent 合并成同一个可编辑程序，元层修改程序本身也可改。 | 在编码、论文评审、机器人奖励设计、奥赛数学批改上都超过 DGM；元层改进可跨领域迁移。最常引的元改进基线。 | ❔ ❔ ❔ ❔ |
 
-## Harness 专项评测与理论 · 15 篇
+## Harness 专项评测与理论 · 16 篇
 
 | 日期 | 论文 | 核心机制 | 关键结果 | 证据 |
 | --- | --- | --- | --- | --- |
+| 2026-10-23 | [RSIHub: A Composable Framework for Agent-Evolution Methods](papers/rsihub.md) | 用于实现和比较 Harness 演化方法的开源框架：以 recipe 和算子接入 AHE、Hyperagents、A-Evolve、GEPA，保护评估边界并保存候选谱系；在同一底模下比较 MiniSWE 与 Codex，并保留 sealed 任务检验泛化。 | TB2 + MiniSWE 中 Hyperagents 与 A-Evolve 从 56.2 到 69.7（+13.5 个百分点）；排名与留出收益随设置变化。效果为单次点估计，split 列按全基准任务数作分母，未确认完整匹配 token 预算。 | ✅ ❔ ❌ ❔ |
 | 2026-10-21 | [Can LLMs Improve Their Own Harness? A Controlled Study on ARC-AGI-3](papers/arc-agi-3-controlled.md) | 模型从最小仓库构建完整 Harness，在 5 个开发游戏上运行并修改两次，再在 20 个留出游戏上评估。27 条谱系中两次修改平均留出 RHAE 只 +2.80，95% 区间 [-1.44, 7.35]，开发集提升高估了泛化。 |  | ✅ ❔ ❔ ❔ |
 | 2026-10-15 | [Harness-Delta Attribution: Dissecting Gains From Harness Evolution](papers/hda.md) | 用「算力对齐基线」和「去捷径版演化 Harness」两个对照，把收益拆成过拟合、测试时扩展和剩余的可泛化上界。11 个执行模型、三个演化框架、21 个显著设置中，前两者平均占 54% 和 14%；验证集门控不足以防过拟合。 |  | ✅ ✅ ❔ ❔ |
 | 2026-10-13 | [Self-Evolving Agent Harness](papers/self-evolving-agent-harness.md) | 把 Harness 自进化拆成「更新对象」与「提案/准入机制」，给出持续 PAC 学习下的泛化界、保留界与基于新鲜验证数据的准入规则。理论界依赖明确假设。 |  | ❔ ❔ ❔ ❔ |
 | 2026-10 | [Auditing the Product, Not the Recursion](papers/auditing-product.md) | 114 篇研究中，声称改进了「改进流程」的 26 篇里只有 4 篇在相同起点、相同预算下比较了前后两代流程。 |  | ❔ ❔ ❔ ❔ |
-| 2026-09 | [HarnessDev: Can LLMs Create and Evolve Their Own Agent Harness?](papers/harnessdev.md) **待细读 / Needs verification** | 测 LLM 能否创建并演化自己的 Harness；与 Rethinking 一致，评测任务与演化任务分开后提升明显变小。 |  | ❔ ❔ ❔ ❔ |
+| 2026-09-01 | [HarnessDev: Can LLMs Create and Evolve Their Own Agent Harness?](papers/harnessdev.md) | 评测模型在权重固定时创建与迭代修改可复用 Harness 的能力。Creation 覆盖六个模型、五个基准；Evolution 根据反馈集修改代码，再冻结版本评估 630 道 SWE-Pro 留出题，并区分创建者与执行器。 | 五条 self-runtime 轨迹的留出增益为 +1.43 至 +4.44 个百分点（均值 +3.11）；四条全程固定 Gemini 的轨迹中三条退步。每个创建者–执行器组合仅一条演化线，未做匹配搜索预算对照，成本不含完整开发开销。 | ✅ ❌ ✅ ◐ |
 | 2026-09 | [Reflections on Trusting Trust, Revisited](papers/trusting-trust-revisited.md) | 用投毒 benchmark 污染自修改编码 Agent；顺带发现 DGM 与 Hyperagents 的容器里可从 git 历史拿到答案，已被作者确认。复现这两个基线前必看。 |  | ❔ ❔ ❔ ❔ |
 | 2026-09 | [Safe Harness Self-Evolution: A Theoretical Analysis of Feasibility and Limits](papers/safe-harness-self-evolution.md) | 在固定参考分布上，被认证的改进可以累积；但在不受限的组合下，当前改进不能保证后续还能改进。适合为准入规则找理论依据。 |  | ❔ ❔ ❔ ❔ |
 | 2026-09 | [Audit the Scaffold, Not the Checkpoint](papers/audit-the-scaffold.md) | 「平稳性二分」：可达编辑集合不扩张时，迭代自修改必然收益递减；SWE-bench 上每轮提升趋于零。解释「过早饱和」的好材料。 |  | ❔ ❔ ❔ ❔ |
@@ -113,7 +114,7 @@
 | 2023 | [Voyager](papers/voyager.md) | 技能以代码形式累积并复用，是技能、记忆类 Harness 演化的前身。 |  | ❔ ❔ ❔ ❔ |
 | 2003 | [Gödel Machines](papers/godel-machines.md) | 自指式自改进的理论原型：只有在证明改写有益后才改。几乎所有 RSI 论文的引言都会提到。 |  | ❔ ❔ ❔ ❔ |
 
-## 通用 RSI · 6 篇
+## 通用 RSI · 8 篇
 
 | 日期 | 论文 | 核心机制 | 关键结果 | 证据 |
 | --- | --- | --- | --- | --- |
@@ -121,6 +122,8 @@
 | 2026-09 | [REUSE](papers/reuse.md) | 反复用同一批 benchmark 做选择时的误差控制，以及累计提升的有效下界。 |  | ❔ ❔ ❔ ❔ |
 | 2026-09 | [The Last AI Built by Humans](papers/last-ai-built-by-humans.md) | L1–L5 自主性分级，可用来为自己的方法定位。 |  | ❔ ❔ ❔ ❔ |
 | 2026-09 | [Generalized Agent Iteration](papers/generalized-agent-iteration.md) | 用「改进机制是否属于 Agent」与「评价标准是否外部锚定」两轴区分普通迭代与 RSI。 |  | ❔ ❔ ❔ ❔ |
+| 2026-08-31 | [Aspire: Can Models Self-Evolve from Vague Goals?](papers/aspire.md) | 通用 RSI 基准，主体评测模型从模糊目标选择数据并进行参数训练；另有一次 Harness 创建实验，尚未测试新 Harness 继续创建下一代。不计入 Harness 方法数。 | Final-only 的 12 个模型–目标组合各跑 2 次，只有 1 个组合的均值高于基座（+2.67）；adaptive-feedback 的 30 格只有 1 格保留提升（+2.24），该分数受同一评估集反馈选优影响。 | ◐ ❔ ❔ ◐ |
+| 2026-08-31 | [S3Gym: Can LLMs Turn Self-Testing and Self-Judging into Self-Improvement?](papers/s3gym.md) | 通用 RSI 基准，在 7 个游戏中比较历史上下文、总结记忆和参数训练 3 条路径。改进对象是经验内容或权重；未见改写记忆管理程序或控制流的证据，不计入 Harness 方法数。 | 事件级正反馈一致率与下一评估点归一化增益的全基准分块相关为 ρ=−0.010。探索与评估随机种子分离；路径间交互预算对齐不等于总 token、训练算力或成本对齐。 | ✅ ❔ ❔ ❔ |
 | 2026-07 | [RSI in AI: From Bounded Self-Refinement to Autonomous Research Loops](papers/rsi-in-ai-survey.md) | 覆盖 1,250 篇，按「改什么」与「谁来验证」两轴分类；结论是自改进的可信度取决于验证。 |  | ❔ ❔ ❔ ❔ |
 | 2026-07 | [Self-Improvements in Modern Agentic Systems: A Survey](papers/self-improvements-survey.md) | 把 Agent 写成「基础模型 + 操作脚手架」，自改进形式化为更新算子；含评测协议建议。 |  | ❔ ❔ ❔ ❔ |
 
