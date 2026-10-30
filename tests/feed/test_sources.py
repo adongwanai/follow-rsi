@@ -3,11 +3,21 @@ import json
 from pathlib import Path
 from unittest.mock import Mock
 import pytest
+import requests
 from scripts.feed import fetch_arxiv, fetch_hf, fetch_rss, fetch_s2, fetch_github
 from scripts.feed.normalize import normalize_record, split_arxiv, arxiv_ids
 
 FIX = Path(__file__).parent / 'fixtures'
 NOW = '2026-10-27T12:00:00+00:00'
+
+
+def hf_response(payload, status=200):
+    response = requests.Response()
+    response.status_code = status
+    response.url = 'https://huggingface.co/api/daily_papers'
+    response._content = json.dumps(payload).encode()
+    response.encoding = 'utf-8'
+    return response
 
 
 def test_recorded_arxiv_metadata_only():
@@ -58,7 +68,7 @@ def test_hf_uses_original_abstract_and_real_code():
 
 def test_hf_covers_each_requested_day_without_network():
     session = Mock()
-    session.get.return_value.json.return_value = json.loads((FIX / 'hf.json').read_text())
+    session.get.return_value = hf_response(json.loads((FIX / 'hf.json').read_text()))
     source = {'id': 'hf-daily', 'params': {'url': 'https://huggingface.co/api/daily_papers', 'keywords': []}}
     records, raw = fetch_hf.fetch(source, datetime(2026, 10, 27, tzinfo=timezone.utc), session, days=14)
     assert session.get.call_count == 14
@@ -66,6 +76,68 @@ def test_hf_covers_each_requested_day_without_network():
     assert dates[0] == '2026-10-27' and dates[-1] == '2026-10-14'
     assert len(raw['days']) == 14 and len(records) == 14
     assert [item['hf_daily_dates'] for item in records] == [[date] for date in dates]
+    assert raw['status'] == 'ok' and raw['errors'] == {}
+
+
+def test_hf_not_ready_day_keeps_other_days_and_actual_request_times(monkeypatch):
+    current = datetime(2026, 10, 30, tzinfo=timezone.utc)
+    clock = Mock(wraps=datetime)
+    times = [datetime(2026, 10, 30, 0, 3, second, tzinfo=timezone.utc) for second in range(4)]
+    clock.now.side_effect = times
+    monkeypatch.setattr(fetch_hf, 'datetime', clock)
+    error = {'error': '✖ "date" must be less than or equal to "2026-10-29T00:00:00.000Z"\n  → at date'}
+    session = Mock()
+    session.get.side_effect = [hf_response(error, 400), hf_response(json.loads((FIX / 'hf.json').read_text()))]
+    source = {'id': 'hf-daily', 'params': {'url': 'https://huggingface.co/api/daily_papers'}}
+    records, raw = fetch_hf.fetch(source, current, session, days=2)
+    assert [item['hf_daily_dates'] for item in records] == [['2026-10-29']]
+    assert list(raw['days']) == ['2026-10-29'] and raw['status'] == 'partial'
+    assert list(raw['errors']) == ['2026-10-30']
+    today, yesterday = raw['attempts']['2026-10-30'], raw['attempts']['2026-10-29']
+    assert today['status'] == 'not_ready' and today['http_status'] == 400
+    assert today['available_through'] == '2026-10-29'
+    assert json.loads(today['response_body']) == error
+    assert today['params'] == {'date': '2026-10-30'}
+    assert today['requested_at'] == times[0].isoformat() and today['finished_at'] == times[1].isoformat()
+    assert yesterday['status'] == 'ok' and yesterday['http_status'] == 200
+    assert yesterday['requested_at'] == times[2].isoformat() and yesterday['finished_at'] == times[3].isoformat()
+
+
+@pytest.mark.parametrize(('status', 'message'), [
+    (400, 'Invalid request'),
+    (429, 'Rate limit exceeded'),
+    (500, 'Server error'),
+    (429, '"date" must be less than or equal to "2026-10-29T00:00:00.000Z"'),
+    (400, '"date" must be less than or equal to "2026-10-30T00:00:00.000Z"'),
+])
+def test_hf_http_failure_is_never_an_empty_success_or_unverified_not_ready(status, message):
+    session = Mock()
+    session.get.return_value = hf_response({'error': message}, status)
+    source = {'id': 'hf-daily', 'params': {'url': 'https://huggingface.co/api/daily_papers'}}
+    records, raw = fetch_hf.fetch(source, datetime(2026, 10, 30, tzinfo=timezone.utc), session, days=1)
+    assert records == [] and raw['days'] == {} and raw['status'] == 'error'
+    assert raw['errors']['2026-10-30'].startswith('error: HTTPError:')
+    attempt = raw['attempts']['2026-10-30']
+    assert attempt['status'] == 'error' and attempt['http_status'] == status
+    assert json.loads(attempt['response_body']) == {'error': message}
+
+
+@pytest.mark.parametrize('failure', ['timeout', 'invalid_json', 'invalid_shape'])
+def test_hf_failed_day_continues_with_next_day(failure):
+    bad = hf_response({'error': 'Unexpected JSON shape'})
+    if failure == 'timeout':
+        bad = requests.Timeout('HF timed out')
+    elif failure == 'invalid_json':
+        bad._content = b'not json'
+    session = Mock()
+    session.get.side_effect = [bad, hf_response(json.loads((FIX / 'hf.json').read_text()))]
+    source = {'id': 'hf-daily', 'params': {'url': 'https://huggingface.co/api/daily_papers'}}
+    records, raw = fetch_hf.fetch(source, datetime(2026, 10, 30, tzinfo=timezone.utc), session, days=2)
+    assert len(records) == 1 and records[0]['hf_daily_dates'] == ['2026-10-29']
+    assert raw['status'] == 'partial' and raw['attempts']['2026-10-30']['status'] == 'error'
+    assert list(raw['errors']) == ['2026-10-30']
+    if failure != 'timeout':
+        assert raw['attempts']['2026-10-30']['response_body'] == bad.text
 
 
 def test_hf_daily_date_comes_only_from_the_queried_day():
@@ -197,6 +269,29 @@ def test_registry_dispatch_selects_hf_and_persists_raw(tmp_path, monkeypatch):
     arxiv.assert_not_called()
     assert (tmp_path / 'data/feed/raw/hf-daily/2026-10-27.json').exists()
     assert result['raw_paths'] == ['data/feed/raw/hf-daily/2026-10-27.json']
+
+
+def test_registry_dispatch_preserves_hf_partial_records_and_reports_failure(tmp_path, monkeypatch):
+    import yaml
+    (tmp_path / 'feed').mkdir()
+    source = {'id': 'hf-daily', 'kind': 'hf_daily', 'schedule': 'daily', 'enabled': True,
+              'params': {'url': 'https://huggingface.co/api/daily_papers'}}
+    (tmp_path / 'feed/sources.yaml').write_text(yaml.safe_dump({'sources': [source]}))
+    error = {'error': '✖ "date" must be less than or equal to "2026-10-29T00:00:00.000Z"\n  → at date'}
+    get = Mock(side_effect=[hf_response(error, 400), hf_response(json.loads((FIX / 'hf.json').read_text()))])
+    monkeypatch.setattr(fetch_hf.requests, 'get', get)
+    monkeypatch.setattr(fetch_arxiv, 'fetch_ids', Mock(return_value=[normalize_record({
+        'arxiv_id': '2610.35001', 'title': 'Hydrated fixture',
+        'published': '2026-10-26T00:00:00Z', 'updated': '2026-10-26T00:00:00Z',
+        'published_source': 'arxiv'}, now=NOW)]))
+    result = fetch_arxiv.fetch_sources(tmp_path, days=2, now='2026-10-30T00:00:00+00:00')
+    outcome = next(row for row in result['outcomes'] if row['source_id'] == 'hf-daily')
+    assert outcome['ok'] is False and outcome['count'] == 1
+    assert '2026-10-30' in outcome['error'] and 'not_ready' in outcome['error']
+    assert result['records'][0]['hf_daily_dates'] == ['2026-10-29']
+    raw = json.loads((tmp_path / 'data/feed/raw/hf-daily/2026-10-30.json').read_text())
+    assert raw['status'] == 'partial' and list(raw['days']) == ['2026-10-29']
+    assert raw['attempts']['2026-10-30']['http_status'] == 400
 
 
 @pytest.fixture

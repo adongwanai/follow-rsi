@@ -1,5 +1,6 @@
 """Hugging Face Daily Papers metadata, with explicit keyword prefiltering."""
 from datetime import datetime, timedelta, timezone
+import re
 import requests
 from .normalize import normalize_record
 
@@ -34,14 +35,41 @@ def parse_json(payload, source_id='hf-daily', keywords=(), now=None, daily_date=
 def fetch(source, now=None, session=None, days=3):
     from .fetch_arxiv import USER_AGENT
     current = now or datetime.now(timezone.utc)
-    records, payloads = [], {}
+    records, payloads, attempts, errors = [], {}, {}, {}
     for offset in range(days):
         date = (current - timedelta(days=offset)).date().isoformat()
-        response = (session or requests).get(source['params']['url'], params={'date': date},
-                                            headers={'User-Agent': USER_AGENT}, timeout=30)
-        response.raise_for_status()
-        payload = response.json()
-        payloads[date] = payload
-        records.extend(parse_json(payload, source['id'], source['params'].get('keywords', []),
-                                  current.isoformat(), daily_date=date))
-    return records, {'format': 'hf-json-days', 'days': payloads}
+        attempt = attempts[date] = {'requested_at': datetime.now(timezone.utc).isoformat(),
+                                   'request_url': source['params']['url'], 'params': {'date': date},
+                                   'status': 'error'}
+        response = None
+        try:
+            response = (session or requests).get(source['params']['url'], params={'date': date},
+                                                headers={'User-Agent': USER_AGENT}, timeout=30)
+            attempt.update(http_status=response.status_code, final_url=response.url)
+            response.raise_for_status()
+            payload = response.json()
+            found = parse_json(payload, source['id'], source['params'].get('keywords', []),
+                               current.isoformat(), daily_date=date)
+            payloads[date] = payload
+            records.extend(found)
+            attempt['status'] = 'ok'
+        except (requests.RequestException, ValueError, KeyError, TypeError) as error:
+            attempt['error'] = f'{type(error).__name__}: {error}'
+            if response is not None:
+                attempt['response_body'] = response.text
+                if response.status_code == 400:
+                    try:
+                        problem = response.json()
+                    except ValueError:
+                        problem = None
+                    if isinstance(problem, dict) and isinstance(problem.get('error'), str):
+                        limit = re.search(r'"date" must be less than or equal to "(\d{4}-\d{2}-\d{2})T00:00:00\.000Z"',
+                                          problem['error'])
+                        if limit and date > limit.group(1):
+                            attempt.update(status='not_ready', available_through=limit.group(1))
+            errors[date] = f'{attempt["status"]}: {attempt["error"]}'
+        finally:
+            attempt['finished_at'] = datetime.now(timezone.utc).isoformat()
+    status = 'partial' if errors and payloads else 'error' if errors else 'ok'
+    return records, {'format': 'hf-json-days', 'status': status, 'days': payloads,
+                     'attempts': attempts, 'errors': errors}

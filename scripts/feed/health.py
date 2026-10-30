@@ -81,6 +81,9 @@ def update_health(root, outcomes, now=None, issue_client=None):
         source['seen_ids'] = sorted(seen | set(outcome.get('ids', [])))
         source['weekly'][week] = source['weekly'].get(week, 0) + len(fresh)
         source['total_found'] = len(source['seen_ids'])
+    for ident in enabled:
+        source = state['sources'][ident]
+        healthy = source.get('last_ok') and source.get('last_count', 0) > 0 and not source.get('degraded')
         title = f'Source down: {ident}'
         if source['consecutive_failures'] >= 3 and not source.get('issue_number'):
             event = {'action': 'open', 'source_id': ident, 'title': title,
@@ -92,14 +95,12 @@ def update_health(root, outcomes, now=None, issue_client=None):
             events.append({'action': 'close', 'source_id': ident, 'number': source['issue_number']})
             if issue_client:
                 issue_client.close(source.pop('issue_number'))
-        if source.get('missing_issue_number'):
+        last_record = source.get('last_run') or source['enabled_since']
+        source['missing_days'] = max(0, (current.date() - timestamp(last_record).date()).days)
+        if source['missing_days'] < 2 and source.get('missing_issue_number'):
             events.append({'action': 'close', 'source_id': ident, 'number': source['missing_issue_number']})
             if issue_client:
                 issue_client.close(source.pop('missing_issue_number'))
-    for ident in enabled:
-        source = state['sources'][ident]
-        last_record = source.get('last_run') or source['enabled_since']
-        source['missing_days'] = max(0, (current.date() - timestamp(last_record).date()).days)
         if source['missing_days'] >= 2 and not source.get('missing_issue_number'):
             title = f'Source not run: {ident}'
             event = {'action': 'open', 'source_id': ident, 'title': title,

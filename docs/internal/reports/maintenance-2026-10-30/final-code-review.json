@@ -1,0 +1,396 @@
+{
+  "generated_at": "2026-10-30T00:29:40.130357+00:00",
+  "scope": "Initial read-only cross-check followed by a specifically authorized minimal health-alert fix in health.py and test_health.py; no live data refresh or external mutation.",
+  "reviewer_independence": {
+    "authored_hf_patch": true,
+    "independent_author_review": false,
+    "statement_zh": "本代理编写了 HF 与后续健康告警修改；本报告包含交叉自检，不能算作另一名作者的独立审查。主代理另行审阅并负责全量测试和真实状态刷新。",
+    "authored_health_patch": true
+  },
+  "verdict": "HF patch checks pass; health alert-loss defect fixed with regression tests; source snapshots were consistent before the fix; metadata identity mapping remains unimplemented.",
+  "files_reviewed": [
+    {
+      "path": "scripts/feed/fetch_hf.py",
+      "sha256": "01b5831308750562194584e3ed6d4c87eb48d7ad88c11ea8311660c98d93bf94"
+    },
+    {
+      "path": "tests/feed/test_sources.py",
+      "sha256": "20f3031589e30ab3cbdf8ad95357e25d1310dc0e69919ef7246eba3df8d99ce8"
+    },
+    {
+      "path": "scripts/feed/fetch_arxiv.py",
+      "sha256": "c14cba8820b497dd80abe2a3e952187da0804063dcab7b5fa567c7a54d6907d6"
+    },
+    {
+      "path": "scripts/feed/health.py",
+      "sha256": "57cc7c87e2c466f62b6249ca79aeabf1c678ff5e12e81224ab1335bd87a1493d"
+    },
+    {
+      "path": "scripts/feed/eval.py",
+      "sha256": "20ae17f87bd42a388e65f53595ebfc882d381fdba1165e97a4fe15f3e79c42d9"
+    },
+    {
+      "path": ".github/workflows/feed-eval.yml",
+      "sha256": "10c983e9ed45bf75fd942106f445e8ffd4dad185b97f37657be61ab088b3fc16"
+    },
+    {
+      "path": "tests/feed/test_health.py",
+      "sha256": "f53d22a48c5edee2e0e1b81c9073070df866d3fd49a479936f36ebb84868a6dd"
+    }
+  ],
+  "hf_patch": {
+    "blocking_findings": [],
+    "checks": [
+      "Per-day failure records an error and continues; only successful parsed lists enter raw.days.",
+      "A partial result retains records but dispatcher ok remains false through nonempty raw.errors.",
+      "HTTP 400 is not converted to an empty success; only explicit maximum-date JSON validation is classified not_ready.",
+      "The queried date is passed to hf_daily_dates; fetch time and older available dates never substitute for the requested date.",
+      "Actual request start/end are recorded separately from the batch now date.",
+      "Failed HF metadata hydration remains metadata_pending with unknown original dates and a visible error."
+    ],
+    "tests_previously_run_this_maintenance": {
+      "tests/feed/test_sources.py": {
+        "passed": 38
+      },
+      "tests/feed/test_health.py": {
+        "passed": 8
+      }
+    },
+    "repeated_tests_this_read_only_pass": false,
+    "diff_check": "passed",
+    "live_replay_evidence": {
+      "path": "data/feed/raw/hf-daily/2026-10-30.json",
+      "status": "partial",
+      "successful_days": {
+        "2026-10-29": 14
+      },
+      "attempts": {
+        "2026-10-29": {
+          "final_url": "https://huggingface.co/api/daily_papers?date=2026-10-29",
+          "finished_at": "2026-10-30T00:14:25.208578+00:00",
+          "http_status": 200,
+          "params": {
+            "date": "2026-10-29"
+          },
+          "request_url": "https://huggingface.co/api/daily_papers",
+          "requested_at": "2026-10-30T00:14:24.579044+00:00",
+          "status": "ok"
+        },
+        "2026-10-30": {
+          "available_through": "2026-10-29",
+          "error": "HTTPError: 400 Client Error: Bad Request for url: https://huggingface.co/api/daily_papers?date=2026-10-30",
+          "final_url": "https://huggingface.co/api/daily_papers?date=2026-10-30",
+          "finished_at": "2026-10-30T00:14:24.579025+00:00",
+          "http_status": 400,
+          "params": {
+            "date": "2026-10-30"
+          },
+          "request_url": "https://huggingface.co/api/daily_papers",
+          "requested_at": "2026-10-30T00:14:24.052919+00:00",
+          "response_body": "{\"error\":\"✖ \\\"date\\\" must be less than or equal to \\\"2026-10-29T00:00:00.000Z\\\"\\n  → at date\"}",
+          "status": "not_ready"
+        }
+      },
+      "filtered_records": 5,
+      "filtered_record_daily_dates": [
+        "2026-10-29"
+      ],
+      "metadata_hydration_after_fetch": "429; five fetch-result rows retain unknown published/updated and metadata_pending"
+    }
+  },
+  "source_health": {
+    "latest_attempt_state_mismatches": [],
+    "site_is_state_projection_without_seen_ids": true,
+    "last_fetch_state_site_equal": true,
+    "attempt_count": 14,
+    "summary": [
+      {
+        "source_id": "arxiv-adjacent",
+        "last_ok": true,
+        "last_count": 0,
+        "consecutive_errors": 0,
+        "consecutive_failures": 2,
+        "last_run": "2026-10-30T00:02:14.243854+00:00",
+        "auth_mode": null,
+        "min_interval_seconds": null
+      },
+      {
+        "source_id": "arxiv-harness",
+        "last_ok": true,
+        "last_count": 0,
+        "consecutive_errors": 0,
+        "consecutive_failures": 3,
+        "last_run": "2026-10-30T00:17:50.120082+00:00",
+        "auth_mode": null,
+        "min_interval_seconds": null
+      },
+      {
+        "source_id": "arxiv-hydration",
+        "last_ok": false,
+        "last_count": 0,
+        "consecutive_errors": 1,
+        "consecutive_failures": 1,
+        "last_run": "2026-10-30T00:14:24.043814+00:00",
+        "auth_mode": null,
+        "min_interval_seconds": null
+      },
+      {
+        "source_id": "arxiv-rsi",
+        "last_ok": true,
+        "last_count": 0,
+        "consecutive_errors": 0,
+        "consecutive_failures": 2,
+        "last_run": "2026-10-30T00:01:55.707860+00:00",
+        "auth_mode": null,
+        "min_interval_seconds": null
+      },
+      {
+        "source_id": "github-releases",
+        "last_ok": true,
+        "last_count": 0,
+        "consecutive_errors": 0,
+        "consecutive_failures": 3,
+        "last_run": "2026-10-30T00:13:06.295450+00:00",
+        "auth_mode": null,
+        "min_interval_seconds": null
+      },
+      {
+        "source_id": "hf-daily",
+        "last_ok": false,
+        "last_count": 5,
+        "consecutive_errors": 2,
+        "consecutive_failures": 2,
+        "last_run": "2026-10-30T00:14:24.043814+00:00",
+        "auth_mode": null,
+        "min_interval_seconds": null
+      },
+      {
+        "source_id": "rss-deepmind",
+        "last_ok": true,
+        "last_count": 3,
+        "consecutive_errors": 0,
+        "consecutive_failures": 0,
+        "last_run": "2026-10-30T00:13:04.441323+00:00",
+        "auth_mode": null,
+        "min_interval_seconds": null
+      },
+      {
+        "source_id": "rss-metr",
+        "last_ok": true,
+        "last_count": 2,
+        "consecutive_errors": 0,
+        "consecutive_failures": 0,
+        "last_run": "2026-10-30T00:12:42.175764+00:00",
+        "auth_mode": null,
+        "min_interval_seconds": null
+      },
+      {
+        "source_id": "rss-openai",
+        "last_ok": true,
+        "last_count": 36,
+        "consecutive_errors": 0,
+        "consecutive_failures": 0,
+        "last_run": "2026-10-30T00:13:03.442237+00:00",
+        "auth_mode": null,
+        "min_interval_seconds": null
+      },
+      {
+        "source_id": "rss-sakana",
+        "last_ok": true,
+        "last_count": 6,
+        "consecutive_errors": 0,
+        "consecutive_failures": 0,
+        "last_run": "2026-10-30T00:12:09.609059+00:00",
+        "auth_mode": null,
+        "min_interval_seconds": null
+      },
+      {
+        "source_id": "rss-weco",
+        "last_ok": true,
+        "last_count": 0,
+        "consecutive_errors": 0,
+        "consecutive_failures": 3,
+        "last_run": "2026-10-30T00:13:05.100003+00:00",
+        "auth_mode": null,
+        "min_interval_seconds": null
+      },
+      {
+        "source_id": "s2-authors",
+        "last_ok": false,
+        "last_count": 0,
+        "consecutive_errors": 3,
+        "consecutive_failures": 3,
+        "last_run": "2026-10-30T00:10:24.756058+00:00",
+        "auth_mode": "anonymous",
+        "min_interval_seconds": 3.1
+      },
+      {
+        "source_id": "s2-citations",
+        "last_ok": true,
+        "last_count": 1492,
+        "consecutive_errors": 0,
+        "consecutive_failures": 0,
+        "last_run": "2026-10-30T00:02:26.663952+00:00",
+        "auth_mode": "anonymous",
+        "min_interval_seconds": 3.1
+      }
+    ],
+    "arxiv_harness_history": [
+      {
+        "started_at": "2026-10-30T00:01:55.079837+00:00",
+        "finished_at": "2026-10-30T00:01:55.707460+00:00",
+        "ok": false,
+        "count": 0,
+        "http_error": "429"
+      },
+      {
+        "started_at": "2026-10-30T00:17:50.099781+00:00",
+        "finished_at": "2026-10-30T00:18:20.992878+00:00",
+        "ok": true,
+        "count": 0,
+        "http_error": null
+      }
+    ],
+    "history_persistence": "The initial 429 survives in build/maintenance-2026-10-30/source-attempts.json and arxiv-harness-fetch.json; build is git-ignored. Preserve it in the final durable maintenance report. Latest snapshots alone omit the earlier failure by design.",
+    "pending_issue_actions": [],
+    "sources_meeting_existing_issue_condition": [
+      "arxiv-harness",
+      "github-releases",
+      "rss-weco",
+      "s2-authors"
+    ],
+    "snapshot_phase": "Read-only snapshot before the health patch. This reviewer did not refresh actual state after the fix; the parent performs that integration step."
+  },
+  "findings": [
+    {
+      "id": "existing-health-action-loss",
+      "priority": "P2",
+      "introduced_by_hf_patch": false,
+      "location": "scripts/feed/health.py:120",
+      "finding_zh": "修复前，多个来源已有连续 3 次空结果或失败且无 issue_number，但 pending_issue_actions 为空；单源处理后空 outcomes 刷新覆盖了先前事件。本轮按授权修复。",
+      "affected_sources": [
+        "arxiv-harness",
+        "github-releases",
+        "rss-weco",
+        "s2-authors"
+      ],
+      "recommendation_zh": "告警判断已移到统一启用源循环，从持久状态重新生成；计数仍只随真实 outcomes 更新。健康恢复及未运行恢复的待关闭动作可跨空刷新保留；显式 issue_client 仍只创建一次、恢复后关闭一次。真实状态由主代理刷新，未创建任何外部 issue。",
+      "status": "fixed_in_working_tree; live refresh and full-suite integration delegated to parent"
+    },
+    {
+      "id": "identity-mapping-unimplemented",
+      "priority": "P1",
+      "introduced_by_hf_patch": false,
+      "location": "scripts/feed/eval.py:99",
+      "finding_zh": "PR 中没有两篇问题论文的版本标题或别名映射，当前函数与 base 完全相同；不能报告为已修复。",
+      "recommendation_zh": "保留原标签和阈值，后续单独实现有来源的狭义标题/版本映射，再按可信评测路径验收。",
+      "status": "unresolved"
+    },
+    {
+      "id": "attempt-history-not-yet-durable",
+      "priority": "note",
+      "introduced_by_hf_patch": false,
+      "finding_zh": "初次 429 仍存在本地完整流水，但该路径在 build 下被忽略；应随最终维护记录归档。",
+      "status": "parent_integration_required"
+    }
+  ],
+  "identity": {
+    "pr": 3,
+    "head": "e5666c58ab93f946103d5aef6e501580c15193ec",
+    "base": "b9246ac880332688cabce1e46a0914c088089b19",
+    "same_identity_function_ast": true,
+    "mapping_implemented": false,
+    "source_evidence": "build/ci-eval-pr3/identity-check.atom",
+    "offline_reproduction": [
+      {
+        "arxiv": "2607.07007",
+        "version": 1,
+        "ok": false,
+        "expected_name": "State-machine fuzz harness generation",
+        "returned_title": "Thinking More, Harnessing Better: State Machine Guided Harness Automatic Generation with Project Digestion and Workflow Decomposition",
+        "match_method": null,
+        "quote": null,
+        "reason": "Curated name/title does not match returned arXiv title; owner verification required"
+      },
+      {
+        "arxiv": "2609.08175",
+        "version": 1,
+        "ok": true,
+        "expected_name": "Safe Harness Self-Evolution: A Theoretical Analysis of Feasibility and Limits",
+        "returned_title": "Safe Harness Self-Evolution: A Theoretical Analysis of Feasibility and Limits",
+        "match_method": "title",
+        "quote": null,
+        "reason": null
+      },
+      {
+        "arxiv": "2609.08175",
+        "version": 2,
+        "ok": false,
+        "expected_name": "Safe Harness Self-Evolution: A Theoretical Analysis of Feasibility and Limits",
+        "returned_title": "A Theory of Reliable Self-Evolution for Agent Harnesses",
+        "match_method": null,
+        "quote": null,
+        "reason": "Curated name/title does not match returned arXiv title; owner verification required"
+      }
+    ],
+    "latest_failed_ci": {
+      "run_id": 40860158711,
+      "executed_ref": "b9246ac880332688cabce1e46a0914c088089b19",
+      "evaluated": 105,
+      "total": 107,
+      "reason": "Old trusted-main 107-case evaluation fails completeness on the same two title mismatches; its numeric thresholds pass."
+    },
+    "trusted_execution_explanation_zh": "feed-eval.yml checkout 默认分支；stage_eval_inputs 只导入受检查 prompt/model 数据，不导入 PR Python 代码或评测集。main 的 ci.evaluate 调用 run_evaluation(root) 使用 107 例。PR 仅新增 Harness 45 例选择与模型闸门路径，没有标题映射。",
+    "distinct_quality_gate": {
+      "report": "feed/eval/gate-report.json",
+      "generated_at": "2026-10-27T13:50:58.824415+00:00",
+      "rerun_today": false,
+      "harness_recall": 0.8571428571428571,
+      "minimum": 0.9,
+      "passed": false
+    }
+  },
+  "mutations": {
+    "source_code": true,
+    "authorized_files": [
+      "scripts/feed/health.py",
+      "tests/feed/test_health.py"
+    ],
+    "data": false,
+    "github": false,
+    "labels_or_thresholds": false,
+    "report_files_updated": true
+  },
+  "updated_at": "2026-10-30T00:33:42.482601+00:00",
+  "health_fix": {
+    "files": [
+      "scripts/feed/health.py",
+      "tests/feed/test_health.py"
+    ],
+    "change_zh": "将失败阈值与恢复告警检查移到当前启用源统一循环；从持久状态计算待办，不重播 outcomes、不增加计数、不改写 last_run。",
+    "regression_before_patch": {
+      "passed": 7,
+      "failed": 3,
+      "failures": [
+        "test_refresh_preserves_all_pending_source_alerts_without_recounting",
+        "test_refresh_can_deliver_pending_issue_and_recovery_once",
+        "test_enabled_source_missing_two_calendar_days_opens_once_and_run_closes"
+      ]
+    },
+    "regression_after_patch": {
+      "command": ".venv/bin/python -m pytest tests/feed/test_health.py -q",
+      "passed": 10,
+      "failed": 0
+    },
+    "diff_check": "passed",
+    "live_state_refreshed_by_this_reviewer": false,
+    "external_issue_client_used": false,
+    "validation_coverage": [
+      "multiple sources remain pending through per-source calls and empty refresh",
+      "empty refresh leaves whole stored state unchanged within the same day",
+      "recovering one source removes only its unsent alert",
+      "deferred issue creation and deferred recovery close each execute exactly once with a mock client",
+      "missing-run recovery close survives refresh"
+    ]
+  }
+}
