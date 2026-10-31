@@ -1,5 +1,25 @@
 # 2026-10-30 维护与三轮审核
 
+## 最终补充：全量积压与 HF 后续榜单
+
+本节补充 10 月 30 日后续处理结果；下方早晨快照保留作为历史记录，不代表当前完成量。用户在 10 月 31 日选择“先同步完成部分及可续跑清单”，所以第二次 HTTP 402 后暂停付费模型重试。没有把模型建议转成人工批准，没有发布新的日报或 Atom 条目。
+
+- 冻结规范记录 **1,139 条**：原全量基线 1,124 条，加 HF 10 月 30 日后续榜单新增 15 个稳定 ID（该次榜单 16 篇含既有 VibeGame）。冻结文件 SHA-256 为 `e9632c353f3285cda18b8f0592e6f7517245778a1dc07e27ebab8ec7a434f820`。10 月 31 日再抓到的后补另记在[次日报告](../maintenance-2026-10-31/README.md)。
+- 新一批 631 条模型分类已落盘：include 321、borderline 113、exclude 177、error 20。摘要阶段 434 个任务仅 57 成功、1 翻译超时，随后因 402 中断；离线缓存再恢复 7 份。最终仍有 **369 条论文摘要待完成、11 条模型接口错误、9 条元数据阻塞**，这些计数按阶段记录，不应简单相加成唯一记录数。65 条公告走独立正文审查，不能因为没有 paper label 就写成全部未处理。[逐项模型续跑状态](model-resume-status.json)
+- [HF 16 篇审查包](primary/hf-today-manifest.json)：VibeGame 1 篇 Harness 组件候选，WorkFactory / WebAnything 2 篇仅相关环境或数据基础设施，另外 13 篇建议排除 Harness。全部正式决定仍为 defer。HF 推荐日为 10 月 30 日，原发表和版本日期分别保留。
+- [独立复核包](independent/README.md)已覆盖发布范围内正例和边界 199/199、扩展优先项 211/211，核验 1,570 处原文引句；覆盖不等于每条都完成三阶段、完整四项证据卡或人工审核。[gate 分歧和后续补证](independent/gate-comparison.md)保留正反双方及正文纠正，AgentBug-Smith 的附加 Harness 组件仍待审。
+- [来源阻塞](primary/metadata-blockers.md)：8 篇 Elsevier 未取得官方摘要；IEEE 编者按已有全文但没有摘要节，属于摘要输入门槛阻塞，不能说全文不可得。
+- [45 例 Harness gate 评估](harness-gate-eval/)输入完整、无 API/schema/身份错误，但 precision=24/26、recall=24/28=0.8571，召回仍低于 0.90。旧 CI 的 105/107 身份不匹配失败是另一项问题，未因此宣布闸门通过。
+- 修复审核 schema 与 `code_released=partial` 生产器不一致；partial 只允许用于代码可用性，不改写成 yes。10 月 30 日审核单已校验：**214 篇论文 + 65 条公告 = 279 条，全部 defer**。[校验记录](queue-verification-final.json)
+- RSIHub / HarnessDev 归 Harness 专项评测；HarnessDev 为必读并加入实验设计路线；Aspire / S³Gym 归通用 RSI，不计 Harness。保留 10 月 27 日旧判断与后续修正。新目录共 107 篇（101 已收录、6 候选），尚在 PR #3。
+- [《为什么 AI 还不会自我进化》](https://adongwanai.github.io/follow-rsi/articles/why-ai-self-improvement.html)已通过独立 PR #7 上线，不重复发布。[部署凭证](article-publication.json)
+
+修复后的本地测试为 **321 passed**；最终构建与同步结果见[10 月 31 日验证记录](../maintenance-2026-10-31/validation.json)。发布工作流仍手动暂停。Owner 审核入口为 [PR #3](https://github.com/adongwanai/follow-rsi/pull/3)，不是已发布 feed。
+
+完整交接见[审核覆盖清单](coverage/coverage-ledger.md)、[逐 ID 状态](coverage/item-status.jsonl)与[可续跑任务](coverage/resume-plan.json)。基线仅 **163 条**达到本轮三阶段且所核输入匹配；另有来源内容差异、旧判据记录和未覆盖第三轮的项目逐条列出，不能宣称全量三轮已结束。
+
+## 早晨维护快照（保留原记录）
+
 **HF 10 月 30 日榜尚未就绪，今天没有自动发布日报或 Atom 条目。** 本轮新增发现并完成三轮范围审查 12 条：10 月 29 日 HF 后补推荐 7 篇、原日期为 10 月 29 日的实验室公告 3 条、S2 历史论文 2 篇。建议纳入 Harness 0 条、建议不纳入 10 条、模型与独立复审有分歧 2 条；正式决定一律 `defer`，这些建议不是 owner 批准或正式拒绝。
 
 ## 日期与去重

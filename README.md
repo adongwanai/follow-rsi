@@ -139,7 +139,7 @@ RSI 论文每天都在冒，但不是每个「变强了」都经得起检验。F
 
 <!-- AUTO:SOURCES:START -->
 
-已实际运行成功：arxiv-adjacent · arxiv-harness · arxiv-rsi · github-releases · hf-daily · rss-deepmind · rss-metr · rss-openai · rss-sakana · rss-weco · s2-citations。 本次失败：hf-daily · s2-authors。 [信源状态](https://adongwanai.github.io/follow-rsi/feed/status.json).
+已实际运行成功：arxiv-adjacent · arxiv-harness · arxiv-rsi · github-releases · hf-daily · rss-deepmind · rss-metr · rss-openai · rss-sakana · rss-weco · s2-citations。 本次失败：s2-authors。 [信源状态](https://adongwanai.github.io/follow-rsi/feed/status.json).
 
 <!-- AUTO:SOURCES:END -->
 

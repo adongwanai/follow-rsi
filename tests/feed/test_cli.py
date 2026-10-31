@@ -204,7 +204,7 @@ def test_changed_prompt_rejudges_old_exclude_once_and_preserves_owner_correction
 @pytest.mark.parametrize('stage', ['judge', 'summarize'])
 @pytest.mark.parametrize('in_flight', [False, True])
 def test_payment_failure_cancels_unstarted_work_and_keeps_completed_results(
-        tmp_path, monkeypatch, stage, in_flight):
+        tmp_path, monkeypatch, capsys, stage, in_flight):
     from scripts.feed.llm import LLMConfigurationError
 
     root, template = empty_source_repo(tmp_path)
@@ -250,7 +250,9 @@ def test_payment_failure_cancels_unstarted_work_and_keeps_completed_results(
             return future
 
     def completed_in_order(pending):
-        for future, ident in pending.items():
+        order = list(pending.items())
+        # Cancelled work may be yielded before the last successful in-flight result.
+        for future, ident in [*order[:2], *order[3:], order[2]]:
             if future.running():
                 future.set_result(completed[ident])
             yield future
@@ -264,6 +266,9 @@ def test_payment_failure_cancels_unstarted_work_and_keeps_completed_results(
     saved = {row['id']: row for row in load_items(root)}
     for item in items:
         assert saved[item['id']] == completed.get(item['id'], item)
+    progress = capsys.readouterr().out
+    assert f'{stage}: 5/5 processed' not in progress
+    assert f'{stage}: interrupted; 2/5 results saved' in progress
 
 
 @pytest.mark.parametrize('stage', ['judge', 'summarize'])

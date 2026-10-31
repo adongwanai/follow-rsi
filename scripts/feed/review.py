@@ -44,7 +44,8 @@ REVIEW_SCHEMA = {
                     "type": "object", "additionalProperties": False,
                     "properties": {field: {"type": "object", "required": ["value", "quote"],
                         "additionalProperties": False, "properties": {
-                            "value": {"enum": ["yes", "unknown"]},
+                            "value": {"enum": ["yes", "partial", "unknown"] if field == "code_released"
+                                               else ["yes", "unknown"]},
                             "quote": {"type": ["string", "null"]}}} for field in QUICK_FIELDS}},
             },
         }},

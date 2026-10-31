@@ -131,7 +131,7 @@ def process_items(root, stage, workers=4, client=None):
     configuration_error = None
     with ThreadPoolExecutor(max_workers=workers) as pool:
         pending = {pool.submit(operation, item, client, root): item['id'] for item in todo}
-        for index, future in enumerate(as_completed(pending), 1):
+        for future in as_completed(pending):
             if future.cancelled():
                 continue
             try:
@@ -145,9 +145,11 @@ def process_items(root, stage, workers=4, client=None):
             save_items(root, [result])
             label = result.get('label', 'unjudged')
             counts[label] = counts.get(label, 0) + 1
-            if index == 1 or index % 10 == 0 or index == len(todo):
-                print(f'{stage}: {index}/{len(todo)} processed; {counts}', flush=True)
+            processed = sum(counts.values())
+            if processed == 1 or processed % 10 == 0 or processed == len(todo):
+                print(f'{stage}: {processed}/{len(todo)} processed; {counts}', flush=True)
     if configuration_error is not None:
+        print(f'{stage}: interrupted; {sum(counts.values())}/{len(todo)} results saved; {counts}', flush=True)
         raise configuration_error
     return {'stage':stage, 'processed':len(todo) + len(refreshed), 'labels':counts,
             'archived':archive_out_of_scope(root) if stage == 'summarize' else 0}

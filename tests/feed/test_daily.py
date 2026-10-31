@@ -3,6 +3,7 @@ from copy import deepcopy
 
 import pytest
 import yaml
+import jsonschema
 
 from scripts.common import read_yaml
 from scripts.feed.review import (apply_daily_review, approved_daily_items, interactive_daily_review,
@@ -48,6 +49,24 @@ def test_pending_blocks_and_defer_is_not_an_approval(tmp_path):
     write_daily(root, lambda review: review["items"][1].update(decision="defer"))
     validate_daily_review(root, DAY)
     assert approved_daily_items(root, DAY) == []
+
+
+def test_partial_code_evidence_survives_queue_without_approval(tmp_path):
+    root = make_daily_repo(tmp_path)
+    items = load_items(root)
+    item = next(value for value in items if value.get("arxiv_id") == "2610.99991")
+    item["evidence_quick"]["code_released"] = {
+        "value": "partial", "quote": "https://github.com/fixture/readme-only"}
+    save_items(root, [item])
+    review = queue_daily_review(root, DAY)
+    row = next(value for value in review["items"] if value["id"] == item["id"])
+    assert row["evidence_quick"]["code_released"] == item["evidence_quick"]["code_released"]
+    assert row["decision"] == "defer"
+    validate_daily_review(root, DAY)
+    assert approved_daily_items(root, DAY) == []
+    write_daily(root, lambda value: value["items"][0]["evidence_quick"]["held_out"].update(value="partial"))
+    with pytest.raises(jsonschema.ValidationError):
+        validate_daily_review(root, DAY)
 
 
 def test_rollover_preserves_unmerged_decisions_and_resets_deferral(tmp_path):
