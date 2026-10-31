@@ -139,7 +139,7 @@ Icons: held-out · matched budget · cross-model · cost; ❔ means not yet revi
 
 <!-- AUTO:SOURCES:START -->
 
-Sources with recorded successful runs: arxiv-adjacent · arxiv-harness · arxiv-rsi · github-releases · hf-daily · rss-deepmind · rss-metr · rss-openai · rss-sakana · rss-weco · s2-citations。 Failed in the latest run: s2-authors。 [Source status](https://adongwanai.github.io/follow-rsi/feed/status.json).
+Sources with recorded successful runs: arxiv-adjacent · arxiv-harness · arxiv-rsi · github-releases · hf-daily · rss-deepmind · rss-metr · rss-openai · rss-sakana · rss-weco · s2-citations。 Failed in the latest run: arxiv-adjacent · arxiv-harness · arxiv-rsi · s2-authors。 [Source status](https://adongwanai.github.io/follow-rsi/feed/status.json).
 
 <!-- AUTO:SOURCES:END -->
 
