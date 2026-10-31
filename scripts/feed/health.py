@@ -5,6 +5,7 @@ from pathlib import Path
 import statistics
 import subprocess
 import tempfile
+from scripts.common import read_yaml
 from .storage import load_items, load_state, save_state, write_json
 from .scope import archive_counts, direction_of, in_scope, load_scope
 
@@ -51,6 +52,15 @@ def update_health(root, outcomes, now=None, issue_client=None):
     moment = current.isoformat()
     week = week_of(moment)
     state, events = load_state(root), []
+    registry = read_yaml(Path(root) / 'feed' / 'sources.yaml')['sources']
+    enabled = {entry['id']: entry for entry in registry if entry['enabled']}
+    for ident, entry in enabled.items():
+        source = state['sources'].setdefault(ident, {'consecutive_failures': 0, 'consecutive_errors': 0,
+                                                    'seen_ids': [], 'weekly': {}})
+        source.setdefault('enabled_since', moment)
+        source.update(enabled=True, schedule=entry['schedule'], kind=entry['kind'])
+    for ident, source in state['sources'].items():
+        source['enabled'] = ident in enabled
     for outcome in outcomes:
         ident = outcome['source_id']
         source = state['sources'].setdefault(ident, {'consecutive_failures': 0, 'consecutive_errors': 0,
@@ -59,6 +69,7 @@ def update_health(root, outcomes, now=None, issue_client=None):
         api_error = not outcome['ok'] or outcome.get('degraded', False)
         source['last_run'] = moment
         source['last_count'] = outcome['count']
+        source['last_ok'] = outcome['ok']
         source['last_error'] = outcome.get('error')
         source['degraded'] = outcome.get('degraded', False)
         source['consecutive_failures'] = 0 if healthy else source['consecutive_failures'] + 1
@@ -70,6 +81,9 @@ def update_health(root, outcomes, now=None, issue_client=None):
         source['seen_ids'] = sorted(seen | set(outcome.get('ids', [])))
         source['weekly'][week] = source['weekly'].get(week, 0) + len(fresh)
         source['total_found'] = len(source['seen_ids'])
+    for ident in enabled:
+        source = state['sources'][ident]
+        healthy = source.get('last_ok') and source.get('last_count', 0) > 0 and not source.get('degraded')
         title = f'Source down: {ident}'
         if source['consecutive_failures'] >= 3 and not source.get('issue_number'):
             event = {'action': 'open', 'source_id': ident, 'title': title,
@@ -81,11 +95,28 @@ def update_health(root, outcomes, now=None, issue_client=None):
             events.append({'action': 'close', 'source_id': ident, 'number': source['issue_number']})
             if issue_client:
                 issue_client.close(source.pop('issue_number'))
+        last_record = source.get('last_run') or source['enabled_since']
+        source['missing_days'] = max(0, (current.date() - timestamp(last_record).date()).days)
+        if source['missing_days'] < 2 and source.get('missing_issue_number'):
+            events.append({'action': 'close', 'source_id': ident, 'number': source['missing_issue_number']})
+            if issue_client:
+                issue_client.close(source.pop('missing_issue_number'))
+        if source['missing_days'] >= 2 and not source.get('missing_issue_number'):
+            title = f'Source not run: {ident}'
+            event = {'action': 'open', 'source_id': ident, 'title': title,
+                     'body': f"Enabled source has no run record for {source['missing_days']} calendar days.\n\nLast run: {source.get('last_run') or 'never'}\n\nEnabled since: {source['enabled_since']}"}
+            events.append(event)
+            if issue_client:
+                source['missing_issue_number'] = issue_client.find(title) or issue_client.create(title, event['body'])
+    if outcomes:
+        state['last_fetch'] = {'run_at': moment, 'sources': [
+            {key: value for key, value in outcome.items() if key != 'ids'} for outcome in outcomes]}
     save_state(root, state)
     successes = [row['last_success'] for row in state['sources'].values() if row.get('last_success')]
     last_success = max(successes) if successes else None
     age = max(0, int((current - timestamp(last_success)).total_seconds() // 3600)) if last_success else None
     status = {'checked_at': moment, 'last_success': last_success, 'age_hours': age,
+              'last_fetch': state.get('last_fetch'),
               'sources': {key: {k: v for k, v in value.items() if k != 'seen_ids'} for key, value in state['sources'].items()},
               'pending_issue_actions': events if issue_client is None else []}
     write_json(Path(root) / 'site' / 'feed' / 'status.json', status)

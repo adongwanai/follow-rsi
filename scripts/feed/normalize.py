@@ -4,7 +4,13 @@ import re
 import unicodedata
 from urllib.parse import urlparse
 
-ARXIV_RE = re.compile(r'(?<![\w.])(?P<id>\d{4}\.\d{4,5}|[a-z-]+(?:\.[A-Z]{2})?/\d{7})(?:v(?P<version>\d+))?(?![\w.])', re.I)
+LEGACY_ARCHIVES = ('acc-phys', 'adap-org', 'alg-geom', 'ao-sci', 'astro-ph', 'atom-ph', 'bayes-an',
+                   'chao-dyn', 'chem-ph', 'cmp-lg', 'cond-mat', 'cs', 'dg-ga', 'funct-an', 'gr-qc',
+                   'hep-ex', 'hep-lat', 'hep-ph', 'hep-th', 'math', 'math-ph', 'mtrl-th', 'nlin',
+                   'nucl-ex', 'nucl-th', 'patt-sol', 'physics', 'plasm-ph', 'q-alg', 'q-bio',
+                   'quant-ph', 'solv-int', 'supr-con')
+ARXIV_RE = re.compile(r'(?<![\w.])(?P<id>\d{4}\.\d{4,5}|(?:' + '|'.join(LEGACY_ARCHIVES)
+                      + r')(?:\.[A-Z]{2})?/\d{7})(?:v(?P<version>\d+))?(?![\w.])', re.I)
 URL_RE = re.compile(r'https?://[^\s<>"\]]+')
 
 
@@ -65,7 +71,7 @@ def normalize_record(raw, now=None):
     item['authors'] = [compact(author) for author in raw.get('authors', [])]
     item['abstract'] = compact(raw.get('abstract'))
     item['comments'] = compact(raw.get('comments'))
-    for field in ('categories', 'source_hits', 'seed_hits', 'aliases'):
+    for field in ('categories', 'source_hits', 'seed_hits', 'aliases', 'hf_daily_dates'):
         item[field] = sorted(set(raw.get(field, [])))
     item['code_links'] = sorted(set(raw.get('code_links', [])) | set(code_links(item['abstract'] + ' ' + item['comments'])))
     if item['code_links']:
@@ -76,6 +82,12 @@ def normalize_record(raw, now=None):
     item['first_seen'] = raw.get('first_seen') or now or utc_now()
     item['published'] = str(raw.get('published') or '')
     item['updated'] = str(raw.get('updated') or item['published'])
+    if item.get('metadata_pending') and 'hf_reported_published' in item and not item['published']:
+        item['announced'], item['announced_source'] = '', 'unknown'
+    else:
+        item['announced'] = item['published'][:10] or str(raw.get('hf_submitted_at') or '')[:10]
+        item['announced_source'] = ((item.get('published_source') or 'published') if item['published'] else
+                                    'hf_submitted_at' if raw.get('hf_submitted_at') else 'unknown')
     item['retracted'] = bool(raw.get('retracted') or re.search(r'\b(?:withdrawn|retracted)\b', item['comments'], re.I)
                              or re.search(r'\bthis (?:paper|submission|manuscript) (?:has been|is|was) (?:withdrawn|retracted)\b', item['abstract'], re.I))
     return item

@@ -18,7 +18,7 @@ from scripts.feed.guard import check_summary, enforce_evidence, unknown_evidence
 from scripts.feed.storage import load_items, save_items
 from scripts.feed.scope import archive_out_of_scope, load_scope, require_scope, scope_status
 
-DECISIONS = ("pending", "accept", "reject", "move", "defer")
+DECISIONS = ("pending", "accept", "reject", "move", "defer", "backlog")
 OWNER_FIELDS = ("decision", "direction_override", "summary_override", "promote_to_repo", "note")
 QUICK_FIELDS = ("held_out", "matched_budget", "cross_model", "code_released")
 APPROVED = ("accept", "move")
@@ -44,7 +44,8 @@ REVIEW_SCHEMA = {
                     "type": "object", "additionalProperties": False,
                     "properties": {field: {"type": "object", "required": ["value", "quote"],
                         "additionalProperties": False, "properties": {
-                            "value": {"enum": ["yes", "unknown"]},
+                            "value": {"enum": ["yes", "partial", "unknown"] if field == "code_released"
+                                               else ["yes", "unknown"]},
                             "quote": {"type": ["string", "null"]}}} for field in QUICK_FIELDS}},
             },
         }},
@@ -82,8 +83,8 @@ def item_week(item):
 
 def source_hash(item):
     # Only owner-visible content invalidates an earlier decision; counters do not.
-    keys = ("id", "version", "title", "abstract", "links", "retracted", "summary_zh",
-            "summary_en", "evidence_quick", "llm")
+    keys = ("id", "version", "title", "abstract", "links", "retracted", "published", "updated", "hf_daily_dates", "summary_zh",
+            "summary_en", "evidence_quick", "llm", "gate", "backfill_only")
     payload = {key: item.get(key) for key in keys}
     return hashlib.sha256(json.dumps(payload, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
 
@@ -97,8 +98,16 @@ def _write_yaml(path, value):
 
 def _review_row(item):
     return {
-        "id": item["id"], "arxiv_id": item.get("arxiv_id"), "title": item["title"],
+        "id": item["id"], "title": item["title"],
+        "announced": item.get("announced") or str(item["published"])[:10],
+        "window_status": None, "in_repo": bool(item.get("in_repo")),
+        "gate": deepcopy(item.get("gate", {})),
+        "llm_primary": (item.get("llm", {}).get("primary") or "") +
+                       (" / " + item["llm"]["harness_sub"] if item.get("llm", {}).get("harness_sub") else ""),
+        "decision": "defer", "arxiv_id": item.get("arxiv_id"),
         "version": item.get("version"), "source_hash": source_hash(item),
+        "published": item["published"], "updated": item.get("updated", item["published"]),
+        "hf_daily_dates": item.get("hf_daily_dates", []),
         "abstract": item.get("abstract", ""), "llm": deepcopy(item.get("llm", {})),
         "summary_zh": item.get("summary_zh", ""), "summary_en": item.get("summary_en", ""),
         "evidence_quick": deepcopy(item.get("evidence_quick", {})),
@@ -107,7 +116,7 @@ def _review_row(item):
         "signals": {"seed_hits": len(item.get("seed_hits", [])),
                     "author_tracked": any("author" in source for source in item.get("source_hits", [])),
                     "hf_upvotes": item.get("hf_upvotes", 0)},
-        "guard_failed": bool(item.get("guard_failed")), "decision": "pending",
+        "guard_failed": bool(item.get("guard_failed")),
         "direction_override": None, "summary_override": None, "promote_to_repo": "auto", "note": "",
     }
 
@@ -127,7 +136,7 @@ def queue_review(root=ROOT, week=None, items=None):
     labs_old = {row["id"]: row for row in previous["lab_updates"]}
     rows, excluded, labs = [], [], []
     for item in source_items:
-        if item_week(item) != week or item.get("in_repo") or item.get("retracted"):
+        if item_week(item) != week or item.get("retracted"):
             continue
         if item["kind"] in ("post", "release"):
             row = {"id": item["id"], "title": item["title"], "kind": item["kind"],
@@ -195,6 +204,8 @@ def _direction(item, row, taxonomy):
 
 
 def _summary_fields(item, row):
+    if item.get("in_repo") and not row.get("summary_override"):
+        return {key: item.get(key, "") for key in ("summary_zh", "summary_en")}
     result = {"summary_zh": row.get("summary_zh", ""), "summary_en": row.get("summary_en", "")}
     override = row.get("summary_override")
     if isinstance(override, str):
@@ -216,8 +227,10 @@ def effective_item(item, row, taxonomy):
     result = deepcopy(item)
     result["llm"] = {**row["llm"], **_direction(item, row, taxonomy)}
     result.update(_summary_fields(item, row))
-    result["evidence_quick"] = enforce_evidence(item.get("abstract", ""),
-        {**unknown_evidence(), **row.get("evidence_quick", {})})
+    result["evidence_quick"] = (deepcopy(item["evidence_quick"]) if item.get("in_repo")
+        else enforce_evidence(item.get("abstract", ""),
+            {**unknown_evidence(), **row.get("evidence_quick", {})},
+            code_evidence=item.get("evidence_quick", {}).get("code_released")))
     result["owner_note"] = row.get("note", "")
     return result
 
@@ -311,7 +324,7 @@ def interactive_review(root=ROOT, week=None, input_fn=input, output_fn=print):
     path = root / "review" / f"{week}.yaml"
     review = read_yaml(path)
     for row in [*review["items"], *review["lab_updates"]]:
-        if row["decision"] != "pending":
+        if row["decision"] not in ("pending", "defer"):
             continue
         output_fn(f"\n{row['title']}\n{row.get('summary_zh', '')}\n{row.get('links', {})}")
         while True:
@@ -363,6 +376,8 @@ def day_week(value):
 
 def queue_daily_review(root=ROOT, date=None, items=None, carried_reviews=None):
     """Roll forward unresolved work, retaining edits recovered from unmerged PRs."""
+    from scripts.feed.dates import daily_section
+    from scripts.feed.window import daily_metadata
     root = Path(root)
     day = date or datetime.now(timezone.utc).date().isoformat()
     day_week(day)
@@ -379,15 +394,25 @@ def queue_daily_review(root=ROOT, date=None, items=None, carried_reviews=None):
         if review["date"] <= day:
             for row in [*review["items"], *review["lab_updates"]]:
                 old[row["id"]] = (review["date"], row)
-    rows, excluded, labs = [], [], []
+    rows, excluded, labs, stale = [], [], [], []
     for item in source_items:
         if str(item.get("first_seen") or item["published"])[:10] > day:
             continue
-        if item.get("in_repo") or item.get("retracted"):
+        if item.get("retracted"):
             continue
         applied = item.get("review", {})
-        if (applied.get("kind") == "daily" and applied.get("date") != day
-                and applied.get("decision") in (*APPROVED, "reject")
+        prior_day = old.get(item['id'], ('', {}))[0]
+        if (applied.get('kind') in ('daily', 'correction') and applied.get('date', '') <= day
+                and applied.get('date', '') >= prior_day):
+            # A correction supersedes the original file, including a decision to
+            # defer. Replaying that file must never resurrect its old acceptance.
+            old[item['id']] = (applied['date'], applied)
+        timing = daily_metadata(root, item, day)
+        if timing['window_status'] == 'already_published':
+            continue
+        if (applied.get("kind") in ("daily", "correction")
+                and (applied.get("date") != day or applied.get("kind") == "correction")
+                and applied.get("decision") in (*APPROVED, "reject", "backlog")
                 and applied.get("source_hash") == source_hash(item)):
             continue
         lab = item["kind"] in ("post", "release")
@@ -395,7 +420,7 @@ def queue_daily_review(root=ROOT, date=None, items=None, carried_reviews=None):
             row = {"id": item["id"], "title": item["title"], "kind": item["kind"],
                    "links": item.get("links", {}), "source_hash": source_hash(item),
                    "llm": deepcopy(item.get("llm", {})), "direction_override": None,
-                   "decision": "pending", "note": ""}
+                   "decision": "defer", "note": ""}
         else:
             label = item.get("llm", {}).get("label")
             if label == "exclude":
@@ -413,10 +438,8 @@ def queue_daily_review(root=ROOT, date=None, items=None, carried_reviews=None):
                 if field in prior:
                     row[field] = prior[field]
             if prior["source_hash"] != row["source_hash"]:
-                row["decision"] = "pending"
+                row["decision"] = "defer"
                 row["review_required_reason"] = "Source or automatic content changed after the last review."
-            elif prior_day < day and row["decision"] == "defer":
-                row["decision"] = "pending"
             if prior_day < day:
                 row["carried_from"] = prior.get("carried_from", prior_day)
         if row.get("llm", {}).get("label") != "error":
@@ -425,17 +448,25 @@ def queue_daily_review(root=ROOT, date=None, items=None, carried_reviews=None):
                 direction = _direction(item, row, taxonomy)
             if scope_status(direction, scope) == "out_of_scope":
                 continue
-        (labs if lab else rows).append(row)
+        row["published"] = item["published"]
+        row["updated"] = item.get("updated", item["published"])
+        row["hf_daily_dates"] = item.get("hf_daily_dates", [])
+        row.update(timing)
+        row["daily_section"] = daily_section({**item, **timing}, day)
+        (stale if timing['window_status'] == 'stale' else labs if lab else rows).append(row)
     rows.sort(key=lambda row: (
         not (row["llm"].get("label") in ("borderline", "error") or row["guard_failed"]
              or row["llm"].get("confidence", 0) < .6), row["llm"].get("confidence", 0), row["id"]))
     result = {"date": day, "items": rows, "lab_updates": labs}
     _write_yaml(directory / f"{day}.yaml", result)
     _write_yaml(directory / f"{day}.excluded.yaml", {"date": day, "items": excluded})
+    if stale:
+        _write_yaml(root / 'review/backlog' / f'{day}.yaml', {'date': day, 'items': stale})
     return result
 
 
 def validate_daily_review(root=ROOT, date=None):
+    from scripts.feed.window import daily_metadata
     root = Path(root)
     day_week(date)
     review = read_yaml(root / "review/daily" / f"{date}.yaml")
@@ -472,21 +503,65 @@ def validate_daily_review(root=ROOT, date=None):
                     _direction(item, row, taxonomy)
                 if row.get("summary_override") is not None:
                     _summary_fields(item, row)
-                if row["decision"] in APPROVED:
-                    require_scope(effective_item(item, row, taxonomy), scope)
+                effective = effective_item(item, row, taxonomy) if row['decision'] in (*APPROVED, 'backlog') else None
+                publishable = effective is not None and scope_status(effective['llm'], scope) == 'in_scope'
+                if row['decision'] == 'accept' or row['decision'] == 'backlog' or publishable:
+                    require_scope(effective, scope)
+                    timing = daily_metadata(root, item, date)
+                    required = 'backlog' if row['decision'] == 'backlog' else 'in_window'
+                    if timing['window_status'] != required or row.get('window_status') != required:
+                        raise ValueError(f"{key}: {row['decision']} requires window_status={required}; use backlog for historical papers")
+                    if item.get('llm', {}).get('label') == 'exclude':
+                        raise ValueError(f"{key}: excluded items cannot be accepted")
+                    if item.get('gate', {}).get('verdict') != 'harness' and not row.get('direction_override'):
+                        raise ValueError(f"{key}: Harness gate did not pass; an explicit direction_override is required")
+                    if (effective['llm']['primary'] in ('evaluation_benchmark', 'theory_survey')
+                            and item.get('gate', {}).get('harness_specific') != 'yes'
+                            and not row.get('direction_override')):
+                        raise ValueError(f"{key}: evaluation/theory must be Harness-specific")
             elif row.get("direction_override") is not None or row["decision"] == "accept":
                 direction = _direction(item, {**row, "llm": item.get("llm", {})}, taxonomy)
                 if row["decision"] == "accept":
                     require_scope({"id": key, "direction": direction}, scope)
+                    if daily_metadata(root, item, date)['window_status'] != 'in_window':
+                        raise ValueError(f'{key}: lab update is outside the daily window')
     return review
 
 
 def approved_daily_items(root=ROOT, date=None):
+    from scripts.feed.window import daily_metadata
     review = validate_daily_review(root, date)
     sources = {item["id"]: item for item in load_items(root)}
     taxonomy = read_yaml(Path(root) / "feed/taxonomy.yaml")
-    return [effective_item(sources[row["id"]], row, taxonomy) for row in review["items"]
-            if row["decision"] in APPROVED]
+    scope = load_scope(root)
+    result = []
+    for row in review['items']:
+        if row['decision'] in APPROVED:
+            item = effective_item(sources[row['id']], row, taxonomy)
+            item.update(daily_metadata(root, item, date))
+            if item['window_status'] == 'in_window' and scope_status(item['llm'], scope) == 'in_scope':
+                result.append(item)
+    return result
+
+
+def approved_weekly_backlog(root=ROOT, week=None):
+    from scripts.feed.window import daily_metadata
+    result = []
+    taxonomy = read_yaml(Path(root) / 'feed/taxonomy.yaml')
+    scope = load_scope(root)
+    for item in load_items(root):
+        review = item.get('review', {})
+        if review.get('decision') != 'backlog' or review.get('week') != week:
+            continue
+        if review['source_hash'] != source_hash(item):
+            raise ValueError(f"{item['id']}: source changed after backlog review")
+        row = {**_review_row(item), **review}
+        effective = effective_item(item, row, taxonomy)
+        effective.update(daily_metadata(root, item, review['date']))
+        if effective['window_status'] == 'backlog':
+            require_scope(effective, scope)
+            result.append(effective)
+    return result
 
 
 def apply_daily_review(root=ROOT, date=None, now=None, provenance=None):

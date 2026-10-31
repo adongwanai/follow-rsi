@@ -7,6 +7,7 @@ from scripts.common import ROOT, read_yaml
 from scripts.feed.eval import (add_owner_labels, cache_metadata, effective_labels,
                                import_repository_labels, run_evaluation, score_predictions,
                                verify_metadata_identity)
+from test_judge import CLASSIFY, GATE, ITEM, RELEVANCE
 
 
 def test_exact_user_seed_labels_and_no_relabeling():
@@ -26,7 +27,9 @@ def test_exact_user_seed_labels_and_no_relabeling():
 
 def test_repository_import_cutoff_and_sections():
     labels = import_repository_labels()
-    assert len(labels) == 80
+    assert len(labels) == 83
+    evaluation_ids = {row['repo_id'] for row in labels if row['primary'] == 'evaluation_benchmark'}
+    assert {'rsihub', 'harnessdev', 'aspire', 's3gym'} <= evaluation_ids
     assert all(x['source_date'][:7] > '2026-04' for x in labels)
     assert all(x['source_section'] not in ('foundations', 'candidates') for x in labels)
     for label in labels:
@@ -141,7 +144,7 @@ def test_complete_fixture_evaluation_runs_relevance_then_classify(tmp_path):
     for label in labels:
         (folder / 'metadata' / (label['arxiv'] + '.json')).write_text(json.dumps({
             'arxiv_id': label['arxiv'], 'version': 1, 'title': 'Offline test fixture',
-            'abstract': 'Synthetic metadata for an offline mock test.'}))
+            'abstract': ITEM['abstract'] if label['label'] == 'include' else 'We study galaxy formation.'}))
     class Client:
         model = 'fixture-model'
         def __init__(self):
@@ -149,14 +152,18 @@ def test_complete_fixture_evaluation_runs_relevance_then_classify(tmp_path):
         def run(self, name, item, **kwargs):
             self.calls.append((name, item['arxiv_id']))
             if name == 'classify':
-                data = {'primary': 'harness', 'harness_sub': 'component'}
+                data = CLASSIFY
+            elif name == 'harness_gate':
+                data = GATE
             else:
-                data = {'label': 'include' if item['arxiv_id'] == '2610.12345' else 'exclude',
-                        'reason_zh': '离线测试'}
+                data = RELEVANCE if item['arxiv_id'] == '2610.12345' else {
+                    **RELEVANCE, 'label': 'exclude', 'exclude_reason': 'off_topic',
+                    'scope_support': {**RELEVANCE['scope_support'], 'exclusion_quote': 'We study galaxy formation.'}}
             return {'data': data, 'model': self.model, 'prompt_hash': name, 'cache_key': name + item['arxiv_id']}
     client = Client()
     report = run_evaluation(tmp_path, client)
-    assert client.calls == [('relevance', '2610.12345'), ('classify', '2610.12345'), ('relevance', '2610.99999')]
+    assert client.calls == [('relevance', '2610.12345'), ('classify', '2610.12345'),
+                            ('harness_gate', '2610.12345'), ('relevance', '2610.99999')]
     assert report['status'] == 'complete' and report['thresholds_passed']
     assert report['metrics']['include']['precision'] == report['metrics']['include']['recall'] == 1
 

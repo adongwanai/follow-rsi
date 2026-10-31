@@ -2,6 +2,7 @@
 import argparse
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -50,38 +51,111 @@ def issue_client(enabled):
     return GithubIssues(os.environ['GITHUB_REPOSITORY'])
 
 
+def _needs_gate_migration(item):
+    decision = item.get('llm', {})
+    if (decision.get('label') not in ('include', 'borderline')
+            or (decision.get('primary') not in ('harness', 'evaluation_benchmark', 'theory_survey')
+                and 'harness' not in decision.get('secondary', []))):
+        return False
+    gate = item.get('gate', {})
+    fields = {'verdict', 'improved_object', 'improved_object_zh', 'harness_specific',
+              'feedback_driven', 'persists_across_tasks', 'why_zh'}
+    return not (fields <= gate.keys() and all(
+        isinstance(gate[field], dict) and {'value', 'quote'} <= gate[field].keys()
+        for field in ('feedback_driven', 'persists_across_tasks')))
+
+
+def _needs_prompt_migration(item, root):
+    for stage in ('relevance', 'classify', 'harness_gate'):
+        previous = item.get('llm', {}).get(stage, {})
+        responses = previous.get('samples', []) if stage == 'harness_gate' else [previous]
+        for response in responses:
+            recorded = response.get('template_hash')
+            if recorded and recorded != hashlib.sha256(
+                    (Path(root) / 'feed/prompts' / f'{stage}.md').read_bytes()).hexdigest():
+                return True
+    return False
+
+
+def _backfill_items(root, items):
+    from scripts.feed.window import published_editions
+    editions = published_editions(root)
+    editions += [json.loads(path.read_text()) for path in
+                 (Path(root) / 'site/weekly').glob('????-W??.json')]
+    published = {row['id'] for edition in editions
+                 for row in [*edition['items'], *edition.get('lab_updates', []),
+                             *edition.get('backlog', [])]}
+    for item in items:
+        if item['id'] not in published:
+            item['backfill_only'] = True
+    return items
+
+
 def process_items(root, stage, workers=4, client=None):
     from scripts.feed.judge import judge_item, summarize_item
-    from scripts.feed.llm import FeedLLM
+    from scripts.feed.library import curated_item
+    from scripts.feed.llm import FeedLLM, LLMConfigurationError
     from scripts.feed.scope import archive_out_of_scope
     items = load_items(root)
+    refreshed = {}
+    for item in items:
+        if (item['kind'] == 'paper' and item.get('in_repo')
+                and item.get('review', {}).get('kind') != 'correction'):
+            curated = curated_item(item, root)
+            if curated != item:
+                refreshed[item['id']] = curated
+    if refreshed:
+        save_items(root, refreshed.values())
+        items = [refreshed.get(item['id'], item) for item in items]
+    automatic = [item for item in items if not item.get('in_repo')
+                 and item.get('review', {}).get('kind') != 'correction']
     if stage == 'judge':
-        todo = [item for item in items if item['kind'] == 'paper' and not item.get('in_repo')
-                and not item.get('llm', {}).get('label')]
+        todo = [item for item in automatic if item['kind'] == 'paper'
+                and (item.get('llm', {}).get('label') in (None, '', 'error')
+                     or _needs_gate_migration(item) or _needs_prompt_migration(item, root))]
+        for item in todo:
+            if item.get('llm', {}).get('label'):
+                # Reclassification must not retain a legacy gate or summary.
+                for field in ('gate', 'summary_zh', 'summary_en'):
+                    item.pop(field, None)
         operation = judge_item
     else:
-        todo = [item for item in items if item.get('llm', {}).get('label') in ('include','borderline')
-                and not item.get('in_repo') and 'summary_zh' not in item]
+        todo = [item for item in automatic if item.get('llm', {}).get('label') in ('include','borderline')
+                and 'summary_zh' not in item]
         operation = summarize_item
     if not todo:
-        return {'stage':stage, 'processed':0,
+        return {'stage':stage, 'processed':len(refreshed),
                 'archived':archive_out_of_scope(root) if stage == 'summarize' else 0}
     client = client or FeedLLM.from_env(root)
     counts = {}
+    configuration_error = None
     with ThreadPoolExecutor(max_workers=workers) as pool:
         pending = {pool.submit(operation, item, client, root): item['id'] for item in todo}
-        for index, future in enumerate(as_completed(pending), 1):
-            result = future.result()
+        for future in as_completed(pending):
+            if future.cancelled():
+                continue
+            try:
+                result = future.result()
+            except LLMConfigurationError as error:
+                if configuration_error is None:
+                    configuration_error = error
+                for queued in pending:
+                    queued.cancel()
+                continue
             save_items(root, [result])
             label = result.get('label', 'unjudged')
             counts[label] = counts.get(label, 0) + 1
-            if index == 1 or index % 10 == 0 or index == len(todo):
-                print(f'{stage}: {index}/{len(todo)} processed; {counts}', flush=True)
-    return {'stage':stage, 'processed':len(todo), 'labels':counts,
+            processed = sum(counts.values())
+            if processed == 1 or processed % 10 == 0 or processed == len(todo):
+                print(f'{stage}: {processed}/{len(todo)} processed; {counts}', flush=True)
+    if configuration_error is not None:
+        print(f'{stage}: interrupted; {sum(counts.values())}/{len(todo)} results saved; {counts}', flush=True)
+        raise configuration_error
+    return {'stage':stage, 'processed':len(todo) + len(refreshed), 'labels':counts,
             'archived':archive_out_of_scope(root) if stage == 'summarize' else 0}
 
 
-def run_stage(root, stage, *, schedule='daily', days=3, sources=None, week=None, date=None,
+def run_stage(root, stage, *, schedule='daily', days=2, sources=None, week=None, date=None,
               workers=4, issues=False, client=None):
     root = Path(root)
     week = week or current_week()
@@ -89,29 +163,39 @@ def run_stage(root, stage, *, schedule='daily', days=3, sources=None, week=None,
     directory = root / 'data/feed'
     if stage == 'fetch':
         from scripts.feed.fetch_arxiv import fetch_sources
-        from scripts.feed.health import update_health
-        result = fetch_sources(root, schedule=schedule, days=days, source_ids=sources)
+        result = fetch_sources(root, schedule=schedule, days=days, source_ids=sources,
+                               issue_client=issue_client(issues))
+        result['batch'] = {'lookback_days': days, 'backfill_only': days > 3}
         write_json(directory/'last-fetch.json', result)
-        update_health(root, result['outcomes'], issue_client=issue_client(issues))
         return {'stage':stage, 'records':len(result['records']),
                 'sources':[{k:v for k,v in entry.items() if k!='ids'} for entry in result['outcomes']]}
     if stage == 'normalize':
         from scripts.feed.normalize import normalize_records
         fetched = json.loads((directory/'last-fetch.json').read_text())
         records = normalize_records(fetched['records'])
-        write_json(directory/'normalized.json', records)
+        batch = fetched.get('batch', {'lookback_days': days, 'backfill_only': days > 3})
+        batch['backfill_only'] = batch['backfill_only'] or days > 3
+        write_json(directory/'normalized.json', {'records': records, 'batch': batch})
         return {'stage':stage, 'records':len(records)}
     if stage == 'dedupe':
         from scripts.feed.dedupe import dedupe_items
-        records = json.loads((directory/'normalized.json').read_text())
+        normalized = json.loads((directory/'normalized.json').read_text())
+        records = normalized if isinstance(normalized, list) else normalized['records']
+        batch = {} if isinstance(normalized, list) else normalized['batch']
         items = dedupe_items(records, load_items(root), read_yaml(root/'data/papers.yaml')['papers'])
+        if days > 3 or batch.get('backfill_only'):
+            _backfill_items(root, items)
         return {'stage':stage, 'unique':len(items), 'appended':save_items(root,items)}
     if stage in ('judge','summarize'):
         return process_items(root, stage, workers=workers, client=client)
     if stage == 'queue':
         from scripts.feed.review import queue_daily_review
+        fetched_path = directory / 'last-fetch.json'
+        fetched = json.loads(fetched_path.read_text()) if fetched_path.exists() else {}
+        if days > 3 or fetched.get('batch', {}).get('backfill_only'):
+            save_items(root, _backfill_items(root, load_items(root)))
         result = queue_daily_review(root, date)
-        return {'stage':stage, 'date':date, 'pending':sum(row['decision']=='pending' for row in result['items']),
+        return {'stage':stage, 'date':date, 'pending':sum(row['decision'] in ('pending', 'defer') for row in result['items']),
                 'items':len(result['items']), 'path':str(root/'review/daily'/f'{date}.yaml')}
     if stage == 'publish':
         from scripts.feed.review import apply_daily_review
@@ -136,7 +220,7 @@ def run_pipeline(root=ROOT, stage='all', until=None, **options):
         if name == 'publish' and stage == 'all':
             review = read_yaml(Path(root)/'review/daily'/f"{options.get('date') or current_date()}.yaml")
             rows = review['items']+review['lab_updates']
-            if any(row['decision']=='pending' for row in rows):
+            if any(row['decision'] in ('pending', 'defer') for row in rows):
                 results.append({'stage':'publish','status':'awaiting_owner_review'})
                 break
             if not any(row['decision'] in ('accept','move') for row in rows):
@@ -175,7 +259,7 @@ def main():
     run.add_argument('--stage',choices=(*STAGES,'all'),default='all')
     run.add_argument('--until',choices=STAGES)
     run.add_argument('--schedule',choices=['daily','weekly','all'],default='daily')
-    run.add_argument('--days',type=int,default=3)
+    run.add_argument('--days',type=int,default=2)
     run.add_argument('--sources',nargs='+')
     run.add_argument('--week')
     run.add_argument('--date',default=current_date())

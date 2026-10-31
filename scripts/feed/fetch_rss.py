@@ -3,6 +3,7 @@ from datetime import datetime, timedelta, timezone
 from html import unescape
 import re
 import calendar
+from urllib.parse import urljoin, urlsplit
 import feedparser
 import requests
 from .normalize import arxiv_ids, normalize_record
@@ -12,15 +13,19 @@ def plain_text(html):
     return unescape(re.sub(r'<[^>]+>', ' ', html))
 
 
-def parse_feed(text, source_id, now=None):
+def parse_feed(text, source_id, now=None, feed_url=None):
     feed = feedparser.parse(text)
     if not feed.version:
         raise ValueError('RSS endpoint returned neither valid RSS nor Atom')
     records = []
     for entry in feed.entries:
-        link = entry.get('link', '')
+        link = entry.get('link') or entry.get('id', '')
         if not link or not entry.get('title'):
             raise ValueError('RSS entry requires a title and URL')
+        link = urljoin(feed_url or '', link)
+        parsed_link = urlsplit(link)
+        if parsed_link.scheme not in ('http', 'https') or not parsed_link.hostname:
+            raise ValueError('RSS entry requires an absolute HTTP(S) URL')
         content = ' '.join([entry.get('summary', ''), *[c.get('value', '') for c in entry.get('content', [])]])
         parsed = entry.get('published_parsed') or entry.get('updated_parsed')
         published = datetime.fromtimestamp(calendar.timegm(parsed), timezone.utc).isoformat() if parsed else ''
@@ -47,8 +52,8 @@ def fetch(source, now=None, session=None):
     current = now or datetime.now(timezone.utc)
     response = (session or requests).get(source['params']['url'], headers={'User-Agent': USER_AGENT}, timeout=30)
     response.raise_for_status()
-    items = parse_feed(response.text, source['id'], current.isoformat())
-    cutoff = (current - timedelta(days=source['params'].get('lookback_days', 14))).date().isoformat()
+    items = parse_feed(response.text, source['id'], current.isoformat(), feed_url=response.url)
+    cutoff = (current - timedelta(days=source['params'].get('lookback_days', 14) - 1)).date().isoformat()
     # Undated linked papers are retained for metadata hydration rather than discarded.
     items = [item for item in items if not (item.get('source_published') or item['published'])
              or (item.get('source_published') or item['published'])[:10] >= cutoff]

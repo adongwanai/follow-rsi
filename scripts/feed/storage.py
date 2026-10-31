@@ -1,4 +1,4 @@
-"""Append-only feed records; the final record for an id is authoritative."""
+"""Feed records keyed by id, with legacy duplicates resolved to the latest row."""
 import json
 from pathlib import Path
 
@@ -22,19 +22,25 @@ def load_items(root):
 
 
 def save_items(root, items):
-    """Append changed snapshots only. An identical rerun leaves the bytes intact."""
+    """Upsert complete snapshots by id; identical reruns leave the bytes intact.
+
+    Rewriting also compacts a legacy append-only file to its latest row per id.
+    """
     directory = feed_dir(root)
     directory.mkdir(parents=True, exist_ok=True)
     latest = {item['id']: item for item in load_items(root)}
-    changed = []
+    changed = 0
     for item in items:
         if latest.get(item['id']) != item:
-            changed.append(json.dumps(item, ensure_ascii=False, sort_keys=True))
+            changed += 1
             latest[item['id']] = item
-    if changed:
-        with (directory / 'items.jsonl').open('a', encoding='utf-8') as handle:
-            handle.write('\n'.join(changed) + '\n')
-    return len(changed)
+    content = ''.join(json.dumps(item, ensure_ascii=False, sort_keys=True) + '\n' for item in latest.values())
+    path = directory / 'items.jsonl'
+    if not path.exists() or path.read_text(encoding='utf-8') != content:
+        pending = directory / 'items.jsonl.tmp'
+        pending.write_text(content, encoding='utf-8')
+        pending.replace(path)
+    return changed
 
 
 def load_state(root):

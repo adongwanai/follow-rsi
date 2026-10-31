@@ -49,6 +49,93 @@ def test_local_health_never_writes_issues_and_counts_unique_items(tmp_path):
     assert (tmp_path / 'site/badges/feed-updated.json').read_bytes() == (tmp_path / 'badges/feed-updated.json').read_bytes()
 
 
+def test_refresh_preserves_all_pending_source_alerts_without_recounting(tmp_path):
+    sources = ('hf-daily', 'arxiv-rsi')
+    for ident in sources:
+        for _ in range(3):
+            status = update_health(tmp_path, [{'source_id': ident, 'ok': False,
+                                              'count': 0, 'error': 'HTTP 429'}], NOW)
+    assert {event['source_id'] for event in status['pending_issue_actions']} == set(sources)
+    before = load_state(tmp_path)
+    status = update_health(tmp_path, [], '2026-10-27T12:05:00+00:00')
+    assert {event['source_id'] for event in status['pending_issue_actions']} == set(sources)
+    assert load_state(tmp_path) == before
+    update_health(tmp_path, [{'source_id': 'hf-daily', 'ok': True,
+                              'count': 1, 'ids': ['arxiv:2610.10001']}], '2026-10-27T12:10:00+00:00')
+    before = load_state(tmp_path)
+    status = update_health(tmp_path, [], '2026-10-27T12:15:00+00:00')
+    assert [event['source_id'] for event in status['pending_issue_actions']] == ['arxiv-rsi']
+    assert load_state(tmp_path) == before
+    update_health(tmp_path, [{'source_id': 'arxiv-rsi', 'ok': True,
+                              'count': 1, 'ids': ['arxiv:2610.10002']}], '2026-10-27T12:20:00+00:00')
+    assert update_health(tmp_path, [], '2026-10-27T12:25:00+00:00')['pending_issue_actions'] == []
+
+
+def test_refresh_can_deliver_pending_issue_and_recovery_once(tmp_path):
+    for _ in range(3):
+        update_health(tmp_path, [{'source_id': 'hf-daily', 'ok': False,
+                                  'count': 0, 'error': 'HTTP 503'}], NOW)
+    client = Mock()
+    client.find.return_value = None
+    client.create.return_value = 7
+    for _ in range(2):
+        update_health(tmp_path, [], '2026-10-27T12:05:00+00:00', client)
+    client.create.assert_called_once()
+    assert load_state(tmp_path)['sources']['hf-daily']['last_run'] == NOW
+    status = update_health(tmp_path, [{'source_id': 'hf-daily', 'ok': True,
+                                      'count': 1, 'ids': ['arxiv:2610.10001']}], '2026-10-27T12:10:00+00:00')
+    expected = [{'action': 'close', 'source_id': 'hf-daily', 'number': 7}]
+    assert status['pending_issue_actions'] == expected
+    assert update_health(tmp_path, [], '2026-10-27T12:15:00+00:00')['pending_issue_actions'] == expected
+    for _ in range(2):
+        update_health(tmp_path, [], '2026-10-27T12:20:00+00:00', client)
+    client.close.assert_called_once_with(7)
+    row = load_state(tmp_path)['sources']['hf-daily']
+    assert row['last_run'] == '2026-10-27T12:10:00+00:00'
+    assert row['consecutive_failures'] == row['consecutive_errors'] == 0
+    assert 'issue_number' not in row
+
+
+def test_enabled_source_missing_two_calendar_days_opens_once_and_run_closes(tmp_path):
+    (tmp_path / 'feed/sources.yaml').write_text('sources:\n- id: hf-daily\n  kind: hf_daily\n  enabled: true\n  schedule: daily\n')
+    client = Mock()
+    client.find.return_value = None
+    client.create.return_value = 12
+    update_health(tmp_path, [], '2026-10-25T23:00:00Z', client)
+    update_health(tmp_path, [], '2026-10-26T23:00:00Z', client)
+    client.create.assert_not_called()
+    update_health(tmp_path, [], '2026-10-27T00:00:00Z', client)
+    update_health(tmp_path, [], '2026-10-27T12:00:00Z', client)
+    client.create.assert_called_once()
+    assert client.create.call_args.args[0] == 'Source not run: hf-daily'
+    update_health(tmp_path, [{'source_id': 'hf-daily', 'ok': False, 'count': 0,
+                              'error': 'HTTP 503'}], NOW)
+    status = update_health(tmp_path, [], NOW)
+    assert status['pending_issue_actions'] == [{'action': 'close', 'source_id': 'hf-daily', 'number': 12}]
+    update_health(tmp_path, [], NOW, client)
+    client.close.assert_called_once_with(12)
+    row = load_state(tmp_path)['sources']['hf-daily']
+    assert row['last_ok'] is False and row['last_error'] == 'HTTP 503'
+    assert row['missing_days'] == 0
+
+
+def test_daily_fetch_records_every_enabled_source_including_failures(tmp_path, monkeypatch):
+    from scripts.feed import fetch_arxiv, fetch_hf, fetch_rss, fetch_s2, fetch_github
+    from scripts.common import read_yaml
+    import requests
+    for module in (fetch_arxiv, fetch_hf, fetch_s2, fetch_github):
+        monkeypatch.setattr(module, 'fetch', Mock(return_value=([], {'format': 'mock'})))
+    monkeypatch.setattr(fetch_rss, 'fetch', Mock(side_effect=requests.HTTPError('503 unavailable')))
+    result = fetch_arxiv.fetch_sources(tmp_path, days=14, now=NOW)
+    enabled = {s['id'] for s in read_yaml(tmp_path / 'feed/sources.yaml')['sources'] if s['enabled']}
+    assert {o['source_id'] for o in result['outcomes']} == enabled
+    state = load_state(tmp_path)
+    assert all(state['sources'][ident]['last_run'] == NOW for ident in enabled)
+    assert all(not state['sources'][ident]['last_ok'] for ident in enabled if ident.startswith('rss-'))
+    status = json.loads((tmp_path / 'site/feed/status.json').read_text())
+    assert {o['source_id'] for o in status['last_fetch']['sources']} == enabled
+
+
 def test_version_alerts_and_retraction_are_explicit(tmp_path):
     paper = normalize_record({'title': 'Test', 'arxiv_id': '2610.10001v2', 'in_repo': True}, now=NOW)
     paper.update(version_changed=True, repo_id='test')

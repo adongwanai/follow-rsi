@@ -3,6 +3,7 @@ from copy import deepcopy
 
 import pytest
 import yaml
+import jsonschema
 
 from scripts.common import read_yaml
 from scripts.feed.review import (apply_daily_review, approved_daily_items, interactive_daily_review,
@@ -40,12 +41,32 @@ def accept_daily(root):
 
 def test_pending_blocks_and_defer_is_not_an_approval(tmp_path):
     root = make_daily_repo(tmp_path)
+    assert approved_daily_items(root, DAY) == []
+    write_daily(root, lambda review: review["items"][0].update(decision="pending"))
     with pytest.raises(ValueError, match="pending"):
         validate_daily_review(root, DAY)
     accept_daily(root)
     write_daily(root, lambda review: review["items"][1].update(decision="defer"))
     validate_daily_review(root, DAY)
     assert approved_daily_items(root, DAY) == []
+
+
+def test_partial_code_evidence_survives_queue_without_approval(tmp_path):
+    root = make_daily_repo(tmp_path)
+    items = load_items(root)
+    item = next(value for value in items if value.get("arxiv_id") == "2610.99991")
+    item["evidence_quick"]["code_released"] = {
+        "value": "partial", "quote": "https://github.com/fixture/readme-only"}
+    save_items(root, [item])
+    review = queue_daily_review(root, DAY)
+    row = next(value for value in review["items"] if value["id"] == item["id"])
+    assert row["evidence_quick"]["code_released"] == item["evidence_quick"]["code_released"]
+    assert row["decision"] == "defer"
+    validate_daily_review(root, DAY)
+    assert approved_daily_items(root, DAY) == []
+    write_daily(root, lambda value: value["items"][0]["evidence_quick"]["held_out"].update(value="partial"))
+    with pytest.raises(jsonschema.ValidationError):
+        validate_daily_review(root, DAY)
 
 
 def test_rollover_preserves_unmerged_decisions_and_resets_deferral(tmp_path):
@@ -55,7 +76,7 @@ def test_rollover_preserves_unmerged_decisions_and_resets_deferral(tmp_path):
     review["items"][1].update(note="Recovered owner edit")
     # Carried PR edits override the stale queue committed on main.
     result = queue_daily_review(root, NEXT, carried_reviews=[review])
-    assert result["items"][0]["decision"] == "pending"
+    assert result["items"][0]["decision"] == "defer"
     assert result["items"][0]["note"] == "Read full text tomorrow"
     assert result["items"][1]["decision"] == "accept"
     assert result["items"][1]["note"] == "Recovered owner edit"
@@ -82,7 +103,7 @@ def test_applied_decisions_dont_recur_but_changed_versions_need_review(tmp_path)
     applied["version"] = 2
     save_items(root, [applied])
     result = queue_daily_review(root, NEXT)
-    assert len(result["items"]) == 1 and result["items"][0]["decision"] == "pending"
+    assert len(result["items"]) == 1 and result["items"][0]["decision"] == "defer"
 
 
 def test_deferred_apply_does_not_add_eval_labels_and_returns_next_day(tmp_path):
@@ -92,7 +113,7 @@ def test_deferred_apply_does_not_add_eval_labels_and_returns_next_day(tmp_path):
     apply_daily_review(root, DAY)
     assert read_yaml(root / "feed/eval/labeled.yaml") == []
     result = queue_daily_review(root, NEXT)
-    assert len(result["items"]) == 1 and result["items"][0]["decision"] == "pending"
+    assert len(result["items"]) == 1 and result["items"][0]["decision"] == "defer"
 
 
 def test_deferred_error_row_overrides_guard_numbers_without_requiring_classification(tmp_path):

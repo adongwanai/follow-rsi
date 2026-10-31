@@ -1,8 +1,9 @@
 """Merge arXiv versions and near-identical titles without erasing human decisions."""
 from copy import deepcopy
+from urllib.parse import urlsplit
 from .normalize import split_arxiv, title_tokens
 
-LIST_FIELDS = ('source_hits', 'seed_hits', 'code_links', 'categories', 'aliases')
+LIST_FIELDS = ('source_hits', 'seed_hits', 'code_links', 'categories', 'aliases', 'hf_daily_dates')
 
 
 def similar_titles(left, right):
@@ -13,17 +14,42 @@ def similar_titles(left, right):
 def merge_item(old, new):
     merged = deepcopy(old)
     newer = new['version'] > old['version']
+    authoritative_dates = (new.get('published_source') == 'arxiv'
+                           and new['version'] >= old['version'])
     # Non-empty source metadata may supplement existing records. Judgement and
     # review belong to their own stages, so fetching cannot overwrite them.
     for key in ('title', 'authors', 'abstract', 'comments', 'published', 'updated'):
         if new.get(key) and (newer or old.get('metadata_pending') or not old.get(key)):
             merged[key] = new[key]
+    if authoritative_dates:
+        for key in ('published', 'updated', 'published_source'):
+            merged[key] = new[key]
+    elif ('hf_reported_published' in new and new.get('metadata_pending')
+          and old.get('published_source') != 'arxiv'):
+        # Legacy HF records may have treated a version date as v1 publication.
+        merged['published'], merged['updated'] = '', ''
+        merged['announced'], merged['announced_source'] = '', 'unknown'
+    if merged.get('published'):
+        merged['announced'] = merged['published'][:10]
+        merged['announced_source'] = merged.get('published_source') or 'published'
     for key in LIST_FIELDS:
         merged[key] = sorted(set(old.get(key, [])) | set(new.get(key, [])))
+    # A new recommendation on the fetch day can make a backfilled paper news
+    # again. Historical list replay and other source updates cannot do this.
+    fresh_hf_days = set(new.get('hf_daily_dates', [])) - set(old.get('hf_daily_dates', []))
+    if (old.get('backfill_only') and not new.get('backfill_only')
+            and 'hf-daily' in new.get('source_hits', [])
+            and new['first_seen'][:10] in fresh_hf_days):
+        merged['backfill_only'] = False
     if new['id'] != old['id']:
         merged['aliases'] = sorted(set(merged['aliases']) | {new['id']})
     if 'metadata_pending' in new:
         merged['metadata_pending'] = new['metadata_pending']
+        if not new['metadata_pending']:
+            merged.pop('metadata_error', None)
+    for key in ('hf_reported_published', 'hf_submitted_at', 'metadata_error'):
+        if key in new:
+            merged[key] = new[key]
     if old['title'] != new['title']:
         merged['aliases'] = sorted(set(merged['aliases']) | {old['title'], new['title']})
     merged['links'] = {**old.get('links', {}), **new.get('links', {})}
@@ -54,6 +80,12 @@ def dedupe_items(incoming, existing=(), repo_papers=()):
             item['repo_id'] = repo_ids[item['arxiv_id']]
         match = next((i for i, old in enumerate(items) if old['id'] == item['id'] or
                       (item.get('arxiv_id') and old.get('arxiv_id') == item['arxiv_id'])), None)
+        if match is None and item['kind'] in ('post', 'release'):
+            url = item.get('links', {}).get('url', '')
+            parsed = urlsplit(url)
+            if parsed.scheme in ('http', 'https') and parsed.hostname:
+                match = next((i for i, old in enumerate(items) if old['kind'] == item['kind']
+                              and old.get('links', {}).get('url') == url), None)
         if match is None and item['kind'] == 'paper':
             match = next((i for i, old in enumerate(items) if old['kind'] == 'paper' and
                           any(similar_titles(title, item['title']) for title in [old['title'], *old.get('aliases', [])])), None)

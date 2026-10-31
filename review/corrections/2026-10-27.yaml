@@ -1,0 +1,65 @@
+# 2026-10-27 期复审结论（人工逐篇对照摘要）
+# 判据：Harness RSI = 模型冻结或权重不是主要训练对象；系统根据执行/评估反馈修改
+#       Harness 本身（提示、工具代码/工具库、技能文件、上下文/记忆管理的代码或策略、控制流/工作流、
+#       环内验证器、改进器）；被接受的修改保留到后续任务或后续轮次。
+# 不算 Harness：训练出来的模型策略（RL/SFT）、训练环境/奖励/用户模拟器、外部产物（内核、代码库、假设、
+#       研究结果）、只积累记忆条目/经验数据（→ experience_world_model）、固定框架。
+# 结果：原 25 篇中 Harness 判对 8 篇（自动判为 harness 的 20 篇里 8 篇正确，precision 0.40）。
+
+date: 2026-10-27
+edition_action: retract_and_republish   # 撤回原 2026-10-27 期，按下方结论重发为「创刊回顾 10.14–10.27」
+
+keep_harness:   # 留在 Harness 今日动态
+  - {arxiv: "2610.15915", title: ViewCraft, sub: component, improved_object_zh: 证据接口与读取技能, why_zh: 失败轨迹驱动修订，回放与配对评估决定保留，同 token 预算下仍有优势, code_released: "yes"}
+  - {arxiv: "2610.17860", title: Socratic Skill Learning, sub: component, improved_object_zh: 可迁移的 Skill 文件, why_zh: Student 通过实践编写并修订 Skill，在新会话的留出用例上复用, code_released: "yes"}
+  - {arxiv: "2610.22732", title: TokenEconomizer, sub: component, improved_object_zh: 注入的微技能与工具集, why_zh: 跨任务序列根据经验注入技能、裁剪长期无用工具，作用于 Claude Code/Codex/Copilot CLI, code_released: "yes"}
+  - {arxiv: "2610.23479", title: HexaShell, sub: component, secondary: [embodied], improved_object_zh: 机器人感知工具代码, why_zh: 每次失败后读日志写或修工具，冻结后在新布局上测试, code_released: "yes"}
+  - {arxiv: "2610.27227", title: GRSE, sub: component, improved_object_zh: 多 Agent 技能库, why_zh: 不更新权重，按组内相对比较把团队奖励归因到具体技能再修订, code_released: "yes"}
+  - {arxiv: "2610.27327", title: TEAL, sub: component, improved_object_zh: 工具库与用法技能, why_zh: 无标签设置下跨问题演化工具，只保留 Worker 复跑时采用且有证据支持的修改, code_released: unknown}
+  - {arxiv: "2610.29560", title: SERA, sub: evolve_main, secondary: [embodied], improved_object_zh: VLM 规划器的 Harness, why_zh: 固定 VLA 执行器，可编辑 Harness 依执行经验自进化, code_released: "yes"}
+  - {arxiv: "2610.35434", title: "Skill^∞", sub: improver, secondary: [meta], improved_object_zh: 元技能与任务技能, why_zh: 元技能用同一流程优化任务技能并优化自身, code_released: unknown}
+
+defer:   # 存疑，留待读正文
+  - {arxiv: "2610.21453", title: "CarryOn (robot)", note_zh: 主体是固定双环框架；自改进只在恢复技能「经反思精炼」这一部分，需看正文是否跨任务保留并有对照}
+
+move_out_of_harness:   # 是 RSI，但不是 Harness；不进 Harness 今日动态，归档到对应方向
+  - {arxiv: "2610.16523", title: EAU, primary: data_task, secondary: [model_weights], why_zh: 被改的是训练环境、用户模拟器、奖励与 RL 配置，Agent 本身靠 RL 更新权重}
+  - {arxiv: "2610.17184", title: DuoDiscover, primary: ai4ai, why_zh: 被改进的是外部代码与内核（自主发现），不是 Agent 自己的 Harness}
+  - {arxiv: "2610.20431", title: SwarmRSI, primary: ai4ai, why_zh: 演化的是科研假设与实现程序}
+  - {arxiv: "2610.23839", title: DiscoveryRSI, primary: ai4ai, secondary: [model_weights], why_zh: 训练出 DiscoveryRSI-27B，主对象是科研假设与模型；harness replay 只是机制之一}
+  - {arxiv: "2610.24944", title: Épi, primary: ai4ai, secondary: [experience_world_model], why_zh: 自主研究 Agent，沉淀的是研究历史与方法经验}
+  - {arxiv: "2610.26453", title: TokenWorth, primary: experience_world_model, why_zh: 学习记忆条目的价值并用于检索与管理，改的是记忆内容与打分，不是 Harness 代码}
+
+general_rsi_eval_theory:   # 评测/综述，研究对象是 RSI 整体或经验学习，不是 Harness 专项；可放「RSI 相关」侧栏，不计入 Harness 数
+  - {arxiv: "2610.04184", title: EvalResearchBench, primary: evaluation_benchmark, secondary: [ai4ai]}
+  - {arxiv: "2610.34238", title: "Δτ-Bench", primary: evaluation_benchmark, secondary: [experience_world_model]}
+  - {arxiv: "2610.33956", title: Continual Learning Exam, primary: evaluation_benchmark, secondary: [experience_world_model]}
+  - {arxiv: "2610.35193", title: Trustworthy RSI survey, primary: theory_survey, secondary: [safety_governance]}
+
+reject:
+  - {arxiv: "2610.06830", title: MemPilot, exclude_reason: single_round_training, why_zh: 用 RL 训练一次记忆整理策略，没有迭代的自改进闭环；发表于 10-05，也不在本期时间窗}
+  - {arxiv: "2610.22273", title: Librarian Agents, exclude_reason: single_round_training, why_zh: RL 训练 builder 策略，产物是工作区数据}
+  - {arxiv: "2610.14465", title: CoRE, exclude_reason: off_topic, why_zh: 结构化知识检索里的路由与检索器联合训练，与 RSI 无关}
+  - {arxiv: "2609.34565", title: FlowState, exclude_reason: static_framework, why_zh: 执行状态记忆的固定框架，反馈只更新当前任务状态}
+  - {arxiv: "2610.18784", title: "CarryOn (Pack Light)", exclude_reason: static_framework, why_zh: 面向对象的上下文运行时，固定设计，不随反馈演化}
+  - {arxiv: "2610.19589", title: JockeyBench, exclude_reason: off_topic, why_zh: 赛马预测基准，不评测自改进系统}
+
+missed_should_appear:   # 同一时间窗内真正的 Harness 论文，没进本期
+  skipped_because_in_repo:   # HF 抓到了，但 in_repo=True 被跳过
+    - {arxiv: "2610.27435", title: RiseHarness}
+    - {arxiv: "2610.26770", title: HarnessPro}
+    - {arxiv: "2610.22791", title: Self-HPO}
+    - {arxiv: "2610.25078", title: CoEvo-RSI}
+    - {arxiv: "2610.28601", title: "Evolving Agent Interfaces (Agent S4)"}
+    - {arxiv: "2610.28069", title: HarnessAdapt-RL}
+    - {arxiv: "2610.14224", title: "Harness²"}
+    - {arxiv: "2610.18813", title: Self-Evolving Agent Harness (theory)}
+  never_fetched:   # 只跑了 HF 一个信源，arXiv 检索没跑
+    - {arxiv: "2610.28380", title: Object-Oriented Harness}
+    - {arxiv: "2610.30042", title: HGM-Dual}
+    - {arxiv: "2610.28201", title: MaD-RSI}
+    - {arxiv: "2610.28815", title: Forging More Tasks into Better Harnesses}
+    - {arxiv: "2610.21791", title: RSIFlow}
+    - {arxiv: "2610.31401", title: HERD}
+    - {arxiv: "2610.22466", title: Harness-Delta Attribution}
+    - {arxiv: "2610.30499", title: "Can LLMs Improve Their Own Harness? (ARC-AGI-3)"}

@@ -38,6 +38,10 @@ def make_repo(root):
         "links": {"arxiv": "https://arxiv.org/abs/2610.99991", "hf": "https://huggingface.co/papers/2610.99991"},
         "code_links": [], "source_hits": ["arxiv-harness", "hf-daily"], "seed_hits": ["seed"],
         "hf_upvotes": 12, "in_repo": False,
+        "gate": {"verdict": "harness", "improved_object": "skill_files", "improved_object_zh": "技能文件",
+                 "harness_specific": "yes", "why_zh": "合成离线测试：跨任务保留技能。",
+                 "feedback_driven": {"value": "yes", "quote": "skill evolution"},
+                 "persists_across_tasks": {"value": "yes", "quote": "persistent skill evolution"}},
         "llm": {"label": "include", "primary": "harness", "harness_sub": "component", "secondary": [], "confidence": .95},
         "summary_zh": "跨任务保留技能，在留出任务上达到 20%。",
         "summary_en": "Skills persist across tasks, reaching 20% on held-out tasks.",
@@ -146,13 +150,14 @@ def test_source_change_requires_new_approval_but_retains_notes(tmp_path):
     assert changed["decision"] == "pending" and changed["note"] == "Owner's note"
 
 
-def test_apply_review_append_only_idempotence_and_eval_increment(tmp_path):
+def test_apply_review_upsert_idempotence_and_eval_increment(tmp_path):
     root = make_repo(tmp_path)
     accept_one(root)
     before = (root / "data/feed/items.jsonl").read_text()
     assert apply_review(root, WEEK, now="2026-11-01T23:55:00Z") == 3
     after = (root / "data/feed/items.jsonl").read_text()
-    assert after.startswith(before)
+    assert len(after.splitlines()) == len(before.splitlines())
+    assert {json.loads(line)["id"] for line in after.splitlines()} == {json.loads(line)["id"] for line in before.splitlines()}
     assert apply_review(root, WEEK, now="2026-11-02T00:00:00Z") == 0
     assert (root / "data/feed/items.jsonl").read_text() == after
     labels = read_yaml(root / "feed/eval/labeled.yaml")

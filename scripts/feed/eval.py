@@ -16,10 +16,11 @@ import requests
 import yaml
 
 from scripts.common import ROOT, read_yaml
-from scripts.feed.judge import taxonomy_definitions
-from scripts.feed.llm import FeedLLM, LLMConfigurationError, LLMError
+from scripts.feed.judge import judge_item
+from scripts.feed.llm import FeedLLM, LLMConfigurationError, stage_settings
 
 THRESHOLDS = {'include_recall': 0.90, 'include_precision': 0.80, 'primary_accuracy': 0.75}
+GATE_THRESHOLDS = {'harness_precision': 0.85, 'harness_recall': 0.90}
 HARNESS_SECTIONS = {'evolve_main', 'generalize', 'evidence_selection',
                     'improver', 'component', 'coevolution'}
 
@@ -191,6 +192,17 @@ def append_owner_labels(items, root=ROOT):
     return add_owner_labels(root, items)
 
 
+def harness_metrics(cases):
+    positive = [case for case in cases if case['expected'].get('verdict') == 'harness']
+    admitted = [case for case in cases if case['predicted'].get('gate', {}).get('verdict') == 'harness'
+                and case['predicted'].get('label') == 'include']
+    correct = sum(case['expected'].get('verdict') == 'harness' for case in admitted)
+    return {'precision': correct / len(admitted) if admitted else None,
+            'recall': correct / len(positive) if positive else None,
+            'true_positive': correct, 'predicted': len(admitted), 'support': len(positive),
+            'evaluated': len(cases)}
+
+
 def score_predictions(cases):
     metrics = {}
     for label in ('include', 'exclude'):
@@ -216,9 +228,24 @@ def score_predictions(cases):
     measured = {'include_recall': metrics['include']['recall'],
                 'include_precision': metrics['include']['precision'],
                 'primary_accuracy': metrics['primary_accuracy']}
+    thresholds = THRESHOLDS
+    gate_cases = [case for case in cases if 'verdict' in case['expected']]
+    if gate_cases:
+        metrics['harness'] = harness_metrics(gate_cases)
+        metrics['harness_mistakes'] = [case for case in gate_cases
+            if (case['expected']['verdict'] == 'harness') != (
+                case['predicted'].get('gate', {}).get('verdict') == 'harness'
+                and case['predicted'].get('label') == 'include')]
+        metrics['harness_without_prompt_examples'] = harness_metrics(
+            [case for case in gate_cases if not case['expected'].get('in_prompt_example')])
+        metrics['harness_owner_review'] = harness_metrics(
+            [case for case in gate_cases if case['expected'].get('labeled_by') == 'owner'])
+        measured = {'harness_precision': metrics['harness']['precision'],
+                    'harness_recall': metrics['harness']['recall']}
+        thresholds = GATE_THRESHOLDS
     metrics['threshold_results'] = {name: {'value': measured[name], 'minimum': minimum,
                                          'passed': measured[name] is not None and measured[name] >= minimum}
-                                   for name, minimum in THRESHOLDS.items()}
+                                   for name, minimum in thresholds.items()}
     metrics['thresholds_passed'] = all(result['passed'] for result in metrics['threshold_results'].values())
     return metrics
 
@@ -238,6 +265,31 @@ def report_markdown(report):
              'API/schema errors: ' + str(len(report['metrics']['errors'])), '', '## Direction confusion matrix', '',
              '```json', json.dumps(report['metrics']['confusion_matrix'], ensure_ascii=False, indent=2), '```', '',
              '## Mistakes', '']
+    if 'harness' in report['metrics']:
+        text += ['Baseline: owner re-review retained 8 of the 20 original Harness labels (precision 0.40).',
+                 'The new set contains 25 owner decisions plus 20 preselected library positives. Ten calibration examples are visible in the gate prompt; the full-set result is not a blind holdout score.',
+                 'Library labels are evaluation targets, not new full-text audits. HARBOR remains an owner-flagged scope ambiguity; its preselected positive label has not been changed to improve this score.',
+                 'The 45-case set has more positives than the historical daily batch; compare the owner-only subset separately.', '',
+                 '| Subset | Cases | Precision | Recall | True positives / target positives |',
+                 '| --- | ---: | ---: | ---: | ---: |']
+        for label, key in (('Full set', 'harness'), ('Owner-reviewed batch', 'harness_owner_review'),
+                           ('Excluding prompt examples', 'harness_without_prompt_examples')):
+            metric = report['metrics'][key]
+            precision = 'unmeasured' if metric['precision'] is None else f"{metric['precision']:.3f}"
+            recall = 'unmeasured' if metric['recall'] is None else f"{metric['recall']:.3f}"
+            text.append(f"| {label} | {metric['evaluated']} | {precision} | {recall} | {metric['true_positive']} / {metric['support']} |")
+        text += ['', '### Harness gate errors', '']
+        for case in report['metrics']['harness_mistakes']:
+            predicted = case['predicted']
+            gate = predicted.get('gate', {})
+            issues = predicted.get('scope_guard', {}).get('issues', [])
+            text.append(f"- {case['arxiv']} ({case['expected']['name']}): expected {case['expected']['verdict']}; "
+                        f"predicted {predicted.get('label')} / {gate.get('verdict', 'not run')}. "
+                        + gate.get('why_zh', predicted.get('reason_zh', predicted.get('error', '')))
+                        + (' Source guard: ' + ', '.join(issues) + '.' if issues else ''))
+        if not report['metrics']['harness_mistakes']:
+            text.append('No Harness gate errors in the evaluated subset.')
+        text += ['', '### Scope and direction errors', '']
     for case in report['metrics']['mistakes']:
         expected = case['expected']
         predicted = case['predicted']
@@ -260,20 +312,23 @@ def report_markdown(report):
     return '\n'.join(text)
 
 
-def run_evaluation(root=ROOT, client=None, workers=1):
+def run_evaluation(root=ROOT, client=None, workers=1, *, label_file='labeled.yaml', report_prefix='report'):
     root = Path(root)
-    labels, conflicts = effective_labels(read_yaml(root / 'feed/eval/labeled.yaml'))
+    labels, conflicts = effective_labels(read_yaml(root / 'feed/eval' / label_file))
     report = {'generated_at': datetime.now(timezone.utc).isoformat(), 'total': len(labels),
               'needs_owner_review': sum(bool(label.get('needs_owner_review')) for label in labels),
-              'conflicting_labels': conflicts, 'thresholds': THRESHOLDS}
+              'conflicting_labels': conflicts,
+              'thresholds': GATE_THRESHOLDS if any('verdict' in label for label in labels) else THRESHOLDS}
     if client is None:
         try:
             client = FeedLLM.from_env(root)
         except LLMConfigurationError as error:
             report.update(status='skipped', reason=str(error), evaluated=0, thresholds_passed=None)
-            _write_report(root, report)
+            _write_report(root, report, report_prefix)
             return report
     report['model'] = client.model
+    report['stage_models'] = {stage: stage_settings(stage, root, client.model)['model']
+                              for stage in ('relevance', 'classify', 'harness_gate')}
     cases, missing, invalid, ready = [], [], [], []
     for label in labels:
         path = metadata_path(label['arxiv'], root)
@@ -291,20 +346,15 @@ def run_evaluation(root=ROOT, client=None, workers=1):
 
     def evaluate_one(pair):
         label, item = pair
-        prediction, provenance = {}, {}
-        try:
-            response = client.run('relevance', item)
-            prediction.update(response['data'])
-            provenance['relevance'] = {key: response[key] for key in ('model', 'prompt_hash', 'cache_key')}
-            if prediction['label'] in ('include', 'borderline'):
-                response = client.run('classify', item, variables={'taxonomy_definitions': taxonomy_definitions(root)})
-                prediction.update(response['data'])
-                provenance['classify'] = {key: response[key] for key in ('model', 'prompt_hash', 'cache_key')}
-        except LLMError as error:
-            # Relevance and direction are distinct metrics. A failed classify
-            # response must not erase a valid include/exclude decision.
-            prediction.setdefault('label', 'error')
-            prediction['error'] = str(error)
+        # Library labels are evaluation targets, not input features. Exercise the
+        # same model/quote/gate path as an uncurated discovery, without code reads.
+        result = judge_item({**item, 'in_repo': False}, client, root, include_evidence=False)
+        fields = ('label', 'exclude_reason', 'reason_zh', 'scope_kind', 'scope_support', 'scope_guard',
+                  'primary', 'harness_sub', 'secondary', 'confidence', 'improved_object_zh', 'gate')
+        prediction = {field: result[field] for field in fields if field in result}
+        provenance = result['llm']
+        if 'error' in provenance:
+            prediction['error'] = provenance['error']['message']
         return {'arxiv': label['arxiv'], 'expected': label,
                 'predicted': prediction, 'provenance': provenance, 'identity': item['eval_identity']}
 
@@ -314,14 +364,14 @@ def run_evaluation(root=ROOT, client=None, workers=1):
     report.update(status='incomplete' if missing or invalid or conflicts or metrics['errors'] else 'complete',
                   evaluated=len(cases), missing_metadata=missing, invalid_metadata=invalid, metrics=metrics,
                   cases=cases, thresholds_passed=metrics['thresholds_passed'] and not missing and not invalid and not conflicts and not metrics['errors'])
-    _write_report(root, report)
+    _write_report(root, report, report_prefix)
     return report
 
 
-def _write_report(root, report):
+def _write_report(root, report, prefix='report'):
     folder = root / 'feed/eval'
-    (folder / 'report.json').write_text(json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True) + '\n', encoding='utf-8')
-    (folder / 'report.md').write_text(report_markdown(report), encoding='utf-8')
+    (folder / (prefix + '.json')).write_text(json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True) + '\n', encoding='utf-8')
+    (folder / (prefix + '.md')).write_text(report_markdown(report), encoding='utf-8')
 
 
 def main():
@@ -336,7 +386,10 @@ def main():
     if args.fetch_metadata:
         print(json.dumps(cache_metadata(), ensure_ascii=False, indent=2))
         return
-    report = run_evaluation(workers=args.workers)
+    gate_cases = ROOT / 'feed/eval/harness-gate-cases.yaml'
+    report = run_evaluation(workers=args.workers,
+                            label_file='harness-gate-cases.yaml' if gate_cases.exists() else 'labeled.yaml',
+                            report_prefix='gate-report' if gate_cases.exists() else 'report')
     print(report_markdown(report))
     if report['status'] != 'skipped' and not report['thresholds_passed']:
         raise SystemExit(1)
