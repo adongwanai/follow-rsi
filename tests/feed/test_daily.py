@@ -87,6 +87,60 @@ def test_rollover_preserves_unmerged_decisions_and_resets_deferral(tmp_path):
     assert path.read_bytes() == before
 
 
+@pytest.mark.parametrize("source", ["saved_queue", "unmerged_pr"])
+@pytest.mark.parametrize("owner_decision", ["accept", "reject", "move"])
+def test_legacy_pending_rolls_to_defer_without_changing_owner_edits(tmp_path, source, owner_decision):
+    root = make_daily_repo(tmp_path)
+    items = load_items(root)
+    for item in items:
+        if item["kind"] == "paper":
+            item["hf_daily_dates"] = [DAY]
+    save_items(root, items)
+    queue_daily_review(root, DAY)
+
+    def legacy_decisions(review):
+        review["items"][0].update(decision="pending", note="Still needs the full text")
+        review["items"][1].update(
+            decision=owner_decision, note="Owner checked the changed object",
+            direction_override="harness/improver", promote_to_repo=False,
+            summary_override={"summary_zh": "留出任务达到 20%。", "summary_en": "Held-out tasks reach 20%."})
+        review["lab_updates"][0].update(decision="pending", note="Check the official announcement")
+
+    review = read_yaml(root / "review/daily" / f"{DAY}.yaml")
+    legacy_decisions(review)
+    if source == "saved_queue":
+        write_daily(root, legacy_decisions)
+    original = root / "review/daily" / f"{DAY}.yaml"
+    original.write_text("# Retain the owner's original review file.\n" + original.read_text())
+    original_bytes = original.read_bytes()
+    carried = [review] if source == "unmerged_pr" else None
+    carried_snapshot = deepcopy(carried)
+
+    result = queue_daily_review(root, NEXT, carried_reviews=carried)
+
+    assert result["items"][0]["decision"] == "defer"
+    assert result["items"][0]["note"] == "Still needs the full text"
+    assert result["items"][0]["carried_from"] == DAY
+    for field in ("decision", "note", "direction_override", "summary_override", "promote_to_repo"):
+        assert result["items"][1][field] == review["items"][1][field]
+    assert result["lab_updates"][0]["decision"] == "defer"
+    assert result["lab_updates"][0]["note"] == "Check the official announcement"
+    assert original.read_bytes() == original_bytes
+    assert carried == carried_snapshot
+    validate_daily_review(root, NEXT)
+    approved = approved_daily_items(root, NEXT)
+    assert {item["id"] for item in approved} == (
+        {review["items"][1]["id"]} if owner_decision in ("accept", "move") else set())
+
+    write_daily(root, lambda value: value["items"][0].update(decision="pending"), date=NEXT)
+    with pytest.raises(ValueError, match="pending review blocks publication"):
+        validate_daily_review(root, NEXT)
+    write_daily(root, lambda value: value["items"][0].update(decision="defer"), date=NEXT)
+    write_daily(root, lambda value: value["lab_updates"][0].update(decision="pending"), date=NEXT)
+    with pytest.raises(ValueError, match="pending review blocks publication"):
+        validate_daily_review(root, NEXT)
+
+
 def test_applied_decisions_dont_recur_but_changed_versions_need_review(tmp_path):
     root = make_daily_repo(tmp_path)
     accept_daily(root)

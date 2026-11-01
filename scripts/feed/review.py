@@ -434,6 +434,8 @@ def queue_daily_review(root=ROOT, date=None, items=None, carried_reviews=None):
             for field in OWNER_FIELDS:
                 if field in row and field in prior:
                     row[field] = deepcopy(prior[field])
+            if row["decision"] == "pending":
+                row["decision"] = "defer"
             for field in ("carried_from", "review_required_reason"):
                 if field in prior:
                     row[field] = prior[field]
