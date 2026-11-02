@@ -1,11 +1,13 @@
 """Offline tests for daily review, deferral, and the human publication boundary."""
 from copy import deepcopy
+import json
 
 import pytest
 import yaml
 import jsonschema
 
 from scripts.common import read_yaml
+from scripts.feed.digest import initialize_public, publish_day
 from scripts.feed.review import (apply_daily_review, approved_daily_items, interactive_daily_review,
                                  queue_daily_review, validate_daily_review)
 from scripts.feed.storage import load_items, save_items
@@ -94,7 +96,8 @@ def test_legacy_pending_rolls_to_defer_without_changing_owner_edits(tmp_path, so
     items = load_items(root)
     for item in items:
         if item["kind"] == "paper":
-            item["hf_daily_dates"] = [DAY]
+            # This test preserves edits for papers observed on both boards.
+            item["hf_daily_dates"] = [DAY, NEXT]
     save_items(root, items)
     queue_daily_review(root, DAY)
 
@@ -192,3 +195,107 @@ def test_daily_cli_skip_means_defer(tmp_path):
     assert result["items"][0]["decision"] == "defer"
     assert result["items"][1]["decision"] == "move"
     validate_daily_review(root, DAY)
+
+
+def test_late_discovery_requires_explicit_actual_review_date(tmp_path):
+    root = make_daily_repo(tmp_path)
+    item = next(value for value in load_items(root) if value.get("arxiv_id") == "2610.99991")
+    item.update(first_seen=NEXT + "T10:00:00Z", hf_daily_dates=[DAY])
+    save_items(root, [item])
+    assert item["id"] not in {row["id"] for row in queue_daily_review(root, DAY)["items"]}
+
+    queued = queue_daily_review(root, DAY, reviewed_on=NEXT)
+    assert queued["date"] == DAY and queued["reviewed_on"] == NEXT
+    assert item["id"] in {row["id"] for row in queued["items"]}
+    accept_daily(root)
+    path = root / "review/daily" / f"{DAY}.yaml"
+    before = path.read_bytes()
+    queue_daily_review(root, DAY)
+    assert path.read_bytes() == before
+
+    write_daily(root, lambda review: review.pop("reviewed_on"))
+    with pytest.raises(ValueError, match="discovered after this review date"):
+        validate_daily_review(root, DAY)
+    write_daily(root, lambda review: review.update(reviewed_on=NEXT))
+    assert {row["id"] for row in approved_daily_items(root, DAY)} == {item["id"]}
+    assert apply_daily_review(root, DAY, now=NEXT + "T12:00:00Z") == 3
+    applied = next(value for value in load_items(root) if value["id"] == item["id"])
+    assert applied["review"]["date"] == DAY
+    assert applied["review"]["reviewed_on"] == NEXT
+    assert apply_daily_review(root, DAY, now=NEXT + "T14:00:00Z") == 0
+
+
+@pytest.mark.parametrize("reviewed_on,message", [
+    ("2026-10-26", "cannot precede the edition date"),
+    ("2026-02-30", "day is out of range"),
+])
+def test_actual_review_date_must_be_valid_and_not_before_edition(tmp_path, reviewed_on, message):
+    root = make_daily_repo(tmp_path)
+    with pytest.raises(ValueError, match=message):
+        queue_daily_review(root, DAY, reviewed_on=reviewed_on)
+    write_daily(root, lambda review: review.update(reviewed_on=reviewed_on))
+    with pytest.raises(ValueError, match=message):
+        validate_daily_review(root, DAY)
+
+
+def test_later_review_does_not_change_hf_edition_eligibility(tmp_path):
+    root = make_daily_repo(tmp_path)
+    item = next(value for value in load_items(root) if value.get("arxiv_id") == "2610.99991")
+    item.update(first_seen=NEXT + "T10:00:00Z", hf_daily_dates=[NEXT])
+    save_items(root, [item])
+    queued = queue_daily_review(root, DAY, reviewed_on=NEXT)
+    row = next(value for value in queued["items"] if value["id"] == item["id"])
+    assert row["window_status"] == "backlog"
+    accept_daily(root)
+    # A claimed window in the review file cannot override the observed HF day.
+    write_daily(root, lambda review: next(value for value in review["items"]
+                                         if value["id"] == item["id"]).update(window_status="in_window"))
+    with pytest.raises(ValueError, match="requires window_status=in_window"):
+        validate_daily_review(root, DAY)
+
+
+@pytest.mark.parametrize("reviewed_on", [None, DAY, NEXT])
+def test_daily_outputs_separate_edition_and_actual_review_dates(tmp_path, reviewed_on):
+    root = make_daily_repo(tmp_path)
+    queue_daily_review(root, DAY, reviewed_on=reviewed_on)
+    accept_daily(root)
+    actual_day = reviewed_on or DAY
+    apply_daily_review(root, DAY, now=actual_day + "T12:00:00Z")
+    publish_day(root, DAY, now=actual_day + "T12:05:00Z")
+
+    edition = json.loads((root / "site/daily" / f"{DAY}.json").read_text())
+    assert edition["date"] == DAY and edition["reviewed_on"] == actual_day
+    feed = json.loads((root / "site/feed/latest.json").read_text())
+    assert feed["dates"] == [DAY]
+    assert feed["items"][0]["review_date"] == actual_day
+    zh = (root / "daily" / f"{DAY}.md").read_text()
+    en = (root / "daily" / f"{DAY}.en.md").read_text()
+    html = (root / "site/daily" / f"{DAY}.html").read_text()
+    assert f"刊期日期：{DAY}" in zh and f"审核日期：{actual_day}" in zh
+    assert f"Edition date: {DAY}" in en and f"Review date: {actual_day}" in en
+    assert f"刊期日期：{DAY}" in html and f"审核日期：{actual_day}" in html
+    assert f"Edition date: {DAY}" in html and f"Review date: {actual_day}" in html
+    assert ("**补刊**" in zh) == (actual_day > DAY)
+    assert ("**Published later**" in en) == (actual_day > DAY)
+    assert ('<span class="zh">补刊</span>' in html) == (actual_day > DAY)
+    assert ('<span class="en">Published later</span>' in html) == (actual_day > DAY)
+    before = {path: path.read_bytes() for path in (root / "site").rglob("*") if path.is_file()}
+    publish_day(root, DAY)
+    assert all(path.read_bytes() == content for path, content in before.items())
+
+
+def test_daily_status_explains_empty_days_without_creating_editions(tmp_path):
+    root = make_daily_repo(tmp_path)
+    status = {"updated_at": NEXT + "T12:00:00Z", "days": [
+        {"date": NEXT, "status": "empty_board", "reason_zh": "当日 HF 榜为空。", "reason_en": "The HF board was empty."},
+        {"date": DAY, "status": "no_eligible_papers", "reason_zh": "没有合格的 Harness 论文。", "reason_en": "No eligible Harness papers."},
+    ]}
+    (root / "data/feed/daily-status.json").write_text(json.dumps(status, ensure_ascii=False))
+    initialize_public(root)
+    html = (root / "site/daily/index.html").read_text()
+    assert "更新记录" in html and "Update log" in html
+    assert "当日 HF 榜为空。" in html and "No eligible Harness papers." in html
+    assert html.index(f'datetime="{DAY}"') < html.index(f'datetime="{NEXT}"')
+    assert list((root / "site/daily").glob("????-??-??.*")) == []
+    assert "<entry>" not in (root / "site/feed/atom.xml").read_text()
+    assert json.loads((root / "site/feed/latest.json").read_text())["items"] == []

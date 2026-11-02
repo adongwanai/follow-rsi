@@ -32,7 +32,8 @@ def publication_dates(item, day, lower, published_ids=()):
         age = (parse_date.fromisoformat(day) - parse_date.fromisoformat(news_date)).days
         if age > 30:
             status = 'stale'
-        elif lower < news_date <= day and not item.get('backfill_only'):
+        elif not item.get('backfill_only') and (
+                day in recommended if recommended else lower < news_date <= day):
             status = 'in_window'
     return {'announced': announced, 'announced_source': announced_source,
             'news_date': news_date, 'window_status': status}

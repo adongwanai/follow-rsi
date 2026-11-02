@@ -229,7 +229,11 @@ def _markdown(edition, lang, directions, config, subdirections=None):
     period = edition["date"] if "date" in edition else f"{edition['start']} → {edition['end']}"
     lines = [f"# {title}", "", period, "", edition["intro"][lang], ""]
     if "date" in edition and not retrospective:
-        lines += [("审核日期：" if lang == "zh" else "Review date: ") + edition["date"], "", DAILY_DATE_NOTE[lang], ""]
+        reviewed_on = edition.get("reviewed_on", edition["date"])
+        if reviewed_on > edition["date"]:
+            lines += ["**补刊**" if lang == "zh" else "**Published later**", ""]
+        lines += [("刊期日期：" if lang == "zh" else "Edition date: ") + edition["date"], "",
+                  ("审核日期：" if lang == "zh" else "Review date: ") + reviewed_on, "", DAILY_DATE_NOTE[lang], ""]
     if retrospective:
         lines += [("第 0 期 · 历史回顾；下列论文不是当日新增。" if lang == "zh" else
                    "Edition 0 · Historical retrospective; these papers are not today's new publications."), ""]
@@ -475,10 +479,13 @@ def _render_day(root, edition, editions, directions, config):
     subdirections = _subdirections(root)
     directory = root / "site/daily"
     directory.mkdir(parents=True, exist_ok=True)
+    status_path = root / "data/feed/daily-status.json"
+    daily_status = json.loads(status_path.read_text())["days"] if status_path.exists() else []
     context = {"editions": ordered, "directions": directions, "config": config,
                "evidence_labels": EVIDENCE_LABELS, "object_labels": OBJECT_LABELS_EN,
                "subdirections": subdirections,
                "withdrawn_editions": load_withdrawn_editions(root),
+               "daily_status": sorted(daily_status, key=lambda entry: entry["date"]),
                "daily_date_note": DAILY_DATE_NOTE, "header": Markup(render_header(config, "daily", "../")),
                "recaps": _recaps(root)}
     if edition:
@@ -514,6 +521,7 @@ def publish_day(root=ROOT, date=None, client=None, now=None):
     root = Path(root)
     require_publishable_day(root, date)
     review = validate_daily_review(root, date)
+    reviewed_on = review.get("reviewed_on", date)
     accepted = approved_daily_items(root, date)
     labs = [row for row in review["lab_updates"] if row["decision"] == "accept"]
     if not accepted and not labs:
@@ -530,7 +538,7 @@ def publish_day(root=ROOT, date=None, client=None, now=None):
                                     not item.get("in_repo", False)))
     repository = read_yaml(root / "data/papers.yaml")["papers"]
     rows = {row["id"]: row for row in review["items"]}
-    public = [{**_public_item(item, rows[item["id"]], week, repository), "review_date": date, "edition_kind": "daily",
+    public = [{**_public_item(item, rows[item["id"]], week, repository), "review_date": reviewed_on, "edition_kind": "daily",
                "daily_section": daily_section(item, date)}
               for item in accepted]
     counts = {key: sum(item["llm"]["primary"] == key for item in accepted) for key in directions}
@@ -545,7 +553,7 @@ def publish_day(root=ROOT, date=None, client=None, now=None):
                     "direction": _direction(sources[row["id"]], {**row, "llm": sources[row["id"]].get("llm", {})}, taxonomy),
                     "release_version": sources[row["id"]].get("release_version")}
                    for row in labs]
-    edition = {"date": date, "week": week, "published_at": stamp, "reviewed_only": True,
+    edition = {"date": date, "reviewed_on": reviewed_on, "week": week, "published_at": stamp, "reviewed_only": True,
                "items": public, "counts": counts, "picks": [], "lab_updates": lab_updates,
                "sources": _source_snapshot(root, date),
                "reviewers": sorted({item["review"]["owner_login"] for item in accepted if item.get("review", {}).get("owner_login")}),

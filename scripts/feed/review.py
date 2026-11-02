@@ -351,6 +351,7 @@ DAILY_SCHEMA = {
     "type": "object", "required": ["date", "items", "lab_updates"], "additionalProperties": False,
     "properties": {
         "date": {"type": "string", "pattern": r"^\d{4}-\d{2}-\d{2}$"},
+        "reviewed_on": {"type": "string", "pattern": r"^\d{4}-\d{2}-\d{2}$"},
         "items": deepcopy(REVIEW_SCHEMA["properties"]["items"]),
         "lab_updates": deepcopy(REVIEW_SCHEMA["properties"]["lab_updates"]),
     },
@@ -374,7 +375,7 @@ def day_week(value):
     return f"{year}-W{number:02d}"
 
 
-def queue_daily_review(root=ROOT, date=None, items=None, carried_reviews=None):
+def queue_daily_review(root=ROOT, date=None, items=None, carried_reviews=None, reviewed_on=None):
     """Roll forward unresolved work, retaining edits recovered from unmerged PRs."""
     from scripts.feed.dates import daily_section
     from scripts.feed.window import daily_metadata
@@ -385,6 +386,13 @@ def queue_daily_review(root=ROOT, date=None, items=None, carried_reviews=None):
     previous = [read_yaml(path) for path in sorted(directory.glob("????-??-??.yaml"))
                 if path.stem <= day]
     previous += list(carried_reviews or [])
+    if reviewed_on is None:
+        reviewed_on = next((review["reviewed_on"] for review in reversed(previous)
+                            if review["date"] == day and "reviewed_on" in review), None)
+    review_day = reviewed_on if reviewed_on is not None else day
+    day_week(review_day)
+    if review_day < day:
+        raise ValueError("reviewed_on cannot precede the edition date")
     source_items = load_items(root) if items is None else items
     scope = load_scope(root)
     taxonomy = read_yaml(root / "feed/taxonomy.yaml")
@@ -396,7 +404,7 @@ def queue_daily_review(root=ROOT, date=None, items=None, carried_reviews=None):
                 old[row["id"]] = (review["date"], row)
     rows, excluded, labs, stale = [], [], [], []
     for item in source_items:
-        if str(item.get("first_seen") or item["published"])[:10] > day:
+        if str(item.get("first_seen") or item["published"])[:10] > review_day:
             continue
         if item.get("retracted"):
             continue
@@ -460,6 +468,8 @@ def queue_daily_review(root=ROOT, date=None, items=None, carried_reviews=None):
         not (row["llm"].get("label") in ("borderline", "error") or row["guard_failed"]
              or row["llm"].get("confidence", 0) < .6), row["llm"].get("confidence", 0), row["id"]))
     result = {"date": day, "items": rows, "lab_updates": labs}
+    if reviewed_on is not None:
+        result["reviewed_on"] = reviewed_on
     _write_yaml(directory / f"{day}.yaml", result)
     _write_yaml(directory / f"{day}.excluded.yaml", {"date": day, "items": excluded})
     if stale:
@@ -475,6 +485,10 @@ def validate_daily_review(root=ROOT, date=None):
     jsonschema.validate(review, DAILY_SCHEMA)
     if review["date"] != date:
         raise ValueError("Review date does not match its filename")
+    reviewed_on = review.get("reviewed_on", date)
+    day_week(reviewed_on)
+    if reviewed_on < date:
+        raise ValueError("reviewed_on cannot precede the edition date")
     sources = {item["id"]: item for item in load_items(root)}
     taxonomy = read_yaml(root / "feed/taxonomy.yaml")
     scope = load_scope(root)
@@ -488,7 +502,7 @@ def validate_daily_review(root=ROOT, date=None):
             item = sources[key]
             if (item["kind"] in ("post", "release")) != lab:
                 raise ValueError(f"{key}: invalid daily item kind")
-            if str(item.get("first_seen") or item["published"])[:10] > date:
+            if str(item.get("first_seen") or item["published"])[:10] > reviewed_on:
                 raise ValueError(f"{key}: item was discovered after this review date")
             if row["decision"] == "pending":
                 raise ValueError(f"{key}: pending review blocks publication; use defer to carry it forward")
@@ -577,6 +591,8 @@ def apply_daily_review(root=ROOT, date=None, now=None, provenance=None):
         previous = item.get("review", {})
         decision = {field: deepcopy(row.get(field)) for field in OWNER_FIELDS}
         decision.update(kind="daily", date=date, week=day_week(date), source_hash=row["source_hash"])
+        if "reviewed_on" in review:
+            decision["reviewed_on"] = review["reviewed_on"]
         if provenance is not None:
             decision.update(provenance)
         elif previous.get("date") == date and previous.get("source_hash") == row["source_hash"]:

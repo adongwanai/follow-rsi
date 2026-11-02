@@ -3,6 +3,7 @@ from copy import deepcopy
 import json
 import pytest
 from scripts.feed.window import publication_dates, daily_metadata, review_window
+from scripts.feed.dates import daily_section
 from scripts.feed.dedupe import dedupe_items
 from scripts.feed.normalize import normalize_record
 from scripts.feed.review import queue_daily_review, validate_daily_review, approved_daily_items
@@ -75,7 +76,7 @@ def test_explicit_backfill_batch_keeps_today_hf_recommendation_out_of_daily(tmp_
     assert daily_metadata(root, merged, DAY)['window_status'] == 'backlog'
 
 
-def test_gap_window_keeps_the_actual_recommendation_day(tmp_path):
+def test_gap_window_does_not_promote_an_earlier_hf_recommendation(tmp_path):
     folder = tmp_path / 'site/recaps'
     folder.mkdir(parents=True)
     (folder / '2026-10-14--2026-10-27.json').write_text(json.dumps({
@@ -83,9 +84,67 @@ def test_gap_window_keeps_the_actual_recommendation_day(tmp_path):
     assert review_window(tmp_path, '2026-10-29') == DAY
     item = {'id': 'yesterday', 'published': '2026-10-05', 'hf_daily_dates': ['2026-10-28']}
     timing = daily_metadata(tmp_path, item, '2026-10-29')
-    assert timing['window_status'] == 'in_window'
+    assert timing['window_status'] == 'backlog'
     assert timing['news_date'] == '2026-10-28'
     assert timing['announced'] == '2026-10-05'
+    assert daily_section({**item, **timing}, '2026-10-29') == 'historical'
+
+
+@pytest.mark.parametrize('hf_dates,backfill,status,news_date', [
+    (['2026-10-28'], False, 'backlog', '2026-10-28'),
+    (['2026-09-01'], False, 'stale', '2026-09-01'),
+    (['2026-10-30'], False, 'backlog', '2026-10-30'),
+    (['2026-10-28', '2026-10-30'], False, 'backlog', '2026-10-28'),
+    (['2026-10-28', '2026-10-29', '2026-10-30'], False, 'in_window', '2026-10-29'),
+    (['2026-10-29'], True, 'backlog', '2026-10-29'),
+])
+def test_hf_window_requires_membership_in_the_edition_day(hf_dates, backfill, status, news_date):
+    item = {'id': 'hf', 'published': '2026-08-01T00:00:00Z',
+            'updated': '2026-10-29T00:00:00Z', 'hf_daily_dates': hf_dates,
+            'backfill_only': backfill}
+    original = deepcopy(item)
+    timing = publication_dates(item, '2026-10-29', '2026-08-31')
+    assert timing['window_status'] == status
+    assert timing['news_date'] == news_date
+    assert timing['announced'] == '2026-08-01'
+    assert item == original
+    assert daily_section({**item, **timing}, '2026-10-29') == (
+        'hf_today' if status == 'in_window' else 'historical')
+
+
+@pytest.mark.parametrize('window_status', [None, 'in_window'])
+@pytest.mark.parametrize('hf_dates', [['2026-10-28'], ['2026-10-30']])
+def test_daily_section_rejects_non_today_hf_even_with_legacy_window_metadata(window_status, hf_dates):
+    item = {'published': '2026-10-29', 'updated': '2026-10-29',
+            'hf_daily_dates': hf_dates, 'news_date': hf_dates[0],
+            'window_status': window_status}
+    assert daily_section(item, '2026-10-29') == 'historical'
+
+
+def test_daily_section_keeps_explicit_backfill_historical():
+    item = {'hf_daily_dates': [DAY], 'news_date': DAY,
+            'window_status': 'in_window', 'backfill_only': True}
+    assert daily_section(item, DAY) == 'historical'
+
+
+def test_non_hf_sources_retain_gap_window_semantics():
+    item = {'id': 'other', 'published': '2026-10-05', 'updated': '2026-10-28'}
+    timing = publication_dates(item, '2026-10-29', '2026-10-27')
+    assert timing == {'announced': '2026-10-05', 'announced_source': 'published',
+                      'news_date': '2026-10-28', 'window_status': 'in_window'}
+    assert daily_section({**item, **timing}, '2026-10-29') == 'other_today'
+
+
+def test_previous_day_hf_cannot_be_accepted_as_today(tmp_path):
+    root = make_daily_repo(tmp_path)
+    item = next(i for i in load_items(root) if i['id'] == 'arxiv:2610.99991')
+    item.update(published='2026-10-05', updated=DAY, hf_daily_dates=['2026-10-26'])
+    save_items(root, [item])
+    row = next(r for r in queue_daily_review(root, DAY)['items'] if r['id'] == item['id'])
+    assert row['window_status'] == 'backlog' and row['daily_section'] == 'historical'
+    write_daily(root, lambda review: next(r for r in review['items'] if r['id'] == item['id']).update(decision='accept'))
+    with pytest.raises(ValueError, match='window_status=in_window'):
+        validate_daily_review(root, DAY)
 
 
 def test_backlog_cannot_be_accepted_as_daily(tmp_path):
