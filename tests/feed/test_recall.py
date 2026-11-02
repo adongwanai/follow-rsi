@@ -88,3 +88,24 @@ def test_harness_reference_outside_classification_is_a_scope_miss_not_pending():
     item['llm'] = {'label': 'include', 'primary': 'model_weights', 'secondary': ['harness']}
     misses, pending = compare([ref], [item], '2026-08-28', scope=load_scope(ROOT))
     assert not pending and misses[0]['reason'] == 'outside_publish_scope'
+
+
+def test_recorded_arxiv_query_recalls_eight_previously_missed_catalog_entries(monkeypatch):
+    from datetime import datetime, timezone
+    from pathlib import Path
+    from unittest.mock import Mock
+    from scripts.common import read_yaml
+    from scripts.feed import fetch_arxiv
+    from scripts.feed.dedupe import dedupe_items
+    expected = {'2610.28380', '2610.30042', '2610.28201', '2610.28815',
+                '2610.21791', '2610.31401', '2610.22466', '2610.30499'}
+    # Public Atom entries recorded from the successful 2026-10-27 query run;
+    # no live network or generated abstracts are used in this regression.
+    body = (Path(__file__).parent / 'fixtures/arxiv-harness-recall.xml').read_text()
+    monkeypatch.setattr(fetch_arxiv, 'request', Mock(return_value=body))
+    source = next(s for s in read_yaml(ROOT / 'feed/sources.yaml')['sources'] if s['id'] == 'arxiv-harness')
+    records, _ = fetch_arxiv.fetch(source, days=14, now=datetime(2026, 10, 27, tzinfo=timezone.utc))
+    papers = read_yaml(ROOT / 'data/papers.yaml')['papers']
+    result = dedupe_items(records, repo_papers=papers)
+    assert {r['arxiv_id'] for r in result} == expected
+    assert all(r['in_repo'] and r['source_hits'] == ['arxiv-harness'] for r in result)

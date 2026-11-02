@@ -55,7 +55,8 @@ def archive_out_of_scope(root=ROOT, items=None):
     records = load_items(root) if items is None else items
     grouped = {}
     for item in records:
-        if (item['kind'] != 'paper' or item.get('in_repo') or item.get('retracted')
+        if (item['kind'] != 'paper' or item.get('retracted')
+                or item.get('review', {}).get('decision') == 'reject'
                 or item.get('llm', {}).get('label') not in ('include', 'borderline')
                 or scope_status(direction_of(item), scope) != 'out_of_scope'
                 or 'summary_zh' not in item or 'summary_en' not in item):
@@ -90,5 +91,5 @@ def archive_counts(root, week):
         value = date.fromisoformat(str(item.get('first_seen') or item['published'])[:10])
         year, number, _ = value.isocalendar()
         if f'{year}-W{number:02d}' == week:
-            counts[item['llm']['primary']] += 1
+            counts[direction_of(item)['primary']] += 1
     return dict(sorted(counts.items()))

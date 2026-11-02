@@ -50,11 +50,14 @@ def normalized_whitespace(text):
     return ' '.join(text.split())
 
 
-def enforce_evidence(abstract, evidence):
+def enforce_evidence(abstract, evidence, code_evidence=None):
     """A yes needs 5–60 characters quoted from the abstract, never just comments."""
     normalized_abstract = normalized_whitespace(abstract)
     result = {}
     for field in EVIDENCE_FIELDS:
+        if field == 'code_released':
+            result[field] = code_evidence or {'value': 'unknown', 'quote': None}
+            continue
         entry = evidence[field]
         quote = entry['quote']
         supported = (entry['value'] == 'yes' and isinstance(quote, str)

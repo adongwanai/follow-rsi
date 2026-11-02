@@ -1,4 +1,5 @@
 import base64
+from datetime import datetime, timezone
 import json
 from pathlib import Path
 from types import SimpleNamespace
@@ -39,6 +40,34 @@ def test_ci_guard_requires_current_checkout(ci_environment):
     ci.require_ci(ci_environment)
     with pytest.raises(RuntimeError, match='GITHUB_WORKSPACE'):
         ci.require_ci(ci_environment / 'another-checkout')
+
+
+@pytest.mark.parametrize('event,now,expected', [
+    ('schedule', '2026-11-01T23:42:00', '2026-W44'),
+    ('schedule', '2026-11-02T02:42:46', '2026-W44'),
+    ('schedule', '2027-01-04T01:00:00', '2026-W53'),
+    ('workflow_dispatch', '2026-11-02T02:42:46', '2026-W45'),
+])
+def test_weekly_picks_keep_scheduled_sunday_week_when_delayed(monkeypatch, event, now, expected):
+    monkeypatch.setenv('GITHUB_EVENT_NAME', event)
+    monkeypatch.setattr(ci, 'datetime', Mock(now=Mock(return_value=datetime.fromisoformat(now).replace(tzinfo=timezone.utc))))
+    assert ci.default_picks_week() == expected
+
+
+def test_explicit_picks_week_overrides_scheduled_default(ci_environment, monkeypatch):
+    from scripts.feed import review
+    monkeypatch.setenv('GITHUB_EVENT_NAME', 'schedule')
+    default = Mock(side_effect=AssertionError('Explicit week must not use the clock'))
+    monkeypatch.setattr(ci, 'default_picks_week', default)
+    monkeypatch.setattr(ci, 'default_branch', Mock(return_value='main'))
+    for name in ('switch_review_branch', 'commit_paths', 'run', 'dispatch_pr_check'):
+        monkeypatch.setattr(ci, name, Mock())
+    queued = Mock()
+    monkeypatch.setattr(review, 'queue_weekly_picks', queued)
+    monkeypatch.setattr(ci, 'upsert_pr', Mock(return_value='https://github.com/owner/follow-rsi/pull/15'))
+    assert ci.queue_picks_pr(ci_environment, '2026-W43')['week'] == '2026-W43'
+    queued.assert_called_once_with(ci_environment, '2026-W43')
+    default.assert_not_called()
 
 
 def test_only_exact_valid_review_files_are_decisions():
@@ -130,6 +159,10 @@ def test_manual_publication_requires_a_merged_owner_review(ci_environment, monke
 
 def test_rollover_loads_owner_edits_from_remote_head_before_closing_pr(ci_environment, monkeypatch):
     from scripts.feed import review
+    report_path = ci_environment / 'feed/eval/gate-report.json'
+    report_path.parent.mkdir(parents=True)
+    report_path.write_text(json.dumps({'thresholds_passed': False,
+                                      'metrics': {'harness': {'precision': 0.96, 'recall': 0.8571}}}))
     events = []
     history = [{'number': 7, 'headRefName': 'feed/review-2026-10-26', 'headRefOid': 'edited-owner-head',
                 'url': 'https://github.com/owner/follow-rsi/pull/7', 'state': 'OPEN',
@@ -143,7 +176,12 @@ def test_rollover_loads_owner_edits_from_remote_head_before_closing_pr(ci_enviro
     monkeypatch.setattr(review, 'queue_daily_review', queue)
     monkeypatch.setattr(ci, 'commit_paths', Mock(return_value=True))
     monkeypatch.setattr(ci, 'run', Mock(return_value=SimpleNamespace(stdout='')))
-    monkeypatch.setattr(ci, 'upsert_pr', lambda *args: events.append('created') or 'https://github.com/owner/follow-rsi/pull/8')
+    def create_pr(root, branch, base, title, body):
+        assert title.startswith('[GATE BELOW THRESHOLD]')
+        assert body.startswith('Harness gate: precision=0.96, recall=0.8571;')
+        events.append('created')
+        return 'https://github.com/owner/follow-rsi/pull/8'
+    monkeypatch.setattr(ci, 'upsert_pr', create_pr)
     monkeypatch.setattr(ci, 'gh', lambda args, root: events.append(args) or '')
     dispatch = Mock()
     monkeypatch.setattr(ci, 'dispatch_pr_check', dispatch)
@@ -385,6 +423,40 @@ def test_pr_model_cannot_redirect_api_key(tmp_path, monkeypatch):
     with pytest.raises(ValueError, match='provider/base URL'):
         ci.stage_eval_inputs(tmp_path, 7, 'abc123')
     assert 'untrusted' not in (tmp_path / 'feed/model.yaml').read_text()
+
+
+def test_evaluation_uses_harness_labels_and_report(ci_environment, monkeypatch):
+    from scripts.feed import eval as evaluation
+    folder = ci_environment / 'feed/eval'
+    folder.mkdir(parents=True)
+    (folder / 'harness-gate-cases.yaml').write_text('cases: []')
+    (folder / 'gate-report.md').write_text('Harness precision=0.96 recall=0.8571')
+    event = ci_environment / 'event.json'
+    event.write_text('{}')
+    monkeypatch.setenv('GITHUB_EVENT_PATH', str(event))
+    monkeypatch.delenv('LLM_API_KEY', raising=False)
+    monkeypatch.setattr(ci, 'configure_model', Mock())
+    run = Mock(return_value={'status': 'complete', 'thresholds_passed': False})
+    monkeypatch.setattr(evaluation, 'run_evaluation', run)
+    with pytest.raises(SystemExit):
+        ci.evaluate(ci_environment)
+    run.assert_called_once_with(ci_environment, label_file='harness-gate-cases.yaml', report_prefix='gate-report')
+
+
+def test_pr_stage_model_changes_are_evaluated_as_data(tmp_path, monkeypatch):
+    (tmp_path / 'feed').mkdir()
+    config = ROOT / 'feed/model.yaml'
+    (tmp_path / 'feed/model.yaml').write_text(config.read_text())
+    candidate = read_yaml(config)
+    candidate['stages']['harness_gate']['model'] = 'test-proposed-model'
+    import yaml
+    content = base64.b64encode(yaml.safe_dump(candidate).encode()).decode()
+    monkeypatch.setenv('GITHUB_REPOSITORY', 'owner/repo')
+    monkeypatch.setattr(ci, 'gh', Mock(side_effect=['feed/model.yaml', json.dumps({'content': content})]))
+    ci.stage_eval_inputs(tmp_path, 7, 'abc123')
+    result = read_yaml(tmp_path / 'feed/model.yaml')
+    assert result['stages']['harness_gate']['model'] == 'test-proposed-model'
+    assert result['base_url'] == candidate['base_url']
 
 
 def test_scheduled_workflows_share_write_lock_and_manual_dispatch():

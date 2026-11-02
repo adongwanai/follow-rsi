@@ -1,0 +1,1567 @@
+# Seed data for the Harness Evolution repo.
+# Source: the curated reading list (98 papers + 6 candidates), checked against arXiv / Hugging Face pages.
+# Rules:
+#   - summary_zh / result_zh are curated text. Do not change numbers.
+#   - needs_reading: true  -> only the abstract was checked; numbers must be verified against the full paper.
+#   - evidence fields not listed default to "unknown". Allowed values: yes | no | partial | unknown | na
+#   - date: arXiv first-submission date (YYYY-MM-DD if verified to the day, else YYYY-MM or YYYY)
+
+meta:
+  as_of: "2026-10-30"
+  sections:
+    foundations:        {zh: "奠基与前置", en: "Foundations"}
+    evolve_main:        {zh: "1.1 搜索与演化主线", en: "1.1 Search & evolution (frozen model)"}
+    generalize:         {zh: "1.2 泛化、正则、准入与成本", en: "1.2 Generalization, regularization, admission & cost"}
+    evidence_selection: {zh: "1.3 任务与证据选择", en: "1.3 Task & evidence selection"}
+    improver:           {zh: "二、改进器自身进化", en: "2. Evolving the improver (meta / multi-level)"}
+    component:          {zh: "三、组件级进化", en: "3. Component-level evolution (skills, memory, context, interfaces)"}
+    coevolution:        {zh: "四、模型与 Harness 协同进化", en: "4. Model–harness co-evolution"}
+    evaluation:         {zh: "五、评测、归因与可信度", en: "5. Evaluation, attribution & trustworthiness"}
+    survey_theory:      {zh: "六、综述与理论", en: "6. Surveys & theory"}
+    candidates:         {zh: "延伸候选（未正式收录）", en: "Candidates (not yet reviewed)"}
+
+papers:
+
+# ---------------- Foundations ----------------
+- id: godel-machines
+  scope: background
+  needs_review: true
+  review_suggestion_zh: "理论原型，保留为奠基背景。"
+  review_suggestion_en: "Theoretical predecessor, retained as background."
+  title: "Gödel Machines"
+  arxiv: "cs/0309048"
+  date: "2003"
+  section: foundations
+  orgs: ["Schmidhuber"]
+  edit_targets: [any_code]
+  summary_zh: "自指式自改进的理论原型：只有在证明改写有益后才改。几乎所有 RSI 论文的引言都会提到。"
+  summary_en: "A theoretical prototype of self-referential self-improvement: rewrite only after proving the change beneficial. Almost every RSI paper mentions it in the introduction."
+  en_machine_translated: true
+
+- id: stop
+  scope: background
+  title: "STOP: Self-Taught Optimizer"
+  arxiv: "2310.02304"
+  date: "2023"
+  section: foundations
+  must_read: true
+  edit_targets: [improver]
+  summary_zh: "让「改进代码的程序」去改进自己，是 LLM 时代递归自改进脚手架的起点；也讨论了绕过沙箱等安全问题。"
+  summary_en: "A program that improves code improves itself, marking a starting point for recursive self-improvement scaffolds in the LLM era; it also discusses safety issues such as bypassing sandboxes."
+  en_machine_translated: true
+
+- id: dspy
+  scope: background
+  needs_review: true
+  review_suggestion_zh: "提示编译器基线；保留为背景。"
+  review_suggestion_en: "Prompt compiler baseline, retained as background."
+  title: "DSPy"
+  arxiv: "2310.03714"
+  date: "2023"
+  section: foundations
+  edit_targets: [prompt]
+  summary_zh: "把「编译」提示流水线作为优化问题，是文本优化器一系的代表基线。"
+  summary_en: "Treats the “compilation” of prompt pipelines as an optimization problem, serving as a representative baseline for text optimizers."
+  en_machine_translated: true
+
+- id: voyager
+  scope: background
+  needs_review: true
+  review_suggestion_zh: "技能库前史；不计入当前专题方法数。"
+  review_suggestion_en: "Skill-library predecessor, outside the current method count."
+  title: "Voyager"
+  arxiv: "2305.16291"
+  date: "2023"
+  section: foundations
+  edit_targets: [skills]
+  summary_zh: "技能以代码形式累积并复用，是技能、记忆类 Harness 演化的前身。"
+  summary_en: "Accumulates and reuses skills as code, a precursor to harness evolution through skills and memory."
+  en_machine_translated: true
+
+- id: adas
+  scope: background
+  title: "ADAS: Automated Design of Agentic Systems"
+  arxiv: "2408.08435"
+  date: "2024"
+  section: foundations
+  must_read: true
+  edit_targets: [workflow, control_flow]
+  summary_zh: "Meta Agent Search：元 Agent 在代码空间里不断写出新 Agent，并保留档案。「Harness 即代码」的搜索范式从这里开始。"
+  summary_en: "Meta Agent Search: a meta agent continually writes new agents in code space and maintains an archive. The search paradigm of “harness as code” starts here."
+  en_machine_translated: true
+
+- id: aflow
+  scope: background
+  title: "AFlow"
+  arxiv: "2410.10762"
+  date: "2024"
+  section: foundations
+  edit_targets: [workflow]
+  summary_zh: "用 MCTS 搜索代码表示的工作流，是工作流级自动优化的标准基线。"
+  summary_en: "Uses MCTS to search workflows represented as code, a standard baseline for automated workflow optimization."
+  en_machine_translated: true
+
+- id: godel-agent
+  scope: background
+  title: "Gödel Agent"
+  arxiv: "2410.04444"
+  date: "2024"
+  section: foundations
+  edit_targets: [control_flow, improver]
+  summary_zh: "让 Agent 在运行时检查并修改自己的代码，含改进逻辑本身，是自指式 Agent 的代表实现。"
+  summary_en: "Lets an agent inspect and modify its own code at runtime, including the improvement logic itself; a representative implementation of self-referential agents."
+  en_machine_translated: true
+
+- id: sica
+  scope: background
+  title: "SICA: A Self-Improving Coding Agent"
+  arxiv: "2504.15228"
+  date: "2025"
+  section: foundations
+  must_read: true
+  evidence: {who_edits: self}
+  summary_zh: "执行者与改进者是同一个 Agent，直接改自己的 Python 代码；「自改」路线的典型对比对象。"
+  summary_en: "The executor and improver are the same agent, directly modifying its own Python code; a typical comparison for the self-modification approach."
+  en_machine_translated: true
+
+- id: dgm
+  scope: background
+  title: "Darwin Gödel Machine"
+  arxiv: "2505.22954"
+  date: "2025"
+  section: foundations
+  must_read: true
+  evidence: {who_edits: self}
+  summary_zh: "用开放式演化档案替代「证明有益」，在 SWE-bench 与 Polyglot 上持续自改。复现前先看 Reflections on Trusting Trust, Revisited（容器 git 历史可泄露答案）。"
+  summary_en: "Replaces “prove beneficial” with an open-ended evolutionary archive, continually modifying itself on SWE-bench and Polyglot. Before reproducing it, read Reflections on Trusting Trust, Revisited: container git history can leak answers."
+  en_machine_translated: true
+
+- id: alphaevolve
+  scope: background
+  needs_review: true
+  review_suggestion_zh: "算法发现前史；原摘要明确不改 Harness，保留为背景。"
+  review_suggestion_en: "Algorithm-discovery background; the curated summary explicitly says it does not modify the harness."
+  title: "AlphaEvolve"
+  arxiv: "2506.13131"
+  date: "2025"
+  section: foundations
+  edit_targets: [program]
+  summary_zh: "不改 Harness，但其「提案—评估—档案」循环被大量 Harness 演化工作沿用。"
+  summary_en: "Does not modify the harness, but its proposal–evaluation–archive loop is reused by many harness evolution studies."
+  en_machine_translated: true
+
+- id: ace
+  scope: background
+  title: "ACE: Agentic Context Engineering"
+  arxiv: "2510.04618"
+  date: "2025"
+  section: foundations
+  edit_targets: [context]
+  summary_zh: "把上下文当成持续演化的 playbook，是最常对比的上下文类基线。"
+  summary_en: "Treats context as a continually evolving playbook, one of the most frequently used context baselines."
+  en_machine_translated: true
+
+- id: hgm
+  scope: background
+  title: "Huxley-Gödel Machine"
+  arxiv: "2510.21614"
+  date: "2025"
+  section: foundations
+  evidence: {who_edits: self}
+  summary_zh: "用谱系级的元生产力指标指导自改搜索，是 DGM 路线的重要改进；HGM-Dual 直接建立在它之上。"
+  summary_en: "Uses a lineage-level meta-productivity metric to guide self-modification search, an important improvement on the DGM approach; HGM-Dual builds directly on it."
+  en_machine_translated: true
+
+- id: meta-harness
+  scope: background
+  title: "Meta-Harness"
+  arxiv: "2603.28052"
+  date: "2026-03"
+  section: foundations
+  must_read: true
+  orgs: ["Stanford", "MIT", "KRAFTON"]
+  evidence: {who_edits: external, cross_model_transfer: yes}
+  summary_zh: "编码 Agent 通过文件系统读取所有历史候选的源码、分数和完整轨迹来搜索 Harness。窗口内最常见的对比基线。"
+  summary_en: "A coding agent searches for harnesses by reading source code, scores, and full trajectories of all historical candidates through the filesystem. The most common comparison baseline in the covered period."
+  en_machine_translated: true
+  result_zh: "一个数学推理 Harness 在 5 个留出模型上平均 +4.7 分。"
+  result_en: "A mathematical reasoning harness averages +4.7 points on 5 held-out models."
+
+# ---------------- 1.1 Search & evolution ----------------
+- id: ahe
+  scope: core
+  title: "AHE: Agentic Harness Engineering"
+  arxiv: "2604.25850"
+  date: "2026-04"
+  section: evolve_main
+  must_read: true
+  orgs: ["Fudan"]
+  evidence: {who_edits: external, cross_model_transfer: yes}
+  summary_zh: "三个「可观测性」支柱：组件文件化、轨迹分层蒸馏、每次编辑附带可证伪的预测，下一轮核验。"
+  summary_en: "Three pillars of observability: components as files, hierarchical trajectory distillation, and a falsifiable prediction attached to each edit for verification in the next round."
+  en_machine_translated: true
+  result_zh: "Terminal-Bench 2 pass@1 十轮从 69.7% 到 77.0%，超过 Codex-CLI；跨模型家族迁移 +5.1–10.1pp。"
+  result_en: "Terminal-Bench 2 pass@1 rises from 69.7% to 77.0% over ten rounds, surpassing Codex-CLI; transfer across model families yields +5.1–10.1pp."
+
+- id: demoevolve
+  scope: core
+  title: "DemoEvolve"
+  arxiv: "2605.24539"
+  date: "2026-05"
+  section: evolve_main
+  orgs: ["Tsinghua", "AgiBot"]
+  evidence: {who_edits: external, feedback: demonstrations}
+  summary_zh: "稀疏奖励的长程随机环境里，用人类示范轨迹指导编辑者诊断和定位 Harness 问题。"
+  summary_en: "In long-horizon stochastic environments with sparse rewards, human demonstration trajectories guide an editor to diagnose and locate harness problems."
+  en_machine_translated: true
+  result_zh: "Liar's Dice 上自演化可行；Balatro 上自演化被噪声误导，加示范后同预算下更好。"
+  result_en: "Self-evolution works on Liar's Dice; on Balatro, noise misleads self-evolution, while adding demonstrations performs better at the same budget."
+
+- id: self-harness
+  scope: core
+  title: "Self-Harness: Harnesses That Improve Themselves"
+  arxiv: "2606.09498"
+  date: "2026-06"
+  section: evolve_main
+  must_read: true
+  orgs: ["Shanghai AI Lab"]
+  evidence: {who_edits: self, held_out: yes, cross_model_transfer: partial}
+  summary_zh: "弱点挖掘 → 最小化修改提案 → 回归测试后才接受；不依赖更强的外部模型。"
+  summary_en: "Mine weaknesses → propose minimal edits → accept only after regression tests; does not rely on a stronger external model."
+  en_machine_translated: true
+  result_zh: "TB2.0 留出集：MiniMax M2.5 40.5%→61.9%，Qwen3.5-35B-A3B 23.8%→38.1%，GLM-5 42.9%→57.1%。"
+  result_en: "TB2.0 held-out set: MiniMax M2.5 40.5%→61.9%, Qwen3.5-35B-A3B 23.8%→38.1%, GLM-5 42.9%→57.1%."
+
+- id: tthe
+  scope: core
+  title: "TTHE: Test-Time Harness Evolution"
+  arxiv: "2607.08124"
+  date: "2026-07-09"
+  section: evolve_main
+  evidence: {who_edits: self, feedback: proxy, timing: test_time, cross_model_transfer: yes}
+  summary_zh: "测试时只用无标签执行轨迹演化候选 Harness 种群；求解器、提议器、裁判共用一个冻结模型，各有不同 Harness。"
+  summary_en: "Evolves a population of candidate harnesses at test time using only unlabeled execution trajectories; the solver, proposer, and judge share one frozen model, each with a different harness."
+  en_machine_translated: true
+  result_zh: "BIRD 执行准确率 12.7%→48.7%（十次投票基线 16.0%）；演化出的 Harness 可迁移到其他模型。"
+  result_en: "BIRD execution accuracy 12.7%→48.7% (ten-vote baseline 16.0%); the evolved harness transfers to other models."
+
+- id: harnessbank
+  scope: core
+  title: "HarnessBank: Semantic Gene-Bank Search with Gated Verification for Agent-Harness Self-Evolution"
+  arxiv: "2607.13683"
+  date: "2026-07-15"
+  section: evolve_main
+  needs_reading: true
+  evidence: {who_edits: external}
+  summary_zh: "任务 Agent 与独立演化 Agent 分离；用语义坐标组织「Harness 基因库」做质量多样性搜索，分阶段筛选候选以减少完整评估。"
+  summary_en: "Separates the task agent from an independent evolution agent; organizes a “harness gene bank” by semantic coordinates for quality-diversity search, screening candidates in stages to reduce full evaluations."
+  en_machine_translated: true
+  result_zh: "针对搜索坍缩、任务过拟合和不可验证的提升；定量结果待细读。"
+  result_en: "Targets search collapse, task overfitting, and unverifiable gains; quantitative results need close reading."
+
+- id: rhi
+  scope: core
+  title: "RHI: Recursive Harness Self-Improvement"
+  arxiv: "2607.15524"
+  date: "2026-07-17"
+  section: evolve_main
+  orgs: ["Sakana AI", "UC Berkeley"]
+  evidence: {who_edits: external, cost_reported: yes}
+  edit_targets: [prompt, context]
+  summary_zh: "Harness 写成提示级规范，用自身修订历史上的成对反馈迭代；收益主要来自上下文管理与 Agent 间信息流。被递归修改的是任务 Harness，不是改进器。"
+  summary_en: "Expresses the harness as a prompt-level specification and iterates using paired feedback from its own revision history; gains mainly come from context management and information flow between agents. The task harness is recursively modified, not the improver."
+  en_machine_translated: true
+  result_zh: "30 个合成 ML 研究任务上，低推理强度 Agent 超过最高推理强度设置，成本最多降 60%。"
+  result_en: "On 30 synthetic ML research tasks, a low-reasoning-effort agent exceeds the highest-reasoning-effort setting, reducing cost by up to 60%."
+
+- id: drevo
+  scope: core
+  title: "DREvo: Distilling Recalibrated Historical Experience for Harness Self-Evolution"
+  arxiv: "2607.26722"
+  date: "2026-07-29"
+  section: evolve_main
+  needs_reading: true
+  evidence: {who_edits: external}
+  summary_zh: "把历史证据锚定到函数级，随当前版本重新校准其有效性，再蒸馏成按角色区分的搜索意图。"
+  summary_en: "Anchors historical evidence at the function level, recalibrates its validity against the current version, then distills it into search intentions differentiated by role."
+  en_machine_translated: true
+  result_zh: "覆盖化学与法律推理、TB2.0、SWE-bench Verified；演化曲线比 Meta-Harness 平稳，提议器上下文保持在约 2.9K token。"
+  result_en: "Covers chemistry and legal reasoning, TB2.0, and SWE-bench Verified; evolution curves are steadier than Meta-Harness, while proposer context stays around 2.9K token."
+
+- id: darwinx
+  scope: core
+  title: "DarwinX: Evolving Agent Harnesses Through Natural Selection"
+  arxiv: "2608.07545"
+  date: "2026-07-31"
+  section: evolve_main
+  must_read: true
+  orgs: ["Salesforce"]
+  evidence: {who_edits: external, held_out: yes, cross_model_transfer: unknown}
+  summary_zh: "Harness 种群选择；「保持并扩展」契约只接受在已评估任务上不退化的变体；归档保留多条谱系并合并互补的专家 Harness。不退化只在有限评估集上检查。"
+  summary_en: "Harness population selection: a “preserve and expand” contract accepts only variants that do not regress on evaluated tasks; an archive retains multiple lineages and merges complementary expert harnesses. Non-regression is checked only on a finite evaluation set."
+  en_machine_translated: true
+  result_zh: "TB2.1 75.5%→83.2%；TerminalWorld 留出集 68.3%；WebArena-Infinity 43.5%→93.0%；不加修改迁移到 SWE-bench Verified。"
+  result_en: "TB2.1 75.5%→83.2%; TerminalWorld held-out set 68.3%; WebArena-Infinity 43.5%→93.0%; transfers to SWE-bench Verified without modification."
+
+- id: mgm
+  scope: core
+  title: "Mendel Gödel Machine: Recursive Self-Improving Coding Agents via Comparative Evolution"
+  arxiv: "2608.07645"
+  date: "2026-08-07"
+  section: evolve_main
+  evidence: {who_edits: self}
+  summary_zh: "DGM 路线：同一 Agent 跨任务的表现比较，加上不同谱系在同一任务上的轨迹比较，驱动变异与杂交。"
+  summary_en: "The DGM approach: comparisons of the same agent across tasks, combined with trajectory comparisons of different lineages on the same task, drive mutation and crossover."
+  en_machine_translated: true
+  result_zh: "证明收敛更快；SWE-bench、Polyglot 上超过单轨迹基线。"
+  result_en: "Demonstrates faster convergence; exceeds single-trajectory baselines on SWE-bench and Polyglot."
+
+- id: ouroboros
+  scope: core
+  title: "Ouroboros: A Self-Developing Coding Harness with Reviewed Core Evolution"
+  arxiv: "2608.08311"
+  date: "2026-08-08"
+  section: evolve_main
+  evidence: {who_edits: self_human_reviewed, timing: online}
+  summary_zh: "工具、提示、上下文组装、核心代码经审查提交后成为运行时；护栏在演化压力下保持权威。"
+  summary_en: "Tools, prompts, context assembly, and core code become the runtime after reviewed commits; guardrails retain authority under evolutionary pressure."
+  en_machine_translated: true
+  result_zh: "TB2.1 86.74%（轨迹审计后），OSWorld-Verified 90.69%（冻结快照）；公开部署 Hope 持续演化 161 天。"
+  result_en: "TB2.1 86.74% (after trajectory auditing), OSWorld-Verified 90.69% (frozen snapshot); the public deployment Hope evolves continuously for 161 days."
+
+- id: evo-harness
+  scope: core
+  needs_review: true
+  review_suggestion_zh: "建议子方向 component；将执行上下文编译为 Markdown 技能，需正文确认。"
+  review_suggestion_en: "Suggested subdirection: component; verify how execution context is compiled into persistent Markdown skills."
+  title: "Evo-Harness"
+  arxiv: "2608.15071"
+  date: "2026-08"
+  section: evolve_main
+  evidence: {who_edits: external, timing: online}
+  edit_targets: [skills]
+  summary_zh: "在线 Harness 学习：任务顺序到来，把一次性执行上下文编译成 Markdown 技能。与 Harness Updating ≠ Benefit 同实验室。"
+  summary_en: "Online harness learning: as tasks arrive sequentially, compiles one-off execution context into Markdown skills. From the same lab as Harness Updating ≠ Benefit."
+  en_machine_translated: true
+  result_zh: "5 个 benchmark 全部提升；模型自判反馈会导致退化，强求解器受益更多。"
+  result_en: "Improves on all 5 benchmarks; model self-judgment feedback causes regression, while stronger solvers benefit more."
+
+- id: autosaddler
+  scope: core
+  title: "AutoSaddler: Automatic Harness Optimization with Durable Updates from Agent Execution Traces"
+  arxiv: "2608.23041"
+  date: "2026-08-24"
+  section: evolve_main
+  must_read: true
+  evidence: {who_edits: external, held_out: yes}
+  edit_targets: [prompt, tools, middleware]
+  summary_zh: "离线 mini-batch：失败轨迹深度诊断 → 覆盖提示、工具、中间件的结构化代码补丁 → 验证集与 EvoDAG 做泛化感知选择。理解完整工程闭环的入口。"
+  summary_en: "Offline mini-batches: deep diagnosis of failure trajectories → structured code patches covering prompts, tools, and middleware → generalization-aware selection using a validation set and EvoDAG. An entry point to the complete engineering loop."
+  en_machine_translated: true
+  result_zh: "GAIA2、SWE-Bench Pro、TB2.0 相对基础 Harness +9.0/+9.6/+10.0pp，比最强自动化基线高 7.4/4.4/6.7pp；消融支持深度调试、定向修改、泛化选择三要素。"
+  result_en: "On GAIA2, SWE-Bench Pro, and TB2.0: +9.0/+9.6/+10.0pp over the base harness, and 7.4/4.4/6.7pp above the strongest automated baseline; ablations support deep debugging, targeted edits, and generalization-aware selection."
+
+- id: starharness
+  scope: core
+  title: "StarHarness: Evolving Harnesses with Stratified Search for Enterprise Environments"
+  arxiv: "2608.24804"
+  date: "2026-08-25"
+  section: evolve_main
+  orgs: ["ServiceNow", "Mila"]
+  code: "https://github.com/ServiceNow/StarHarness"
+  evidence: {who_edits: external, held_out: yes, disjoint_evolution_set: yes, cross_model_transfer: yes, code_released: yes}
+  summary_zh: "按基础 Harness 的失败行为分层构造演化池；提议器可见的搜索任务、不可见的选择任务、最终留出任务三者分开。"
+  summary_en: "Builds a stratified evolution pool from the base harness’s failure behaviors; separates search tasks visible to the proposer, hidden selection tasks, and final held-out tasks."
+  en_machine_translated: true
+  result_zh: "ITBench SRE 等三个企业环境上，每个接受 4–12 次修改后全基准 +20–35pp；演化外任务上收益仍在，不重新演化即可迁移到 GPT 与 Qwen 系列。"
+  result_en: "Across three enterprise environments including ITBench SRE, each accepts 4–12 edits and gains +20–35pp across the full benchmark; gains persist on tasks outside evolution, and transfer to GPT and Qwen families requires no re-evolution."
+
+- id: recuris
+  scope: core
+  needs_review: true
+  review_suggestion_zh: "建议子方向 component；固定元 Agent 仅局部更新技能记忆，需正文确认。"
+  review_suggestion_en: "Suggested subdirection: component; verify the fixed meta-agent and local skill-memory update boundary."
+  title: "Recuris"
+  arxiv: "2608.24876"
+  date: "2026-08"
+  section: evolve_main
+  orgs: ["Princeton"]
+  evidence: {who_edits: external}
+  edit_targets: [memory, skills]
+  summary_zh: "固定 Meta-Agent：工作记忆跟踪进度，经验记忆供技能，对技能记忆做局部、经验证的更新。"
+  summary_en: "A fixed Meta-Agent: working memory tracks progress, experience memory provides skills, and skill memory receives local, verified updates."
+  en_machine_translated: true
+  result_zh: "37 组中 35 组提升；tau-bench 上 Opus 5 +15.6 到 87.9%。"
+  result_en: "Improves in 35 of 37 groups; on tau-bench, Opus 5 gains +15.6 to reach 87.9%."
+
+- id: modularrsi
+  scope: core
+  title: "ModularRSI: Modular and Generalizable Recursive Harness Self-Improvement"
+  arxiv: "2609.14857"
+  date: "2026-09-14"
+  section: evolve_main
+  must_read: true
+  evidence: {held_out: yes, disjoint_evolution_set: yes, cross_model_transfer: yes}
+  summary_zh: "Harness 拆成执行循环、工具使用、观测管理、上下文管理、完成检测五模块，受限范围内独立演化再合并；成功与失败轨迹对比；2,000 个与评测不相交的演化任务。"
+  summary_en: "Splits the harness into five modules: execution loop, tool use, observation management, context management, and completion detection; evolves each within a restricted scope, then merges them; contrasts successful and failed trajectories; uses 2,000 evolution tasks disjoint from evaluation."
+  en_machine_translated: true
+  result_zh: "TB2.0 47.57→52.43，SWE-Bench Verified 73.40→76.45；跨模型迁移有效。"
+  result_en: "TB2.0 47.57→52.43, SWE-Bench Verified 73.40→76.45; cross-model transfer is effective."
+
+- id: emho
+  scope: core
+  title: "EMHO"
+  arxiv: "2610.08432"
+  date: "2026-10"
+  section: evolve_main
+  needs_reading: true
+  tags: [embodied]
+  evidence: {who_edits: external}
+  summary_zh: "具身场景：冻结 VLM，从稀疏、弱诊断性的交互反馈中修改 Harness，并支持合并为共享 Harness。"
+  summary_en: "Embodied setting: freezes the VLM, modifies the harness from sparse interaction feedback with weak diagnostic value, and supports merging into a shared harness."
+  en_machine_translated: true
+  result_zh: "定量结果待细读。"
+  result_en: "Quantitative results need close reading."
+
+- id: riseharness
+  scope: core
+  title: "RiseHarness: Harness Self-Evolution for Long-Horizon Terminal Agents"
+  arxiv: "2610.27435"
+  date: "2026-10-20"
+  section: evolve_main
+  evidence: {held_out: yes, reliability_metric: yes}
+  summary_zh: "针对重复运行时时成时败的任务：结合 Agent 轨迹与运行时内部追踪，用 Harness Handbook 把行为映射到源码，并检索其他框架的实现作参考。"
+  summary_en: "Targets tasks with inconsistent success across repeated runs: combines agent trajectories and internal runtime traces, maps behavior to source code using a Harness Handbook, and retrieves implementations from other frameworks as references."
+  en_machine_translated: true
+  result_zh: "Pass@1 与 Pass^4（四次全过的任务比例）都提高，Pass@4 只小幅上升，收益主要在可靠性；可迁移到未参与演化的基准。"
+  result_en: "Both Pass@1 and Pass^4 (the fraction of tasks passing all four runs) improve, while Pass@4 rises only slightly; gains mainly concern reliability and transfer to benchmarks not used in evolution."
+
+- id: oo-harness
+  scope: core
+  title: "Object-Oriented Harness: Evolving Agent Harnesses through Object-Oriented Design"
+  arxiv: "2610.28380"
+  date: "2026-10-20"
+  section: evolve_main
+  orgs: ["UIUC", "Google Cloud AI Research"]
+  evidence: {who_edits: external, held_out: yes}
+  summary_zh: "演化出 Harness 类的继承层次，专门化版本继承基类或已有子类；测试时路由器按任务和基础执行的证据选版本。"
+  summary_en: "Evolves an inheritance hierarchy of harness classes, with specialized versions inheriting from the base class or existing subclasses; a test-time router chooses versions using the task and evidence from base execution."
+  en_machine_translated: true
+  result_zh: "对比 Meta-Harness、AHE 与 Adaptive Auto-Harness，在三个长程基准上主指标都最高（三次运行均值）。"
+  result_en: "Compared with Meta-Harness, AHE, and Adaptive Auto-Harness, achieves the highest primary metric on all three long-horizon benchmarks (means over three runs)."
+
+- id: hgm-dual
+  scope: core
+  title: "HGM-Dual: Lineage-Aware Guided Agent Harness Optimization for Long-Horizon Planning"
+  arxiv: "2610.30042"
+  date: "2026-10-21"
+  section: evolve_main
+  evidence: {who_edits: external, matched_budget_baseline: partial}
+  summary_zh: "建立在 HGM 之上：把祖先改了什么、哪些行为改善或回退组织成谱系上下文；每个父版本同时生成开放探索子代和针对主要约束违例的专门子代。"
+  summary_en: "Builds on HGM: organizes ancestor edits and behavioral improvements or regressions into lineage context; each parent produces both an open-exploration child and a specialized child targeting the main constraint violation."
+  en_machine_translated: true
+  result_zh: "长程规划任务上比最强基线最多高 14.45%（相对）；用 HGM 变体 1/2 到 1/4 的评估预算达到相同最终性能。"
+  result_en: "On long-horizon planning tasks, exceeds the strongest baseline by up to 14.45% (relative); matches the final performance of HGM variants with 1/2 to 1/4 of their evaluation budget."
+
+# ---------------- 1.2 Generalization / regularization ----------------
+- id: harbor
+  scope: core
+  needs_review: true
+  review_suggestion_zh: "建议候选；固定配置空间的外部贝叶斯优化是否属于自改进，需细读正文。"
+  review_suggestion_en: "Suggested candidate: verify whether external Bayesian optimization of fixed configurations constitutes self-improvement."
+  title: "HARBOR"
+  arxiv: "2604.20938"
+  date: "2026-04"
+  section: generalize
+  evidence: {cost_reported: yes}
+  edit_targets: [config]
+  summary_zh: "不改代码，而是在固定组件的 Harness 配置空间上做成本感知的贝叶斯优化。"
+  summary_en: "Performs cost-aware Bayesian optimization over a harness configuration space with fixed components, without changing code."
+  en_machine_translated: true
+  result_zh: "与 Meta-Harness 类「改代码」路线互补，可作为配置搜索基线。"
+  result_en: "Complements code-editing approaches such as Meta-Harness and can serve as a configuration-search baseline."
+
+- id: harnesscompass
+  scope: core
+  title: "HarnessCompass: Guiding Automatic Harness Evolution toward Generalizable and Effective Agent Harnesses"
+  arxiv: "2608.01918"
+  date: "2026-08-03"
+  section: generalize
+  evidence: {cross_model_transfer: yes}
+  summary_zh: "三条原则：泛化门控限制任务特化修改；第一人称「主动反馈」补充轨迹证据；组件分轨优化再整合，减少相互干扰。"
+  summary_en: "Three principles: generalization gates restrict task-specific edits; first-person “active feedback” supplements trajectory evidence; components are optimized on separate tracks and then integrated to reduce interference."
+  en_machine_translated: true
+  result_zh: "报告 SWE-bench Verified 五轮提升并检验跨任务、跨模型迁移；但 CHASE 在 OfficeQA 上发现其门控不保证留出提升。"
+  result_en: "Reports improvement over five rounds on SWE-bench Verified and tests cross-task and cross-model transfer; however, CHASE finds on OfficeQA that its gates do not guarantee held-out gains."
+
+- id: harnessevolve
+  scope: core
+  title: "HarnessEvolve: Learning from Reference Trajectories for Reliable Agent Self-Evolution"
+  arxiv: "2609.00829"
+  date: "2026-09"
+  section: generalize
+  summary_zh: "把「给定标准答案后重放」得到的参考轨迹与失败轨迹对齐做信用分配；质量门过滤答案硬编码与提示膨胀，性能门防遗忘。"
+  summary_en: "Aligns reference trajectories obtained by replaying with standard answers against failed trajectories for credit assignment; a quality gate filters hardcoded answers and prompt bloat, while a performance gate prevents forgetting."
+  en_machine_translated: true
+  result_zh: "消融：去掉参考轨迹后 CloudCoreNetwork-QA 从 86.9 跌到 57.8。"
+  result_en: "Ablation: removing reference trajectories drops CloudCoreNetwork-QA from 86.9 to 57.8."
+
+- id: sol-pi
+  scope: core
+  title: "SoL-Pi: Recursively Scaling Auto-Research Loops for Efficient Agent Harness"
+  arxiv: "2609.20519"
+  date: "2026-09"
+  section: generalize
+  orgs: ["NVIDIA", "MIT"]
+  evidence: {held_out: yes, cost_reported: yes}
+  summary_zh: "在大量环境中扩展 auto-research 循环，筛选 token 效率机制；候选冻结后才做留出评估。"
+  summary_en: "Scales the auto-research loop across many environments to select token-efficient mechanisms; held-out evaluation occurs only after candidates are frozen."
+  en_machine_translated: true
+  result_zh: "EdgeBench 性能与 Pi 相当，token 流量降 44.7–49.0%，API 成本降约三分之一。"
+  result_en: "Matches Pi on EdgeBench, reducing token traffic by 44.7–49.0% and API cost by about one third."
+
+- id: chase
+  scope: core
+  title: "Bad Genius: Counterfactual-Guided Harness Evolution Beyond Task-Specific Shortcuts (CHASE)"
+  arxiv: "2609.18366"
+  date: "2026-09"
+  section: generalize
+  summary_zh: "用反事实挑战者拦截只对特定任务有效的「捷径」编辑，按最差情况选择最终 Harness。"
+  summary_en: "Uses counterfactual challengers to block “shortcut” edits that work only for specific tasks, selecting the final harness by worst-case performance."
+  en_machine_translated: true
+  result_zh: "OfficeQA Pro V2 达 30.37%，最差情况得分最高；适合作为「泛化」论点的对照。"
+  result_en: "Reaches 30.37% on OfficeQA Pro V2 with the highest worst-case score; useful as a comparison for claims about generalization."
+
+- id: rrsi
+  scope: core
+  title: "RRSI: Regularized Recursive Harness Self-Improvement"
+  arxiv: "2609.24972"
+  date: "2026-09"
+  section: generalize
+  must_read: true
+  orgs: ["Google"]
+  evidence: {held_out: yes, cross_model_transfer: unknown, cost_reported: yes}
+  summary_zh: "退火编辑预算 + critic 筛掉 benchmark 特化提案 + pruner 删掉无效改动。"
+  summary_en: "Anneals the editing budget, uses a critic to filter benchmark-specific proposals, and a pruner to remove ineffective edits."
+  en_machine_translated: true
+  result_zh: "五个分布外基准上迁移优于 Meta-Harness、AHE、TTHE、HarnessX，最高 +4.7；单任务 token 2.42M（无正则演化为 3.80M）。"
+  result_en: "Transfers better than Meta-Harness, AHE, TTHE, and HarnessX on five out-of-distribution benchmarks, by up to +4.7; per-task token use is 2.42M (3.80M for unregularized evolution)."
+
+- id: harnesspro
+  scope: core
+  title: "HarnessPro: Recursive Harness Self-Improvement with Pareto Optimization for Performance-Cost Trade-offs"
+  arxiv: "2610.26770"
+  date: "2026-10-19"
+  section: generalize
+  evidence: {feedback: self_generated_tests, cost_reported: yes}
+  summary_zh: "无标签：用模型生成的测试评价候选，不访问标准答案或官方测试；按性能与成本的不同偏好产出 lite、medium、heavy 三档。"
+  summary_en: "Label-free: evaluates candidates with model-generated tests, without accessing standard answers or official tests; produces lite, medium, and heavy tiers for different performance–cost preferences."
+  en_machine_translated: true
+  result_zh: "GPT-5.5 + Codex 配置下，heavy 相对 RHO 平均通过率 +2.0pp，单任务成本降 26.1%。"
+  result_en: "With GPT-5.5 + Codex, heavy improves average pass rate by +2.0pp over RHO and reduces per-task cost by 26.1%."
+
+- id: mad-rsi
+  scope: core
+  title: "MaD-RSI: Model-as-Data for Recursive Self-Improvement of Agent Harnesses"
+  arxiv: "2610.28201"
+  date: "2026-10-20"
+  section: generalize
+  needs_reading: true
+  evidence: {cross_model_transfer: yes}
+  summary_zh: "把多个异构模型的失败轨迹当作证据，直接优化一个共享 Harness，把跨模型泛化变成优化目标。"
+  summary_en: "Uses failure trajectories from multiple heterogeneous models as evidence to directly optimize one shared harness, making cross-model generalization an optimization objective."
+  en_machine_translated: true
+  result_zh: "摘要称泛化更好、成本更低，未给出数字。"
+  result_en: "The abstract claims better generalization and lower costs without providing numbers."
+
+# ---------------- 1.3 Task & evidence selection ----------------
+- id: task-coevolve
+  scope: core
+  title: "Task-CoEvolve: Efficient Harness Optimization via Adaptive Validation Task Selection"
+  arxiv: "2608.20169"
+  date: "2026-08"
+  section: evidence_selection
+  needs_reading: true
+  summary_zh: "自适应选择最能区分候选 Harness 的验证任务，并校正非均匀采样对全集性能估计的偏差；与搜索侧提效正交。"
+  summary_en: "Adaptively selects validation tasks that best distinguish candidate harnesses and corrects bias from nonuniform sampling in full-set performance estimates; orthogonal to improving search efficiency."
+  en_machine_translated: true
+  result_zh: "目标是降低每个候选的评估成本；定量结果待细读。"
+  result_en: "Aims to reduce evaluation cost per candidate; quantitative results need close reading."
+
+- id: ecdysis
+  scope: core
+  title: "ECDYSIS: Efficient and Effective Training of Runtime Harnesses for LLM Agents"
+  arxiv: "2609.11677"
+  date: "2026-09"
+  section: evidence_selection
+  summary_zh: "用「失败是否跨任务反复出现」区分模型局限与 Harness 本身的缺陷，只让反复出现的 Harness 缺陷驱动持久修改。"
+  summary_en: "Uses whether failures recur across tasks to distinguish model limitations from defects in the harness itself; only recurring harness defects drive persistent edits."
+  en_machine_translated: true
+  result_zh: "演化出的 Harness 推理准确率比现有演化方法高 18.56%，训练最多快 1.84 倍。"
+  result_en: "The evolved harness has reasoning accuracy 18.56% higher than existing evolution methods, with training up to 1.84 times faster."
+
+- id: activesaddler
+  scope: core
+  title: "ActiveSaddler: Automated Curriculum Learning for Agent Harness Optimization"
+  arxiv: "2610.00906"
+  date: "2026-10-01"
+  section: evidence_selection
+  orgs: ["Microsoft"]
+  evidence: {matched_budget_baseline: yes}
+  summary_zh: "把反复出现的失败抽象成动态增加的失败模式，用非平稳多臂赌博机在已知弱点与新场景间分配任务，课程随 Harness 一起变。"
+  summary_en: "Abstracts recurring failures into a dynamically growing set of failure patterns and uses a nonstationary multi-armed bandit to allocate tasks between known weaknesses and new scenarios; the curriculum changes with the harness."
+  en_machine_translated: true
+  result_zh: "同一优化器下，相比事先固定任务顺序，GAIA2 与 TB2.0 测试 Pass@1 分别 +4.4、+7.5pp。"
+  result_en: "With the same optimizer, test Pass@1 on GAIA2 and TB2.0 improves by +4.4 and +7.5pp respectively over a task order fixed in advance."
+
+- id: ssr
+  scope: core
+  title: "Forging More Tasks into Better Harnesses: Agentic Harness Evolution via Successive Scale Racing (SSR)"
+  arxiv: "2610.28815"
+  date: "2026-10-20"
+  section: evidence_selection
+  summary_zh: "按任务质量与覆盖构造多种证据组合，各生成候选 Harness，再用小预算逐轮竞赛淘汰。"
+  summary_en: "Constructs multiple evidence combinations based on task quality and coverage, generates a candidate harness from each, then eliminates candidates through successive small-budget competitions."
+  en_machine_translated: true
+  result_zh: "动机：AHE 在 80 个任务时最高 63.0%，扩到 200 个反而降到 57.7%；SSR 在任务池从 40 扩到 200 时通过率持续上升。"
+  result_en: "Motivation: AHE peaks at 63.0% with 80 tasks but falls to 57.7% when expanded to 200; SSR’s pass rate keeps increasing as the task pool grows from 40 to 200."
+
+# ---------------- 2. Improver ----------------
+- id: hyperagents
+  scope: core
+  title: "Hyperagents (DGM-H)"
+  arxiv: "2603.19461"
+  date: "2026-03"
+  section: improver
+  must_read: true
+  orgs: ["Meta FAIR", "UBC"]
+  route: editable_procedure
+  summary_zh: "任务 Agent 与元 Agent 合并成同一个可编辑程序，元层修改程序本身也可改。"
+  summary_en: "Merges the task agent and meta agent into a single editable program; the program that makes meta-level edits can itself be modified."
+  en_machine_translated: true
+  result_zh: "在编码、论文评审、机器人奖励设计、奥赛数学批改上都超过 DGM；元层改进可跨领域迁移。最常引的元改进基线。"
+  result_en: "Exceeds DGM in coding, paper reviewing, robot reward design, and Olympiad mathematics grading; meta-level improvements transfer across domains. The most frequently cited meta-improvement baseline."
+
+- id: last-harness
+  scope: core
+  title: "The Last Harness You'll Ever Build"
+  arxiv: "2604.21003"
+  date: "2026-04"
+  section: improver
+  needs_reading: true
+  route: editable_procedure
+  summary_zh: "两层框架：内层针对单任务优化工作 Agent；外层 Meta-Evolution Agent 优化评估器、演化策略、信息流等「演化循环本身」。"
+  summary_en: "A two-level framework: the inner loop optimizes a worker agent for a single task; an outer Meta-Evolution Agent optimizes the “evolution loop itself,” including evaluators, evolution strategies, and information flow."
+  en_machine_translated: true
+  result_zh: "概念清晰，适合引为两层形式化的来源；定量结果待细读。"
+  result_en: "Conceptually clear and useful as a source for two-level formalization; quantitative results need close reading."
+
+- id: metaskill-evolve
+  scope: core
+  title: "MetaSkill-Evolve"
+  arxiv: "2607.05297"
+  date: "2026-07"
+  section: improver
+  orgs: ["LMU"]
+  route: editable_procedure
+  summary_zh: "每个分支带一个「元技能」，参数化分析、检索、分配、提案、演化五个 Agent；任务技能快循环、元技能慢循环。"
+  summary_en: "Each branch carries a “meta-skill” that parameterizes five agents for analysis, retrieval, allocation, proposal, and evolution; task skills have a fast loop and meta-skills a slow loop."
+  en_machine_translated: true
+  result_zh: "冻结 Gemma-4 31B：OfficeQA +23.54、SealQA +16.09、ALFWorld +1.92；元技能在任务技能进入平台期后最有用。"
+  result_en: "Frozen Gemma-4 31B: OfficeQA +23.54, SealQA +16.09, ALFWorld +1.92; meta-skills are most useful after task skills plateau."
+
+- id: hsi
+  scope: core
+  title: "Hierarchical Self-Improvement: A Framework for Task-Specific Evolvable Agent Harnesses"
+  arxiv: "2608.08466"
+  date: "2026-08-09"
+  section: improver
+  route: editable_procedure
+  summary_zh: "同一个冻结模型在三个层级工作：任务 Harness、改写它的演化器、改写演化器策略的元演化器；最外层锚点冻结。单谱系设计便于归因。"
+  summary_en: "The same frozen model works at three levels: a task harness, an evolver that rewrites it, and a meta-evolver that rewrites the evolver’s strategy; the outermost anchor stays frozen. A single-lineage design aids attribution."
+  en_machine_translated: true
+  result_zh: "报告了边界：超出骨干能力的任务（NLE）上没有提升。"
+  result_en: "Reports a boundary: no improvement on tasks beyond the backbone’s capabilities (NLE)."
+
+- id: harness-r1
+  scope: core
+  title: "Harness-R1"
+  arxiv: "2608.02276"
+  date: "2026-08"
+  section: improver
+  orgs: ["SJTU", "Xiaohongshu"]
+  route: trained_improver
+  evidence: {who_edits: trained}
+  summary_zh: "把「根据失败轨迹编辑可执行 Harness」当作策略，冷启动 SFT 后用 GRPO 在线训练。"
+  summary_en: "Treats editing an executable harness from failure trajectories as a policy, using online GRPO training after cold-start SFT."
+  en_machine_translated: true
+  result_zh: "WebShop、ALFWorld、DBBench 上把 Qwen3.5-9B 从 44.3% 提到 53.6%。"
+  result_en: "Raises Qwen3.5-9B from 44.3% to 53.6% on WebShop, ALFWorld, and DBBench."
+
+- id: meta-n
+  scope: core
+  title: "Meta^n"
+  arxiv: "2608.24735"
+  date: "2026-08"
+  section: improver
+  must_read: true
+  route: fixed_procedure_recursive_input
+  summary_zh: "元操作固定，只递归它的输入，层数由收敛决定。"
+  summary_en: "Keeps the meta-operation fixed and recurses only over its input; convergence determines the number of levels."
+  en_machine_translated: true
+  result_zh: "八类 benchmark 超过已有自改进 Agent；ARC-AGI-2 唯一得分高于零。"
+  result_en: "Exceeds existing self-improving agents across eight benchmark categories; the only score above zero on ARC-AGI-2."
+
+- id: metarsi
+  scope: core
+  needs_review: true
+  review_suggestion_zh: "保留 improver，建议另标 meta、model_weights、data_task；多对象联合改进需分清贡献。"
+  review_suggestion_en: "Retain improver; suggested related directions are meta, model_weights and data_task, with separate attribution."
+  title: "MetaRSI / RSI²"
+  arxiv: "2609.06396"
+  date: "2026-09"
+  section: improver
+  needs_reading: true
+  route: editable_procedure
+  summary_zh: "用统一 Loop Kernel 把模型、数据、Harness 三类改进写成可调度算子，元层修订调度策略。"
+  summary_en: "A unified Loop Kernel expresses improvements to models, data, and harnesses as schedulable operators; the meta level revises the scheduling strategy."
+  en_machine_translated: true
+  result_zh: "中文媒体报道：3B 激活参数模型平均 +10.9 分；须核对正文。"
+  result_en: "Chinese media reports: a model with 3B active parameters gains +10.9 points on average; the full text must be checked."
+
+- id: harness-learning-tta
+  scope: core
+  title: "Harness Learning Enables Generalizable Test-Time Adaptation"
+  arxiv: "2609.35738"
+  date: "2026-09"
+  section: improver
+  needs_reading: true
+  route: trained_improver
+  evidence: {who_edits: trained}
+  summary_zh: "用修订后 Harness 的任务表现作奖励，强化学习训练 Harness 提案者。"
+  summary_en: "Uses task performance under the revised harness as a reward to train a harness proposer with reinforcement learning."
+  en_machine_translated: true
+  result_zh: "训练后的提案者在多轮测试时适配中持续改进，并能泛化到新的适配上下文；定量结果待细读。"
+  result_en: "The trained proposer keeps improving over multiple rounds of test-time adaptation and generalizes to new adaptation contexts; quantitative results need close reading."
+
+- id: aide2
+  scope: core
+  title: "AIDE²: Recursive Self-Improvement of AI Research Agents"
+  arxiv: "2609.26457"
+  date: "2026-09-22"
+  section: improver
+  must_read: true
+  orgs: ["Weco AI"]
+  route: improver_is_improved
+  evidence: {who_edits: self, held_out: yes}
+  summary_zh: "研究 Agent 改自己的代码，提升的正是它做研究（即改进）的效率；用隐藏评测做选择。"
+  summary_en: "A research agent edits its own code, improving its efficiency at research, which is itself improvement; selection uses hidden evaluations."
+  en_machine_translated: true
+  result_zh: "8 天 7 次连续改进，迁移到 4 个留出 benchmark；奖励作弊率 55% 降到 32%。"
+  result_en: "7 consecutive improvements in 8 days, transferring to 4 held-out benchmarks; reward hacking falls from 55% to 32%."
+
+- id: mixture-branches
+  scope: core
+  title: "Mixture of Self-Improving Branches for Agent Harness Optimization"
+  arxiv: "2609.37834"
+  date: "2026-09"
+  section: improver
+  route: adaptive_search
+  summary_zh: "把搜索分成多个分支，每个分支有自己演化中的开发子集和提案策略；部署版本与路由配置只按开发集选。"
+  summary_en: "Splits search into multiple branches, each with its own evolving development subset and proposal strategy; deployment versions and routing configurations are selected only on the development set."
+  en_machine_translated: true
+  result_zh: "相对 Meta-Harness：奥赛数学 +34.8%、TB2.0 +11.6%、SWE-bench Lite +3.8%（相对提升）。"
+  result_en: "Relative to Meta-Harness: Olympiad mathematics +34.8%, TB2.0 +11.6%, SWE-bench Lite +3.8% (relative gains)."
+
+- id: milo
+  scope: core
+  title: "MILO: Automated Harness Discovery via Orchestrated Multi-Agent Evolution"
+  arxiv: "2609.38349"
+  date: "2026-09-29"
+  section: improver
+  route: adaptive_search
+  summary_zh: "多个演化岛维护谱系树与历史记忆，保留失败突变作负面证据；编排器调整谱系嫁接、分化、修改 Agent 分配和课程。"
+  summary_en: "Multiple evolutionary islands maintain lineage trees and historical memory, retaining failed mutations as negative evidence; an orchestrator adjusts lineage grafting, differentiation, editing-agent allocation, and curriculum."
+  en_machine_translated: true
+  result_zh: "Opus 4.8 下 TB2.1、PaperBench、DeepSWE 相对初始 Harness +12.0%、+28.3%、+10.3%，此前最好的搜索方法为 +4.5%、+18.3%、0%。"
+  result_en: "With Opus 4.8, TB2.1, PaperBench, and DeepSWE gain +12.0%, +28.3%, and +10.3% over the initial harness, versus +4.5%, +18.3%, and 0% for the previous best search method."
+
+- id: harness2
+  scope: core
+  title: "Harness²: Recursive Agent Harnessing for an Open World"
+  arxiv: "2610.14224"
+  date: "2026-10-09"
+  section: improver
+  route: editable_procedure
+  evidence: {feedback: proxy}
+  summary_zh: "开放世界、无真值验证器：任务层用「提出—试探—组合」对比步引导编辑，上层把编辑经验沉淀到持续改进 Harness。"
+  summary_en: "Open world without a ground-truth verifier: the task level guides edits through “propose–probe–compose” contrastive steps; the upper level distills editing experience into a continually improving harness."
+  en_machine_translated: true
+  result_zh: "单步 WorkBuddy-Bench 最高 +11.5。"
+  result_en: "Up to +11.5 on single-step WorkBuddy-Bench."
+
+- id: rsiflow
+  scope: core
+  title: "RSIFlow: Adaptive Self-Improvement Workflows with an Evolving Meta-Agent"
+  arxiv: "2610.21791"
+  date: "2026-10-15"
+  section: improver
+  needs_reading: true
+  route: editable_procedure
+  summary_zh: "按轨迹诊断瓶颈，动态选择面向不同组件的改进工作流；元 Agent 把结果提炼成组件技能与跨组件原则，再更新自己的 Harness。"
+  summary_en: "Diagnoses bottlenecks from trajectories and dynamically selects improvement workflows for different components; a meta agent distills outcomes into component skills and cross-component principles, then updates its own harness."
+  en_machine_translated: true
+  result_zh: "六个基准、两个基础模型上评估；定量结果待细读。"
+  result_en: "Evaluated on six benchmarks and two base models; quantitative results need close reading."
+
+# ---------------- 3. Component-level ----------------
+- id: skillopt-lite
+  scope: core
+  title: "SkillOpt-Lite: Better and Faster Agent Self-evolution via One Line of Vibe"
+  arxiv: "2607.03451"
+  date: "2026-07-03"
+  section: component
+  code: "https://github.com/EvolvingLMMs-Lab/SkillOpt-Lite"
+  edit_targets: [skills, whole_harness]
+  evidence: {code_released: yes}
+  summary_zh: "把技能优化形式化为零阶优化，精简为文件系统轨迹探索、共性属性挖掘、独立验证准入三步；已接入 VS Code Copilot。适合轻量原型。"
+  summary_en: "Formalizes skill optimization as zeroth-order optimization, simplified to three steps: filesystem trajectory exploration, common-property mining, and admission through independent validation; already integrated into VS Code Copilot. Suitable for lightweight prototypes."
+  en_machine_translated: true
+  result_zh: "LiveMath：GPT-5.5 +8.8、GPT-5.4-nano +25.4；HarnessOpt 让 nano 在 SpreadsheetBench 上达 0.7758，高于标准流程下的 GPT-5.5（0.7620）。"
+  result_en: "LiveMath: GPT-5.5 +8.8, GPT-5.4-nano +25.4; HarnessOpt brings nano to 0.7758 on SpreadsheetBench, above GPT-5.5 with the standard procedure (0.7620)."
+
+- id: living-harness
+  scope: core
+  title: "Living-Harness Is an Interactive-Agent Evolver"
+  arxiv: "2607.26598"
+  date: "2026-07-29"
+  section: component
+  needs_reading: true
+  edit_targets: [memory, state_graph]
+  summary_zh: "把完成的轨迹和评估信号写入情景记忆（触发条件、失败模式、恢复动作）和状态图（修复边、转移规则）；工具与基础上下文保持冻结。"
+  summary_en: "Writes completed trajectories and evaluation signals into episodic memory (triggers, failure patterns, recovery actions) and a state graph (repair edges, transition rules); tools and base context remain frozen."
+  en_machine_translated: true
+  result_zh: "不等同于执行程序重写；定量结果待细读。"
+  result_en: "Not equivalent to rewriting the execution program; quantitative results need close reading."
+
+- id: pilot
+  scope: core
+  title: "PILOT in the Loop: Live Self-Improvement for Long-Horizon Agents"
+  arxiv: "2608.26530"
+  date: "2026-08-28"
+  section: component
+  edit_targets: [skills, memory]
+  evidence: {timing: during_run}
+  summary_zh: "监督者—工作者结构：监督者在运行中实时纠偏或中止工作者，同时把本次暴露的流程和失败模式沉淀为持久技能与记忆。"
+  summary_en: "A supervisor–worker structure: the supervisor corrects or stops the worker in real time during execution, while distilling the procedures and failure patterns exposed in that run into persistent skills and memory."
+  en_machine_translated: true
+  result_zh: "TB2.0 上比对应 Harness 最多高 9.8pp；自改进设置下 GLM-5.1 +14.6、Kimi-K2.6 +12.4。"
+  result_en: "Up to 9.8pp above the corresponding harness on TB2.0; in the self-improvement setting, GLM-5.1 +14.6 and Kimi-K2.6 +12.4."
+
+- id: contextevo
+  scope: core
+  title: "Beyond Skill Evolution: Self-Evolving Context Management Policies for Long-Horizon Agent Harnesses (ContextEvo)"
+  arxiv: "2609.34649"
+  date: "2026-09"
+  section: component
+  edit_targets: [context]
+  summary_zh: "从长程轨迹学习覆盖信息全生命周期的上下文策略；作者指出基于经验和技能的演化在长程任务上效果差。"
+  summary_en: "Learns context strategies covering the full information lifecycle from long-horizon trajectories; the authors note that experience- and skill-based evolution performs poorly on long-horizon tasks."
+  en_machine_translated: true
+  result_zh: "从开源 Pi-agent 出发，在三个长程基准上达到或超过 Codex、OpenCode、OpenClaw。"
+  result_en: "Starting from the open-source Pi-agent, matches or exceeds Codex, OpenCode, and OpenClaw on three long-horizon benchmarks."
+
+- id: agent-s4
+  scope: core
+  title: "Evolving Agent Interfaces (Agent S4)"
+  arxiv: "2610.28601"
+  date: "2026-10-20"
+  section: component
+  orgs: ["Simular"]
+  code: "https://github.com/simular-ai/Agent-S"
+  edit_targets: [interfaces]
+  evidence: {feedback: proxy, held_out: yes, code_released: yes, cost_reported: yes}
+  summary_zh: "元 Agent 阅读合成任务上的无成功标签轨迹，写入并修订接口仓库；种群选择按元 Agent 看不到的验证任务决定保留哪些仓库。"
+  summary_en: "A meta agent reads trajectories without success labels on synthetic tasks, writing and revising interface repositories; population selection retains repositories using validation tasks hidden from the meta agent."
+  en_machine_translated: true
+  result_zh: "OSWorld V2 上 Qwen3.8-27B 达 21.3%，是固定接口的 3.8 倍，高于 Opus 4.8（20.6%）与 GPT-5.5（13.0%）；ScienceBoard 41.4%→58.6%。"
+  result_en: "On OSWorld V2, Qwen3.8-27B reaches 21.3%, 3.8 times the fixed-interface result, above Opus 4.8 (20.6%) and GPT-5.5 (13.0%); ScienceBoard 41.4%→58.6%."
+
+# ---------------- 4. Co-evolution ----------------
+- id: sia
+  scope: core
+  title: "SIA: Self Improving AI with Harness & Weight Updates"
+  arxiv: "2605.27276"
+  date: "2026-05"
+  section: coevolution
+  orgs: ["Hexo Labs", "Oxford"]
+  weight_update: "LoRA + PPO/GRPO"
+  summary_zh: "Feedback-Agent 读完整轨迹，在「改 Harness」和「更新权重」之间选择。局限：选择策略是静态的，两个优化器共用同一验证器，有 Goodhart 风险。"
+  summary_en: "A Feedback-Agent reads full trajectories and chooses between modifying the harness and updating weights. Limitations: the selection policy is static, and both optimizers share the same verifier, creating a Goodhart risk."
+  en_machine_translated: true
+  result_zh: "LawBench 仅改 Harness 50%，加权重更新达 70.1%；CUDA kernel 加速 14.02 倍。"
+  result_en: "On LawBench, harness-only changes reach 50%, rising to 70.1% with weight updates; CUDA kernels speed up by 14.02 times."
+
+- id: harnessforge
+  scope: core
+  title: "HarnessForge: Joint Harness and Policy Evolution for Adaptive Agent Systems"
+  arxiv: "2606.01779"
+  date: "2026-06"
+  section: coevolution
+  orgs: ["Beihang", "Tsinghua"]
+  weight_update: "harness-conditioned policy alignment"
+  summary_zh: "把 Agent 系统形式化为「Harness—策略对」：故障引导裁剪 Harness，再在幸存 Harness 下对齐策略。"
+  summary_en: "Formalizes an agent system as a harness–policy pair: failure-guided harness pruning, followed by policy alignment under the surviving harness."
+  en_machine_translated: true
+  result_zh: "Qwen3-4B/8B 五个 benchmark 上最多超最强基线 12.0%；同一轮配对优于错配。"
+  result_en: "Qwen3-4B/8B exceeds the strongest baseline by up to 12.0% across five benchmarks; pairing within the same round outperforms mismatched pairs."
+
+- id: harnessx
+  scope: core
+  title: "HarnessX: A Composable, Adaptive, and Evolvable Agent Harness Foundry"
+  arxiv: "2606.14249"
+  date: "2026-06"
+  section: coevolution
+  must_read: true
+  orgs: ["Xiaomi (Darwin Agent Team)"]
+  code: "https://github.com/Darwin-Agent/HarnessX"
+  weight_update: "cross-harness GRPO"
+  evidence: {code_released: yes}
+  summary_zh: "类型化 Harness 原语 + 替换代数；AEGIS 把轨迹转成 Harness 更新；同一任务在不同 Harness 版本下的轨迹合并做 GRPO。"
+  summary_en: "Typed harness primitives plus a replacement algebra; AEGIS converts trajectories into harness updates; trajectories for the same task under different harness versions are pooled for GRPO."
+  en_machine_translated: true
+  result_zh: "15 个模型—基准配置中 14 个提升，平均 +14.5%（最高 +44.0%）；交替加入权重更新后峰值再 +4.7%。SWE-bench Verified 上 GPT-5.4 在第 3 轮达峰后回落。"
+  result_en: "Improves in 14 of 15 model–benchmark configurations, averaging +14.5% (up to +44.0%); alternating weight updates adds another +4.7% at peak. On SWE-bench Verified, GPT-5.4 peaks in round 3 and then declines."
+
+- id: co-harness
+  scope: core
+  title: "Co-Harness: Co-Evolving Harnesses and Model Weights for LLM Agents"
+  arxiv: "2607.22688"
+  date: "2026-07"
+  section: coevolution
+  needs_reading: true
+  weight_update: "alternating with harness updates"
+  summary_zh: "Harness Critic 把每条失败归因到五个 Harness 维度之一，按复现频率、严重度聚合成一份 Harness Diff，不达标则拒绝。"
+  summary_en: "A Harness Critic attributes each failure to one of five harness dimensions and aggregates them by recurrence frequency and severity into a Harness Diff, rejecting it if it fails the criteria."
+  en_machine_translated: true
+  result_zh: "失败归因分类表可直接复用；定量结果待细读。"
+  result_en: "The failure-attribution taxonomy can be reused directly; quantitative results need close reading."
+
+- id: evoharness-rl
+  scope: background
+  needs_review: true
+  review_suggestion_zh: "建议主方向 model_weights；原摘要描述训练模型读写外部状态，需正文确认 Harness 是否独立演化。"
+  review_suggestion_en: "Suggested primary: model_weights. Verify whether the harness evolves separately from the trained state-editing policy."
+  title: "EvoHarness-RL: Learning Self-Evolving Runtime Harness for Long-Horizon LLM Agents"
+  arxiv: "2608.05446"
+  date: "2026-08"
+  section: coevolution
+  orgs: ["UIUC", "Meta"]
+  weight_update: "SFT + cost-aware GRPO"
+  summary_zh: "不是改 Harness 代码，而是训练模型在运行时读写和整合 Belief、Progress、Experience 三类外部状态。"
+  summary_en: "Trains the model to read, write, and integrate three types of external state at runtime, Belief, Progress, and Experience, rather than editing harness code."
+  en_machine_translated: true
+  result_zh: "ALFWorld 上 Qwen3-8B 从 47.9% 到 96.9%（未见任务 86.6%）；观察到「Harness 退火」，调用频率降到每回合约一次。"
+  result_en: "On ALFWorld, Qwen3-8B rises from 47.9% to 96.9% (86.6% on unseen tasks); “harness annealing” is observed, with calls falling to about once per episode."
+
+- id: helix
+  scope: core
+  title: "HELIX"
+  arxiv: "2608.13951"
+  date: "2026-08"
+  section: coevolution
+  orgs: ["HKUDS"]
+  weight_update: "training data only"
+  summary_zh: "build–update–rebuild 的可审计实现。"
+  summary_en: "An auditable implementation of build–update–rebuild."
+  en_machine_translated: true
+  result_zh: "只跑了一轮，未实际训练更新后的模型；适合作为问题形式化的参考。"
+  result_en: "Runs only one round and does not actually train the updated model; useful as a reference for problem formalization."
+
+- id: safeevolve
+  scope: core
+  title: "SafeEvolve"
+  arxiv: "2609.02786"
+  date: "2026-09"
+  section: coevolution
+  weight_update: "policy training"
+  tags: [safety]
+  summary_zh: "把 Harness—策略协同演化用于安全对齐：同时看攻击与有害服从率以及效用。"
+  summary_en: "Applies harness–policy co-evolution to safety alignment, considering attack and harmful-compliance rates alongside utility."
+  en_machine_translated: true
+  result_zh: "演化出的 Harness 可跨策略迁移，但弱策略执行不了这些指导，说明需要协同演化。"
+  result_en: "The evolved harness transfers across policies, but weak policies cannot execute its guidance, indicating a need for co-evolution."
+
+- id: co-evolving-harnesses-models
+  scope: core
+  title: "Co-Evolving Harnesses and Models"
+  arxiv: "2609.09134"
+  date: "2026-09"
+  section: coevolution
+  must_read: true
+  weight_update: "on-policy expert correction + SFT"
+  summary_zh: "先用弱模型演化 Harness；发现让弱模型模仿强模型完整轨迹会破坏契合；改为只让专家重写弱模型自己轨迹中出错的那一轮。"
+  summary_en: "First evolves a harness using a weak model; finds that making the weak model imitate a strong model’s full trajectories breaks their fit; instead, the expert rewrites only the erroneous turn in the weak model’s own trajectory."
+  en_machine_translated: true
+  result_zh: "7 个企业任务上，全轨迹模仿导致 4–30 分退化；在策略纠正在不破坏 Harness 增益的前提下继续提升。"
+  result_en: "Across 7 enterprise tasks, full-trajectory imitation causes declines of 4–30 points; on-policy correction further improves performance without destroying harness gains."
+
+- id: mass
+  scope: core
+  title: "MASS"
+  arxiv: "2610.12176"
+  date: "2026-10"
+  section: coevolution
+  orgs: ["Sakana AI"]
+  weight_update: "SFT on self-generated trajectories"
+  summary_zh: "与 RHI 同团队：演化多 Agent 工作流后在自生成轨迹上 SFT，改进后的模型又成为更好的优化器与评估器。"
+  summary_en: "From the same team as RHI: after evolving multi-agent workflows, performs SFT on self-generated trajectories; the improved model then becomes a better optimizer and evaluator."
+  en_machine_translated: true
+  result_zh: "两轮后单位输出 token 性能为基座的 1.2–1.6 倍。"
+  result_en: "After two rounds, performance per output token is 1.2–1.6 times that of the base model."
+
+- id: self-hpo
+  scope: core
+  title: "Self-Evolving Coding Agents via Harness-Policy Optimization (Self-HPO)"
+  arxiv: "2610.22791"
+  date: "2026-10-16"
+  section: coevolution
+  orgs: ["Microsoft Research", "UVA", "CMU"]
+  code: "https://github.com/MSR-Orchard/Self-HPO"
+  weight_update: "RL"
+  evidence: {who_edits: self, code_released: yes, evolved_harness_released: yes}
+  summary_zh: "H-step 由当前策略分析自身失败并提出 Harness 候选；P-step 在选定 Harness 下做 RL；仍未解决的任务成为下一轮搜索集。"
+  summary_en: "In the H-step, the current policy analyzes its own failures and proposes harness candidates; in the P-step, it performs RL under the selected harness; still-unsolved tasks become the next round’s search set."
+  en_machine_translated: true
+  result_zh: "Qwen3.5-35B-A3B 在三个 SWE-bench 上平均 57.8%→64.8%，优于只改一边；用 Opus 4.8 当外部提议器的 HPO 达 66.3%，自我提议还没追上强外部提议器。"
+  result_en: "Qwen3.5-35B-A3B averages 57.8%→64.8% across three SWE-bench benchmarks, outperforming changes to only one side; HPO with Opus 4.8 as an external proposer reaches 66.3%, so self-proposal has not caught up with a strong external proposer."
+
+- id: coevo-rsi
+  scope: core
+  title: "CoEvo-RSI: When Harnesses Evolve, Which Models Should Follow?"
+  arxiv: "2610.25078"
+  date: "2026-10-18"
+  section: coevolution
+  weight_update: "checkpoint selection/merge + SFT"
+  summary_zh: "元 Agent 借共享演化档案双向继承历史 Harness 与模型检查点，用自身拒绝采样轨迹微调，缓解「脑体错配」。"
+  summary_en: "A meta agent uses a shared evolutionary archive for bidirectional inheritance of historical harnesses and model checkpoints, fine-tuning on its own rejection-sampled trajectories to mitigate “brain–body mismatch.”"
+  en_machine_translated: true
+  result_zh: "Qwen3.5-9B 在 TraceElephant 上超 DeepSeek-V4-Pro 14.16 分。"
+  result_en: "Qwen3.5-9B exceeds DeepSeek-V4-Pro by 14.16 points on TraceElephant."
+
+- id: harnessadapt-rl
+  scope: core
+  title: "Training the Whole Agent, Not Just the Model (HarnessAdapt-RL)"
+  arxiv: "2610.28069"
+  date: "2026-10-20"
+  section: coevolution
+  weight_update: "RL"
+  summary_zh: "RL 期间，一个教师生成任务相关的机制级技能，另一个根据反复出现的交互问题演化工具和 hooks；只保留使通过率或可训练率提高且另一指标不降的修改。"
+  summary_en: "During RL, one teacher generates task-related mechanism-level skills, while another evolves tools and hooks from recurring interaction problems; retains only edits that improve pass rate or trainability without lowering the other metric."
+  en_machine_translated: true
+  result_zh: "9B 模型在三个 SWE-bench 上平均 pass@1 比 GRPO 高 9.6pp；部署时去掉演化出的工具和 hooks 最多损失 7.7pp，交付物是模型与 Harness 的组合。"
+  result_en: "A 9B model averages 9.6pp higher pass@1 than GRPO across three SWE-bench benchmarks; removing evolved tools and hooks at deployment loses up to 7.7pp, so the deliverable is a model–harness combination."
+
+- id: herd
+  scope: core
+  title: "HERD: Harness-Evolving Recursive Distillation for Continual Learning"
+  arxiv: "2610.31401"
+  date: "2026-10-22"
+  section: coevolution
+  needs_reading: true
+  weight_update: "drift-constrained self-distillation"
+  summary_zh: "Harness 侧持续修订技能，并在有界记忆里保留技能解释不了的高残差样例；参数侧用双锚点（上一检查点与基座）约束漂移，把经验吸收进权重。"
+  summary_en: "On the harness side, continually revises skills and retains high-residual examples unexplained by the skills in bounded memory; on the parameter side, two anchors, the previous checkpoint and the base model, constrain drift while absorbing experience into weights."
+  en_machine_translated: true
+  result_zh: "在 25 阶段的 TRACE+17 任务流上显著减少遗忘；定量结果待细读。"
+  result_en: "Significantly reduces forgetting on a 25-stage TRACE+17 task stream; quantitative results need close reading."
+
+# ---------------- 5. Evaluation ----------------
+- id: harness-updating-not-benefit
+  scope: harness_eval
+  title: "Harness Updating Is Not Harness Benefit"
+  arxiv: "2605.30621"
+  date: "2026-05"
+  section: evaluation
+  must_read: true
+  orgs: ["Penn State", "UCSC", "Amazon"]
+  kind: capability_decomposition
+  summary_zh: "「产出好更新」的能力与模型强弱几乎无关（Qwen3.5-9B 接近 Claude Opus 4.6）；「从更新中获益」则非单调，中等模型获益最大。"
+  summary_en: "The ability to produce good updates is almost unrelated to model strength (Qwen3.5-9B is close to Claude Opus 4.6); the ability to benefit from updates is nonmonotonic, with medium-sized models benefiting most."
+  en_machine_translated: true
+
+- id: rethinking-evaluation
+  scope: harness_eval
+  title: "Rethinking the Evaluation of Harness Evolution for Agents"
+  arxiv: "2607.12227"
+  date: "2026-07-14"
+  section: evaluation
+  must_read: true
+  orgs: ["AI2", "UW"]
+  kind: evaluation_critique
+  code: "https://github.com/rethinking-harness-evolution"
+  evidence: {matched_budget_baseline: yes, held_out: yes, code_released: yes}
+  summary_zh: "同等反馈与推理预算下，TB2.1 上 Harness 演化未胜过并行采样和顺序修正；留出任务上 Opus 4.6 只 +1.2、GPT-5.4 不变。但在反馈更细、动态更多的长程游戏上优势明显。"
+  summary_en: "With equal feedback and inference budgets, harness evolution on TB2.1 does not beat parallel sampling or sequential revision; on held-out tasks, Opus 4.6 gains only +1.2 and GPT-5.4 is unchanged. However, it has a clear advantage in long-horizon games with finer feedback and more dynamics."
+  en_machine_translated: true
+
+- id: self-authored-verification
+  scope: harness_eval
+  title: "Self-Authored Verification Is Unreliable"
+  arxiv: "2607.24300"
+  date: "2026-07"
+  section: evaluation
+  kind: verification
+  summary_zh: "由 Agent 自己写测试来验收改进时，自评分与真实表现严重背离；提出引入少量外部信任的封闭验收循环。"
+  summary_en: "When agents write their own tests to accept improvements, self-scores diverge severely from actual performance; proposes a closed acceptance loop with a small amount of externally trusted input."
+  en_machine_translated: true
+
+- id: autoharnessbench
+  scope: harness_eval
+  title: "AutoHarnessBench"
+  url: "https://www.autoharnessbench.com/blog/"
+  date: "2026-07"
+  section: evaluation
+  kind: benchmark
+  summary_zh: "固定权重下的 Harness 搜索评测，公开反馈与留出评估分离；目前以项目网站形式发布。"
+  summary_en: "Evaluates harness search with fixed weights, separating public feedback from held-out evaluation; currently released as a project website."
+  en_machine_translated: true
+
+- id: harnessopt-bench
+  scope: harness_eval
+  title: "HarnessOpt-Bench: Evaluating LLMs at Harness Optimization"
+  arxiv: "2608.06301"
+  date: "2026-08-06"
+  section: evaluation
+  orgs: ["Scale AI"]
+  kind: benchmark
+  summary_zh: "优化器拿到种子 Harness 和固定评估预算，提交后在搜索期间不可见的测试集上计分。5 个前沿模型、111 次运行：优化器模型本身比它用的编码 Harness 更重要，原生 Harness 并不总是更好。"
+  summary_en: "The optimizer receives a seed harness and a fixed evaluation budget; after submission it is scored on a test set hidden during search. Across 5 frontier models and 111 runs, the optimizer model itself matters more than its coding harness, and native harnesses are not always better."
+  en_machine_translated: true
+
+- id: evo-bench
+  scope: harness_eval
+  title: "Evo-Bench: Can Language Models Improve Agent Harness?"
+  arxiv: "2608.09096"
+  date: "2026-08"
+  section: evaluation
+  orgs: ["RUC", "BOSS Zhipin"]
+  kind: benchmark
+  summary_zh: "专门评测模型「演化 Harness」的能力，按任务对 Harness 质量的敏感度选题；最强演化者比 CodeAct 种子 +16.6，接近人工 Harness；办公类任务仍落后。"
+  summary_en: "Specifically evaluates models’ ability to evolve harnesses, selecting tasks by their sensitivity to harness quality; the strongest evolver gains +16.6 over the CodeAct seed and approaches a human-designed harness, while still lagging on office tasks."
+  en_machine_translated: true
+
+- id: aspire
+  scope: general_rsi
+  title: 'Aspire: Can Models Self-Evolve from Vague Goals?'
+  arxiv: '2608.31111'
+  date: '2026-08-31'
+  section: evaluation
+  kind: benchmark
+  orgs:
+  - ByteDance Seed
+  - Singapore University of Technology and Design
+  - M-A-P
+  - TokenWave.AI
+  needs_reading: false
+  summary_zh: 通用 RSI 基准，主体评测模型从模糊目标选择数据并进行参数训练；另有一次 Harness 创建实验，尚未测试新 Harness 继续创建下一代。不计入 Harness 方法数。
+  summary_en: A general RSI benchmark centered on choosing data and training model parameters from vague goals. It also tests a single harness-creation step, without testing the created harness as the developer of another generation; excluded from harness method counts.
+  result_zh: Final-only 的 12 个模型–目标组合各跑 2 次，只有 1 个组合的均值高于基座（+2.67）；adaptive-feedback 的 30 格只有 1 格保留提升（+2.24），该分数受同一评估集反馈选优影响。
+  result_en: Each of 12 model–goal pairs has 2 final-only runs; only 1 pair has a mean above the base (+2.67). Among 30 adaptive-feedback cells, only 1 retains a gain (+2.24), selected using feedback from the same evaluation set.
+  en_machine_translated: true
+  evidence:
+    held_out: partial
+    cost_reported: partial
+    reliability_metric: partial
+    timing: offline
+
+- id: s3gym
+  scope: general_rsi
+  title: 'S3Gym: Can LLMs Turn Self-Testing and Self-Judging into Self-Improvement?'
+  arxiv: '2608.31100'
+  date: '2026-08-31'
+  section: evaluation
+  kind: benchmark
+  orgs:
+  - ByteDance Seed
+  - M-A-P
+  - TokenWave.AI
+  needs_reading: false
+  summary_zh: 通用 RSI 基准，在 7 个游戏中比较历史上下文、总结记忆和参数训练 3 条路径。改进对象是经验内容或权重；未见改写记忆管理程序或控制流的证据，不计入 Harness 方法数。
+  summary_en: 'A general RSI benchmark comparing 3 pathways across 7 games: history context, summary memory, and parameter training. It changes experience content or weights; no evidence establishes mutation of memory-management programs or control flow, so it is excluded from harness method counts.'
+  result_zh: 事件级正反馈一致率与下一评估点归一化增益的全基准分块相关为 ρ=−0.010。探索与评估随机种子分离；路径间交互预算对齐不等于总 token、训练算力或成本对齐。
+  result_en: The benchmark-wide blockwise correlation between event-level positive-feedback agreement and normalized gain at the next checkpoint is ρ=−0.010. Exploration and evaluation seeds are disjoint; equal interaction budgets do not establish equal tokens, training compute, or cost.
+  en_machine_translated: true
+  evidence:
+    held_out: 'yes'
+    disjoint_evolution_set: partial
+    feedback: self_judgment
+
+- id: harnessdev
+  title: 'HarnessDev: Can LLMs Create and Evolve Their Own Agent Harness?'
+  arxiv: '2609.01437'
+  date: '2026-09-01'
+  section: evaluation
+  scope: harness_eval
+  kind: benchmark
+  orgs:
+  - ByteDance Seed
+  - Singapore University of Technology and Design
+  - Georgia Institute of Technology
+  - M-A-P
+  - TokenWave.AI
+  summary_zh: 评测模型在权重固定时创建与迭代修改可复用 Harness 的能力。Creation 覆盖六个模型、五个基准；Evolution 根据反馈集修改代码，再冻结版本评估 630 道 SWE-Pro 留出题，并区分创建者与执行器。
+  summary_en: Evaluates creation and iterative revision of reusable harnesses with weights fixed. Creation covers six models and five benchmarks; Evolution uses visible feedback before frozen artifacts are evaluated on 630 held-out SWE-Pro tasks, separating creator and executor roles.
+  result_zh: 五条 self-runtime 轨迹的留出增益为 +1.43 至 +4.44 个百分点（均值 +3.11）；四条全程固定 Gemini 的轨迹中三条退步。每个创建者–执行器组合仅一条演化线，未做匹配搜索预算对照，成本不含完整开发开销。
+  result_en: All five self-runtime trajectories improve on held-out tasks by +1.43 to +4.44 points (mean +3.11), while three of four separate fixed-Gemini trajectories regress. There is one evolution trajectory per creator–executor cell, no matched-search baseline, and incomplete development-cost accounting.
+  edit_targets:
+  - execution loop
+  - tool interface
+  - context management
+  - failure recovery
+  - verification
+  must_read: true
+  needs_reading: false
+  en_machine_translated: true
+  evidence:
+    held_out: 'yes'
+    matched_budget_baseline: 'no'
+    cross_model_transfer: 'yes'
+    cost_reported: partial
+    disjoint_evolution_set: partial
+    reliability_metric: partial
+    code_released: unknown
+    evolved_harness_released: unknown
+    who_edits: external
+    feedback: ground_truth
+    timing: offline
+    topology: chain
+
+- id: evoharnessbench
+  scope: background
+  needs_review: true
+  review_suggestion_zh: "保留背景；需核是否评测 Harness 自进化，而非适应新增工具。"
+  review_suggestion_en: "Background pending verification: harness evolution versus adaptation to added tools."
+  title: "EvoHarnessBench"
+  arxiv: "2609.04280"
+  date: "2026-09"
+  section: evaluation
+  kind: benchmark
+  summary_zh: "评测 Agent 能否跟上「不断增长的 Harness」（工具、技能、子 Agent 逐步加入）；揭示适应新能力与保留旧能力之间的张力。"
+  summary_en: "Evaluates whether agents can keep up with a continuously growing harness as tools, skills, and subagents are added; reveals tension between adapting to new capabilities and retaining old ones."
+  en_machine_translated: true
+
+- id: trusting-trust-revisited
+  scope: harness_eval
+  needs_review: true
+  review_suggestion_zh: "保留 Harness 专项评测，建议加 safety_governance 关联。"
+  review_suggestion_en: "Retain harness-specific evaluation; suggested related direction: safety_governance."
+  title: "Reflections on Trusting Trust, Revisited"
+  arxiv: "2609.17817"
+  date: "2026-09"
+  section: evaluation
+  kind: safety
+  tags: [safety]
+  summary_zh: "用投毒 benchmark 污染自修改编码 Agent；顺带发现 DGM 与 Hyperagents 的容器里可从 git 历史拿到答案，已被作者确认。复现这两个基线前必看。"
+  summary_en: "Contaminates self-modifying coding agents using poisoned benchmarks; also discovers that answers can be obtained from git history inside DGM and Hyperagents containers, confirmed by their authors. Essential reading before reproducing these two baselines."
+  en_machine_translated: true
+
+- id: reuse
+  scope: general_rsi
+  needs_review: true
+  review_suggestion_zh: "整体 RSI 的评测或综述；保留但不计入 Harness 方法数。"
+  review_suggestion_en: "General RSI evaluation or survey; retained outside the harness method count."
+  title: "REUSE"
+  arxiv: "2609.33180"
+  date: "2026-09"
+  section: evaluation
+  kind: statistical_theory
+  summary_zh: "反复用同一批 benchmark 做选择时的误差控制，以及累计提升的有效下界。"
+  summary_en: "Error control when repeatedly selecting on the same benchmarks, and valid lower bounds on cumulative improvement."
+  en_machine_translated: true
+
+- id: rsigym
+  scope: general_rsi
+  needs_review: true
+  review_suggestion_zh: "整体 RSI 的评测或综述；保留但不计入 Harness 方法数。"
+  review_suggestion_en: "General RSI evaluation or survey; retained outside the harness method count."
+  title: "RSIGym"
+  arxiv: "2610.10310"
+  date: "2026-10"
+  section: evaluation
+  kind: environment
+  summary_zh: "含仅改 Harness 的轨道：权重固定时自主改 DSH Harness，Terminal-Bench 从 30.34% 到 40.82%；另报告一次预算绕过行为。"
+  summary_en: "Includes a harness-only track: autonomously modifies the DSH harness with fixed weights, taking Terminal-Bench from 30.34% to 40.82%; also reports an instance of budget bypassing."
+  en_machine_translated: true
+
+- id: hda
+  scope: harness_eval
+  title: "Harness-Delta Attribution: Dissecting Gains From Harness Evolution"
+  arxiv: "2610.22466"
+  date: "2026-10-15"
+  section: evaluation
+  must_read: true
+  kind: attribution
+  code: "https://github.com/Wenwen-D/HarnessDeltaAttribution"
+  evidence: {matched_budget_baseline: yes, held_out: yes, code_released: yes}
+  summary_zh: "用「算力对齐基线」和「去捷径版演化 Harness」两个对照，把收益拆成过拟合、测试时扩展和剩余的可泛化上界。11 个执行模型、三个演化框架、21 个显著设置中，前两者平均占 54% 和 14%；验证集门控不足以防过拟合。"
+  summary_en: "Uses a compute-matched baseline and a shortcut-removed evolved harness as two controls to decompose gains into overfitting, test-time scaling, and a remaining upper bound on generalizable gains. Across 11 execution models, three evolution frameworks, and 21 significant settings, the first two account for 54% and 14% on average; validation-set gating is insufficient to prevent overfitting."
+  en_machine_translated: true
+
+- id: arc-agi-3-controlled
+  scope: harness_eval
+  title: "Can LLMs Improve Their Own Harness? A Controlled Study on ARC-AGI-3"
+  arxiv: "2610.30499"
+  date: "2026-10-21"
+  section: evaluation
+  kind: controlled_study
+  evidence: {held_out: yes}
+  summary_zh: "模型从最小仓库构建完整 Harness，在 5 个开发游戏上运行并修改两次，再在 20 个留出游戏上评估。27 条谱系中两次修改平均留出 RHAE 只 +2.80，95% 区间 [-1.44, 7.35]，开发集提升高估了泛化。"
+  summary_en: "The model builds a full harness from a minimal repository, runs it on 5 development games and modifies it twice, then evaluates it on 20 held-out games. Across 27 lineages, the two modifications yield only +2.80 mean held-out RHAE, with a 95% interval of [-1.44, 7.35]; development-set gains overestimate generalization."
+  en_machine_translated: true
+
+- id: auditing-product
+  scope: harness_eval
+  title: "Auditing the Product, Not the Recursion"
+  arxiv: "2610.27610"
+  date: "2026-10"
+  section: evaluation
+  kind: meta_research
+  summary_zh: "114 篇研究中，声称改进了「改进流程」的 26 篇里只有 4 篇在相同起点、相同预算下比较了前后两代流程。"
+  summary_en: "Among 114 studies, only 4 of the 26 claiming to improve the improvement process compare two successive generations of that process from the same starting point and under the same budget."
+  en_machine_translated: true
+
+- id: rsihub
+  title: 'RSIHub: A Composable Framework for Agent-Evolution Methods'
+  arxiv: '2610.32253'
+  date: '2026-10-23'
+  section: evaluation
+  scope: harness_eval
+  kind: framework
+  code: https://github.com/simple-agent-lab/RSIHub
+  orgs:
+  - University of California, Berkeley
+  - University of Science and Technology of China
+  - Douyin Group
+  - Shanghai Jiao Tong University
+  - Tongji University
+  - Beijing Institute for General Artificial Intelligence
+  - Simple Agent Lab
+  summary_zh: 用于实现和比较 Harness 演化方法的开源框架：以 recipe 和算子接入 AHE、Hyperagents、A-Evolve、GEPA，保护评估边界并保存候选谱系；在同一底模下比较 MiniSWE 与 Codex，并保留 sealed 任务检验泛化。
+  summary_en: An open-source framework for implementing and comparing harness-evolution methods. Recipes compose AHE, Hyperagents, A-Evolve, and GEPA with protected evaluation and candidate lineage; experiments compare MiniSWE and Codex under the same underlying model with separate sealed tasks.
+  result_zh: TB2 + MiniSWE 中 Hyperagents 与 A-Evolve 从 56.2 到 69.7（+13.5 个百分点）；排名与留出收益随设置变化。效果为单次点估计，split 列按全基准任务数作分母，未确认完整匹配 token 预算。
+  result_en: On TB2 with MiniSWE, Hyperagents and A-Evolve improve 56.2 to 69.7 (+13.5 points). Rankings and held-out gains vary. Evolution results are single-run estimates; split columns use full-benchmark denominators, and a fully matched token budget was not established.
+  edit_targets:
+  - prompts
+  - skills
+  - tools
+  - orchestration
+  - harness code
+  must_read: false
+  needs_reading: false
+  en_machine_translated: true
+  evidence:
+    held_out: 'yes'
+    matched_budget_baseline: unknown
+    cross_model_transfer: 'no'
+    cost_reported: unknown
+    disjoint_evolution_set: partial
+    reliability_metric: partial
+    code_released: 'yes'
+    evolved_harness_released: unknown
+    who_edits: external
+    feedback: ground_truth
+    timing: offline
+    topology: unknown
+
+# ---------------- 6. Surveys & theory ----------------
+- id: rsi-in-ai-survey
+  scope: general_rsi
+  needs_review: true
+  review_suggestion_zh: "整体 RSI 的评测或综述；保留但不计入 Harness 方法数。"
+  review_suggestion_en: "General RSI evaluation or survey; retained outside the harness method count."
+  title: "RSI in AI: From Bounded Self-Refinement to Autonomous Research Loops"
+  arxiv: "2607.07663"
+  date: "2026-07"
+  section: survey_theory
+  kind: survey
+  summary_zh: "覆盖 1,250 篇，按「改什么」与「谁来验证」两轴分类；结论是自改进的可信度取决于验证。"
+  summary_en: "Covers 1,250 papers, classified along two axes: what is changed and who verifies it; concludes that the credibility of self-improvement depends on verification."
+  en_machine_translated: true
+
+- id: self-improvements-survey
+  scope: general_rsi
+  needs_review: true
+  review_suggestion_zh: "整体 RSI 的评测或综述；保留但不计入 Harness 方法数。"
+  review_suggestion_en: "General RSI evaluation or survey; retained outside the harness method count."
+  title: "Self-Improvements in Modern Agentic Systems: A Survey"
+  arxiv: "2607.13104"
+  date: "2026-07"
+  section: survey_theory
+  kind: survey
+  summary_zh: "把 Agent 写成「基础模型 + 操作脚手架」，自改进形式化为更新算子；含评测协议建议。"
+  summary_en: "Describes an agent as a foundation model plus an operational scaffold, formalizing self-improvement as an update operator; includes evaluation protocol recommendations."
+  en_machine_translated: true
+
+- id: self-evolving-coding-agents
+  scope: harness_eval
+  title: "Self-Evolving Coding Agents"
+  arxiv: "2608.03392"
+  date: "2026-08"
+  section: survey_theory
+  kind: survey
+  summary_zh: "编码 Agent 视角，有专门的 Harness 协同演化章节，并提出「新旧模型 × 新旧 Harness」的 2×2 对照评测。"
+  summary_en: "From the coding-agent perspective, includes a dedicated section on harness co-evolution and proposes a 2×2 controlled evaluation of old/new models × old/new harnesses."
+  en_machine_translated: true
+
+- id: harness-engineering-anatomy
+  scope: background
+  needs_review: true
+  review_suggestion_zh: "保留背景；静态 Harness 工程与反馈驱动自进化应区分。"
+  review_suggestion_en: "Background: distinguish static harness engineering from feedback-driven evolution."
+  title: "Harness Engineering: Anatomy, Architecture, and Evolution of Coding Agents"
+  arxiv: "2609.00006"
+  date: "2026-09"
+  section: survey_theory
+  kind: source_code_study
+  summary_zh: "对 11 个编码 Agent 的源码拆解，归纳出七个子系统；整理了「Harness Engineering」一词的来源。适合引用定义。"
+  summary_en: "Dissects source code from 11 coding agents into seven subsystems and traces the origin of “Harness Engineering.” Useful for citing a definition."
+  en_machine_translated: true
+
+- id: safe-harness-self-evolution
+  scope: harness_eval
+  title: "Safe Harness Self-Evolution: A Theoretical Analysis of Feasibility and Limits"
+  arxiv: "2609.08175"
+  date: "2026-09"
+  section: survey_theory
+  kind: theory
+  summary_zh: "在固定参考分布上，被认证的改进可以累积；但在不受限的组合下，当前改进不能保证后续还能改进。适合为准入规则找理论依据。"
+  summary_en: "Certified improvements can accumulate on a fixed reference distribution; under unrestricted composition, however, current improvement cannot guarantee that further improvement remains possible. Useful as theoretical support for admission rules."
+  en_machine_translated: true
+
+- id: last-ai-built-by-humans
+  scope: general_rsi
+  needs_review: true
+  review_suggestion_zh: "整体 RSI 的评测或综述；保留但不计入 Harness 方法数。"
+  review_suggestion_en: "General RSI evaluation or survey; retained outside the harness method count."
+  title: "The Last AI Built by Humans"
+  arxiv: "2609.11873"
+  date: "2026-09"
+  section: survey_theory
+  kind: survey
+  summary_zh: "L1–L5 自主性分级，可用来为自己的方法定位。"
+  summary_en: "An L1–L5 autonomy scale that can be used to position one’s own method."
+  en_machine_translated: true
+
+- id: generalized-agent-iteration
+  scope: general_rsi
+  needs_review: true
+  review_suggestion_zh: "整体 RSI 的评测或综述；保留但不计入 Harness 方法数。"
+  review_suggestion_en: "General RSI evaluation or survey; retained outside the harness method count."
+  title: "Generalized Agent Iteration"
+  arxiv: "2609.13406"
+  date: "2026-09"
+  section: survey_theory
+  kind: theory
+  summary_zh: "用「改进机制是否属于 Agent」与「评价标准是否外部锚定」两轴区分普通迭代与 RSI。"
+  summary_en: "Distinguishes ordinary iteration from RSI along two axes: whether the improvement mechanism belongs to the agent and whether evaluation criteria are externally anchored."
+  en_machine_translated: true
+
+- id: audit-the-scaffold
+  scope: harness_eval
+  title: "Audit the Scaffold, Not the Checkpoint"
+  arxiv: "2609.34924"
+  date: "2026-09"
+  section: survey_theory
+  kind: theory_empirical
+  summary_zh: "「平稳性二分」：可达编辑集合不扩张时，迭代自修改必然收益递减；SWE-bench 上每轮提升趋于零。解释「过早饱和」的好材料。"
+  summary_en: "A “stationarity dichotomy”: when the set of reachable edits does not expand, iterative self-modification must yield diminishing returns; per-round gains on SWE-bench approach zero. Useful for explaining early saturation."
+  en_machine_translated: true
+
+- id: self-evolving-agent-harness
+  scope: harness_eval
+  title: "Self-Evolving Agent Harness"
+  arxiv: "2610.18813"
+  date: "2026-10-13"
+  section: survey_theory
+  must_read: true
+  orgs: ["Zhongguancun Academy", "USTC"]
+  kind: theory_survey
+  code: "https://github.com/zgcagi/Harness-RSI"
+  summary_zh: "把 Harness 自进化拆成「更新对象」与「提案/准入机制」，给出持续 PAC 学习下的泛化界、保留界与基于新鲜验证数据的准入规则。理论界依赖明确假设。"
+  summary_en: "Decomposes harness self-evolution into update targets and proposal/admission mechanisms, providing generalization bounds, retention bounds, and admission rules based on fresh validation data under continual PAC learning. The theoretical bounds depend on explicit assumptions."
+  en_machine_translated: true
+
+# ---------------- Candidates (not yet reviewed) ----------------
+- id: reharness
+  scope: core
+  title: "Recurrent Harness for Agentic Continual Learning (ReHarness)"
+  arxiv: "2610.12668"
+  date: "2026-10"
+  section: candidates
+  status: candidate
+  summary_zh: "面向持续学习的循环 Harness，在流式在线协议下增加反向修订。"
+  summary_en: "A recurrent harness for continual learning that adds backward revision under a streaming online protocol."
+  en_machine_translated: true
+
+- id: shaper
+  scope: core
+  title: "Self-Evolving Embodied Agents via Skill-Harness Evolution (SHAPER)"
+  arxiv: "2608.11350"
+  date: "2026-08"
+  section: candidates
+  status: candidate
+  tags: [embodied]
+  summary_zh: "具身场景下冻结模型，同时演化技能与上下文代码 Harness。"
+  summary_en: "Freezes the model in embodied settings while evolving both skills and a context-code harness."
+  en_machine_translated: true
+
+- id: sbco
+  scope: core
+  title: "SBCO: Self-Supervised, Verifier-Grounded Harness Optimization For Planning Agents"
+  arxiv: "2608.10157"
+  date: "2026-08"
+  section: candidates
+  status: candidate
+  summary_zh: "面向有显式约束的规划任务，用固定元 Agent 和学到的验证器库做块坐标上升。"
+  summary_en: "Uses a fixed meta agent and a learned verifier library for block coordinate ascent on planning tasks with explicit constraints."
+  en_machine_translated: true
+
+- id: self-evolving-multi-task
+  scope: core
+  title: "Self-Evolving Harness on Multiple Tasks with the Agent as Its Own Optimizer"
+  arxiv: "2609.38372"
+  date: "2026-09"
+  section: candidates
+  status: candidate
+  summary_zh: "每批演化混合五个领域的基准，只在留出任务上计分。"
+  summary_en: "Mixes benchmarks from five domains in each evolution batch and scores only on held-out tasks."
+  en_machine_translated: true
+
+- id: stitch
+  scope: core
+  needs_review: true
+  review_suggestion_zh: "候选待核：测试时组装的修改是否保留到后续任务。"
+  review_suggestion_en: "Candidate: verify whether test-time assembly persists across subsequent tasks."
+  title: "Composing Task-specific Agent Harnesses at Test Time with Reusable Primitives (STITCH)"
+  arxiv: "2609.38912"
+  date: "2026-09"
+  section: candidates
+  status: candidate
+  summary_zh: "测试时用可复用原语组装任务专用 Harness，比固定 Harness 最多高 12 分。"
+  summary_en: "Assembles task-specific harnesses from reusable primitives at test time, exceeding a fixed harness by up to 12 points."
+  en_machine_translated: true
+
+- id: jit-agent
+  scope: core
+  needs_review: true
+  review_suggestion_zh: "候选待核：即时演化是否仅在当前任务内生效。"
+  review_suggestion_en: "Candidate: verify persistence beyond the current task."
+  title: "JIT-Agent: Scaling Harness Intelligence via Just-in-Time Harness Evolution"
+  arxiv: "2608.25593"
+  date: "2026-08"
+  section: candidates
+  status: candidate
+  summary_zh: "在模块化的 Harness 设计空间上做即时演化。"
+  summary_en: "Performs just-in-time evolution over a modular harness design space."
+  en_machine_translated: true
