@@ -45,6 +45,7 @@ def parse_atom(text, source_id='arxiv', now=None):
             'comments': entry.findtext('arxiv:comment', '', NS),
             'published': entry.findtext('a:published', '', NS),
             'updated': entry.findtext('a:updated', '', NS),
+            'published_source': 'arxiv',
             'categories': [c.get('term') for c in entry.findall('a:category', NS)],
             'links': {'arxiv': f'https://arxiv.org/abs/{arxiv_id}'}, 'source_hits': [source_id],
         }
@@ -66,7 +67,7 @@ def fetch(source, days=3, now=None, session=None):
     current = now or datetime.now(timezone.utc)
     if isinstance(current, str):
         current = datetime.fromisoformat(current.replace('Z', '+00:00'))
-    cutoff = current - timedelta(days=days)
+    cutoff = current - timedelta(days=days - 1)
     date_range = f'submittedDate:[{cutoff:%Y%m%d0000} TO {current:%Y%m%d2359}]'
     query = f'({source["params"]["query"]}) AND {date_range}'
     records, pages = [], []
@@ -106,7 +107,7 @@ def fallback_rss(source, now=None, session=None):
     return records, {'format': 'arxiv-category-rss', 'pages': bodies}
 
 
-def fetch_sources(root, schedule='daily', days=3, now=None, source_ids=None):
+def fetch_sources(root, schedule='daily', days=3, now=None, source_ids=None, issue_client=None):
     """Fetch enabled registry sources; report failures explicitly without losing other sources."""
     from . import fetch_s2, fetch_hf, fetch_rss, fetch_github
     current = now or datetime.now(timezone.utc)
@@ -143,7 +144,7 @@ def fetch_sources(root, schedule='daily', days=3, now=None, source_ids=None):
                 raise ValueError(f'Unknown source kind: {kind}')
             path = save_raw(root, source['id'], current.date().isoformat(), raw)
             records.extend(normalize_records(found, now=current.isoformat()))
-            paths.append(str(path))
+            paths.append(path.relative_to(Path(root)).as_posix())
             outcomes.append({'source_id': source['id'], 'ok': not raw.get('errors'), 'count': len(found),
                              'ids': [item['id'] for item in found], 'degraded': degraded,
                              'error': raw.get('api_error') if degraded else (str(raw['errors']) if raw.get('errors') else None)})
@@ -154,14 +155,35 @@ def fetch_sources(root, schedule='daily', days=3, now=None, source_ids=None):
     if pending:
         try:
             hydrated = {item['arxiv_id']: item for item in fetch_ids(pending, now=current.isoformat())}
+            save_raw(root, 'arxiv-hydration', current.date().isoformat(), {'format': 'metadata', 'records': list(hydrated.values())})
+            if set(hydrated) != set(pending):
+                raise ValueError(f'arXiv hydration identity mismatch: requested {pending}, returned {sorted(hydrated)}')
+            hf_pending = {item['arxiv_id'] for item in records
+                          if item.get('metadata_pending') and 'hf_reported_published' in item}
+            missing_dates = sorted(ident for ident in hf_pending
+                                   if not hydrated[ident]['published'] or not hydrated[ident]['updated'])
+            if missing_dates:
+                raise ValueError(f'arXiv publication dates missing for {missing_dates}')
             for index, item in enumerate(records):
                 if item.get('metadata_pending') and item['arxiv_id'] in hydrated:
                     paper = hydrated[item['arxiv_id']]
-                    records[index] = {**item, **paper, 'metadata_pending': False,
+                    metadata = ({key: paper[key] for key in ('published', 'updated', 'version',
+                                'announced', 'announced_source', 'published_source', 'comments')}
+                                if 'hf_reported_published' in item else paper)
+                    records[index] = {**item, **metadata, 'metadata_pending': False,
+                                      'retracted': item['retracted'] or paper['retracted'],
                                       'source_hits': item['source_hits'], 'seed_hits': item['seed_hits'],
                                       'links': {**item['links'], **paper['links']}}
-            save_raw(root, 'arxiv-hydration', current.date().isoformat(), {'format': 'metadata', 'records': list(hydrated.values())})
+                    records[index].pop('metadata_error', None)
+            outcomes.append({'source_id': 'arxiv-hydration', 'ok': True, 'count': len(hydrated),
+                             'ids': [paper['id'] for paper in hydrated.values()], 'degraded': False, 'error': None})
         except (requests.RequestException, ET.ParseError, ValueError) as error:
+            message = f'{type(error).__name__}: {error}'
+            for item in records:
+                if item.get('metadata_pending'):
+                    item['metadata_error'] = message
             outcomes.append({'source_id': 'arxiv-hydration', 'ok': False, 'count': 0,
-                             'error': str(error), 'degraded': False})
+                             'error': message, 'degraded': False})
+    from .health import update_health
+    update_health(root, outcomes, now=current, issue_client=issue_client)
     return {'records': records, 'outcomes': outcomes, 'raw_paths': paths}

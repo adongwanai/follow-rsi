@@ -101,7 +101,3 @@ Evidence cards distinguish `yes`, `partial`, `no`, `na`, and `unknown`. `unknown
 4. **Experimental design:** [Rethinking the Evaluation](../papers/rethinking-evaluation.md) → [HDA](../papers/hda.md) → [HarnessOpt-Bench](../papers/harnessopt-bench.md) → [Auditing the Product](../papers/auditing-product.md) → [Trusting Trust, Revisited](../papers/trusting-trust-revisited.md). Read this route before reproducing or proposing a method.
 
 The complete routes and original entries are in [routes.yaml](../data/routes.yaml) and [papers.yaml](../data/papers.yaml).
-
-## 一分钟讲解 / One-minute introduction
-
-<!-- TODO -->
