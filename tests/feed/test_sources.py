@@ -212,10 +212,31 @@ def test_rss_sakana_relative_link_or_id_resolves_against_response_url(entry_link
         {entry_link}<id>/us-midterms-analysis</id>
         <published>2026-10-30T00:00:00+09:00</published>
       </entry></feed>'''
+    session.get.return_value.content = session.get.return_value.text.encode('utf-8')
     source = {'id': 'rss-sakana', 'params': {'url': 'http://sakana.ai/feed.xml'}}
     records, _ = fetch_rss.fetch(source, datetime(2026, 10, 29, tzinfo=timezone.utc), session)
     assert records[0]['links']['url'] == expected
     assert records[0]['id'] == f'post:{expected}'
+
+
+def test_rss_xml_encoding_survives_incorrect_http_text_encoding():
+    body = '''<?xml version="1.0" encoding="utf-8"?>
+    <feed xmlns="http://www.w3.org/2005/Atom"><title>Blog</title><id>/feed.xml</id>
+      <entry><title>開催レポート：Jürgen と AI</title><id>/symposium/</id>
+        <link href="/symposium/"/><summary>世界モデルと再帰的自己改善</summary>
+        <published>2026-11-01T15:00:00Z</published>
+      </entry></feed>'''
+    response = requests.Response()
+    response.status_code = 200
+    response.url = 'https://sakana.ai/feed.xml'
+    response._content = body.encode('utf-8')
+    response.encoding = 'ISO-8859-1'
+    source = {'id': 'rss-sakana', 'params': {'url': response.url}}
+    records, raw = fetch_rss.fetch(source, datetime(2026, 11, 2, tzinfo=timezone.utc),
+                                   Mock(get=Mock(return_value=response)))
+    assert records[0]['title'] == '開催レポート：Jürgen と AI'
+    assert records[0]['abstract'] == '世界モデルと再帰的自己改善'
+    assert raw['body'] == body
 
 
 def test_rss_rejects_entry_without_http_url():
@@ -373,6 +394,7 @@ def test_rss_post_dates_filter_before_hydration():
     session = Mock()
     session.get.return_value.url = 'https://example.com/feed'
     session.get.return_value.text = '''<rss version="2.0"><channel><title>Lab</title><item><title>Old paper link</title><link>https://example.com/old</link><pubDate>Wed, 01 Jan 2025 00:00:00 GMT</pubDate><description>https://arxiv.org/abs/2501.10001</description></item></channel></rss>'''
+    session.get.return_value.content = session.get.return_value.text.encode('utf-8')
     source = {'id': 'rss-lab', 'params': {'url': 'https://example.com/feed', 'lookback_days': 14}}
     items, raw = fetch_rss.fetch(source, datetime(2026, 10, 27, tzinfo=timezone.utc), session)
     assert items == []
@@ -394,6 +416,7 @@ def test_rss_fourteen_day_window_excludes_thirteenth_and_includes_fourteenth():
                       f'<pubDate>{weekday}, {day} Oct 2026 00:00:00 GMT</pubDate></item>'
                       for day, weekday in [(13, 'Tue'), (14, 'Wed'), (27, 'Tue')])
     session.get.return_value.text = f'<rss version="2.0"><channel><title>Lab</title>{entries}</channel></rss>'
+    session.get.return_value.content = session.get.return_value.text.encode('utf-8')
     source = {'id': 'rss-lab', 'params': {'url': 'https://example.com/feed', 'lookback_days': 14}}
     items, _ = fetch_rss.fetch(source, datetime(2026, 10, 27, tzinfo=timezone.utc), session)
     assert [item['published'][:10] for item in items] == ['2026-10-14', '2026-10-27']

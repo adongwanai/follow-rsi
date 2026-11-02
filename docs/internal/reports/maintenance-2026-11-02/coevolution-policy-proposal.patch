@@ -1,0 +1,42 @@
+--- a/feed/prompts/harness_gate.md
++++ b/feed/prompts/harness_gate.md
+@@ -2,7 +2,7 @@
+
+ {{ taxonomy_definitions }}
+
+-Harness 必须是模型周围外部可复用的程序工件：系统提示、工具代码/工具库、技能文件、上下文/记忆管理的代码或策略文件、控制流/工作流、环内验证器、改进器。模型冻结或权重不是主要训练对象；系统根据执行/评估反馈修改工件，新版本在后续任务或改进轮次保留复用。
++Harness 必须是模型周围外部可复用的程序工件：系统提示、工具代码/工具库、技能文件、上下文/记忆管理的代码或策略文件、控制流/工作流、环内验证器、改进器。通常模型冻结或权重不是主要训练对象；模型权重与外部 Harness 工件分别有反馈驱动的持久更新时，按共演化规则判断。系统根据执行/评估反馈修改工件，新版本在后续任务或改进轮次保留复用。
+
+ 方法论文 verdict=harness 需要同时满足：
+ 1. improved_object 为前七类（system_prompt、tool_code、skill_files、context_memory_policy、control_flow、in_loop_verifier、improver）；
+@@ -19,7 +19,7 @@
+ - 外部内核、代码库、科研假设或实验结果 → external_artifact / ai4ai。反馈让任务产物更好不等于改写 Agent 自己的 Harness。
+ - 只积累/重排/打分经验、研究历史或记忆条目 → memory_entries / experience_world_model。必须改写管理代码或可复用策略文件才能选 context_memory_policy；在线 memory-worth scorer 不等于改写策略文件。
+ - 固定框架，只更新当前任务上下文/状态 → none / exclude；不能将当前状态的持久存储误判为长期程序性能力更新。
+-- 权重与 Harness 迭代协同更新，只有外部 Harness 是明确主要改进对象才 verdict=harness；科研/模型主贡献中的辅助 Harness replay 不取代 ai4ai 主类。
++- 权重与外部 Harness 工件分别有反馈驱动的迭代修改和跨轮次保留证据，可 verdict=harness，对应 harness/coevolution。仅有联合模型训练、固定技能 replay 或经验缓存不满足此例外；科研产物与研究 Agent 自身程序仍须区分。
+ - 方法中仅声称技能经反思改进但复用范围或接受方式没说清（如机器人恢复技能），保留 borderline，不推断完整循环。
+ - 评测/理论/综述只有明确专门研究外部 Harness 工件的反馈演化，才 harness_specific=yes。综合 RSI、经验学习、工具生态变化或一般代理能力评测应 no，verdict=other_direction，suggested_primary 保留 evaluation_benchmark/theory_survey。不能因为定义里列举 prompts、memory、tools 就认定专项。
+ - 非 Harness 对象选 other_direction，并按对象填 suggested_primary。纯任务执行、单轮训练、无关研究或固定框架可 exclude；证据不足选 borderline。不要强行改成正例。
+--- a/feed/prompts/classify.md
++++ b/feed/prompts/classify.md
+@@ -7,7 +7,7 @@
+ Harness 必须同时满足：
+ - 改的是外部可复用 Harness 工件，如提示、工具代码/工具库、技能文件、记忆或上下文管理的代码/策略、控制流、工作流、环内验证器或改进器；
+ - 执行/评估反馈驱动工件修改，接受后的版本用于后续任务/改进轮次；
+-- 权重冻结或不是主要训练对象。
++- 权重冻结或不是主要训练对象；若权重与外部 Harness 工件分别有反馈驱动的迭代修改和持久复用证据，则用 harness/coevolution。
+ 外部 Harness 的对象、反馈与持久复用依据将由独立 harness_gate 再检查。
+
+ 边界：RL/SFT 训练出的模型 policy → model_weights；训练环境/奖励/用户模拟器 → training_system；外部科研假设、内核或工程代码产物 → research_output；积累的记忆数据、经验价值评分、研究历史 → experience_data；任务进展/当前上下文状态 → task_state。它们不能只因为持久保存就成为 harness_artifact。正文可能有其他机制但摘要未明确时，用 unknown，不补推断。模型与 Harness 协同演化需要两类对象分别有更新证据，两个 neural policy 联合训练不算。
+--- a/feed/taxonomy.yaml
++++ b/feed/taxonomy.yaml
+@@ -2,7 +2,7 @@
+   harness:
+     zh: Harness / 脚手架 RSI
+     en: Harness RSI
+-    def_zh: 模型权重冻结或不是主要训练对象；系统根据执行或评估反馈修改外部可复用的 Harness 工件，并把被接受的修改带到后续任务或改进轮次。工件包括提示、工具代码或工具库、技能文件、上下文或记忆管理的代码或策略、控制流、工作流、环内验证器与改进器。
++    def_zh: 模型权重冻结或不是主要训练对象，或权重与外部 Harness 工件分别有反馈驱动的持久更新（coevolution）；系统根据执行或评估反馈修改外部可复用的 Harness 工件，并把被接受的修改带到后续任务或改进轮次。工件包括提示、工具代码或工具库、技能文件、上下文或记忆管理的代码或策略、控制流、工作流、环内验证器与改进器。
+     boundary_zh: 训练出的 RL/SFT 模型策略、训练环境或奖励、外部代码库或科研假设等任务产物、当前任务状态和单纯积累的记忆条目均不构成 Harness 演化。需区分修改记忆管理机制与更新记忆数据；不能因系统有记忆、工具、Agent 或 Harness 字样就纳入。一般 RSI 评测或综述也不能仅因提到这些组件而标 secondary harness。
+     sub:  # 与 data/papers.yaml 的 section 一致
+       evolve_main: 整体 Harness 搜索与演化

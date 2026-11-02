@@ -52,9 +52,12 @@ def fetch(source, now=None, session=None):
     current = now or datetime.now(timezone.utc)
     response = (session or requests).get(source['params']['url'], headers={'User-Agent': USER_AGENT}, timeout=30)
     response.raise_for_status()
-    items = parse_feed(response.text, source['id'], current.isoformat(), feed_url=response.url)
+    # Let the XML declaration determine encoding; Requests may default to Latin-1.
+    body = response.content
+    items = parse_feed(body, source['id'], current.isoformat(), feed_url=response.url)
     cutoff = (current - timedelta(days=source['params'].get('lookback_days', 14) - 1)).date().isoformat()
     # Undated linked papers are retained for metadata hydration rather than discarded.
     items = [item for item in items if not (item.get('source_published') or item['published'])
              or (item.get('source_published') or item['published'])[:10] >= cutoff]
-    return items, {'format': 'rss', 'body': response.text}
+    encoding = feedparser.parse(body).encoding
+    return items, {'format': 'rss', 'body': body.decode(encoding), 'encoding': encoding}

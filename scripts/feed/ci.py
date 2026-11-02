@@ -1,7 +1,7 @@
 """GitHub Actions orchestration. External writes are disabled outside its runner."""
 import argparse
 import base64
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 import json
 import os
 from pathlib import Path
@@ -32,8 +32,12 @@ def valid_week(value):
     return value
 
 
-def current_week():
-    year, week, _ = datetime.now(timezone.utc).isocalendar()
+def default_picks_week():
+    reference = datetime.now(timezone.utc)
+    if os.environ.get('GITHUB_EVENT_NAME') == 'schedule':
+        # Sunday's queue can start after midnight when GitHub delays a run.
+        reference -= timedelta(days=(reference.weekday() + 1) % 7)
+    year, week, _ = reference.isocalendar()
     return f'{year}-W{week:02d}'
 
 
@@ -264,7 +268,7 @@ def queue_daily_pr(root=ROOT, review_date=None):
 def queue_picks_pr(root=ROOT, week=None):
     from .review import queue_weekly_picks
     require_ci(root)
-    week = valid_week(week or current_week())
+    week = valid_week(week or default_picks_week())
     base, branch = default_branch(root), 'feed/picks-' + week.lower()
     switch_review_branch(root, branch, base)
     queue_weekly_picks(root, week)

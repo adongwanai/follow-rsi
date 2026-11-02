@@ -1,4 +1,5 @@
 import base64
+from datetime import datetime, timezone
 import json
 from pathlib import Path
 from types import SimpleNamespace
@@ -39,6 +40,34 @@ def test_ci_guard_requires_current_checkout(ci_environment):
     ci.require_ci(ci_environment)
     with pytest.raises(RuntimeError, match='GITHUB_WORKSPACE'):
         ci.require_ci(ci_environment / 'another-checkout')
+
+
+@pytest.mark.parametrize('event,now,expected', [
+    ('schedule', '2026-11-01T23:42:00', '2026-W44'),
+    ('schedule', '2026-11-02T02:42:46', '2026-W44'),
+    ('schedule', '2027-01-04T01:00:00', '2026-W53'),
+    ('workflow_dispatch', '2026-11-02T02:42:46', '2026-W45'),
+])
+def test_weekly_picks_keep_scheduled_sunday_week_when_delayed(monkeypatch, event, now, expected):
+    monkeypatch.setenv('GITHUB_EVENT_NAME', event)
+    monkeypatch.setattr(ci, 'datetime', Mock(now=Mock(return_value=datetime.fromisoformat(now).replace(tzinfo=timezone.utc))))
+    assert ci.default_picks_week() == expected
+
+
+def test_explicit_picks_week_overrides_scheduled_default(ci_environment, monkeypatch):
+    from scripts.feed import review
+    monkeypatch.setenv('GITHUB_EVENT_NAME', 'schedule')
+    default = Mock(side_effect=AssertionError('Explicit week must not use the clock'))
+    monkeypatch.setattr(ci, 'default_picks_week', default)
+    monkeypatch.setattr(ci, 'default_branch', Mock(return_value='main'))
+    for name in ('switch_review_branch', 'commit_paths', 'run', 'dispatch_pr_check'):
+        monkeypatch.setattr(ci, name, Mock())
+    queued = Mock()
+    monkeypatch.setattr(review, 'queue_weekly_picks', queued)
+    monkeypatch.setattr(ci, 'upsert_pr', Mock(return_value='https://github.com/owner/follow-rsi/pull/15'))
+    assert ci.queue_picks_pr(ci_environment, '2026-W43')['week'] == '2026-W43'
+    queued.assert_called_once_with(ci_environment, '2026-W43')
+    default.assert_not_called()
 
 
 def test_only_exact_valid_review_files_are_decisions():
