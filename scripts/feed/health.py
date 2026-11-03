@@ -73,8 +73,12 @@ def update_health(root, outcomes, now=None, issue_client=None):
         source['last_ok'] = outcome['ok']
         source['last_error'] = outcome.get('error')
         source['degraded'] = outcome.get('degraded', False)
-        source['consecutive_failures'] = 0 if healthy else source['consecutive_failures'] + 1
-        source['consecutive_errors'] = source['consecutive_errors'] + 1 if api_error else 0
+        if outcome.get('availability') == 'not_ready':
+            source['availability'] = 'not_ready'
+        else:
+            source.pop('availability', None)
+            source['consecutive_failures'] = 0 if healthy else source['consecutive_failures'] + 1
+            source['consecutive_errors'] = source['consecutive_errors'] + 1 if api_error else 0
         if outcome['ok']:
             source['last_success'] = moment
         seen = set(source['seen_ids'])
@@ -87,7 +91,7 @@ def update_health(root, outcomes, now=None, issue_client=None):
             continue
         healthy = source.get('last_ok') and not source.get('degraded')
         title = f'Source down: {ident}'
-        if source['consecutive_errors'] >= 3 and not source.get('issue_number'):
+        if source.get('availability') != 'not_ready' and source['consecutive_errors'] >= 3 and not source.get('issue_number'):
             event = {'action': 'open', 'source_id': ident, 'title': title,
                      'body': f"Three consecutive failed or degraded runs.\n\nLast error: {source['last_error']}\n\nDegraded RSS mode: {source['degraded']}"}
             events.append(event)

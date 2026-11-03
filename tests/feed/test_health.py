@@ -33,6 +33,50 @@ def test_three_failed_runs_open_once_and_successful_empty_recovery_closes(tmp_pa
     assert 'issue_number' not in load_state(tmp_path)['sources']['hf-daily']
 
 
+def test_not_ready_records_failed_request_without_counting_an_outage(tmp_path):
+    client = Mock()
+    outcome = {'source_id': 'hf-daily', 'ok': False, 'count': 0, 'ids': [],
+               'error': 'not_ready: HTTPError: 400', 'availability': 'not_ready'}
+    for _ in range(4):
+        status = update_health(tmp_path, [outcome], NOW, client)
+    client.create.assert_not_called()
+    client.close.assert_not_called()
+    source = load_state(tmp_path)['sources']['hf-daily']
+    assert source['availability'] == 'not_ready' and source['last_ok'] is False
+    assert source['last_error'] == outcome['error'] and source['last_count'] == 0
+    assert source['consecutive_failures'] == source['consecutive_errors'] == 0
+    assert 'last_success' not in source
+    assert status['last_fetch']['sources'][0]['availability'] == 'not_ready'
+    assert update_health(tmp_path, [], NOW)['pending_issue_actions'] == []
+
+
+def test_not_ready_pauses_errors_and_recovery_clears_availability(tmp_path):
+    client = Mock()
+    client.find.return_value = None
+    client.create.return_value = 7
+    bad = {'source_id': 'hf-daily', 'ok': False, 'count': 0, 'error': 'HTTP 429'}
+    not_ready = {**bad, 'error': 'not_ready: HTTPError: 400', 'availability': 'not_ready'}
+    for _ in range(3):
+        update_health(tmp_path, [bad], NOW)
+    update_health(tmp_path, [not_ready], NOW, client)
+    assert update_health(tmp_path, [], NOW, client)['pending_issue_actions'] == []
+    source = load_state(tmp_path)['sources']['hf-daily']
+    assert source['consecutive_failures'] == source['consecutive_errors'] == 3
+    client.create.assert_not_called()
+    update_health(tmp_path, [bad], NOW, client)
+    client.create.assert_called_once()
+    assert 'availability' not in load_state(tmp_path)['sources']['hf-daily']
+    update_health(tmp_path, [not_ready], NOW, client)
+    client.close.assert_not_called()
+    assert load_state(tmp_path)['sources']['hf-daily']['issue_number'] == 7
+    update_health(tmp_path, [{'source_id': 'hf-daily', 'ok': True, 'count': 0, 'ids': []}], NOW, client)
+    client.close.assert_called_once_with(7)
+    source = load_state(tmp_path)['sources']['hf-daily']
+    assert 'availability' not in source and 'issue_number' not in source
+    assert source['consecutive_failures'] == source['consecutive_errors'] == 0
+    assert source['last_ok'] is True and source['last_error'] is None and source['last_success'] == NOW
+
+
 def test_local_health_never_writes_issues_and_counts_unique_items(tmp_path):
     bad = [{'source_id': 'arxiv-rsi', 'ok': False, 'count': 0, 'error': '503 unavailable'}]
     for _ in range(3):
