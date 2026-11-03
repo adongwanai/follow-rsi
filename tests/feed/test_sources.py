@@ -308,11 +308,51 @@ def test_registry_dispatch_preserves_hf_partial_records_and_reports_failure(tmp_
     result = fetch_arxiv.fetch_sources(tmp_path, days=2, now='2026-10-30T00:00:00+00:00')
     outcome = next(row for row in result['outcomes'] if row['source_id'] == 'hf-daily')
     assert outcome['ok'] is False and outcome['count'] == 1
+    assert outcome['availability'] == 'not_ready'
     assert '2026-10-30' in outcome['error'] and 'not_ready' in outcome['error']
     assert result['records'][0]['hf_daily_dates'] == ['2026-10-29']
     raw = json.loads((tmp_path / 'data/feed/raw/hf-daily/2026-10-30.json').read_text())
     assert raw['status'] == 'partial' and list(raw['days']) == ['2026-10-29']
     assert raw['attempts']['2026-10-30']['http_status'] == 400
+
+
+@pytest.mark.parametrize(('responses', 'availability'), [
+    ([(400, 'unavailable')], 'not_ready'),
+    ([(400, 'unavailable'), (400, 'unavailable')], 'not_ready'),
+    ([(400, 'unavailable'), (400, 'Invalid request')], None),
+    ([(400, 'unavailable'), (429, 'Rate limit exceeded')], None),
+    ([(400, 'Invalid request')], None),
+    ([(429, 'unavailable')], None),
+    ([(200, [])], None),
+])
+def test_hf_dispatch_only_marks_verified_not_ready_failures(tmp_path, monkeypatch, responses, availability):
+    (tmp_path / 'feed').mkdir()
+    (tmp_path / 'feed/sources.yaml').write_text(
+        'sources:\n- id: hf-daily\n  kind: hf_daily\n  schedule: daily\n  enabled: true\n'
+        '  params:\n    url: https://huggingface.co/api/daily_papers\n')
+    limit = '"date" must be less than or equal to "2026-10-28T00:00:00.000Z"'
+    get = Mock(side_effect=[hf_response(
+        body if status == 200 else {'error': limit if body == 'unavailable' else body}, status
+    ) for status, body in responses])
+    monkeypatch.setattr(fetch_hf.requests, 'get', get)
+    result = fetch_arxiv.fetch_sources(tmp_path, days=len(responses), now='2026-10-30T00:00:00+00:00')
+    outcome = result['outcomes'][0]
+    assert outcome.get('availability') == availability
+    assert outcome['ok'] is (responses[0][0] == 200)
+    assert bool(outcome['error']) is (not outcome['ok'])
+    assert outcome['count'] == 0 and result['records'] == []
+    get.assert_called()
+
+
+def test_hf_dispatch_does_not_infer_availability_from_error_text(tmp_path, monkeypatch):
+    (tmp_path / 'feed').mkdir()
+    (tmp_path / 'feed/sources.yaml').write_text(
+        'sources:\n- id: hf-daily\n  kind: hf_daily\n  schedule: daily\n  enabled: true\n  params: {}\n')
+    monkeypatch.setattr(fetch_hf, 'fetch', Mock(return_value=([], {
+        'errors': {'2026-10-27': 'not_ready: HTTPError: 400'}, 'attempts': {}})))
+    result = fetch_arxiv.fetch_sources(tmp_path, days=1, now=NOW)
+    assert 'availability' not in result['outcomes'][0]
+    assert result['outcomes'][0]['ok'] is False
 
 
 @pytest.fixture

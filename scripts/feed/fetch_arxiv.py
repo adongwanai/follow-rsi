@@ -148,9 +148,14 @@ def fetch_sources(root, schedule='daily', days=3, now=None, source_ids=None, iss
             path = save_raw(root, source['id'], current.date().isoformat(), raw)
             records.extend(normalize_records(found, now=current.isoformat()))
             paths.append(path.relative_to(Path(root)).as_posix())
-            outcomes.append({'source_id': source['id'], 'ok': not raw.get('errors'), 'count': len(found),
-                             'ids': [item['id'] for item in found], 'degraded': degraded,
-                             'error': raw.get('api_error') if degraded else (str(raw['errors']) if raw.get('errors') else None)})
+            outcome = {'source_id': source['id'], 'ok': not raw.get('errors'), 'count': len(found),
+                       'ids': [item['id'] for item in found], 'degraded': degraded,
+                       'error': raw.get('api_error') if degraded else (str(raw['errors']) if raw.get('errors') else None)}
+            if kind == 'hf_daily' and raw.get('errors') and all(
+                raw.get('attempts', {}).get(day, {}).get('status') == 'not_ready' for day in raw['errors']
+            ):
+                outcome['availability'] = 'not_ready'
+            outcomes.append(outcome)
         except (requests.RequestException, ET.ParseError, ValueError, KeyError) as error:
             outcomes.append({'source_id': source['id'], 'ok': False, 'count': 0,
                              'error': f'{type(error).__name__}: {error}', 'degraded': False})

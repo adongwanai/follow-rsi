@@ -11,7 +11,7 @@ import yaml
 from jsonschema import ValidationError
 
 from common import ROOT, CHECKS, FIELDS, KEYS, evidence, number_tokens, read_yaml
-from build import build, cell, compute_stats, replace_block
+from build import build, cell, compute_stats, replace_block, source_summary
 from validate import validate
 
 
@@ -26,6 +26,30 @@ def project(tmp_path):
 
 def save_data(root, data):
     (root / 'data/papers.yaml').write_text(yaml.safe_dump(data, allow_unicode=True, sort_keys=False))
+
+
+@pytest.mark.parametrize(('lang', 'failure_label', 'not_ready_label'), [
+    ('zh', '本次失败：', '榜单未就绪：'),
+    ('en', 'Failed in the latest run: ', 'Daily list not ready: '),
+])
+def test_source_summary_separates_not_ready_from_source_failures(tmp_path, lang, failure_label, not_ready_label):
+    path = tmp_path / 'site/feed/status.json'
+    path.parent.mkdir(parents=True)
+    sources = {
+        'hf-daily': {'enabled': True, 'last_ok': False, 'availability': 'not_ready'},
+        'arxiv-harness': {'enabled': True, 'last_ok': False},
+        'rss-lab': {'enabled': True, 'last_ok': True, 'last_success': '2026-10-27T00:00:00Z'},
+        'disabled': {'enabled': False, 'last_ok': False, 'availability': 'not_ready'},
+    }
+    path.write_text(json.dumps({'sources': sources}))
+    config = {'base_url': 'https://example.com'}
+    text = source_summary(tmp_path, lang, config)
+    assert failure_label + 'arxiv-harness。' in text
+    assert not_ready_label + 'hf-daily。' in text
+    assert 'rss-lab' in text and 'disabled' not in text
+    sources['hf-daily'] = {'enabled': True, 'last_ok': True, 'last_success': '2026-10-27T12:00:00Z'}
+    path.write_text(json.dumps({'sources': sources}))
+    assert not_ready_label not in source_summary(tmp_path, lang, config)
 
 
 def test_valid_source_and_routes():

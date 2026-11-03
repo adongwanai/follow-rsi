@@ -141,11 +141,16 @@ def source_summary(root, lang, config):
         return '尚无成功运行的信源记录。' if lang == 'zh' else 'No successful source run has been recorded.'
     state = json.loads(path.read_text())
     successful = [key for key, value in state.get('sources', {}).items() if value.get('enabled') and value.get('last_success')]
-    failed = [key for key, value in state.get('sources', {}).items() if value.get('enabled') and value.get('last_ok') is False]
+    failed = [key for key, value in state.get('sources', {}).items() if value.get('enabled')
+              and value.get('last_ok') is False and value.get('availability') != 'not_ready']
+    not_ready = [key for key, value in state.get('sources', {}).items() if value.get('enabled')
+                 and value.get('availability') == 'not_ready']
     zh = lang == 'zh'
     text = ('已实际运行成功：' if zh else 'Sources with recorded successful runs: ') + ' · '.join(successful) + '。'
     if failed:
         text += (' 本次失败：' if zh else ' Failed in the latest run: ') + ' · '.join(failed) + '。'
+    if not_ready:
+        text += (' 榜单未就绪：' if zh else ' Daily list not ready: ') + ' · '.join(not_ready) + '。'
     return text + f" [{'信源状态' if zh else 'Source status'}]({config['base_url'].rstrip('/')}/feed/status.json)."
 
 
