@@ -306,7 +306,7 @@ def _public_item(item, row, week, repository):
     repo_id = next((paper["id"] for paper in repository if item.get("arxiv_id")
                     and paper.get("arxiv") == item["arxiv_id"]), None)
     return {"id": item["id"], "arxiv_id": item.get("arxiv_id"), "version": item.get("version"),
-            "title": item["title"], "short_title": item["title"].split(":", 1)[0],
+            "title": item["title"], "short_title": item["title"].split(":", 1)[0].replace('$^2$', '²'),
             "authors": item.get("authors", []), "published": item["published"],
             "updated": item.get("updated"), "hf_daily_dates": sorted(set(item.get("hf_daily_dates", []))),
             "announced": _announced(item), "announced_source": item.get("announced_source"),
@@ -341,7 +341,8 @@ def _write_feed(root, editions, config, retracted):
     updated = max((entry.get("updated_at", entry["published_at"]) for entry in editions), default=None)
     result = {"version": 1, "reviewed_only": True, "updated_at": updated,
               "weeks": sorted({edition["week"] for edition in last}, reverse=True),
-              "dates": sorted({edition["date"] for edition in last if "date" in edition}, reverse=True),
+              "dates": sorted({edition["date"] for edition in last
+                               if "date" in edition and edition.get("kind") != "retrospective"}, reverse=True),
               "recaps": [{"period": edition["start"] + "--" + edition["end"], "kind": "retrospective",
                            "start": edition["start"], "end": edition["end"],
                            "title_zh": edition["title_zh"], "title_en": edition["title_en"]}

@@ -67,7 +67,8 @@ def verify(output=None):
                             if width==1440: assert top <=260,(view,top)
                         if view=='papers':
                             expect(page.locator('#sort')).to_have_value('must')
-                            expect(page.locator('#result-count')).to_contain_text('98 / 98')
+                            included = page.evaluate('HARNESS_DATA.stats.included')
+                            expect(page.locator('#result-count')).to_contain_text(f'{included} / {included}')
                             expected=page.evaluate('Object.keys(HARNESS_DATA.meta.sections)')
                             for sort in ('newest','oldest','must','evidence'):
                                 page.select_option('#sort',sort)

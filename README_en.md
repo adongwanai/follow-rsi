@@ -27,15 +27,13 @@ RSI papers appear every day, but every claim of improvement needs scrutiny. Foll
 
 <!-- AUTO:TODAY:START -->
 
-**[Inaugural retrospective · October 14–27](https://adongwanai.github.io/follow-rsi/recaps/2026-10-14--2026-10-27.html)** · 16 papers, human reviewed.
+**[2026-11-02](https://adongwanai.github.io/follow-rsi/daily/2026-11-02.html)** · 3 papers, human reviewed.
 
-- [Skill^∞](https://arxiv.org/abs/2610.35434) · 2. Evolving the improver (meta / multi-level) · A meta-skill uses the same optimization loop to improve task skills and itself.
-- [SERA](https://arxiv.org/abs/2610.29560) · 1.1 Search & evolution (frozen model) · The VLM planner evolves its editable Harness from execution experience while the VLA executor remains fixed.
-- [Evolving Agent Interfaces (Agent S4)](https://arxiv.org/abs/2610.28601) · 3. Component-level evolution (skills, memory, context, interfaces) · A meta agent reads trajectories without success labels on synthetic tasks, writing and revising interface repositories; population selection retains repositories using validation tasks hidden from the meta agent.
-- [HarnessAdapt-RL](https://arxiv.org/abs/2610.28069) · 4. Model–harness co-evolution · During RL, one teacher generates task-related mechanism-level skills, while another evolves tools and hooks from recurring interaction problems; retains only edits that improve pass rate or trainability without lowering the other metric.
-- [RiseHarness](https://arxiv.org/abs/2610.27435) · 1.1 Search & evolution (frozen model) · Targets tasks with inconsistent success across repeated runs: combines agent trajectories and internal runtime traces, maps behavior to source code using a Harness Handbook, and retrieves implementations from other frameworks as references.
+- [RoboArchitect](https://arxiv.org/abs/2610.42141) · 1.1 Search & evolution (frozen model) · Uses rollout feedback to revise control code around a frozen robotic policy, evaluating retained harnesses on held-out tasks in simulation.
+- [CEPO](https://arxiv.org/abs/2610.34722) · 3. Component-level evolution (skills, memory, context, interfaces) · Uses execution feedback to revise coordinator and executor prompts separately, selecting prompts on validation tasks for subsequent use.
+- [R²Orch](https://arxiv.org/abs/2610.22740) · 4. Model–harness co-evolution · Co-evolves Director weights and versioned skills using execution feedback during training; deployment uses no skills.
 
-[Read this edition →](https://adongwanai.github.io/follow-rsi/recaps/2026-10-14--2026-10-27.html)
+[Read this edition →](https://adongwanai.github.io/follow-rsi/daily/2026-11-02.html)
 
 <!-- AUTO:TODAY:END -->
 
@@ -110,7 +108,7 @@ Legend: ✅ yes · ◐ partial · ❌ no · ❔ not yet reviewed. Every entry mu
 Icons: held-out · matched budget · cross-model · cost; ❔ means not yet reviewed.
 
 61 methods · 16 Harness evaluation and theory · 24 foundations and general RSI papers.
-[Full catalog: 101 + 6 candidates](PAPERS.md) · [Filter on the site](https://adongwanai.github.io/follow-rsi/#papers)
+[Full catalog: 101 + 13 candidates](PAPERS.md) · [Filter on the site](https://adongwanai.github.io/follow-rsi/#papers)
 
 <!-- AUTO:MUST_READ:END -->
 

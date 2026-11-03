@@ -5,7 +5,7 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 import requests
 from scripts.common import read_yaml
-from .normalize import normalize_record, normalize_records, split_arxiv
+from .normalize import ARXIV_RE, normalize_record, normalize_records, split_arxiv
 from .storage import load_state, save_raw
 
 API = 'https://export.arxiv.org/api/query'
@@ -57,6 +57,9 @@ def fetch_ids(ids, session=None, now=None):
     """Fetch up to 100 ids per metadata request, keeping the global 3-second limit."""
     records = []
     ids = list(dict.fromkeys(ids))
+    invalid = [ident for ident in ids if not ARXIV_RE.fullmatch(ident)]
+    if invalid:
+        raise ValueError(f'Invalid arXiv identifiers: {invalid}')
     for start in range(0, len(ids), 100):
         body = request({'id_list': ','.join(ids[start:start + 100]), 'max_results': 100}, session)
         records.extend(parse_atom(body, source_id='arxiv-version-check', now=now))
