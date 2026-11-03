@@ -51,7 +51,7 @@ def label(p):
 
 def short(p):
     match = re.search(r'\(([^)]+)\)\s*$', p['title'])
-    return match[1] if match else re.split(r'[:：]', p['title'])[0]
+    return (match[1] if match else re.split(r'[:：]', p['title'])[0]).replace('$^2$', '²')
 
 
 def compute_stats(data):

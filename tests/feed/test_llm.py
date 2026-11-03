@@ -1,7 +1,10 @@
 import json
 import shutil
+from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime
 from types import SimpleNamespace
 
+from openai.types import CompletionUsage
 import pytest
 import yaml
 
@@ -23,9 +26,12 @@ SUMMARY_LIMIT_CASES = [
 
 
 class Transport:
-    def __init__(self, outputs):
+    def __init__(self, outputs, *, usage=None, request_id=None, response_id=None):
         self.outputs = iter(outputs)
         self.calls = []
+        self.usage = usage
+        self.request_id = request_id
+        self.response_id = response_id
         self.chat = SimpleNamespace(completions=SimpleNamespace(create=self.create))
 
     def create(self, **kwargs):
@@ -34,13 +40,46 @@ class Transport:
         if isinstance(value, Exception):
             raise value
         content = value if isinstance(value, str) else json.dumps(value)
-        return SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content=content))])
+        return SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content=content))],
+                               usage=self.usage, _request_id=self.request_id, id=self.response_id)
 
 
 @pytest.fixture
 def prompt_root(tmp_path):
     shutil.copytree(ROOT / 'feed/prompts', tmp_path / 'feed/prompts')
     return tmp_path
+
+
+@pytest.mark.parametrize('usage', [None, CompletionUsage(prompt_tokens=11, completion_tokens=7, total_tokens=18)])
+def test_usage_ledger_records_sdk_metadata_and_skips_cache_hits(prompt_root, usage):
+    transport = Transport([VALID], usage=usage, request_id='request-test', response_id='response-test')
+    client = FeedLLM('model-a', transport, root=prompt_root)
+    result = client.run('relevance', ITEM)
+    path = prompt_root / 'data/feed/usage.jsonl'
+    original = path.read_bytes()
+    assert client.run('relevance', ITEM)['cached']
+    assert path.read_bytes() == original
+    record, = [json.loads(line) for line in original.decode().splitlines()]
+    recorded_at = datetime.fromisoformat(record.pop('recorded_at'))
+    assert recorded_at.utcoffset().total_seconds() == 0
+    assert record == {
+        'stage': 'relevance', 'model': 'model-a', 'provider': 'openai',
+        'item_id': ITEM['id'], 'cache_key': result['cache_key'], 'attempt': 1,
+        'usage': usage.model_dump(mode='json') if usage is not None else None,
+        'request_id': 'request-test', 'response_id': 'response-test',
+        'error_type': None, 'http_status': None,
+    }
+    assert len(transport.calls) == 1
+
+
+def test_usage_ledger_preserves_concurrent_requests(prompt_root):
+    transport = Transport([VALID] * 8)
+    client = FeedLLM('model-a', transport, root=prompt_root)
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        results = list(pool.map(lambda version: client.run('relevance', {**ITEM, 'version': version}), range(8)))
+    records = [json.loads(line) for line in (prompt_root / 'data/feed/usage.jsonl').read_text().splitlines()]
+    assert len(records) == len(transport.calls) == 8
+    assert {record['cache_key'] for record in records} == {result['cache_key'] for result in results}
 
 
 def test_cache_hit_and_version_prompt_model_invalidation(prompt_root):
@@ -84,11 +123,16 @@ def test_stage_model_routes_request_and_separates_cache(prompt_root):
 
 
 def test_retry_schema_failure_once_and_never_cache_invalid(prompt_root):
-    transport = Transport(['not JSON', {**VALID, 'label': 'bad'}])
+    usage = CompletionUsage(prompt_tokens=11, completion_tokens=7, total_tokens=18)
+    transport = Transport(['not JSON', {**VALID, 'label': 'bad'}], usage=usage)
     with pytest.raises(LLMError, match='invalid after one retry'):
         FeedLLM('model-a', transport, root=prompt_root).run('relevance', ITEM)
     assert len(transport.calls) == 2
     assert not list((prompt_root / 'data/feed/cache').glob('*.json'))
+    records = [json.loads(line) for line in (prompt_root / 'data/feed/usage.jsonl').read_text().splitlines()]
+    assert [record['attempt'] for record in records] == [1, 2]
+    assert all(record['usage'] == usage.model_dump(mode='json') for record in records)
+    assert len({record['cache_key'] for record in records}) == 1
     transport = Transport([{**VALID, 'exclude_reason': 'off_topic'}, VALID])
     result = FeedLLM('model-a', transport, root=prompt_root).run('relevance', ITEM)
     assert result['data'] == VALID
@@ -153,6 +197,11 @@ def test_network_error_is_visible_without_secret_details(prompt_root):
     assert 'sensitive' not in str(caught.value)
     assert caught.value.__cause__ is not None
     assert len(transport.calls) == 1
+    logged = (prompt_root / 'data/feed/usage.jsonl').read_text()
+    record, = [json.loads(line) for line in logged.splitlines()]
+    assert record['error_type'] == 'RuntimeError'
+    assert record['http_status'] is record['usage'] is None
+    assert 'sensitive' not in logged
 
 
 def test_insufficient_balance_stops_batch_instead_of_relabeling_papers(prompt_root):
@@ -166,6 +215,11 @@ def test_insufficient_balance_stops_batch_instead_of_relabeling_papers(prompt_ro
     assert 'sensitive' not in str(caught.value)
     assert len(transport.calls) == 1
     assert not list((prompt_root / 'data/feed/cache').glob('*.json'))
+    logged = (prompt_root / 'data/feed/usage.jsonl').read_text()
+    record, = [json.loads(line) for line in logged.splitlines()]
+    assert record['attempt'] == 1 and record['http_status'] == 402
+    assert record['error_type'] == 'RuntimeError' and record['usage'] is None
+    assert 'sensitive' not in logged
 
 
 def test_deepseek_json_mode_still_validates_schema(prompt_root):

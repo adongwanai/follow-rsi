@@ -433,3 +433,30 @@ def test_github_fourteen_day_window_excludes_thirteenth_and_includes_fourteenth(
     source = {'id': 'github-releases', 'params': {'lookback_days': 14}}
     items, _ = fetch_github.fetch(source, tmp_path, datetime(2026, 10, 27, tzinfo=timezone.utc), session)
     assert [item['published'][:10] for item in items] == ['2026-10-14', '2026-10-27']
+
+
+@pytest.mark.parametrize('invalid', ['data/1526520', 'https://www.sec.gov/Archives/edgar/data/1526520/file.htm', '2610.10001,broken', 'not-an-id'])
+def test_arxiv_hydration_rejects_invalid_ids_before_any_request(monkeypatch, invalid):
+    request = Mock()
+    monkeypatch.setattr(fetch_arxiv, 'request', request)
+    with pytest.raises(ValueError, match='Invalid arXiv identifiers'):
+        fetch_arxiv.fetch_ids(['2610.10001', invalid])
+    request.assert_not_called()
+
+
+def test_arxiv_hydration_accepts_modern_and_legacy_versioned_ids(monkeypatch):
+    request = Mock(return_value=(FIX / 'arxiv.xml').read_text())
+    monkeypatch.setattr(fetch_arxiv, 'request', request)
+    fetch_arxiv.fetch_ids(['2610.10001v2', 'cs/0309048v3', '2610.10001v2'])
+    assert request.call_args.args[0]['id_list'] == '2610.10001v2,cs/0309048v3'
+
+
+@pytest.mark.parametrize('failure', [requests.HTTPError('404 Client Error: Not Found'),
+                                    requests.ConnectionError('DNS resolution failed')])
+def test_rss_transport_failure_is_not_an_empty_success(failure):
+    session = Mock()
+    session.get.side_effect = failure
+    source = {'id': 'rss-weco', 'params': {'url': 'https://www.weco.ai/blog/rss.xml'}}
+    with pytest.raises(type(failure)):
+        fetch_rss.fetch(source, datetime(2026, 11, 2, tzinfo=timezone.utc), session)
+    session.get.assert_called_once()

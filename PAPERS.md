@@ -1,6 +1,6 @@
 # Follow RSI · 论文全集
 
-101 篇正式收录，6 篇候选。scope 是阅读范围，不等于全文证据已核验。
+101 篇正式收录，13 篇候选。scope 是阅读范围，不等于全文证据已核验。
 
 [网站筛选](https://adongwanai.github.io/follow-rsi/#papers) · [返回首页](README.md)
 
@@ -127,10 +127,17 @@
 | 2026-07 | [RSI in AI: From Bounded Self-Refinement to Autonomous Research Loops](papers/rsi-in-ai-survey.md) | 覆盖 1,250 篇，按「改什么」与「谁来验证」两轴分类；结论是自改进的可信度取决于验证。 |  | ❔ ❔ ❔ ❔ |
 | 2026-07 | [Self-Improvements in Modern Agentic Systems: A Survey](papers/self-improvements-survey.md) | 把 Agent 写成「基础模型 + 操作脚手架」，自改进形式化为更新算子；含评测协议建议。 |  | ❔ ❔ ❔ ❔ |
 
-## 延伸候选 · 6 篇
+## 延伸候选 · 13 篇
 
 | 日期 | 论文 | 核心机制 | 关键结果 | 证据 |
 | --- | --- | --- | --- | --- |
+| 2026-10-30 | [RoboArchitect: Automating the Design of Robotic Agents with Persistent Memory](papers/feed-2610-42141.md) **待细读 / Needs verification** | 在仿真中用轨迹反馈修订冻结策略外的控制代码，并在留出任务评估。 |  | ❔ ❔ ❔ ❔ |
+| 2026-10-27 | [Learning to Code the World: Harness Evolution for Compositional 3D Reconstruction](papers/sceneevolve.md) **待细读 / Needs verification** | 按重建反馈演化冻结模型外的工具和复用例程，最终 Harness 用于未见场景。 |  | ❔ ❔ ❔ ❔ |
+| 2026-10-27 | [When the Critic Falls Behind: Co-Evolving Rubrics and Harnesses for Continual Agent Self-Improvement](papers/ruharness.md) **待细读 / Needs verification** | 从执行轨迹更新评分准则并指导可复用 Harness 修订，验证后保留。 |  | ❔ ❔ ❔ ❔ |
+| 2026-10-26 | [The Trinity:Capability-Driven Recursive Self-Improvement for Multimodal Agents](papers/feed-2610-36077.md) **待细读 / Needs verification** | 按执行反馈修订冻结模型外的协议模块并沿固定能力树继承；评测技能另行准备。 |  | ❔ ❔ ❔ ❔ |
+| 2026-10-26 | [CEPO: A General Framework for Improving Prompt Optimization in Multi-Agent Systems](papers/feed-2610-34722.md) **待细读 / Needs verification** | 用执行反馈分别修订协调者与执行器提示，经验证集选择后用于后续任务。 |  | ❔ ❔ ❔ ❔ |
+| 2026-10-22 | [VibeGame: Prompt-to-Game Development with AI-Native Engine and Self-Evolving Adversarial Agent Team](papers/feed-2610-33106.md) **待细读 / Needs verification** | 从已验证项目提炼可复用协作契约供后续开发；自进化仅在经验消融中评估。 |  | ❔ ❔ ❔ ❔ |
+| 2026-10-15 | [R$^2$Orch: Recursive Self-Improvement for Agent Orchestration via Self-Play within a Skill-Internalization Loop](papers/feed-2610-22740.md) **待细读 / Needs verification** | 在训练中按反馈共演化编排模型与版本化技能；部署时不携带技能。 |  | ❔ ❔ ❔ ❔ |
 | 2026-10 | [Recurrent Harness for Agentic Continual Learning (ReHarness)](papers/reharness.md) | 面向持续学习的循环 Harness，在流式在线协议下增加反向修订。 |  | ❔ ❔ ❔ ❔ |
 | 2026-09 | [Self-Evolving Harness on Multiple Tasks with the Agent as Its Own Optimizer](papers/self-evolving-multi-task.md) | 每批演化混合五个领域的基准，只在留出任务上计分。 |  | ❔ ❔ ❔ ❔ |
 | 2026-09 | [Composing Task-specific Agent Harnesses at Test Time with Reusable Primitives (STITCH)](papers/stitch.md) | 测试时用可复用原语组装任务专用 Harness，比固定 Harness 最多高 12 分。 |  | ❔ ❔ ❔ ❔ |

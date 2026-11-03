@@ -54,6 +54,7 @@ def update_health(root, outcomes, now=None, issue_client=None):
     state, events = load_state(root), []
     registry = read_yaml(Path(root) / 'feed' / 'sources.yaml')['sources']
     enabled = {entry['id']: entry for entry in registry if entry['enabled']}
+    registered = {entry['id'] for entry in registry}
     for ident, entry in enabled.items():
         source = state['sources'].setdefault(ident, {'consecutive_failures': 0, 'consecutive_errors': 0,
                                                     'seen_ids': [], 'weekly': {}})
@@ -65,7 +66,7 @@ def update_health(root, outcomes, now=None, issue_client=None):
         ident = outcome['source_id']
         source = state['sources'].setdefault(ident, {'consecutive_failures': 0, 'consecutive_errors': 0,
                                                     'seen_ids': [], 'weekly': {}})
-        healthy = outcome['ok'] and outcome['count'] > 0 and not outcome.get('degraded')
+        healthy = outcome['ok'] and not outcome.get('degraded')
         api_error = not outcome['ok'] or outcome.get('degraded', False)
         source['last_run'] = moment
         source['last_count'] = outcome['count']
@@ -81,13 +82,14 @@ def update_health(root, outcomes, now=None, issue_client=None):
         source['seen_ids'] = sorted(seen | set(outcome.get('ids', [])))
         source['weekly'][week] = source['weekly'].get(week, 0) + len(fresh)
         source['total_found'] = len(source['seen_ids'])
-    for ident in enabled:
-        source = state['sources'][ident]
-        healthy = source.get('last_ok') and source.get('last_count', 0) > 0 and not source.get('degraded')
+    for ident, source in state['sources'].items():
+        if ident in registered and ident not in enabled:
+            continue
+        healthy = source.get('last_ok') and not source.get('degraded')
         title = f'Source down: {ident}'
-        if source['consecutive_failures'] >= 3 and not source.get('issue_number'):
+        if source['consecutive_errors'] >= 3 and not source.get('issue_number'):
             event = {'action': 'open', 'source_id': ident, 'title': title,
-                     'body': f"Three consecutive empty or failed runs.\n\nLast error: {source['last_error'] or '0 entries'}\n\nDegraded RSS mode: {source['degraded']}"}
+                     'body': f"Three consecutive failed or degraded runs.\n\nLast error: {source['last_error']}\n\nDegraded RSS mode: {source['degraded']}"}
             events.append(event)
             if issue_client:
                 source['issue_number'] = issue_client.find(title) or issue_client.create(title, event['body'])
@@ -95,6 +97,8 @@ def update_health(root, outcomes, now=None, issue_client=None):
             events.append({'action': 'close', 'source_id': ident, 'number': source['issue_number']})
             if issue_client:
                 issue_client.close(source.pop('issue_number'))
+        if ident not in enabled:
+            continue
         last_record = source.get('last_run') or source['enabled_since']
         source['missing_days'] = max(0, (current.date() - timestamp(last_record).date()).days)
         if source['missing_days'] < 2 and source.get('missing_issue_number'):

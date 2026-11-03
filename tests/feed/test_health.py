@@ -18,16 +18,16 @@ def scope_config(tmp_path):
         shutil.copyfile(ROOT / 'feed' / name, tmp_path / 'feed' / name)
 
 
-def test_three_empty_runs_open_once_and_recovery_closes(tmp_path):
+def test_three_failed_runs_open_once_and_successful_empty_recovery_closes(tmp_path):
     client = Mock()
     client.find.return_value = None
     client.create.return_value = 7
-    bad = [{'source_id': 'hf-daily', 'ok': True, 'count': 0, 'ids': []}]
+    bad = [{'source_id': 'hf-daily', 'ok': False, 'count': 0, 'ids': [], 'error': 'HTTP 503'}]
     for _ in range(4):
         update_health(tmp_path, bad, NOW, client)
     client.create.assert_called_once()
     assert load_state(tmp_path)['sources']['hf-daily']['issue_number'] == 7
-    good = [{'source_id': 'hf-daily', 'ok': True, 'count': 1, 'ids': ['arxiv:2610.10001']}]
+    good = [{'source_id': 'hf-daily', 'ok': True, 'count': 0, 'ids': []}]
     update_health(tmp_path, good, NOW, client)
     client.close.assert_called_once_with(7)
     assert 'issue_number' not in load_state(tmp_path)['sources']['hf-daily']
@@ -186,3 +186,43 @@ def test_publication_latency_uses_first_actual_daily_edition_not_demo(tmp_path):
             'reviewed_only': True, 'published_at': f'2026-10-{day}T12:00:00Z',
             'items': [{'id': 'paper'}], **extra}))
     assert publication_times(tmp_path)['paper'].isoformat() == '2026-10-27T12:00:00+00:00'
+
+
+@pytest.mark.parametrize('ident', ['hf-daily', 'rss-weco', 'github-releases', 'arxiv-harness'])
+def test_successful_empty_results_are_healthy_without_outage_alerts(tmp_path, ident):
+    client = Mock()
+    for _ in range(4):
+        status = update_health(tmp_path, [{'source_id': ident, 'ok': True, 'count': 0, 'ids': []}], NOW, client)
+    client.create.assert_not_called()
+    client.close.assert_not_called()
+    source = status['sources'][ident]
+    assert source['last_ok'] is True and source['last_count'] == 0
+    assert source['consecutive_failures'] == source['consecutive_errors'] == 0
+    assert source['last_success'] == NOW
+
+
+def test_degraded_nonempty_source_still_opens_an_outage_alert(tmp_path):
+    for _ in range(3):
+        status = update_health(tmp_path, [{'source_id': 'arxiv-harness', 'ok': True,
+                                          'count': 2, 'ids': ['a', 'b'], 'degraded': True,
+                                          'error': 'API 503; RSS fallback used'}], NOW)
+    assert status['pending_issue_actions'][0]['title'] == 'Source down: arxiv-harness'
+    assert 'Three consecutive failed or degraded runs.' in status['pending_issue_actions'][0]['body']
+
+
+def test_hydration_recovery_closes_auxiliary_source_issue_on_refresh(tmp_path):
+    client = Mock()
+    client.find.return_value = None
+    client.create.return_value = 10
+    for _ in range(3):
+        update_health(tmp_path, [{'source_id': 'arxiv-hydration', 'ok': False,
+                                  'count': 0, 'error': 'HTTP 400'}], NOW, client)
+    client.create.assert_called_once()
+    status = update_health(tmp_path, [{'source_id': 'arxiv-hydration', 'ok': True,
+                                      'count': 1, 'ids': ['arxiv:2610.10001']}], NOW)
+    expected = [{'action': 'close', 'source_id': 'arxiv-hydration', 'number': 10}]
+    assert status['pending_issue_actions'] == expected
+    assert update_health(tmp_path, [], NOW)['pending_issue_actions'] == expected
+    update_health(tmp_path, [], NOW, client)
+    client.close.assert_called_once_with(10)
+    assert 'issue_number' not in load_state(tmp_path)['sources']['arxiv-hydration']

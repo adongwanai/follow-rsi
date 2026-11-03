@@ -454,7 +454,8 @@ def test_retrospective_is_separate_from_withdrawn_daily_and_explicit_in_feed(tmp
                   direction={'primary': 'theory_survey', 'harness_sub': None, 'secondary': ['harness']})
     theory['gate']['harness_specific'] = 'yes'
     original['items'].append(theory)
-    recap = {'kind': 'retrospective', 'start': '2026-10-14', 'end': DAY,
+    # Migrated recaps can retain the old edition date as a provenance field.
+    recap = {'kind': 'retrospective', 'start': '2026-10-14', 'end': DAY, 'date': DAY,
              'title_zh': '创刊回顾 · 10 月 14–27 日', 'title_en': 'Inaugural retrospective · October 14–27',
              'reviewed_only': True, 'published_at': DAY + 'T16:00:00Z',
              'items': original['items'], 'intro': original['intro']}
