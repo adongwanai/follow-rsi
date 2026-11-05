@@ -1,0 +1,574 @@
+{
+  "schema_version": 1,
+  "reviewed_at": "2026-11-05T04:04:19.373482+00:00",
+  "reviewer": "nov05_sources_engineering_review",
+  "scope": "Read-only engineering review of integration logic and source-universe accounting. This is not another paper scope review or an integration execution.",
+  "status": "postintegration_independent_engineering_verification_passed",
+  "reviewed_inputs": [
+    {
+      "path": "build/maintenance-primary-2026-11-05/integrate.py",
+      "sha256": "75a39b3895b62e009ab412a1fe0f17e919ca1b0e35131355db4b75fc8fe6a0d5"
+    },
+    {
+      "path": "docs/internal/reports/maintenance-2026-11-05/source-universe-reconciliation.json",
+      "sha256": "18a38a63ff121129bcb59a13e23c1c5687be548c89dfb435fdb8e8b8674d646b"
+    },
+    {
+      "path": "build/maintenance-primary-2026-11-05/baseline/data/feed/items.jsonl",
+      "sha256": "266e7995781598e74188423974158da2027c4ef97ac2e6d845e7385cd0c28704"
+    },
+    {
+      "path": "data/feed/intake/2026-11-05/source-records.jsonl",
+      "sha256": "4d622af4ad7f9e3998bfda532edeaee978d88da4bca354825362bcd41ace3fd3"
+    },
+    {
+      "path": "docs/internal/reports/maintenance-2026-11-05/source-health.json",
+      "sha256": "69a658f5ea5b2d1fa9e2e11c09da9c96e994cda97504def36fb235bad57e01c7"
+    },
+    {
+      "path": "docs/internal/reports/maintenance-2026-11-04/backlog-reconciliation.json",
+      "sha256": "0b779734fc9db5854e901dde33a482ddc612d50c4fe501e9e3cc359c4417bf38"
+    }
+  ],
+  "findings": [
+    {
+      "id": "ER-01",
+      "priority": 2,
+      "status": "resolved_in_reviewed_script",
+      "title": "Bind the reviewed Kev-Bio raw abstract to its canonical whitespace normalization",
+      "location": {
+        "path": "build/maintenance-primary-2026-11-05/integrate.py",
+        "line": 117
+      },
+      "evidence": {
+        "id": "arxiv:2611.03360",
+        "review_input_sha256": "35af4a8f14b3b603001deb71bfebe7254b0ffc939c5eedd68e39a562b6db0ab8",
+        "canonical_sha256": "64cf8b5c6823891e3457b39c61ca4b169b328d142c5575e25291087e025aee74",
+        "raw_characters": 1707,
+        "canonical_characters": 1701,
+        "whitespace_normalized_equal": true
+      },
+      "resolution": "The script now asserts exact per-item abstract bindings; the one observed whitespace-only difference is checked against the archived HF response, and both review-input and canonical hashes plus the explicit normalization status are retained."
+    },
+    {
+      "id": "ER-02",
+      "priority": 2,
+      "status": "resolved_in_reviewed_script",
+      "title": "Retain the two independent original-body RSS reviews",
+      "location": {
+        "path": "build/maintenance-primary-2026-11-05/integrate.py",
+        "line": 54
+      },
+      "affected_ids": [
+        "post:https://openai.com/index/a-thousand-fewer-paths-to-root",
+        "post:https://openai.com/index/devrev-enterprise-self-service"
+      ],
+      "resolution": "The independent RSS report is now loaded. Its suggestions, review levels and report references enter the joined status, rather than incorrectly marking these two items as not individually rereviewed."
+    },
+    {
+      "id": "ER-03",
+      "priority": 2,
+      "status": "resolved_in_reviewed_script",
+      "title": "Keep PRISM verified DOI and publisher links",
+      "location": {
+        "path": "build/maintenance-primary-2026-11-05/integrate.py",
+        "line": 99
+      },
+      "affected_ids": [
+        "s2:73abbf7ebfcddc9eaa9d9efeecee1e71ba1d5f2b"
+      ],
+      "resolution": "Verified official metadata links are merged for new records only. Pure in-memory integration retains the S2 entry, https://doi.org/10.55708/js0510001 and https://www.jenrs.com/v05/i10/p001/."
+    }
+  ],
+  "open_substantive_findings_at_reviewed_snapshot": 0,
+  "checks": [
+    {
+      "name": "canonical_identity_and_count",
+      "status": "pass_in_memory",
+      "before": 1598,
+      "new_ids": 138,
+      "removed_duplicate_rows": 1,
+      "after": 1735,
+      "new_cohorts": {
+        "hf": 53,
+        "arxiv": 4,
+        "s2_historical": 76,
+        "news": 5
+      }
+    },
+    {
+      "name": "actual_first_seen",
+      "status": "pass_in_memory",
+      "new_date_counts": {
+        "2026-11-05": 138
+      },
+      "rule": "New records use the earliest observed timestamp among the current intake variants. Every retained baseline first_seen remains unchanged."
+    },
+    {
+      "name": "official_metadata_coverage",
+      "status": "pass",
+      "new_paper_ids": 133,
+      "disjoint_official_candidate_counts": [
+        57,
+        76
+      ],
+      "boundary": "Official v1/publication dates and latest update dates remain separate from observed first_seen and HF recommendation days. S2-only records gain no invented HF membership."
+    },
+    {
+      "name": "existing_scientific_fields_and_decisions",
+      "status": "pass_in_memory",
+      "retained_baseline_rows": 1597,
+      "changed_baseline_rows": 2,
+      "allowed_changed_fields": [
+        "source_hits",
+        "hf_daily_dates",
+        "links"
+      ],
+      "new_effective_formal_decisions": {
+        "defer": 138
+      },
+      "retained_duplicate_record_unchanged": true,
+      "boundary": "Unchanged receipt contents do not imply their source hashes remain current after provenance changes."
+    },
+    {
+      "name": "published_feed_impact",
+      "status": "pass_read_only",
+      "latest_published_items": 21,
+      "changed_or_removed_ids_present_in_latest": [],
+      "new_publication_authorizations": 0,
+      "new_edition_generation_in_script": false,
+      "boundary": "The existing latest feed was inspected; this integration path does not write daily publication JSON files. Rendering the daily index is not publishing a new edition."
+    },
+    {
+      "name": "source_universe",
+      "status": "pass_recomputed",
+      "reused_ledger_ids": 8280,
+      "previous_ledger_plus_baseline_ids": 8331,
+      "raw_union_ids": 8482,
+      "resolved_union_ids": 8481,
+      "canonical_ids": 1735,
+      "source_only_ids": 6746,
+      "new_filtered_ids": 13,
+      "new_filtered_dispositions": {
+        "before_configured_window": 4,
+        "missing_publication_date": 9
+      },
+      "source_only_partition": {
+        "outside_all_saved_source_windows": 6296,
+        "no_eligible_dated_s2_record": 450
+      },
+      "prior_partition": {
+        "outside_all_saved_source_windows": 6292,
+        "no_eligible_dated_s2_record": 441
+      },
+      "boundary": "Reuses the hash-bound 118-snapshot prior ledger; the report accurately does not claim fresh reparsing of every current RSS archive/navigation link."
+    },
+    {
+      "name": "source_health_transition",
+      "status": "pass_static_review",
+      "attempted_sources": 12,
+      "successful_sources": 11,
+      "failed_source": "s2-authors",
+      "expected_s2_citations_consecutive_errors": 0,
+      "expected_s2_authors_consecutive_errors": 5,
+      "health_updates_in_integration": 1,
+      "github_issue_client_supplied": false,
+      "boundary": "The failed authors attempt remains a failure. Pending issue actions are local data; no GitHub issues are sent."
+    },
+    {
+      "name": "daily_status",
+      "status": "pass_recomputed_and_static_review",
+      "nov04_hf_snapshot": {
+        "count": 50,
+        "include": 4,
+        "exclude": 45,
+        "borderline": 1,
+        "primary_independent_disagreements": 0,
+        "planned_status": "quality_gate_blocked"
+      },
+      "nov05_hf_snapshot": {
+        "count": 5,
+        "include": 0,
+        "exclude": 5,
+        "primary_independent_disagreements": 0,
+        "planned_status": "no_eligible_hf",
+        "snapshot_time": "2026-11-05 11:15 Asia/Shanghai"
+      },
+      "boundary": "The reason explicitly says the board can grow. Historical S2 intake and other sources do not fill a same-day HF edition."
+    }
+  ],
+  "known_approval_binding_changes": [
+    {
+      "id": "arxiv:2610.39714",
+      "name": "MoLRSI",
+      "old_source_hash": "4e5b3b73d1bb50ec3bcfade80a9436391d02946d640336e7b576441ecc7086d7",
+      "new_source_hash": "059898632feae463a0194b3b17451eef3d56bfe20d9dd282679128e6da86c14c",
+      "changed_fields": [
+        "source_hits",
+        "hf_daily_dates",
+        "links"
+      ],
+      "new_hf_membership": "2026-11-04",
+      "prior_approval_binding_automatically_reused": false,
+      "affected_prior_receipts": [
+        {
+          "path": "review/approvals/2026-11-02.yaml",
+          "scope_recommendation": "unknown",
+          "old_binding_valid_before": true,
+          "old_binding_valid_after": false
+        },
+        {
+          "path": "review/daily/2026-10-31.yaml",
+          "decision": "defer",
+          "old_binding_valid_before": true,
+          "old_binding_valid_after": false
+        },
+        {
+          "path": "review/daily/2026-11-01.yaml",
+          "decision": "defer",
+          "old_binding_valid_before": true,
+          "old_binding_valid_after": false
+        }
+      ]
+    },
+    {
+      "id": "arxiv:2610.39813",
+      "name": "EvoTeam",
+      "old_source_hash": "20805d8ad328382ebdf24e01e277aac952bfe93cdcded439dbac8e5299eda501",
+      "new_source_hash": "12f3795f72723c0944ef66a1c0363b0382b8e54235d206a7be7d638ac1f7c0aa",
+      "changed_fields": [
+        "source_hits",
+        "hf_daily_dates",
+        "links"
+      ],
+      "new_hf_membership": "2026-11-04",
+      "prior_approval_binding_automatically_reused": false,
+      "affected_prior_receipts": []
+    }
+  ],
+  "historical_queue_alias_consequence": {
+    "removed_id": "post:https://sakana.ai/us-midterms-analysis/",
+    "retained_id": "post:/us-midterms-analysis/",
+    "retained_alias_contains_removed_id": true,
+    "affected_paths": [
+      "review/daily/2026-10-31.yaml",
+      "review/daily/2026-11-01.yaml"
+    ],
+    "both_removed_rows_formal_decision": "defer",
+    "source_hash_of_removed_rows_matched_baseline": true,
+    "validator_behavior": "validate_daily_review rejects missing canonical IDs and does not resolve aliases. These archived queues also contain MoLRSI old source hashes and cannot be replayed unchanged after integration.",
+    "disposition": "Preserve the archived receipts and duplicate-original-records evidence. Regenerate and review a current queue if later publication is requested; never rewrite or silently reuse the old decision. This does not affect the 21 already published latest-feed records."
+  },
+  "remaining_execution_gates": [
+    "Finish the already-planned primary selected-body S2 review and independent S2 report, then adapt and validate their final schemas. Their unfinished state is not classified as an integration defect.",
+    "At final joining, retain each reviewer suggestion, actual reading level and unresolved evidence/body blockers independently; an independent body read must not be attributed to the primary reviewer. Keep disagreements visible.",
+    "Run the per-item binding assertions and 140-row joined-status checks against those final reports before writing production. Preserve explicit source-hash drift for the two known provenance updates.",
+    "After actual integration, verify the 1735-record result, the one source-health transition, the daily statuses, unchanged published editions and all protected scientific/formal-decision fields. This report does not claim those writes have occurred."
+  ],
+  "review_side_effects": {
+    "integration_executed": false,
+    "production_writes": 0,
+    "source_artifact_writes": 0,
+    "network_requests": 0,
+    "git_actions": 0,
+    "paid_calls": 0,
+    "files_written": [
+      "docs/internal/reports/maintenance-2026-11-05/engineering-review.md",
+      "docs/internal/reports/maintenance-2026-11-05/engineering-review.json"
+    ]
+  },
+  "post_integration_verification": {
+    "checked_at": "2026-11-05T04:21:05.679490+00:00",
+    "status": "core_checks_passed_addenda_status_refresh_pending",
+    "independently_checked": true,
+    "canonical_count": 1735,
+    "new_ids": 138,
+    "statuses": 140,
+    "suggestions": {
+      "include": 36,
+      "exclude": 101,
+      "borderline": 3
+    },
+    "new_suggestions": {
+      "include": 35,
+      "exclude": 101,
+      "borderline": 2
+    },
+    "only_retained_old_record_changes": {
+      "arxiv:2610.39714": [
+        "hf_daily_dates",
+        "links",
+        "source_hits"
+      ],
+      "arxiv:2610.39813": [
+        "hf_daily_dates",
+        "links",
+        "source_hits"
+      ]
+    },
+    "new_first_seen_equals_earliest_actual_intake": true,
+    "new_formal_decisions_all_defer": true,
+    "new_fake_model_stage_records": 0,
+    "all_hf_memberships_present": true,
+    "kevbio_raw_to_canonical_whitespace_binding_reverified": true,
+    "prism_verified_doi_and_publisher_links_present": true,
+    "independent_rss_both_body_levels_and_reports_present": true,
+    "scope_disagreement_ids": [
+      "arxiv:2611.04104"
+    ],
+    "not_individually_rereviewed_status_count": 40,
+    "published_items_unchanged": 21,
+    "protected_files_byte_identical": [
+      "data/papers.yaml",
+      "data/routes.yaml",
+      "site/feed/latest.json",
+      "site/feed/atom.xml"
+    ],
+    "old_receipts_byte_identical_to_HEAD": [
+      "review/approvals/2026-11-02.yaml",
+      "review/daily/2026-10-31.yaml",
+      "review/daily/2026-11-01.yaml"
+    ],
+    "dated_daily_files_compared": 7,
+    "withdrawn_2026_10_27_page_unchanged_except_shared_update_log": true,
+    "new_daily_editions": 0,
+    "source_health_outcomes_verified": 12,
+    "source_health_seen_ids_and_weekly_delta_exact": true,
+    "s2_authors_consecutive_errors": 5,
+    "s2_citations_consecutive_errors": 0,
+    "s2_auth_mode_preserved": "anonymous",
+    "daily_statuses": {
+      "2026-11-04": "quality_gate_blocked",
+      "2026-11-05": "no_eligible_hf"
+    },
+    "build_manifest_verified_against_current_files": 631,
+    "build_idempotence": "Two successful runs and identical manifests are recorded by the author; reviewer independently verified all 631 current output hashes against that manifest without rerunning the build.",
+    "evidence_bindings_scanned": 277,
+    "current_evidence_bindings_matching": 275,
+    "historical_report_bindings": [
+      {
+        "location": "independent-review.json.peer_comparison.previous_primary_report",
+        "disposition": "Explicitly historical; current primary_report binding matches."
+      },
+      {
+        "location": "independent-s2-review.json.selection.primary_binding",
+        "disposition": "Selection-time hash differs after primary report updates. Clarify snapshot semantics or point to preserved snapshot before treating this as a current-file binding."
+      }
+    ],
+    "snapshot_bindings": [
+      {
+        "path": "data/feed/items.jsonl",
+        "sha256": "78bbeb0ba21fc12111238d59fcedf3da5d501ad3823a2e673fb65c7928ce29c8"
+      },
+      {
+        "path": "data/feed/state.json",
+        "sha256": "16bc7a525e2cc8dca7d21f776c490e8dedf537ae4c9f0bd70e8c4f0ed857f36e"
+      },
+      {
+        "path": "data/feed/daily-status.json",
+        "sha256": "de6a7e7cbf31761112eb3c6c254f450f634aeb51d30030498a5b904938da4c5e"
+      },
+      {
+        "path": "data/feed/intake/2026-11-05/review-status.json",
+        "sha256": "dd5902853301644174e137f41fc58ee82bb6a00c8555ebcd667274293c30ed8b"
+      },
+      {
+        "path": "docs/internal/reports/maintenance-2026-11-05/integration.json",
+        "sha256": "cc364969151c45ac1835a905e92202cd44fe78c9cd95456c0baa389a7d961fd8"
+      },
+      {
+        "path": "docs/internal/reports/maintenance-2026-11-05/integration-validation.json",
+        "sha256": "19a5c9974f5e17f5d52c4e66a779137450b35ec8a0516eb256ec031a2dbe1eeb"
+      },
+      {
+        "path": "build/maintenance-primary-2026-11-05/build-validation.json",
+        "sha256": "f993e4e59ea346bbabd379dff0b6039e4135bd7e9e943606610d47d8fb808c9f"
+      },
+      {
+        "path": "build/maintenance-2026-11-05/s2-priority-exclusion/2611.03698.result.json",
+        "sha256": "fd450d76ed27f48dd97738fe6fdb0382bdf47df7f044f7bce8a92481b904ef27"
+      }
+    ],
+    "remaining": "Resolved by the subsequent final_verification section; historical core-check snapshot retained."
+  },
+  "authorized_supplemental_source_read": {
+    "requested_by_parent_after_engineering_gap_finding": true,
+    "id": "arxiv:2611.03698",
+    "http_requests": 1,
+    "http_status": 200,
+    "paid_calls": 0,
+    "body_sha256": "053d4b8806ceeb97d6c39a6dbd3085bc2534d5dee3102f6b0d8b4468f330fcd9",
+    "files_directory": "build/maintenance-2026-11-05/s2-priority-exclusion",
+    "frozen_source_files_unchanged": 264,
+    "original_188_discovery_requests_unchanged": true,
+    "source_health_unchanged": true,
+    "formal_decision_applied": false,
+    "production_writes": 0
+  },
+  "final_verification": {
+    "checked_at": "2026-11-05T04:24:09.810287+00:00",
+    "status": "passed",
+    "scope": "Final independent engineering verification of actual integration and post-integration addenda; paper-scope recommendations remain non-authorizing advice.",
+    "canonical_count": 1735,
+    "new_ids": 138,
+    "scope_statuses": 140,
+    "suggestions": {
+      "include": 36,
+      "exclude": 101,
+      "borderline": 3
+    },
+    "new_suggestions": {
+      "include": 35,
+      "exclude": 101,
+      "borderline": 2
+    },
+    "all_new_discovery_reading_levels_match_status": true,
+    "old_record_deltas_unchanged": {
+      "arxiv:2610.39714": [
+        "hf_daily_dates",
+        "links",
+        "source_hits"
+      ],
+      "arxiv:2610.39813": [
+        "hf_daily_dates",
+        "links",
+        "source_hits"
+      ]
+    },
+    "rsidojo": {
+      "suggestion": "exclude",
+      "formal_decision": "defer",
+      "primary_review_level": "selected_official_body_sections_S3_S4_S5_S7",
+      "independent_review_level": "previous_complete_original_abstract_plus_new_selected_official_body_sections",
+      "canonical_discovery_screen_level_matches": true,
+      "body_gap_resolved": true,
+      "remaining_blockers": [],
+      "previous_abstract_level_preserved": true,
+      "primary_quotes_reverified": 6,
+      "independent_quotes_reverified": 7,
+      "both_reports_referenced": true,
+      "independent_total_selected_s2_bodies_after_addendum": 34
+    },
+    "taxonomy_subtype_disagreements_preserved": [
+      {
+        "id": "arxiv:2611.01736",
+        "title": "RSI-Env: An Open-Ended Environment for Recursive Self-Improvement of Agents",
+        "blockers": [
+          "quality_recall_below_threshold",
+          "summary_and_numeric_validation_pending",
+          "taxonomy_subtype_disagreement"
+        ],
+        "primary_suggestion": "include",
+        "independent_suggestion": "include"
+      },
+      {
+        "id": "arxiv:2611.05139",
+        "title": "Meta$^2$: Precomputing Reusable Knowledge for Online Harness Evolution in Long-Horizon Agents",
+        "blockers": [
+          "quality_recall_below_threshold",
+          "summary_and_numeric_validation_pending",
+          "taxonomy_subtype_disagreement"
+        ],
+        "primary_suggestion": "include",
+        "independent_suggestion": "include"
+      }
+    ],
+    "scope_disagreement_ids": [
+      "arxiv:2611.04104"
+    ],
+    "evidence_unique_current_file_bindings_verified": 280,
+    "explicit_historical_bindings": [
+      {
+        "location": "independent-review.json.peer_comparison.previous_primary_report",
+        "declared_historical_sha256": "d8c7b4bbf6d4c7306ab752fe84e3915da4174c8c370bb730266c1ed7decda8f8",
+        "current_sha256": "b3c0404e6e878d375b53bdc2192d4fc168f37a6fbbd4e46d16012ad41b71b93e",
+        "snapshot_bytes_saved": null,
+        "current_file_binding_claimed": false
+      },
+      {
+        "location": "independent-s2-review.json.selection.primary_binding",
+        "declared_historical_sha256": "7cbdcd10fa6a934ba18ed3d8ff0dc505356368dadc09272d7bfe9982bbad2e6e",
+        "current_sha256": "ddec710fe8350e171f8eb488ac743c552eccb70b91ec53c629e37fa5a05b18ea",
+        "snapshot_bytes_saved": false,
+        "current_file_binding_claimed": false
+      }
+    ],
+    "unexplained_file_binding_mismatches": 0,
+    "source_health_and_daily_status_unchanged_during_addendum": true,
+    "current_build_manifest_files_verified": 631,
+    "parent_run_pytest_log": {
+      "path": "build/maintenance-primary-2026-11-05/pytest.log",
+      "result": "384 passed in 59.80s",
+      "independently_rerun": false
+    },
+    "new_publication_authorizations": 0,
+    "new_formal_accepts": 0,
+    "old_approval_hashes_rebound": false,
+    "production_writes_by_engineering_reviewer": 0,
+    "final_artifact_bindings": [
+      {
+        "path": "data/feed/items.jsonl",
+        "sha256": "f76adf3ce766e563aa4b90adacdb4412bf420b90a2ac0537ec1afd7565250100"
+      },
+      {
+        "path": "data/feed/state.json",
+        "sha256": "16bc7a525e2cc8dca7d21f776c490e8dedf537ae4c9f0bd70e8c4f0ed857f36e"
+      },
+      {
+        "path": "data/feed/daily-status.json",
+        "sha256": "de6a7e7cbf31761112eb3c6c254f450f634aeb51d30030498a5b904938da4c5e"
+      },
+      {
+        "path": "data/feed/intake/2026-11-05/review-status.json",
+        "sha256": "b786f3d5c1bf27dd77cb349cb77baf4e8903d475f39f1efb7d42632f2dfd31b7"
+      },
+      {
+        "path": "docs/internal/reports/maintenance-2026-11-05/final-status-adjustments.json",
+        "sha256": "83db6ddffa6ff999ccda54ecccf0dc694f5d2d7f71116763536794608d66b4d9"
+      },
+      {
+        "path": "docs/internal/reports/maintenance-2026-11-05/primary-review.json",
+        "sha256": "b3c0404e6e878d375b53bdc2192d4fc168f37a6fbbd4e46d16012ad41b71b93e"
+      },
+      {
+        "path": "docs/internal/reports/maintenance-2026-11-05/rss-review.json",
+        "sha256": "b37176d1e75f5a27b044a033fe6b017abb968a189254f0c1eb459e0b9f1a8428"
+      },
+      {
+        "path": "docs/internal/reports/maintenance-2026-11-05/backlog-s2-review.json",
+        "sha256": "ddec710fe8350e171f8eb488ac743c552eccb70b91ec53c629e37fa5a05b18ea"
+      },
+      {
+        "path": "docs/internal/reports/maintenance-2026-11-05/independent-review.json",
+        "sha256": "c236201035487d52b9d2217fd9fd817b3004b5103f27f7d49ea9576881ecf910"
+      },
+      {
+        "path": "docs/internal/reports/maintenance-2026-11-05/independent-rss-review.json",
+        "sha256": "b32ce139f81f67f25976b77d7b1009ef7828a6fe4e570766ca025960ef8f9a47"
+      },
+      {
+        "path": "docs/internal/reports/maintenance-2026-11-05/independent-s2-review.json",
+        "sha256": "cc6bd8b701c6ab7f903060442190e7d1b6e13db2b8fea6962e9c58a1df3673d8"
+      },
+      {
+        "path": "docs/internal/reports/maintenance-2026-11-05/rsidojo-primary-addendum.json",
+        "sha256": "b524f522682e46407632ad608269f48d1a72b4d5c020ab9d300a11022f534c55"
+      },
+      {
+        "path": "docs/internal/reports/maintenance-2026-11-05/rsidojo-independent-addendum.json",
+        "sha256": "a10689332a1e789a7e5ccec672dd897cf09d3dd317e9346a7cc9689730f9b8ef"
+      },
+      {
+        "path": "build/maintenance-primary-2026-11-05/pytest.log",
+        "sha256": "d729f97386efe3a075c40da43f2ab574ebc5e353fad9a4c89e9f5bd8d0e3bc54"
+      },
+      {
+        "path": "build/maintenance-primary-2026-11-05/build-validation.json",
+        "sha256": "f993e4e59ea346bbabd379dff0b6039e4135bd7e9e943606610d47d8fb808c9f"
+      }
+    ]
+  },
+  "remaining_execution_gates_completed_at": "2026-11-05T04:24:09.810287+00:00",
+  "remaining_execution_gates_are_historical": true,
+  "open_substantive_findings_at_final_snapshot": 0
+}
