@@ -27,11 +27,19 @@ RSI 论文每天都在冒，但不是每个「变强了」都经得起检验。F
 
 <!-- AUTO:TODAY:START -->
 
-**[2026-11-02](https://adongwanai.github.io/follow-rsi/daily/2026-11-02.html)** · 3 篇，经人工审核。
+**更新进度（尚未发刊） · 2026-11-05**
 
-- [RoboArchitect](https://arxiv.org/abs/2610.42141) · 1.1 搜索与演化主线 · 在仿真中用轨迹反馈修订冻结策略外的控制代码，并在留出任务评估。
-- [CEPO](https://arxiv.org/abs/2610.34722) · 三、组件级进化 · 用执行反馈分别修订协调者与执行器提示，经验证集选择后用于后续任务。
+截至北京时间15:36，HF今日完整观察快照由5篇增至20篇。早间5篇复用未变的摘要复核，晚到15篇完整摘要初筛及独立复核均为范围排除建议；EmoReward与SleuthVLM另补读方法正文并独立复核，PyRUA保留正文待补。14个新身份与1个已有身份的新HF归期分别记录。暂无可出版的Harness条目；这是当时快照，不是全天最终榜单，排除建议不等于正式拒绝。
+
+[查看逐日进度 →](https://adongwanai.github.io/follow-rsi/daily/index.html#publication-status)
+
+**最近已发布**
+
+**[2026-11-02](https://adongwanai.github.io/follow-rsi/daily/2026-11-02.html)** · 3 篇，已审查并批准。
+
 - [R²Orch](https://arxiv.org/abs/2610.22740) · 四、模型与 Harness 协同进化 · 在训练中按反馈共演化编排模型与版本化技能；部署时不携带技能。
+- [CEPO](https://arxiv.org/abs/2610.34722) · 三、组件级进化 · 用执行反馈分别修订协调者与执行器提示，经验证集选择后用于后续任务。
+- [RoboArchitect](https://arxiv.org/abs/2610.42141) · 1.1 搜索与演化主线 · 在仿真中用轨迹反馈修订冻结策略外的控制代码，并在留出任务评估。
 
 [阅读本期全部内容 →](https://adongwanai.github.io/follow-rsi/daily/2026-11-02.html)
 

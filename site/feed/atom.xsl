@@ -31,7 +31,7 @@
             </xsl:otherwise>
           </xsl:choose>
         </section>
-        <p lang="en"><small>This is an Atom feed of human-reviewed Harness daily editions. An empty feed means the first edition is still awaiting review.</small></p>
+        <p lang="en"><small>This is an Atom feed of reviewed and approved Harness daily editions. An empty feed means the first edition is still awaiting review.</small></p>
       </main></body>
     </html>
   </xsl:template>

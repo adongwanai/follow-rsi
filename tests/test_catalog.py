@@ -19,6 +19,9 @@ from validate import validate
 def project(tmp_path):
     for directory in ('data', 'scripts/templates', 'directions'):
         shutil.copytree(ROOT / directory, tmp_path / directory, ignore=shutil.ignore_patterns('feed'))
+    (tmp_path / 'feed').mkdir()
+    for name in ('taxonomy.yaml', 'sources.yaml'):
+        shutil.copy(ROOT / 'feed' / name, tmp_path / 'feed' / name)
     for name in ('README.md', 'README_zh.md', 'README_en.md', 'site.config.yaml'):
         shutil.copy(ROOT / name, tmp_path / name)
     return tmp_path

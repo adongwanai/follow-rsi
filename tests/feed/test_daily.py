@@ -295,7 +295,34 @@ def test_daily_status_explains_empty_days_without_creating_editions(tmp_path):
     html = (root / "site/daily/index.html").read_text()
     assert "更新记录" in html and "Update log" in html
     assert "当日 HF 榜为空。" in html and "No eligible Harness papers." in html
-    assert html.index(f'datetime="{DAY}"') < html.index(f'datetime="{NEXT}"')
+    update_log = html.split('<details class="publication-update-log">')[1]
+    assert update_log.index(f'datetime="{DAY}"') < update_log.index(f'datetime="{NEXT}"')
     assert list((root / "site/daily").glob("????-??-??.*")) == []
     assert "<entry>" not in (root / "site/feed/atom.xml").read_text()
     assert json.loads((root / "site/feed/latest.json").read_text())["items"] == []
+
+
+def test_later_review_status_is_visible_without_relabeling_or_republishing_old_edition(tmp_path):
+    root = make_daily_repo(tmp_path)
+    accept_daily(root)
+    apply_daily_review(root, DAY)
+    publish_day(root, DAY)
+    atom = (root / 'site/feed/atom.xml').read_bytes()
+    latest = (root / 'site/feed/latest.json').read_bytes()
+    dated_manifest = (root / 'site/daily' / f'{DAY}.json').read_bytes()
+    status = {'days': [{'date': NEXT, 'status': 'quality_gate_blocked',
+                       'reason_zh': '4 项待复核，尚未发刊。',
+                       'reason_en': 'Four candidates await review; no edition published.'}]}
+    (root / 'data/feed/daily-status.json').write_text(json.dumps(status, ensure_ascii=False))
+    initialize_public(root)
+    html = (root / 'site/daily/index.html').read_text()
+    assert html.index('id="publication-status"') < html.index('<h1>')
+    assert '4 项待复核，尚未发刊。' in html
+    assert f'最近已发布刊期为 {DAY}' in html and 'Latest published' in html
+    assert not (root / 'site/daily' / f'{NEXT}.html').exists()
+    assert (root / 'site/daily' / f'{DAY}.json').read_bytes() == dated_manifest
+    dated_html = (root / 'site/daily' / f'{DAY}.html').read_text()
+    assert f'刊期日期：{DAY}' in dated_html
+    assert 'id="publication-status"' not in dated_html
+    assert (root / 'site/feed/atom.xml').read_bytes() == atom
+    assert (root / 'site/feed/latest.json').read_bytes() == latest
