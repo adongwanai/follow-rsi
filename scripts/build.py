@@ -180,7 +180,11 @@ def readme_blocks(data, routes, stats, lang, config, root):
     today = []
     if latest:
         title = latest.get('title_zh' if zh else 'title_en') or latest['date']
-        today = [f"**[{title}]({base}/{latest['url']})** · {len(latest['items'])} " + ('篇，已审查并批准。' if zh else 'papers, reviewed and approved.'), '']
+        if latest.get('kind') == 'daily_status':
+            kind = '采集与审核简报' if zh else 'Collection and review brief'
+            today = [f"**[{title}]({base}/{latest['url']})** · {kind}", '', latest['intro'][lang]]
+        else:
+            today = [f"**[{title}]({base}/{latest['url']})** · {len(latest['items'])} " + ('篇，已审查并批准。' if zh else 'papers, reviewed and approved.'), '']
         for item in latest['items'][:5]:
             sub = item['direction'].get('harness_sub')
             section = sections[sub][lang] if sub else ('评测与理论' if zh else 'Evaluation and theory')

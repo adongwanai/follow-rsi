@@ -41,6 +41,17 @@ def accept_daily(root):
     return write_daily(root, decide)
 
 
+def record_daily_status(root, date=DAY):
+    entry = {"date": date, "status": "review_pending", "reason_zh": "已核对观察快照，候选仍待核验。",
+             "reason_en": "The observed snapshot was checked; candidate evidence remains pending."}
+    (root / "data/feed/daily-status.json").write_text(json.dumps({"days": [entry]}, ensure_ascii=False))
+    receipt = root / "data/feed/review-provenance" / f"{date}.json"
+    receipt.parent.mkdir(exist_ok=True)
+    receipt.write_text(json.dumps({"kind": "daily", "date": date, "path": f"review/daily/{date}.yaml",
+                                  "github_pr": 7, "owner_login": "fixture-owner", "merge_commit": "fixture-merge"}))
+    return entry
+
+
 def test_pending_blocks_and_defer_is_not_an_approval(tmp_path):
     root = make_daily_repo(tmp_path)
     assert approved_daily_items(root, DAY) == []
@@ -161,6 +172,66 @@ def test_applied_decisions_dont_recur_but_changed_versions_need_review(tmp_path)
     save_items(root, [applied])
     result = queue_daily_review(root, NEXT)
     assert len(result["items"]) == 1 and result["items"][0]["decision"] == "defer"
+
+
+@pytest.mark.parametrize("decision", ["accept", "move", "reject"])
+def test_historical_defer_preserves_current_decision_and_provenance_for_unchanged_source(tmp_path, decision):
+    root = make_daily_repo(tmp_path)
+    item = next(item for item in load_items(root) if item["arxiv_id"] == "2610.99991")
+    item["hf_daily_dates"] = [DAY, NEXT]
+    save_items(root, [item])
+    historical = queue_daily_review(root, DAY)
+    queue_daily_review(root, NEXT)
+    write_daily(root, lambda review: [row.update(decision="reject") for row in
+                                      [*review["items"], *review["lab_updates"]]], date=NEXT)
+    write_daily(root, lambda review: next(row for row in review["items"] if row["id"] == item["id"]).update(
+        decision=decision, direction_override="harness/improver" if decision == "move" else None), date=NEXT)
+    provenance = {"github_pr": 8, "owner_login": "fixture-owner", "merge_commit": "later-merge"}
+    apply_daily_review(root, NEXT, now=NEXT + "T12:00:00Z", provenance=provenance)
+    canonical = next(value for value in load_items(root) if value["id"] == item["id"])["review"]
+    assert canonical["source_hash"] == next(row for row in historical["items"] if row["id"] == item["id"])["source_hash"]
+    before = (root / "data/feed/items.jsonl").read_bytes()
+    labels = (root / "feed/eval/labeled.yaml").read_bytes()
+
+    assert apply_daily_review(root, DAY, now=NEXT + "T14:00:00Z", provenance={
+        "github_pr": 7, "owner_login": "fixture-owner", "merge_commit": "historical-merge"}) == 0
+
+    assert (root / "data/feed/items.jsonl").read_bytes() == before
+    assert (root / "feed/eval/labeled.yaml").read_bytes() == labels
+    assert next(value for value in load_items(root) if value["id"] == item["id"])["review"] == canonical
+
+
+@pytest.mark.parametrize("decision", ["accept", "move", "reject"])
+def test_historical_defer_reopens_review_when_source_hash_changed(tmp_path, decision):
+    root = make_daily_repo(tmp_path)
+    item = next(item for item in load_items(root) if item["arxiv_id"] == "2610.99991")
+    item["hf_daily_dates"] = [DAY, NEXT]
+    save_items(root, [item])
+    queue_daily_review(root, DAY)
+    queue_daily_review(root, NEXT)
+    write_daily(root, lambda review: [row.update(decision="reject") for row in
+                                      [*review["items"], *review["lab_updates"]]], date=NEXT)
+    write_daily(root, lambda review: next(row for row in review["items"] if row["id"] == item["id"]).update(
+        decision=decision, direction_override="harness/improver" if decision == "move" else None), date=NEXT)
+    apply_daily_review(root, NEXT, now=NEXT + "T12:00:00Z", provenance={
+        "github_pr": 8, "owner_login": "fixture-owner", "merge_commit": "later-merge"})
+    item = next(value for value in load_items(root) if value["id"] == item["id"])
+    old_hash = item["review"]["source_hash"]
+    item["abstract"] += " New source evidence requires another review."
+    save_items(root, [item])
+    refreshed = queue_daily_review(root, DAY)
+    row = next(row for row in refreshed["items"] if row["id"] == item["id"])
+    assert row["decision"] == "defer" and row["source_hash"] != old_hash
+    labels = (root / "feed/eval/labeled.yaml").read_bytes()
+
+    assert apply_daily_review(root, DAY, now=NEXT + "T14:00:00Z", provenance={
+        "github_pr": 9, "owner_login": "fixture-owner", "merge_commit": "fresh-source-merge"}) == 1
+
+    applied = next(value for value in load_items(root) if value["id"] == item["id"])["review"]
+    assert applied["decision"] == "defer" and applied["source_hash"] == row["source_hash"]
+    assert applied["date"] == DAY and applied["merge_commit"] == "fresh-source-merge"
+    assert applied["reviewed_at"] == NEXT + "T14:00:00Z"
+    assert (root / "feed/eval/labeled.yaml").read_bytes() == labels
 
 
 def test_deferred_apply_does_not_add_eval_labels_and_returns_next_day(tmp_path):
@@ -300,6 +371,100 @@ def test_daily_status_explains_empty_days_without_creating_editions(tmp_path):
     assert list((root / "site/daily").glob("????-??-??.*")) == []
     assert "<entry>" not in (root / "site/feed/atom.xml").read_text()
     assert json.loads((root / "site/feed/latest.json").read_text())["items"] == []
+
+
+@pytest.mark.parametrize("empty_review", [False, True])
+def test_status_bulletin_requires_opt_in_and_preserves_observed_snapshot(tmp_path, empty_review):
+    root = make_daily_repo(tmp_path)
+    write_daily(root, lambda review: review.update(reviewed_on=NEXT))
+    if empty_review:
+        write_daily(root, lambda review: review.update(items=[], lab_updates=[]))
+    status = record_daily_status(root)
+    (root / "data/feed/state.json").write_text(json.dumps({"sources": {
+        "hf-daily": {"last_run": DAY + "T09:00:00Z", "last_count": 0 if empty_review else 2},
+        "arxiv": {"last_run": DAY + "T09:05:00Z", "last_count": 0, "last_error": "fixture fetch failure"},
+        "old-source": {"last_run": "2026-10-26T09:00:00Z", "last_count": 9},
+    }}))
+    review_before = (root / "review/daily" / f"{DAY}.yaml").read_bytes()
+    items_before = (root / "data/feed/items.jsonl").read_bytes()
+    assert publish_day(root, DAY)["published"] is False
+    assert not (root / "site/daily" / f"{DAY}.json").exists()
+
+    result = publish_day(root, DAY, now=NEXT + "T12:00:00Z", allow_status=True)
+
+    assert result["published"] and result["accepted"] == result["feed_items"] == 0
+    path = root / "site/daily" / f"{DAY}.json"
+    edition = json.loads(path.read_text())
+    assert edition["kind"] == "daily_status" and edition["items"] == edition["lab_updates"] == []
+    assert sum(edition["counts"].values()) == 0
+    assert edition["date"] == DAY and edition["reviewed_on"] == NEXT
+    assert edition["published_at"] == NEXT + "T12:00:00Z"
+    assert edition["status_report"] == status
+    assert edition["review_counts"] == {"papers": 0 if empty_review else 2, "lab_updates": 0 if empty_review else 1,
+                                        "decisions": {} if empty_review else {"defer": 3}}
+    assert edition["review_provenance"]["github_pr"] == 7
+    assert edition["reviewers"] == ["fixture-owner"]
+    assert set(edition["sources"]) == {"hf-daily", "arxiv"}
+    assert edition["sources"]["hf-daily"]["count"] == (0 if empty_review else 2)
+    assert (root / "review/daily" / f"{DAY}.yaml").read_bytes() == review_before
+    assert (root / "data/feed/items.jsonl").read_bytes() == items_before
+    for output in (path.with_suffix(".html"), root / "site/daily/index.html", root / "daily" / f"{DAY}.md"):
+        content = output.read_text()
+        assert "采集与审核简报" in content and status["reason_zh"] in content
+        assert f"刊期日期：{DAY}" in content and f"审核日期：{NEXT}" in content
+        assert "抓取失败" in content
+        assert 'id="publication-status"' not in content and '<article class="weekly-paper">' not in content
+    english = (root / "daily" / f"{DAY}.en.md").read_text()
+    assert "Collection and review bulletin" in english and status["reason_en"] in english
+    assert "Fetch failed" in english
+    before = path.read_bytes()
+    changed = {"days": [{**status, "reason_zh": "后续观察不应改写既有简报。", "reason_en": "A later observation."}]}
+    (root / "data/feed/daily-status.json").write_text(json.dumps(changed, ensure_ascii=False))
+    initialize_public(root)
+    publish_day(root, DAY, allow_status=True)
+    assert path.read_bytes() == before
+    assert status["reason_zh"] in path.with_suffix(".html").read_text()
+    assert "后续观察不应改写既有简报。" not in path.with_suffix(".html").read_text()
+
+
+@pytest.mark.parametrize("failure,message", [
+    ("missing_status", "recorded bilingual daily-status"),
+    ("wrong_status_date", "recorded bilingual daily-status"),
+    ("missing_provenance", "merged daily review provenance"),
+    ("wrong_provenance_date", "matching merged daily review provenance"),
+    ("pending_review", "pending review blocks publication"),
+    ("withdrawn", "was withdrawn"),
+    ("existing_paper", "cannot replace an existing paper edition"),
+])
+def test_status_bulletin_rejects_missing_evidence_or_invalid_review_without_writes(tmp_path, failure, message):
+    root = make_daily_repo(tmp_path)
+    record_daily_status(root)
+    status_path = root / "data/feed/daily-status.json"
+    receipt_path = root / "data/feed/review-provenance" / f"{DAY}.json"
+    if failure == "missing_status":
+        status_path.unlink()
+    elif failure == "wrong_status_date":
+        status = json.loads(status_path.read_text())
+        status["days"][0]["date"] = NEXT
+        status_path.write_text(json.dumps(status))
+    elif failure == "missing_provenance":
+        receipt_path.unlink()
+    elif failure == "wrong_provenance_date":
+        receipt = json.loads(receipt_path.read_text())
+        receipt["date"] = NEXT
+        receipt_path.write_text(json.dumps(receipt))
+    elif failure == "pending_review":
+        write_daily(root, lambda review: review["items"][0].update(decision="pending"))
+    elif failure == "withdrawn":
+        (root / "data/feed/withdrawn-editions.json").write_text(json.dumps({DAY: {"reason": "withdrawn fixture"}}))
+    elif failure == "existing_paper":
+        accept_daily(root)
+        publish_day(root, DAY)
+        write_daily(root, lambda review: review["items"][1].update(decision="defer"))
+    before = {path: path.read_bytes() for path in root.rglob("*") if path.is_file()}
+    with pytest.raises(ValueError, match=message):
+        publish_day(root, DAY, allow_status=True)
+    assert before == {path: path.read_bytes() for path in root.rglob("*") if path.is_file()}
 
 
 def test_later_review_status_is_visible_without_relabeling_or_republishing_old_edition(tmp_path):

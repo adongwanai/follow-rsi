@@ -42,6 +42,11 @@ DAILY_DATE_NOTE = {
     "zh": "只收本期时间窗内的论文。原始发表日与已核实的 HF 榜单日分别列出；历史补录进入每周精选。",
     "en": "Only papers within this edition's date window appear here. Original publication dates and verified HF list dates are shown separately; historical additions appear in weekly picks.",
 }
+REVIEW_DECISIONS = {
+    "accept": {"zh": "批准", "en": "Accepted"}, "move": {"zh": "调整方向", "en": "Moved"},
+    "reject": {"zh": "拒绝", "en": "Rejected"}, "defer": {"zh": "暂缓", "en": "Deferred"},
+    "backlog": {"zh": "历史补录", "en": "Historical backlog"},
+}
 
 
 def _daily_groups(edition, subdirections, directions):
@@ -233,6 +238,9 @@ def _markdown(edition, lang, directions, config, subdirections=None):
     title = f"Follow RSI · {year} 第 {int(number)} 周" if lang == "zh" else f"Follow RSI · {week}"
     if "date" in edition:
         title = "Follow RSI · " + edition["date"]
+    status_only = edition.get("kind") == "daily_status"
+    if status_only:
+        title += " · " + ("采集与审核简报" if lang == "zh" else "Collection and review bulletin")
     retrospective = edition.get("kind") == "retrospective"
     if retrospective:
         title = edition["title_" + lang]
@@ -244,7 +252,22 @@ def _markdown(edition, lang, directions, config, subdirections=None):
         if reviewed_on > edition["date"]:
             lines += ["**补刊**" if lang == "zh" else "**Published later**", ""]
         lines += [("刊期日期：" if lang == "zh" else "Edition date: ") + edition["date"], "",
-                  ("审核日期：" if lang == "zh" else "Review date: ") + reviewed_on, "", DAILY_DATE_NOTE[lang], ""]
+                  ("审核日期：" if lang == "zh" else "Review date: ") + reviewed_on, ""]
+        if not status_only:
+            lines += [DAILY_DATE_NOTE[lang], ""]
+    if status_only:
+        stats = edition["review_counts"]
+        lines += ["## 审核进度" if lang == "zh" else "## Review progress", "",
+                  (f"候选论文：{stats['papers']} · 实验室与项目动态：{stats['lab_updates']}" if lang == "zh" else
+                   f"Paper candidates: {stats['papers']} · Lab and project candidates: {stats['lab_updates']}"), ""]
+        lines += [f"- {REVIEW_DECISIONS[key][lang]}：{count}" for key, count in stats["decisions"].items()]
+        lines.append("")
+        if edition["sources"]:
+            lines += ["## 信源快照" if lang == "zh" else "## Source snapshot", ""]
+            for name, source in edition["sources"].items():
+                failed = (" · 抓取失败" if lang == "zh" else " · Fetch failed") if source.get("error") else ""
+                lines.append(f"- {_md(name)} · {source['count']} · {source['run_at']}{failed}")
+            lines.append("")
     if retrospective:
         lines += [("第 0 期 · 历史回顾；下列论文不是当日新增。" if lang == "zh" else
                    "Edition 0 · Historical retrospective; these papers are not today's new publications."), ""]
@@ -355,6 +378,14 @@ def _write_feed(root, editions, config, retracted):
               "weeks": sorted({edition["week"] for edition in last}),
               "dates": sorted({edition["date"] for edition in last
                                if "date" in edition and edition.get("kind") != "retrospective"}),
+              "daily_editions": [{"date": edition["date"], "kind": edition.get("kind", "daily"),
+                                  "paper_count": len(edition["items"]),
+                                  "reviewed_on": edition.get("reviewed_on", edition["date"]),
+                                  "published_at": edition["published_at"],
+                                  "updated_at": edition.get("updated_at", edition["published_at"]),
+                                  "summary_zh": edition["intro"]["zh"], "summary_en": edition["intro"]["en"]}
+                                 for edition in sorted(last, key=lambda entry: entry.get("date", ""))
+                                 if "date" in edition and edition.get("kind") != "retrospective"],
               "recaps": [{"period": edition["start"] + "--" + edition["end"], "kind": "retrospective",
                            "start": edition["start"], "end": edition["end"],
                            "title_zh": edition["title_zh"], "title_en": edition["title_en"]}
@@ -386,11 +417,13 @@ def _write_feed(root, editions, config, retracted):
         element(feed, "link", rel="related", href=config["repository_url"])
     for edition in sorted([*daily, *recaps], key=lambda row: row.get("date", row.get("end"))):
         retrospective = edition.get("kind") == "retrospective"
+        status_only = edition.get("kind") == "daily_status"
         period = edition["start"] + "--" + edition["end"] if retrospective else edition["date"]
         entry = element(feed, "entry")
         element(entry, "id", ("urn:follow-rsi:recap:" if retrospective else "urn:follow-rsi:daily:") + period)
-        element(entry, "title", "Follow RSI · " + ("Edition 0 · " + edition["title_en"] if retrospective else period))
-        element(entry, "category", term="retrospective" if retrospective else "daily")
+        element(entry, "title", "Follow RSI · " + ("Edition 0 · " + edition["title_en"] if retrospective else
+                                                  period + " · Collection and review bulletin" if status_only else period))
+        element(entry, "category", term="retrospective" if retrospective else "daily_status" if status_only else "daily")
         element(entry, "updated", edition.get("updated_at", edition["published_at"]))
         element(entry, "link", href=(base + "/" if base else "../") + ("recaps/" if retrospective else "daily/") + period + ".html")
         element(entry, "summary", edition["intro"]["en"])
@@ -508,12 +541,15 @@ def _render_day(root, edition, editions, directions, config):
     directory.mkdir(parents=True, exist_ok=True)
     status_path = root / "data/feed/daily-status.json"
     daily_status = json.loads(status_path.read_text())["days"] if status_path.exists() else []
+    published_status_dates = {entry["date"] for entry in ordered if entry.get("kind") == "daily_status"}
     context = {"editions": ordered, "directions": directions, "config": config,
                "daily_archive": sorted([*ordered, *_recaps(root)], key=lambda row: row.get("date", row.get("end"))),
                "evidence_labels": EVIDENCE_LABELS, "object_labels": OBJECT_LABELS_EN,
                "subdirections": subdirections,
                "withdrawn_editions": load_withdrawn_editions(root),
-               "daily_status": sorted(daily_status, key=lambda entry: entry["date"]),
+               "daily_status": sorted((entry for entry in daily_status if entry["date"] not in published_status_dates),
+                                      key=lambda entry: entry["date"]),
+               "review_decisions": REVIEW_DECISIONS,
                "daily_date_note": DAILY_DATE_NOTE, "header": Markup(render_header(config, "daily", "../")),
                "recaps": _recaps(root)}
     if edition:
@@ -548,16 +584,41 @@ def require_publishable_day(root, date):
         raise ValueError(f"Daily edition {date} was withdrawn: {withdrawn[date]['reason']}")
 
 
-def publish_day(root=ROOT, date=None, client=None, now=None):
-    """Publish a reviewed daily snapshot. A day without approvals has no edition."""
+def require_status_bulletin(root, date):
+    """Read and validate bulletin evidence before applying any review decisions."""
+    root = Path(root)
+    status_path = root / "data/feed/daily-status.json"
+    statuses = json.loads(status_path.read_text())["days"] if status_path.exists() else []
+    status_report = next((entry for entry in statuses if entry["date"] == date), None)
+    if status_report is None or not all(status_report.get(key) for key in ("reason_zh", "reason_en")):
+        raise ValueError(f"Daily status bulletin {date} requires a recorded bilingual daily-status entry")
+    receipt_path = root / "data/feed/review-provenance" / f"{date}.json"
+    if not receipt_path.exists():
+        raise ValueError(f"Daily status bulletin {date} requires merged daily review provenance")
+    provenance = json.loads(receipt_path.read_text())
+    if (provenance.get("kind") != "daily" or provenance.get("date") != date
+            or provenance.get("path") != f"review/daily/{date}.yaml"
+            or not all(provenance.get(key) for key in ("github_pr", "owner_login", "merge_commit"))):
+        raise ValueError(f"Daily status bulletin {date} requires matching merged daily review provenance")
+    manifest = root / "site/daily" / f"{date}.json"
+    if manifest.exists() and json.loads(manifest.read_text()).get("kind") != "daily_status":
+        raise ValueError(f"Daily status bulletin {date} cannot replace an existing paper edition")
+    return status_report, provenance
+
+
+def publish_day(root=ROOT, date=None, client=None, now=None, *, allow_status=False):
+    """Publish reviewed papers, or an opted-in bulletin backed by a merged review."""
     root = Path(root)
     require_publishable_day(root, date)
     review = validate_daily_review(root, date)
     reviewed_on = review.get("reviewed_on", date)
     accepted = approved_daily_items(root, date)
     labs = [row for row in review["lab_updates"] if row["decision"] == "accept"]
+    status_report = None
     if not accepted and not labs:
-        return {"date": date, "accepted": 0, "published": False, "manifest": None}
+        if not allow_status:
+            return {"date": date, "accepted": 0, "published": False, "manifest": None}
+        status_report, provenance = require_status_bulletin(root, date)
     week = day_week(date)
     sources = {item["id"]: item for item in load_items(root)}
     labs.sort(key=lambda row: (sources[row["id"]]["published"], row["id"]))
@@ -575,7 +636,7 @@ def publish_day(root=ROOT, date=None, client=None, now=None):
     counts = {key: sum(item["llm"]["primary"] == key for item in accepted) for key in directions}
     manifest = root / "site/daily" / f"{date}.json"
     previous = json.loads(manifest.read_text()) if manifest.exists() else None
-    stamp = now or (previous["published_at"] if previous else datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z"))
+    stamp = now or datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
     from scripts.feed.review import _direction
     taxonomy = read_yaml(root / "feed/taxonomy.yaml")
     lab_updates = [{"id": row["id"], "title": sources[row["id"]]["title"],
@@ -584,13 +645,34 @@ def publish_day(root=ROOT, date=None, client=None, now=None):
                     "direction": _direction(sources[row["id"]], {**row, "llm": sources[row["id"]].get("llm", {})}, taxonomy),
                     "release_version": sources[row["id"]].get("release_version")}
                    for row in labs]
-    edition = {"date": date, "reviewed_on": reviewed_on, "week": week, "published_at": stamp, "reviewed_only": True,
+    edition = {"date": date, "reviewed_on": reviewed_on, "week": week,
+               "published_at": previous["published_at"] if previous else stamp, "reviewed_only": True,
                "items": public, "counts": counts, "picks": [], "lab_updates": lab_updates,
-               "sources": _source_snapshot(root, date),
+               "sources": previous["sources"] if previous else _source_snapshot(root, date),
                "reviewers": sorted({item["review"]["owner_login"] for item in accepted if item.get("review", {}).get("owner_login")}),
                "reviewed_at": max((item["review"]["reviewed_at"] for item in accepted if item.get("review", {}).get("reviewed_at")), default=None),
                "intro": _summary_intro(date, counts, directions, accepted)}
-    _json(manifest, edition)
+    if status_report is not None:
+        reviewed_rows = [*review["items"], *review["lab_updates"]]
+        edition.update(kind="daily_status", status_report=status_report, review_provenance=provenance,
+                       reviewers=[provenance["owner_login"]],
+                       review_counts={"papers": len(review["items"]), "lab_updates": len(review["lab_updates"]),
+                                      "decisions": {key: sum(row["decision"] == key for row in reviewed_rows)
+                                                    for key in REVIEW_DECISIONS
+                                                    if any(row["decision"] == key for row in reviewed_rows)}},
+                       intro={"zh": "采集与审核简报已发布，本期未收录新论文。发布前采集与审核记录：" + status_report["reason_zh"],
+                              "en": "Collection and review bulletin published; no new papers were included. "
+                                    "Collection and review record before publication: " + status_report["reason_en"],
+                              "source": "daily-status"})
+    if status_report is not None and previous:
+        edition = previous
+    else:
+        if previous:
+            if edition != {key: value for key, value in previous.items() if key != "updated_at"}:
+                edition["updated_at"] = stamp
+            elif "updated_at" in previous:
+                edition["updated_at"] = previous["updated_at"]
+        _json(manifest, edition)
     editions = _published(root, "daily")
     _render_day(root, edition, editions, directions, config)
     feed = _write_feed(root, _published(root, "weekly"), config,
