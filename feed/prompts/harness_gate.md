@@ -2,7 +2,7 @@
 
 {{ taxonomy_definitions }}
 
-Harness 必须是模型周围外部可复用的程序工件：系统提示、工具代码/工具库、技能文件、上下文/记忆管理的代码或策略文件、控制流/工作流、环内验证器、改进器。模型冻结或权重不是主要训练对象；系统根据执行/评估反馈修改工件，新版本在后续任务或改进轮次保留复用。
+Harness 必须是模型周围外部可复用的程序工件：系统提示、工具代码/工具库、技能文件、上下文/记忆管理的代码或策略文件、控制流/工作流、环内验证器、改进器。系统根据执行/评估反馈修改工件，新版本在后续任务或改进轮次保留复用。
 
 方法论文 verdict=harness 需要同时满足：
 1. improved_object 为前七类（system_prompt、tool_code、skill_files、context_memory_policy、control_flow、in_loop_verifier、improver）；
@@ -14,15 +14,15 @@ Harness 必须是模型周围外部可复用的程序工件：系统提示、工
 Harness 专项评测、对比框架与理论有单独的通过条件：suggested_primary=evaluation_benchmark 或 theory_survey，harness_specific=yes，study_quote 必须逐字引用摘要中明确研究 Harness 工件反馈演化的句子（8–200 字符）。被研究的方法在修改 Harness 即可；不要要求固定的评测框架自己演化，也不要为评测论文伪造 feedback_driven 或 persists_across_tasks，未描述时填 unclear/null。综合 RSI 评测仍为 other_direction。方法论文的 study_quote 填 null。
 
 严格边界：
-- 训练出来的 RL/SFT policy 即使管理记忆或工具也是 model_weights。单轮训练无持续自改进，verdict=exclude；有多轮闭环才 other_direction。
+- 若只更新训练出来的 RL/SFT policy，即使它管理记忆或工具也是 model_weights。仅有单轮训练而无持续自改进，verdict=exclude；有多轮闭环才 other_direction。
 - 训练环境、奖励、用户模拟器 → training_env_reward / data_task。
 - 外部内核、代码库、科研假设或实验结果 → external_artifact / ai4ai。反馈让任务产物更好不等于改写 Agent 自己的 Harness。
 - 只积累/重排/打分经验、研究历史或记忆条目 → memory_entries / experience_world_model。必须改写管理代码或可复用策略文件才能选 context_memory_policy；在线 memory-worth scorer 不等于改写策略文件。
 - 固定框架，只更新当前任务上下文/状态 → none / exclude；不能将当前状态的持久存储误判为长期程序性能力更新。
-- 权重与 Harness 迭代协同更新，只有外部 Harness 是明确主要改进对象才 verdict=harness；科研/模型主贡献中的辅助 Harness replay 不取代 ai4ai 主类。
+- 权重与外部 Harness 工件分别有反馈驱动的迭代修改和跨轮保留证据，可 verdict=harness，并归为 harness/coevolution；不要求权重冻结，也不因模型训练是主要贡献而排除。仅使用固定 Harness 或执行 replay，没有工件修改证据，不构成共演化。
 - 方法中仅声称技能经反思改进但复用范围或接受方式没说清（如机器人恢复技能），保留 borderline，不推断完整循环。
 - 评测/理论/综述只有明确专门研究外部 Harness 工件的反馈演化，才 harness_specific=yes。综合 RSI、经验学习、工具生态变化或一般代理能力评测应 no，verdict=other_direction，suggested_primary 保留 evaluation_benchmark/theory_survey。不能因为定义里列举 prompts、memory、tools 就认定专项。
-- 非 Harness 对象选 other_direction，并按对象填 suggested_primary。纯任务执行、单轮训练、无关研究或固定框架可 exclude；证据不足选 borderline。不要强行改成正例。
+- 非 Harness 对象选 other_direction，并按对象填 suggested_primary。纯任务执行、仅有单轮训练、无关研究或固定框架可 exclude；证据不足选 borderline。不要强行改成正例。
 
 校准例（仅示范边界，不可作为待审论文的引文）：
 正例：

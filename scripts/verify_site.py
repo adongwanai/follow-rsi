@@ -66,13 +66,14 @@ def verify(output=None):
                             first_blocks[f'{view}-{width}-{theme}']=round(top,2)
                             if width==1440: assert top <=260,(view,top)
                         if view=='papers':
-                            expect(page.locator('#sort')).to_have_value('must')
-                            expect(page.locator('#result-count')).to_contain_text('98 / 98')
+                            expect(page.locator('#sort')).to_have_value('oldest')
+                            included = page.evaluate('HARNESS_DATA.stats.included')
+                            expect(page.locator('#result-count')).to_contain_text(f'{included} / {included}')
                             expected=page.evaluate('Object.keys(HARNESS_DATA.meta.sections)')
                             for sort in ('newest','oldest','must','evidence'):
                                 page.select_option('#sort',sort)
                                 assert page.locator('.group[data-section-id]').evaluate_all('(groups)=>groups.map(g=>g.dataset.sectionId)') == expected
-                            page.select_option('#sort','must')
+                            page.select_option('#sort','oldest')
                             assert page.locator('.row .ev').evaluate_all('(els)=>els.every(e=>e.hasAttribute("aria-label"))')
                             if width==390:
                                 expect(page.locator('#filter-panel')).not_to_be_visible()

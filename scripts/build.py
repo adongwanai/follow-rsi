@@ -51,7 +51,7 @@ def label(p):
 
 def short(p):
     match = re.search(r'\(([^)]+)\)\s*$', p['title'])
-    return match[1] if match else re.split(r'[:：]', p['title'])[0]
+    return (match[1] if match else re.split(r'[:：]', p['title'])[0]).replace('$^2$', '²')
 
 
 def compute_stats(data):
@@ -70,7 +70,7 @@ def compute_stats(data):
         'evidence_coverage': coverage(FIELDS), 'check_coverage': coverage(CHECKS),
         'with_recorded_checks': sum(any(evidence(p)[k] != 'unknown' for k in CHECKS) for p in core),
         'months': {f'2026-{m:02}': sum(p['date'].startswith(f'2026-{m:02}') for p in core) for m in range(3, 11)},
-        'recent_ids': sorted(recent, key=lambda pid: next(p['date'] for p in core if p['id'] == pid), reverse=True),
+        'recent_ids': sorted(recent, key=lambda pid: next(p['date'] for p in core if p['id'] == pid)),
         'scopes': dict(Counter(p['scope'] for p in core)),
         # No full-text completion receipts have been recorded; partial fields are not completion.
         'must_read_fully_reviewed': 0,
@@ -123,7 +123,8 @@ def latest_edition(root):
         return None
     latest = max(reviewed, key=lambda e: e.get('end', e.get('date', '')))
     retrospective = latest.get('kind') == 'retrospective'
-    return {**latest, 'url': f"recaps/{latest['start']}--{latest['end']}.html" if retrospective else f"daily/{latest['date']}.html"}
+    return {**latest, 'items': sorted(latest['items'], key=lambda item: (item.get('announced') or item['published'][:10], item['id'])),
+            'url': f"recaps/{latest['start']}--{latest['end']}.html" if retrospective else f"daily/{latest['date']}.html"}
 
 
 def readme_metrics(root, lang):
@@ -135,17 +136,27 @@ def readme_metrics(root, lang):
     return f"[{'本周质量指标' if lang == 'zh' else 'Weekly metrics'}](digests/{latest['week']}{'' if lang == 'zh' else '.en'}.md)"
 
 
+def daily_status(root):
+    path = root / 'data/feed/daily-status.json'
+    return sorted(json.loads(path.read_text())['days'], key=lambda entry: entry['date']) if path.exists() else []
+
+
 def source_summary(root, lang, config):
     path = root / 'site/feed/status.json'
     if not path.exists():
         return '尚无成功运行的信源记录。' if lang == 'zh' else 'No successful source run has been recorded.'
     state = json.loads(path.read_text())
     successful = [key for key, value in state.get('sources', {}).items() if value.get('enabled') and value.get('last_success')]
-    failed = [key for key, value in state.get('sources', {}).items() if value.get('enabled') and value.get('last_ok') is False]
+    failed = [key for key, value in state.get('sources', {}).items() if value.get('enabled')
+              and value.get('last_ok') is False and value.get('availability') != 'not_ready']
+    not_ready = [key for key, value in state.get('sources', {}).items() if value.get('enabled')
+                 and value.get('availability') == 'not_ready']
     zh = lang == 'zh'
     text = ('已实际运行成功：' if zh else 'Sources with recorded successful runs: ') + ' · '.join(successful) + '。'
     if failed:
         text += (' 本次失败：' if zh else ' Failed in the latest run: ') + ' · '.join(failed) + '。'
+    if not_ready:
+        text += (' 榜单未就绪：' if zh else ' Daily list not ready: ') + ' · '.join(not_ready) + '。'
     return text + f" [{'信源状态' if zh else 'Source status'}]({config['base_url'].rstrip('/')}/feed/status.json)."
 
 
@@ -169,7 +180,11 @@ def readme_blocks(data, routes, stats, lang, config, root):
     today = []
     if latest:
         title = latest.get('title_zh' if zh else 'title_en') or latest['date']
-        today = [f"**[{title}]({base}/{latest['url']})** · {len(latest['items'])} " + ('篇，经人工审核。' if zh else 'papers, human reviewed.'), '']
+        if latest.get('kind') == 'daily_status':
+            kind = '采集与审核简报' if zh else 'Collection and review brief'
+            today = [f"**[{title}]({base}/{latest['url']})** · {kind}", '', latest['intro'][lang]]
+        else:
+            today = [f"**[{title}]({base}/{latest['url']})** · {len(latest['items'])} " + ('篇，已审查并批准。' if zh else 'papers, reviewed and approved.'), '']
         for item in latest['items'][:5]:
             sub = item['direction'].get('harness_sub')
             section = sections[sub][lang] if sub else ('评测与理论' if zh else 'Evaluation and theory')
@@ -177,6 +192,13 @@ def readme_blocks(data, routes, stats, lang, config, root):
         today += ['', f"[{'阅读本期全部内容' if zh else 'Read this edition'} →]({base}/{latest['url']})"]
     else:
         today = ['今天没有新的 Harness 自进化论文。审核通过后发布，旧论文不冒充今日新作。' if zh else 'No new reviewed Harness evolution edition today. Historical discoveries are kept separate.']
+    updates = daily_status(root)
+    if updates and (not latest or updates[-1]['date'] > latest.get('end', latest.get('date', ''))):
+        update = updates[-1]
+        label = '更新进度（尚未发刊）' if zh else 'Update status (not a published edition)'
+        today = [f"**{label} · {update['date']}**", '', update['reason_zh' if zh else 'reason_en'], '',
+                 f"[{'查看逐日进度' if zh else 'View daily progress'} →]({base}/daily/index.html#publication-status)", '',
+                 '**最近已发布**' if zh else '**Latest published edition**', '', *today]
     must = ['| 日期 | 论文 | 一句话 | 证据 |' if zh else '| Date | Paper | In one line | Evidence |', '| --- | --- | --- | --- |']
     for p in must_reads(papers, routes):
         marks = ' '.join(ICONS[evidence(p)[key]] for key in KEYS)
@@ -204,7 +226,7 @@ def catalog(data, stats, config):
     for scope, names in SCOPE_NAMES.items():
         group = [p for p in data['papers'] if ('candidates' if p.get('status') == 'candidate' else p['scope']) == scope]
         lines += ['', f'## {names[0]} · {len(group)} 篇', '', '| 日期 | 论文 | 核心机制 | 关键结果 | 证据 |', '| --- | --- | --- | --- | --- |']
-        for p in sorted(group, key=lambda p: p['date'], reverse=True):
+        for p in sorted(group, key=lambda p: p['date']):
             marks = ' '.join(ICONS[evidence(p)[key]] for key in KEYS)
             lines.append(f"| {p['date']} | [{cell(p['title'])}](papers/{p['id']}.md){flag(p)} | {cell(p.get('summary_zh',''))} | {cell(p.get('result_zh',''))} | {marks} |")
     return '\n'.join(lines) + '\n'
@@ -278,8 +300,10 @@ def related_papers(p, papers, routes):
 
 def build(root=ROOT):
     from scripts.articles import build_articles
+    from scripts.feed.digest import initialize_public
 
     build_articles(root)
+    initialize_public(root)
     data, routes = validate(root)
     config = read_yaml(root / 'site.config.yaml')
     stats = compute_stats(data)
@@ -314,7 +338,7 @@ def build(root=ROOT):
     enriched = [{**p, 'evidence': evidence(p), 'short_title': short(p), 'bibtex': bibtex(p),
                  'note_url': config['repository_url'] + '/blob/main/notes/' + p['id'] + '.md' if (root / 'notes' / (p['id'] + '.md')).exists() else None, 'verification_label': '待细读 / Needs verification' if p.get('needs_reading') else ''} for p in data['papers']]
     gaps = read_gaps(root)
-    payload = {'meta': data['meta'], 'papers': enriched, 'routes': routes, 'gaps': gaps, 'stats': stats, 'config': config, 'latest_edition': latest_edition(root)}
+    payload = {'meta': data['meta'], 'papers': enriched, 'routes': routes, 'gaps': gaps, 'stats': stats, 'config': config, 'latest_edition': latest_edition(root), 'daily_status': daily_status(root)}
     write(root / 'site/papers.json', dump(payload))
     # A generated script also works over file://, where fetch(JSON) is restricted.
     write(root / 'site/data.js', 'window.HARNESS_DATA = ' + json.dumps(payload, ensure_ascii=False).replace('</', '<\\/') + ';\n')

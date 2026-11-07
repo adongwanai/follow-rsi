@@ -27,15 +27,21 @@ RSI 论文每天都在冒，但不是每个「变强了」都经得起检验。F
 
 <!-- AUTO:TODAY:START -->
 
-**[创刊回顾 · 10 月 14–27 日](https://adongwanai.github.io/follow-rsi/recaps/2026-10-14--2026-10-27.html)** · 16 篇，经人工审核。
+**更新进度（尚未发刊） · 2026-11-05**
 
-- [Skill^∞](https://arxiv.org/abs/2610.35434) · 二、改进器自身进化 · 元技能用同一流程优化任务技能并优化自身
-- [SERA](https://arxiv.org/abs/2610.29560) · 1.1 搜索与演化主线 · 固定 VLA 执行器，可编辑 Harness 依执行经验自进化
-- [Evolving Agent Interfaces (Agent S4)](https://arxiv.org/abs/2610.28601) · 三、组件级进化 · 元 Agent 阅读合成任务上的无成功标签轨迹，写入并修订接口仓库；种群选择按元 Agent 看不到的验证任务决定保留哪些仓库。
-- [HarnessAdapt-RL](https://arxiv.org/abs/2610.28069) · 四、模型与 Harness 协同进化 · RL 期间，一个教师生成任务相关的机制级技能，另一个根据反复出现的交互问题演化工具和 hooks；只保留使通过率或可训练率提高且另一指标不降的修改。
-- [RiseHarness](https://arxiv.org/abs/2610.27435) · 1.1 搜索与演化主线 · 针对重复运行时时成时败的任务：结合 Agent 轨迹与运行时内部追踪，用 Harness Handbook 把行为映射到源码，并检索其他框架的实现作参考。
+截至北京时间15:36，HF今日完整观察快照由5篇增至20篇。早间5篇复用未变的摘要复核，晚到15篇完整摘要初筛及独立复核均为范围排除建议；EmoReward与SleuthVLM另补读方法正文并独立复核，PyRUA保留正文待补。14个新身份与1个已有身份的新HF归期分别记录。暂无可出版的Harness条目；这是当时快照，不是全天最终榜单，排除建议不等于正式拒绝。
 
-[阅读本期全部内容 →](https://adongwanai.github.io/follow-rsi/recaps/2026-10-14--2026-10-27.html)
+[查看逐日进度 →](https://adongwanai.github.io/follow-rsi/daily/index.html#publication-status)
+
+**最近已发布**
+
+**[2026-11-02](https://adongwanai.github.io/follow-rsi/daily/2026-11-02.html)** · 3 篇，已审查并批准。
+
+- [R²Orch](https://arxiv.org/abs/2610.22740) · 四、模型与 Harness 协同进化 · 在训练中按反馈共演化编排模型与版本化技能；部署时不携带技能。
+- [CEPO](https://arxiv.org/abs/2610.34722) · 三、组件级进化 · 用执行反馈分别修订协调者与执行器提示，经验证集选择后用于后续任务。
+- [RoboArchitect](https://arxiv.org/abs/2610.42141) · 1.1 搜索与演化主线 · 在仿真中用轨迹反馈修订冻结策略外的控制代码，并在留出任务评估。
+
+[阅读本期全部内容 →](https://adongwanai.github.io/follow-rsi/daily/2026-11-02.html)
 
 <!-- AUTO:TODAY:END -->
 
@@ -110,7 +116,7 @@ RSI 论文每天都在冒，但不是每个「变强了」都经得起检验。F
 图标：留出集 · 同预算 · 跨模型 · 成本；❔ 表示未审。
 
 61 篇方法 · 16 篇 Harness 评测与理论 · 24 篇奠基与通用 RSI。
-[完整清单: 101 + 6 候选](PAPERS.md) · [在网站筛选](https://adongwanai.github.io/follow-rsi/#papers)
+[完整清单: 101 + 13 候选](PAPERS.md) · [在网站筛选](https://adongwanai.github.io/follow-rsi/#papers)
 
 <!-- AUTO:MUST_READ:END -->
 

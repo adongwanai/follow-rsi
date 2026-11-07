@@ -2,13 +2,18 @@
 import hashlib
 import json
 import os
+from datetime import datetime, timezone
 from pathlib import Path
 import re
+from threading import Lock
 
 from jinja2 import Environment, StrictUndefined
 from jsonschema import ValidationError, validate
 
 from scripts.common import ROOT, read_yaml
+
+
+_USAGE_LOG_LOCK = Lock()
 
 
 class LLMConfigurationError(ValueError):
@@ -104,6 +109,24 @@ class FeedLLM:
                            max_retries=0, timeout=60)
         return cls(os.environ['LLM_MODEL'], transport, root=root, provider=provider)
 
+    def record_usage(self, stage, model, item_id, cache_key, attempt, *, response=None, error=None):
+        usage = getattr(response, 'usage', None)
+        record = {
+            'recorded_at': datetime.now(timezone.utc).isoformat(),
+            'stage': stage, 'model': model, 'provider': self.provider,
+            'item_id': item_id, 'cache_key': cache_key, 'attempt': attempt,
+            'usage': usage.model_dump(mode='json') if usage is not None else None,
+            'request_id': getattr(response, '_request_id', None),
+            'response_id': getattr(response, 'id', None),
+            'error_type': type(error).__name__ if error is not None else None,
+            'http_status': getattr(error, 'status_code', None),
+        }
+        path = self.root / 'data/feed/usage.jsonl'
+        with _USAGE_LOG_LOCK:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            with path.open('a', encoding='utf-8') as handle:
+                handle.write(json.dumps(record, ensure_ascii=False, sort_keys=True) + '\n')
+
     def run(self, name, item, variables=None, feedback=None, retry_token=None):
         source, schema = read_prompt(name, self.root)
         settings = stage_settings(name, self.root, self.model)
@@ -142,6 +165,7 @@ class FeedLLM:
                     response_format=response_format, timeout=settings['timeout_seconds'],
                 )
             except Exception as error:
+                self.record_usage(name, model, item['id'], cache_key, attempt + 1, error=error)
                 if getattr(error, 'status_code', None) == 402:
                     raise LLMConfigurationError(
                         'LLM provider returned HTTP 402 (insufficient balance); '
@@ -149,6 +173,7 @@ class FeedLLM:
                 # The SDK may expose provider-specific errors. Preserve the cause and
                 # fail this item visibly; never cache or accept a failed API call.
                 raise LLMError(f'{name} API error ({type(error).__name__})') from error
+            self.record_usage(name, model, item['id'], cache_key, attempt + 1, response=response)
             content = response.choices[0].message.content
             try:
                 if content is None:

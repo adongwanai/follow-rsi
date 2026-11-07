@@ -158,6 +158,9 @@ def branch_request(branch):
 def remote_file(root, path, ref):
     repository = os.environ['GITHUB_REPOSITORY']
     payload = json.loads(gh(['api', f'repos/{repository}/contents/{path}?ref={ref}'], root))
+    # Contents omits file data above 1 MB; the immutable blob still has it.
+    if payload['encoding'] == 'none':
+        payload = json.loads(gh(['api', f'repos/{repository}/git/blobs/{payload["sha"]}'], root))
     return base64.b64decode(payload['content']).decode('utf-8')
 
 

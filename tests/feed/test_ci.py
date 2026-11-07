@@ -42,6 +42,25 @@ def test_ci_guard_requires_current_checkout(ci_environment):
         ci.require_ci(ci_environment / 'another-checkout')
 
 
+@pytest.mark.parametrize('large', [False, True])
+def test_remote_review_preserves_decisions_when_contents_omits_large_file(ci_environment, monkeypatch, large):
+    source = 'date: 2026-11-03\nitems:\n- id: arxiv:2610.41216\n  decision: defer\n  note: ' + ('x' * (1024 * 1024) if large else 'pending') + '\nlab_updates: []\n'
+    encoded = base64.b64encode(source.encode()).decode()
+    metadata = {'encoding': 'none' if large else 'base64', 'content': '' if large else encoded,
+                'sha': 'review-blob', 'size': len(source.encode())}
+    responses = [json.dumps(metadata)]
+    if large:
+        responses.append(json.dumps({'encoding': 'base64', 'content': encoded}))
+    api = Mock(side_effect=responses)
+    monkeypatch.setattr(ci, 'gh', api)
+    result = ci.remote_file(ci_environment, 'review/daily/2026-11-03.yaml', 'owner-head')
+    assert result == source
+    assert api.call_args_list[0].args[0][-1].endswith('?ref=owner-head')
+    if large:
+        assert api.call_args_list[1].args[0][-1].endswith('/git/blobs/review-blob')
+    assert api.call_count == (2 if large else 1)
+
+
 @pytest.mark.parametrize('event,now,expected', [
     ('schedule', '2026-11-01T23:42:00', '2026-W44'),
     ('schedule', '2026-11-02T02:42:46', '2026-W44'),
