@@ -273,6 +273,8 @@ def main():
         if name == 'publish':
             command.add_argument('--render-card',action='store_true')
             command.add_argument('--demo',action='store_true')
+            command.add_argument('--allow-status',action='store_true',
+                                 help='Publish a dated status brief when no papers are accepted; requires recorded status and merged-review provenance')
     version = commands.add_parser('versions')
     version.add_argument('--issues',action='store_true')
     commands.add_parser('health')
@@ -301,8 +303,10 @@ def main():
             (interactive_daily_review if args.command=='review' else validate_daily_review)(args.root,date)
             result = {'date':date,'status':'validated' if args.command=='check-review' else 'saved'}
     elif args.command == 'publish':
-        from scripts.feed.digest import publish_week,publish_day,publish_demo,require_publishable_day
-        from scripts.feed.review import apply_daily_review,validate_weekly_picks
+        from scripts.feed.digest import publish_week,publish_day,publish_demo,require_publishable_day,require_status_bulletin
+        from scripts.feed.review import apply_daily_review,approved_daily_items,validate_daily_review,validate_weekly_picks
+        if args.allow_status and (args.demo or args.week):
+            parser.error('--allow-status requires a daily publication')
         if args.demo:
             result = publish_demo(args.root,week,render_card=args.render_card)
         elif args.week:
@@ -310,8 +314,13 @@ def main():
             result = publish_week(args.root,week,render_card=args.render_card)
         else:
             require_publishable_day(args.root,date)
+            if args.allow_status:
+                review = validate_daily_review(args.root,date)
+                if (not any(row['decision'] == 'accept' for row in review['lab_updates'])
+                        and not approved_daily_items(args.root,date)):
+                    require_status_bulletin(args.root,date)
             apply_daily_review(args.root,date)
-            result = publish_day(args.root,date)
+            result = publish_day(args.root,date,allow_status=args.allow_status)
     elif args.command == 'promote':
         from scripts.feed.promote import promote_candidates
         result = promote_candidates(args.root,week=week) if args.week else promote_candidates(args.root,date=date)

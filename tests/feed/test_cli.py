@@ -14,7 +14,7 @@ from scripts.feed.cli import configure, process_items, run_pipeline, run_stage
 from scripts.feed.guard import unknown_evidence
 from scripts.feed.review import validate_daily_review
 from scripts.feed.storage import load_items, save_items, write_json
-from test_daily import accept_daily, make_daily_repo, write_daily
+from test_daily import accept_daily, make_daily_repo, record_daily_status, write_daily
 from test_review import make_repo
 
 DAY = '2026-10-27'
@@ -397,6 +397,25 @@ def test_withdrawn_cli_publication_cannot_apply_review_or_change_provenance(tmp_
         else:
             cli.main()
     assert before == {str(path.relative_to(root)): path.read_bytes() for path in root.rglob('*') if path.is_file()}
+
+
+def test_status_cli_missing_provenance_cannot_apply_review_or_add_labels(tmp_path, monkeypatch):
+    root = make_daily_repo(tmp_path)
+    write_daily(root, lambda review: review['items'][0].update(decision='reject'))
+    record_daily_status(root)
+    (root / 'data/feed/review-provenance' / f'{DAY}.json').unlink()
+    monkeypatch.setattr(cli, 'configure', lambda *args: None)
+    monkeypatch.setattr(sys, 'argv', ['feed', '--root', str(root), 'publish', '--date', DAY, '--allow-status'])
+    canonical = root / 'data/feed/items.jsonl'
+    labels = root / 'feed/eval/labeled.yaml'
+    canonical_before, labels_before = canonical.read_bytes(), labels.read_bytes()
+
+    with pytest.raises(ValueError, match='requires merged daily review provenance'):
+        cli.main()
+
+    assert canonical.read_bytes() == canonical_before
+    assert labels.read_bytes() == labels_before
+    assert not (root / 'site/daily' / f'{DAY}.json').exists()
 
 
 def test_explicit_environment_file_is_never_executed(tmp_path, monkeypatch):
