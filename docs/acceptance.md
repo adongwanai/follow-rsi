@@ -1,42 +1,38 @@
-# Follow RSI 验收记录
+# Follow RSI 修正与改版验收
 
-截至 2026-10-27。仓库为 [adongwanai/follow-rsi](https://github.com/adongwanai/follow-rsi)，网站为 [GitHub Pages](https://adongwanai.github.io/follow-rsi/)。这里区分实际完成的检查、待人工审核的内容和未接入的外部能力。
+截至 2026-10-27。本轮修改在 `fix/reviewed-news-and-public-site` 分支，须经 owner 审核 PR 后合并。线上已执行的是错误 10 月 27 日日报的撤回；本地创刊回顾与改版不代表已经上线。旧版验收记录已[存档](internal/acceptance-before-correction.md)。
 
-## 已验证
+## 内容与审核
 
-| 范围 | 结果 |
-| --- | --- |
-| 原始论文 | 98 篇收录、6 篇候选、20 篇必读；去除新增英译字段后，逐字段与 owner 文件完全一致。 |
-| 证据记录 | 8 项检查共 43 / 784 项有记录（5.5%），没有把未审字段伪装成已审。 |
-| 构建 | Schema、路线引用、数字一致性、手写区保护通过；连续构建输出相同。 |
-| 离线测试 | 169 项通过，覆盖信源解析、缓存、数字与引文护栏、每日审核、周精选、发布、候选、CI 审批与 CLI 集成，以及 Harness 范围、归档、S2 匿名限速和日报 Atom 去重。 |
-| 网站 | 1280 / 400px、浅色 / 深色检查通过；筛选、OR/AND 组合、短名、排序、语言记忆、键盘焦点、详情切换正常。线上方向图与手机布局已验证。 |
-| 图片 | 104 张 1080×1350 分享卡及社交预览生成；真实仓库 URL 和二维码已写入。owner 提供的 8 张 SVG 原样保留。 |
-| README | 默认中文；README_en.md 为英文，README_zh.md 为独立中文入口。三份文件只替换 AUTO 区块，手写部分在本次增量前后逐字相同。 |
-| GitHub 自动化 | 首轮 [128 项测试](https://github.com/adongwanai/follow-rsi/actions/runs/40489111622)、[分享卡生成](https://github.com/adongwanai/follow-rsi/actions/runs/40489111664)与 [Pages 部署](https://github.com/adongwanai/follow-rsi/actions/runs/40489271404)均在真实 Actions runner 上通过。Pages 已切为 workflow 模式。 |
-| HF 真实运行 | 回溯 2026-10-14 至 2026-10-27，共 275 篇唯一条目；8 篇已在原库。其余 267 篇得到 50 include、27 borderline、185 exclude、5 schema error。 |
-| 摘要 | 77 组中英文摘要，最终数字护栏失败 0；初轮 82 篇经 Harness 范围过滤后，44 篇待审、38 篇归档；另有 185 篇排除供抽查。没有替 owner 作出接受决定。 |
-| 日报与周报 | 离线验证日报、周精选、Atom、JSON schema、延迟指标、defer 顺延、撤稿与候选提案。真实数据演示仅保存在 Git 忽略的 build/demo/，明确标为自动通过的演示。 |
-| 密钥 | LLM 密钥在本地忽略文件和 GitHub Secrets 中；发布前对暂存文件扫描实际密钥，没有命中。 |
+- 真实 HF 每日榜单回放覆盖 10 月 14–27 日，预筛后 277 篇唯一候选。仅采用 owner 明确决定的 8 篇保留及 8 篇补回，生成 16 篇创刊回顾（15 篇方法、1 篇 Harness 专项理论）；其他候选没有自动得到接受决定。[逐日篇数与名单](internal/reports/hf-daily-replay.md)。
+- 日期使用实际观测到的 HF 推荐日 `news_date`，另外显示原始发表日 `announced` 和版本更新日。`first_seen` 不用于填充推荐日。普通发现默认 2 天；大于 3 天的补采只能进入补录，超过 30 天的条目不进公开 feed。
+- 原始 25 篇逐篇应用 owner 复审：8 保留、1 顺延、10 移出 Harness、6 拒绝；旧审核 YAML 和原审核 provenance 保留。撤回的日期不能重新作为普通日报发布，撤回的论文不能被 correction 恢复。回顾采用独立 Atom 标识与去重记录。
+- 104 条书目（98 收录、6 候选）的原字段与 `1930ef8` 完全一致，仅增加 scope、needs_review 和双语建议。98 篇拆为 61 方法、15 Harness 评测/理论、16 背景、6 通用 RSI。**这些是书目分类，不能解释为 61 篇已完成全文证据核验。**
+- [20 条分类待核清单](internal/reports/needs-review.json) 保留全部原文和原栏目；[分类边界审计](internal/reports/audit-library-classification.md) 覆盖 104 条目录、16 条公开摘要，全文核验数为 0。必读 20 篇未出现虚假的“已核 20/20”徽章。
 
-首期 [owner 审核 PR #1](https://github.com/adongwanai/follow-rsi/pull/1) 已由 Actions 创建，最初包含 82 篇待审。Harness 范围内的新队列包含 28 篇 Harness、11 篇明确关联 Harness 的横切研究和 5 篇分类错误，共 44 篇待审；38 篇完整双语记录已月度归档，重复归档不会改动原始条目。审核检查因 `pending` 状态按预期阻止发布；这不是构建或测试失败。公开 feed 通过 schema 校验且保持 0 篇，未越过人工审核。
+## 自动判定与信源
 
-本次逐页检查与增量变更见 [全站验收](site-audit.md)。首轮浏览器对比见 [截图](screenshots/index.html)。具体运行步骤见 [feed-setup.md](feed-setup.md)，原始数据问题见 [data-audit.md](data-audit.md)。
+[真实闸门评测](../feed/eval/gate-report.md) 共 45 例：precision **0.9600**，recall **0.8571**；召回低于 0.90，**门槛未通过**。原 25 篇子集 P/R 为 0.875/0.875；排除 10 个 prompt 示例后，35 例为 0.950/0.8261。旧 precision 0.40 来自原自动判为 Harness 的 20 篇，样本口径不同，不能与 45 例直接作同比。
 
-## 实时评测仍未完全验收
+4 个漏判：TokenEconomizer、HARBOR、SkillOpt-Lite、Living-Harness；1 个误判：owner 要求 defer 的 CarryOn (robot)。没有为通过门槛修改标签、放宽引文校验或把未知证据写成 yes。首次运行的 6 次超时记录保存在[初评报告](../feed/eval/gate-report-initial.md)，重试后 45 例无 API/schema 错误。自动审核 PR 标题与首行显式提示门槛未过。
 
-真实模型已评分 105 / 107 条。include recall 95.9%、include precision 98.9%、primary accuracy 90.8%，三个数值门槛达到；完整状态仍为 **incomplete**。两条论文身份需要核对，一条 schema 失败，27 个 curator seeds 需要 owner 复核。没有为提高分数更改标签。详见 [完整评测报告](../feed/eval/report.md)。
+[真实信源运行](internal/reports/source-fetch-audit.md) 共尝试 12 路：10 路成功，S2 citations/authors 两路因 429 失败，失败仍进入状态记录。484 条来源记录经归一与 upsert 得到 427 个唯一条目，新增 152 条；不是 427 条人工接受。[补采迁移](internal/reports/backfill-migration.json) 把全部 411 条未发布记录标为历史补采，16 条已审回顾保持原状态，审核决定和其余字段不变。之前漏掉的 8 篇已由真实 arXiv 查询全部召回。S2 匿名限速、指数退避与有 key 请求头通过离线测试；没有宣称此次 S2 完整分页成功。
 
-## 仍需完成的内容
+## 页面与仓库
 
-- S2 匿名论文元数据请求已实测通过，引用与作者完整分页尚待实测；`S2_API_KEY` 可选。当前 14 天真实运行优先覆盖 HF，不能声称完整多信源验收已完成。
-- owner 审核真实每日 PR 后，今日动态、公开 feed、周精选和 Release 才有正式内容。首期为空是审核闸门的结果。
-- 20 篇必读的全文证据审计没有完成；原始数据中的未知字段保持未知。后续补证据需正文页码或表号。
-- 论文精读笔记、视频、方向深度解读与作者的 B 站 / 小红书 / 公众号链接仍待填充。Harness 入门导读已完成。
-- 谱系关系图需要逐条引用或对比关系来源；当前方向图不声称论文之间存在未经核实的继承关系。
-- 可安装的个性化订阅 skill 属于可选第三阶段，尚未实现。
-- 没有调用 GPT image2.5：当前没有可用调用入口和图像 API 密钥；采用 owner 后续提供的 SVG，并用本地浏览器生成卡片，未冒称 AI 生图。
-- GitHub 仓库 Social preview 需要 owner 在 Settings 中上传 assets/social-preview.png；图已生成。
-- CITATION.cff 的作者仍按本次要求保留 `<AUTHOR_NAME>`。README 手写进度段记录的「初轮 82 篇待审」未擅自改写；当前 Harness 队列为 44 篇，维护者可选择另行更新该手写段。
+- 中文默认，README 从 444 行缩至 177 行；英文同步，README_zh 仅跳转。完整表移到 PAPERS.md；首次按新规范重写之后，构建仍只改 AUTO 块。
+- 首页、证据库、方向图、阅读路线、研究空白、今日动态、每周精选、导读和论文抽屉统一导航。仅首页保留大 hero，其他标签页内容顶端不超过 260px；含正文的刊期首卡不超过 400px。
+- 摘要仅显示当前语言；未知证据折叠，列表全未知时显示“证据待核”。空笔记、空视频标题和内部审核按钮不出现在公共页面。论文卡支持 BibTeX、路线说明和相关论文。
+- [浏览器截图与断言](internal/screenshots/redesign/index.html) 共 52 张截图、8 组验收，覆盖 1440/390px、深浅主题、回顾中英版本、过滤与分组排序、键盘焦点及不透明 srcdoc。原始 owner 的 8 张 SVG 与 make_svgs.py 字节未变。
+- [文件迁移清单](internal/reports/file-migrations.json)：旧任务说明、内部审计和截图移至 docs/internal；删除重复的根目录 stats.json。既有手写笔记按内容迁移，不生成空小节。
 
-Anthropic 和 Prime Intellect 没有找到经过核实的官方 RSS，保持停用。其他来源的逐项验证见 [source-verification.md](source-verification.md)。
+## 部署与维护者事项
+
+- 真实仓库与网站地址继续由 site.config.yaml 提供。作者使用已配置的 `Adong / 阿东玩 AI`，未编造作者信息或社交账号；GitHub API 确认 Discussions 已开启。
+- feed-publish 工作流因错误刊期撤回而仍处于手动禁用状态。**owner 合并本 PR 后再启用**，防止旧版流水线在修正前再次发布。普通代码 PR 合并会部署已审核过的本地生成物；其后日常发布继续要求每日审核 PR 合并。
+- docs/internal 当前仍随开源仓库保留，owner 可决定是否另行移出；其中原始任务文档是历史记录，现行要求以本轮修正代码和运行文档为准。
+- 20 篇全文证据审读、深度笔记/视频、带来源的论文谱系图、Follow RSI Skill、作者外部账号仍未完成或未提供，不在公共首屏展示完成占位。当前采用 owner 提供的 SVG 与浏览器生成图，没有冒称调用了不可用的 GPT image2.5。
+
+全量 `.venv/bin/python -m pytest -q`：**271 passed**。[两次构建检查](internal/reports/build-verification.json) 完全一致，README 手写区保留，未发现真实密钥或旧仓库名；生成页面的本地资源与链接检查通过（源模板的变量不视为页面 URL）。旧判定错误可重试，周报补录已发布记录不会被历史补采重新标记，均有回归覆盖。
+
+本轮通过标准是：错误刊期不能复活、未审条目不能发布、日期/范围可追溯、原论文数据不变、所有离线回归和构建检查通过。分类召回未达门槛作为明确限制交给 owner 审核，不与工程测试混为一谈。

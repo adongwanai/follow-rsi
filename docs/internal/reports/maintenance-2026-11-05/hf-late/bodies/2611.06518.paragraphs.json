@@ -1,0 +1,1575 @@
+[
+  {
+    "index": 0,
+    "id": "S1.p1",
+    "locator": "#S1.p1",
+    "sections": [
+      {
+        "id": "S1",
+        "heading": "1  Introduction"
+      }
+    ],
+    "text": "Reinforcement learning (RL), especially Group Relative Policy Optimization (GRPO), has advanced model post-training in verifiable domains such as code and mathematics, where correctness provides a direct learning signal [ 46 , 16 , 50 , 75 ] . In contrast, evaluating video quality, especially emotional expression, often depends on subjective aesthetics and has no uniquely correct target. Visual post-training adapts diffusion and flow generators through RL and preference objectives [ 2 , 12 , 43 , 60 , 72 , 29 , 80 ] . Learned evaluators provide scores for image preference and video quality [ 69 , 22 , 38 , 68 , 17 , 30 ] , but a visually clear, temporally stable video can match its prompt without conveying the intended emotion. Facial analysis, dynamic expression recognition, and multimodal emotion models supply complementary evidence [ 1 , 3 , 7 , 26 , 79 ] , whose reliability varies with context: facial cues require visible faces, strong motion can undermine restrained sadness, and saturated colors may reflect style rather than emotional intent. This raises a central question: Which emotional evidence should the reward system trust in the current video, and how can it adaptively determine how much weight to assign to that evidence?",
+    "sha256": "5148804d31b2de0e7daa41cff8b9383eaee66a86cf3cf97bfc5d3518814701c4"
+  },
+  {
+    "index": 1,
+    "id": "S1.p2",
+    "locator": "#S1.p2",
+    "sections": [
+      {
+        "id": "S1",
+        "heading": "1  Introduction"
+      }
+    ],
+    "text": "Agentic systems coordinate interaction, refine outputs through feedback, and organize evaluation into rubrics [ 65 , 62 , 39 , 47 , 15 ] . These capabilities motivate adaptive evaluation, yet existing video GRPO methods typically rely on fixed rewards for visual quality, motion quality, and text alignment that inadequately capture emotional intent. Reinforcement learning from human feedback (RLHF) and preference optimization address subjective goals [ 8 , 48 , 41 , 44 ] , but human annotation is costly at scale, and aesthetic differences complicate the calibration of emotional cues across contexts. Fixed fusion can mix informative, missing, and saturated signals, allowing policy updates to exploit scoring shortcuts rather than improve emotional fidelity. This motivates reward calibration at two complementary levels: assessing which cues are valid within each video, and learning from a completed training run how much those cues should influence rewards in the next run.",
+    "sha256": "572b13b22dcddb6a41e89b05b32b48ea42eeacf2f174820c9bc10071a1ee7e71"
+  },
+  {
+    "index": 2,
+    "id": "S1.p3",
+    "locator": "#S1.p3",
+    "sections": [
+      {
+        "id": "S1",
+        "heading": "1  Introduction"
+      }
+    ],
+    "text": "We introduce EmoReward , a self-evolving training mechanism for emotional video-generation RL (Figure 1 ). It distills evidence reliability from reward–outcome traces collected during an actual, completed training run, then uses this experience to guide multi-reward weight allocation in the next run to decide which emotional evidence to trust and how much to weight it. Plan translates emotional intent into an EmoScript specifying affect targets, facial and body cues, and an expression window; Act scores generated videos with heterogeneous primitives, keeping criterion scores separate from evidence validity. Within each video, Reflective Reward Gating calibrates these cues using the training phase, face confidence, semantic conflict, and subtlety, then renormalizes weights over active providers. After a training run, RewardMemory estimates provider reliability for each emotional regime from traces. Providers with stronger agreement are given larger weight multipliers for the next run, with limits on the size of the adjustment. These multipliers and all reward models stay fixed throughout that run; for each new video, reflection further downweights or excludes missing or unsuitable cues before the active scores are combined into a weighted average EmoReward can be integrated into several RL algorithms alongside general video rewards, and directly use training experience to calibrate reward allocation without retraining the evaluators.",
+    "sha256": "89f4e77851ae0e44b6e552ab90ccb7e0d22bc9c35f6ae758624bfa84071f7af1"
+  },
+  {
+    "index": 3,
+    "id": "S1.p4",
+    "locator": "#S1.p4",
+    "sections": [
+      {
+        "id": "S1",
+        "heading": "1  Introduction"
+      }
+    ],
+    "text": "We evaluate EmoReward on HunyuanVideo 1.5 [ 64 ] with DanceGRPO [ 72 ] , FlowGRPO [ 29 ] , and SAGE-GRPO [ 80 ] , observing higher VideoAlign scores for the guided configurations across all three RL algorithms on emotional prompts as the evaluation dataset for rollout. Under a fair comparison on the same RL architecture and training budget, EmoReward achieves the highest reliability selectivity and both composite calibration scores among seven reward policies. Ablation studies and mechanism analyses examine the contributions of reflective gating, provider pools, and RewardMemory (Section 4.2 ). Transfer experiments on Stable Diffusion 3.5 and FLUX show gains in selected configurations alongside objective-dependent trade-offs, while user studies show that EmoReward receives the highest human preference and proportion of Good ratings and the lowest proportion of Bad ratings for emotional fidelity, temporal coherence, and visual quality.",
+    "sha256": "f16b4b7c7a0ae3a08e9540e5d6fdfa9e8fa9494aabd4fe9896e36667d8fe3662"
+  },
+  {
+    "index": 4,
+    "id": "S1.p5",
+    "locator": "#S1.p5",
+    "sections": [
+      {
+        "id": "S1",
+        "heading": "1  Introduction"
+      }
+    ],
+    "text": "Our contributions are threefold. • We introduce EmoReward , to our knowledge the first self-evolving training mechanism for emotional video generation RL that calibrates reward providers across training runs without updating reward model parameters. • We propose RewardMemory , to our knowledge the first memory designed for multi-reward systems in video generation. It distills evidence reliability into bounded fusion weights, enabling iterative calibration of RL reward signals across training runs. • We inspire a novel cross-run self-evolution paradigm for post-training multimodal foundation models: a completed training run informs reward allocation in the next, making training experience reusable at the run level. Extensive experiments across three video RL algorithms and two image backbones, with ablations and human evaluations, validate EmoReward’s effectiveness.",
+    "sha256": "273a744a51b2d01b227cd3a0f4f860c839f5697c05dca4dd34621501e47a0cb0"
+  },
+  {
+    "index": 5,
+    "id": "S1.I1.i1.p1",
+    "locator": "#S1.I1.i1.p1",
+    "sections": [
+      {
+        "id": "S1",
+        "heading": "1  Introduction"
+      }
+    ],
+    "text": "We introduce EmoReward , to our knowledge the first self-evolving training mechanism for emotional video generation RL that calibrates reward providers across training runs without updating reward model parameters.",
+    "sha256": "eb89aea35c9489c76fd094343d94f4272fc8b67a69d2f16b5f10a5f2b9e45673"
+  },
+  {
+    "index": 6,
+    "id": "S1.I1.i2.p1",
+    "locator": "#S1.I1.i2.p1",
+    "sections": [
+      {
+        "id": "S1",
+        "heading": "1  Introduction"
+      }
+    ],
+    "text": "We propose RewardMemory , to our knowledge the first memory designed for multi-reward systems in video generation. It distills evidence reliability into bounded fusion weights, enabling iterative calibration of RL reward signals across training runs.",
+    "sha256": "14e648278e411eba49bf23e4f4fdc9a949d1d1241f7452455041998ced074f55"
+  },
+  {
+    "index": 7,
+    "id": "S1.I1.i3.p1",
+    "locator": "#S1.I1.i3.p1",
+    "sections": [
+      {
+        "id": "S1",
+        "heading": "1  Introduction"
+      }
+    ],
+    "text": "We inspire a novel cross-run self-evolution paradigm for post-training multimodal foundation models: a completed training run informs reward allocation in the next, making training experience reusable at the run level. Extensive experiments across three video RL algorithms and two image backbones, with ablations and human evaluations, validate EmoReward’s effectiveness.",
+    "sha256": "57e3b23626206a981c0c6d42ad1fea75a565b4a76e09756e93756fd8d217736b"
+  },
+  {
+    "index": 8,
+    "id": "S2.SS0.SSS0.Px1.p1",
+    "locator": "#S2.SS0.SSS0.Px1.p1",
+    "sections": [
+      {
+        "id": "S2",
+        "heading": "2  Related Work"
+      },
+      {
+        "id": "S2.SS0.SSS0.Px1",
+        "heading": "From verifiable RL to agentic feedback for non-verifiable rewards."
+      }
+    ],
+    "text": "RLHF learns subjective preferences [ 8 , 41 ] , whereas verifiable RL exploits correctness checks [ 16 , 75 ] . Agentic evaluators [ 77 , 9 ] and adaptive rubrics [ 15 , 70 , 78 ] structure open-ended feedback. Related approaches route experts [ 40 ] , refine responses [ 39 ] , evolve rewards [ 35 , 76 ] , or organize experience [ 47 , 71 ] . JitRL derives closed-form policy updates from retrieved action advantages [ 25 ] . EmoReward instead transfers reward–outcome evidence across completed training runs to calibrate frozen providers, combining sample-level gating with persistent fusion weights.",
+    "sha256": "0b28bd5713913f3b917054563fed8d2735534b971be5d6b76e58051a114579c0"
+  },
+  {
+    "index": 9,
+    "id": "S2.SS0.SSS0.Px2.p1",
+    "locator": "#S2.SS0.SSS0.Px2.p1",
+    "sections": [
+      {
+        "id": "S2",
+        "heading": "2  Related Work"
+      },
+      {
+        "id": "S2.SS0.SSS0.Px2",
+        "heading": "Agents for visual content creation."
+      }
+    ],
+    "text": "Agentic visual creation organizes generation into planning, tool use, and feedback-driven refinement. Video agents coordinate multi-shot narratives, script evaluation, audiovisual planning, and learned camera control [ 82 , 18 , 81 , 11 , 57 , 67 ] . Image agents combine knowledge retrieval [ 14 , 4 ] , learned creation and editing policies [ 23 , 27 ] , and experience reuse [ 5 , 6 ] . Other approaches jointly improve generation and evaluation [ 28 , 51 ] . EmoReward naturally achieves a self-evolving mechanism in video generation RL training, rather than building a workflow or retraining reward models.",
+    "sha256": "713dca35d604e92215eda66c87d0805f10b5a81e14882ed4044f19edb37476bf"
+  },
+  {
+    "index": 10,
+    "id": "S2.SS0.SSS0.Px3.p1",
+    "locator": "#S2.SS0.SSS0.Px3.p1",
+    "sections": [
+      {
+        "id": "S2",
+        "heading": "2  Related Work"
+      },
+      {
+        "id": "S2.SS0.SSS0.Px3",
+        "heading": "RLHF for visual generation and the emotion-reward gap."
+      }
+    ],
+    "text": "Visual reward models capture preferences and multidimensional quality [ 69 , 22 , 66 , 38 , 68 , 63 , 30 ] . Optimization using rewards and preferences extends from images [ 2 , 12 , 43 , 60 ] to video and flow models [ 72 , 29 , 80 , 31 ] , with benchmarks assessing quality and compositional alignment [ 20 , 32 , 49 ] . Related 3D, audiovisual, and objectives for human animation address complementary aspects of visual generation [ 24 , 19 , 59 , 55 ] . Motion editing and transfer [ 52 , 54 , 37 ] , shape-aware and consistent image editing [ 33 , 36 ] , and pose- and identity-preserving animation [ 58 , 42 , 56 ] offer finer control over visual content. Distillation [ 74 , 21 , 13 ] and feature reuse [ 34 ] improve generation efficiency, complementing reward-based post-training. Affect-grounded augmentation [ 61 ] and reflective action-conditioned generation [ 73 ] further connect feedback with video synthesis. Temporal video modeling and dynamic facial-expression recognition provide additional perceptual foundations [ 53 , 3 ] . Emotion understanding supplies multimodal evidence [ 7 , 26 , 79 ] and grounded affect representations [ 45 , 10 , 1 ] ; EmoReward addresses how their reliability should govern reward fusion across scenes and training runs.",
+    "sha256": "471c48d541ec40947674d3ce94b8edf768413a2887ff082fec74524966842024"
+  },
+  {
+    "index": 11,
+    "id": "S3.SS1.SSS0.Px1.p1",
+    "locator": "#S3.SS1.SSS0.Px1.p1",
+    "sections": [
+      {
+        "id": "S3",
+        "heading": "3  Method"
+      },
+      {
+        "id": "S3.SS1",
+        "heading": "3.1  Preliminaries"
+      },
+      {
+        "id": "S3.SS1.SSS0.Px1",
+        "heading": "Multi-reward optimization with GRPO."
+      }
+    ],
+    "text": "Let p p be a prompt and x x a generated video from a policy π θ ​ ( x ∣ p ) \\pi_{\\theta}(x\\mid p) ; a scalar reward is R ⁡ ( x , p ) ∈ ℝ R(x,p)\\in\\mathbb{R} . For a prompt p p , GRPO samples a group 𝒢 ⁡ ( p ) = { x i } i = 1 G \\mathcal{G}(p)=\\{x_{i}\\}_{i=1}^{G} and forms standardized group advantages A i = R ⁡ ( x i , p ) − μ 𝒢 σ 𝒢 + ϵ , μ 𝒢 = 1 G ​ ∑ j R ⁡ ( x j , p ) , σ 𝒢 2 = 1 G ​ ∑ j ( R ⁡ ( x j , p ) − μ 𝒢 ) 2 , A_{i}=\\frac{R(x_{i},p)-\\mu_{\\mathcal{G}}}{\\sigma_{\\mathcal{G}}+\\epsilon},\\qquad\\mu_{\\mathcal{G}}=\\tfrac{1}{G}\\textstyle\\sum_{j}R(x_{j},p),\\quad\\sigma_{\\mathcal{G}}^{2}=\\tfrac{1}{G}\\textstyle\\sum_{j}(R(x_{j},p)-\\mu_{\\mathcal{G}})^{2}, (1) which enter the clipped, KL-regularized objective in Appendix F . The policy update depends on reward differences inside the group. A common additive constant cancels exactly; positive rescaling changes only the relative effect of ϵ \\epsilon . A coefficient of variation measures dispersion, not policy-learning signal quality; we also assess within-prompt ranking agreement and downstream quality.",
+    "sha256": "33f3db9fad8a670cfa1a290652642fcab6a89c0e9790de8b1e78a73ea91cd30e"
+  },
+  {
+    "index": 12,
+    "id": "S3.SS1.SSS0.Px2.p1",
+    "locator": "#S3.SS1.SSS0.Px2.p1",
+    "sections": [
+      {
+        "id": "S3",
+        "heading": "3  Method"
+      },
+      {
+        "id": "S3.SS1",
+        "heading": "3.1  Preliminaries"
+      },
+      {
+        "id": "S3.SS1.SSS0.Px2",
+        "heading": "Why static emotion fusion fails."
+      }
+    ],
+    "text": "Given reward primitives 𝒯 = { 1 , … , K } \\mathcal{T}=\\{1,\\ldots,K\\} with normalized scores s k ​ ( x , p ) ∈ [ 0 , 1 ] s_{k}(x,p)\\in[0,1] , a fixed fusion is R emo static = ∑ k w k 0 ​ s k R_{\\mathrm{emo}}^{\\mathrm{static}}=\\sum_{k}w_{k}^{0}s_{k} with w k 0 ≥ 0 , ∑ k w k 0 = 1 w_{k}^{0}\\geq 0,\\sum_{k}w_{k}^{0}=1 . This assumes a fixed trust allocation across scenes, although facial visibility and the relevance of motion depend on the intended emotion. Writing each primitive as a constant plus a group-varying part s k = c k + δ k s_{k}=c_{k}+\\delta_{k} and splitting into an active set 𝒜 \\mathcal{A} and a dead/saturated set 𝒟 \\mathcal{D} , R emo static = ∑ k ∈ 𝒜 w k 0 ​ δ k + ∑ k ∈ 𝒜 w k 0 ​ c k + ∑ k ∈ 𝒟 w k 0 ​ c k , R_{\\mathrm{emo}}^{\\mathrm{static}}=\\sum_{k\\in\\mathcal{A}}w_{k}^{0}\\delta_{k}+\\sum_{k\\in\\mathcal{A}}w_{k}^{0}c_{k}+\\sum_{k\\in\\mathcal{D}}w_{k}^{0}c_{k}, (2) the constant terms cancel from the centered GRPO numerator. Removing them alone need not change the standardized advantage. Calibration matters when provider validity, errors, or relative contributions vary across candidates, or when the emotion branch is mixed with another reward. EmoReward addresses these cases through gates and memory-conditioned fusion.",
+    "sha256": "45e2e4cf9a91e6cd473f1a8e00881723101ee75228e7862331f401b748d009d1"
+  },
+  {
+    "index": 13,
+    "id": "S3.SS2.p1",
+    "locator": "#S3.SS2.p1",
+    "sections": [
+      {
+        "id": "S3",
+        "heading": "3  Method"
+      },
+      {
+        "id": "S3.SS2",
+        "heading": "3.2  Overview"
+      }
+    ],
+    "text": "EmoReward grounds emotional intent, scores visual evidence, and calibrates provider trust: p → Plan e ⁡ ( p ) , ( x , e ) → Act { s k , u k } , ( s , u , e , x ) → Reflect R emo , ℳ → Evolve w RM ​ ( z ) . p\\xrightarrow{\\mathrm{Plan}}e(p),\\quad(x,e)\\xrightarrow{\\mathrm{Act}}\\{s_{k},u_{k}\\},\\quad(s,u,e,x)\\xrightarrow{\\mathrm{Reflect}}R_{\\mathrm{emo}},\\quad\\mathcal{M}\\xrightarrow{\\mathrm{Evolve}}w^{\\mathrm{RM}}(z). (3) Here e ⁡ ( p ) e(p) is an EmoScript, u k u_{k} denotes evidence validity, and z z is the emotional-context signature. RewardMemory ℳ \\mathcal{M} stores completed reference-run traces; Evolve produces w RM ​ ( z ) w^{\\mathrm{RM}}(z) and exports the corresponding regime multipliers m k ​ ( r ) m_{k}(r) (Section 3.5 ). Reflect combines these fixed multipliers with current-video gates. The resulting emotion reward is mixed with a general video reward: R total ​ ( x , p ) = α ​ R vid ​ ( x , p ) + β ​ R emo ​ ( x , p ) α + β , R_{\\mathrm{total}}(x,p)=\\frac{\\alpha R_{\\mathrm{vid}}(x,p)+\\beta R_{\\mathrm{emo}}(x,p)}{\\alpha+\\beta}, (4) where R vid R_{\\mathrm{vid}} is the evaluation score supplied by the original reward system, for example a general video-quality evaluator [ 30 ] ; α , β ≥ 0 \\alpha,\\beta\\geq 0 control its mixture with the calibrated emotion reward, with α + β > 0 \\alpha+\\beta>0 . Figure 2 connects these stages through their shared fusion interface.",
+    "sha256": "63b6374b367436c4416cef67ed4150df4e6c72c9479755c13ae484ec15244f06"
+  },
+  {
+    "index": 14,
+    "id": "S3.SS3.SSS0.Px1.p1",
+    "locator": "#S3.SS3.SSS0.Px1.p1",
+    "sections": [
+      {
+        "id": "S3",
+        "heading": "3  Method"
+      },
+      {
+        "id": "S3.SS3",
+        "heading": "3.3  Plan and Act: Emotional Grounding"
+      },
+      {
+        "id": "S3.SS3.SSS0.Px1",
+        "heading": "Plan: prompt-conditioned criteria."
+      }
+    ],
+    "text": "The planner converts the prompt into an EmoScript independently of RewardMemory: e ⁡ ( p ) = ( v ⋆ , a ⋆ , 𝐪 AU ⋆ , 𝐛 ⋆ , Ω ) . e(p)=(v^{\\star},a^{\\star},\\mathbf{q}^{\\star}_{\\mathrm{AU}},\\mathbf{b}^{\\star},\\Omega). (5) The implemented representation contains scalar valence and arousal targets, target facial AU intensities, body cues, and an expression window. The memory regime is inferred later from observed context. Continuous VAD trajectories and dominance targets are outside this implementation. The EmoScript separates intended affect from its observable cues. For example, restrained sadness need not imply large motion or an exaggerated face: target intensities, body cues, and the expression window define what to assess, while reliability is determined from the generated evidence and completed-run experience.",
+    "sha256": "79ed079637588f40df8a605aceb96af7129ea668860a037a9db76f8c3bcc0ca0"
+  },
+  {
+    "index": 15,
+    "id": "S3.SS3.SSS0.Px2.p1",
+    "locator": "#S3.SS3.SSS0.Px2.p1",
+    "sections": [
+      {
+        "id": "S3",
+        "heading": "3  Method"
+      },
+      {
+        "id": "S3.SS3",
+        "heading": "3.3  Plan and Act: Emotional Grounding"
+      },
+      {
+        "id": "S3.SS3.SSS0.Px2",
+        "heading": "Act: observation and scoring."
+      }
+    ],
+    "text": "Act evaluates a video already sampled from π θ ( ⋅ ∣ p ) \\pi_{\\theta}(\\cdot\\mid p) ; it does not generate or revise the video. Each provider returns ( s k , u k ) = 𝒮 k ​ ( x , e ⁡ ( p ) ) , s k , u k ∈ [ 0 , 1 ] , (s_{k},u_{k})=\\mathcal{S}_{k}(x,e(p)),\\qquad s_{k},u_{k}\\in[0,1], (6) where 𝒮 k \\mathcal{S}_{k} is provider k k ’s scoring operator, which aggregates frame-level measurements or evaluates the whole clip. The seven fusion providers comprise a VLM judge, facial AUs, body cues, temporal evidence, CLIP-AUTT, R1-Omni, and motion naturalness; chromatic atmosphere and kinetic intensity are auxiliary readouts, giving nine observation channels. Score s k s_{k} measures criterion agreement, while u k u_{k} marks usable evidence. A missing face channel’s neutral default is not evidence and is excluded through its validity mask. Auxiliary readouts do not enter the seven-provider calibration policy. Appendix C specifies scoring interfaces; Figure 5 illustrates the toolkit studied in Section 4.2 .",
+    "sha256": "e3fd332ec9a52009b80bcfbaf456a992204a749973b073d23214f47a0cf0e861"
+  },
+  {
+    "index": 16,
+    "id": "S3.SS4.p1",
+    "locator": "#S3.SS4.p1",
+    "sections": [
+      {
+        "id": "S3",
+        "heading": "3  Method"
+      },
+      {
+        "id": "S3.SS4",
+        "heading": "3.4  Reflect: Instance-Level Calibration"
+      }
+    ],
+    "text": "Reflect computes provider-specific gates from the current evidence, prompt, and training step. The factorization is g k = g k phase ​ g k conflict ​ g k face ​ g k subtle ​ u k , g k ∈ [ 0 , 1 ] , g_{k}=g^{\\mathrm{phase}}_{k}\\,g^{\\mathrm{conflict}}_{k}\\,g^{\\mathrm{face}}_{k}\\,g^{\\mathrm{subtle}}_{k}\\,u_{k},\\qquad g_{k}\\in[0,1], (7) with neutral factors for channels to which a condition does not apply. Phase denotes the training-step warmup, face gating controls face-dependent evidence, conflict gating attenuates disagreement between semantic providers, and subtlety gating restrains intensity-sensitive cues. Motion naturalness uses its observation confidence. These controls are computed, not learned (Appendix D ).",
+    "sha256": "fde919a98b188c061b14c89ec195c72972422ea2c562a786116057e806e1f4b7"
+  },
+  {
+    "index": 17,
+    "id": "S3.SS4.SSS0.Px1.p1",
+    "locator": "#S3.SS4.SSS0.Px1.p1",
+    "sections": [
+      {
+        "id": "S3",
+        "heading": "3  Method"
+      },
+      {
+        "id": "S3.SS4",
+        "heading": "3.4  Reflect: Instance-Level Calibration"
+      },
+      {
+        "id": "S3.SS4.SSS0.Px1",
+        "heading": "Evidence-dependent trust."
+      }
+    ],
+    "text": "The phase factor schedules reward evidence over generator training, distinct from the within-video expression window. Face gating limits channels requiring facial evidence; conflict and subtlety gating temper disagreeing semantic assessments and intensity-sensitive cues. Their provider-specific application changes relative influence; a shared positive attenuation would largely cancel under normalization.",
+    "sha256": "448ac795095fce71002b9f3a26c8277b9cf8ee6ae0df5ef5220140eff0bf28c2"
+  },
+  {
+    "index": 18,
+    "id": "S3.SS4.SSS0.Px2.p1",
+    "locator": "#S3.SS4.SSS0.Px2.p1",
+    "sections": [
+      {
+        "id": "S3",
+        "heading": "3  Method"
+      },
+      {
+        "id": "S3.SS4",
+        "heading": "3.4  Reflect: Instance-Level Calibration"
+      },
+      {
+        "id": "S3.SS4.SSS0.Px2",
+        "heading": "Composition with experience."
+      }
+    ],
+    "text": "For a fixed base weight w k 0 w_{k}^{0} , define the effective contribution a k ​ ( x , p ) = w k 0 ​ g k ​ ( x , p ) ​ m k ​ ( r ⁡ ( x , p ) ) a_{k}(x,p)=w_{k}^{0}g_{k}(x,p)m_{k}(r(x,p)) . Reflective Reward Gating uses m k = 1 m_{k}=1 ; EmoReward uses the fixed table produced by Evolve. With 𝒜 = { k : a k > ϵ g } \\mathcal{A}=\\{k:a_{k}>\\epsilon_{g}\\} , active-provider normalization gives R emo ​ ( x , p ) = ∑ k ∈ 𝒜 a k ​ ( x , p ) ​ s k ​ ( x , p ) ∑ k ∈ 𝒜 a k ​ ( x , p ) + ϵ . R_{\\mathrm{emo}}(x,p)=\\frac{\\sum_{k\\in\\mathcal{A}}a_{k}(x,p)s_{k}(x,p)}{\\sum_{k\\in\\mathcal{A}}a_{k}(x,p)+\\epsilon}. (8) Invalid evidence receives no mass. A common positive factor cancels except through the stabilizer; calibration acts through relative provider contributions and differences between videos. Regime r r selects a table entry; gate g k g_{k} controls current evidence validity. A provider favored by memory still contributes nothing when its current evidence is invalid. With no memory entry, unit multipliers recover Reflect-only fusion; the scoring interfaces and generator objective remain the same.",
+    "sha256": "02e2a06ae37955c52fb8b9bbc733ed90f138c46504d8f20ba5bdb0b7895128b8"
+  },
+  {
+    "index": 19,
+    "id": "S3.SS5.p1",
+    "locator": "#S3.SS5.p1",
+    "sections": [
+      {
+        "id": "S3",
+        "heading": "3  Method"
+      },
+      {
+        "id": "S3.SS5",
+        "heading": "3.5  Evolve: RewardMemory"
+      }
+    ],
+    "text": "RewardMemory treats reward allocation as a decision over emotional context z z : the providers are actions, their fusion weights form a policy, and a stored outcome y y supplies a non-parametric reliability signal. Experience is collected during a completed reference training run with Reflective Reward Gating. Each trace m i = ( z i , { s i k } , { g i k } , w i , R i , y i ) m_{i}=(z_{i},\\{s_{i}^{k}\\},\\{g_{i}^{k}\\},w_{i},R_{i},y_{i}) records context, scores, gates, weights, and outcomes. Evolve groups these traces into a regime neighborhood 𝒩 ⁡ ( z ) \\mathcal{N}(z) , with a global fallback for insufficient support, and computes ρ k ​ ( z ) = Cov i ∈ 𝒩 ⁡ ( z ) ⁡ ( s i k , y i ) σ s k ​ σ y + ϵ , A k rel ​ ( z ) = ρ k ​ ( z ) − 1 K ​ ∑ j ρ j ​ ( z ) . \\rho_{k}(z)=\\frac{\\operatorname{Cov}_{i\\in\\mathcal{N}(z)}(s_{i}^{k},y_{i})}{\\sigma_{s^{k}}\\sigma_{y}+\\epsilon},\\qquad A_{k}^{\\mathrm{rel}}(z)=\\rho_{k}(z)-\\frac{1}{K}\\sum_{j}\\rho_{j}(z). (9) Reliability uses raw provider scores; constant scores receive zero correlation. It measures agreement with the reference outcome, not independent emotional fidelity. The centered advantage tilts the base allocation through bounded multipliers: Δ k = clip ⁡ ( A k rel / τ , − c , c ) , w k RM ​ ( z ) = w k 0 ​ e Δ k ∑ j w j 0 ​ e Δ j . \\Delta_{k}=\\operatorname{clip}(A_{k}^{\\mathrm{rel}}/\\tau,-c,c),\\qquad w_{k}^{\\mathrm{RM}}(z)=\\frac{w_{k}^{0}e^{\\Delta_{k}}}{\\sum_{j}w_{j}^{0}e^{\\Delta_{j}}}. (10) This is the closed-form optimum of a KL-regularized allocation with clipped utilities (Appendix F ). The exported m k ​ ( r ) = e Δ k m_{k}(r)=e^{\\Delta_{k}} compose with current instance gates in Eq. 8 . The table is fixed throughout the next training run: only the generator receives gradient updates, and runtime lookup neither re-estimates reliability nor writes back to the table. Algorithms 1 and 2 separate reward computation from between-run memory construction. Appendix E explains context grouping and table construction; Appendix I provides a trace-based worked example.",
+    "sha256": "d4178c59df6487cd74e987c048479e7bc16677182fa4253c03c93a182fc950f4"
+  },
+  {
+    "index": 20,
+    "id": "S4.SS0.SSS0.Px1.p1",
+    "locator": "#S4.SS0.SSS0.Px1.p1",
+    "sections": [
+      {
+        "id": "S4",
+        "heading": "4  Experiments"
+      },
+      {
+        "id": "S4.SS0.SSS0.Px1",
+        "heading": "Experimental settings."
+      }
+    ],
+    "text": "We use HunyuanVideo 1.5 with DanceGRPO, FlowGRPO, and SAGE-GRPO, fusion α = β = 0.5 \\alpha=\\beta=0.5 , batch size 2 2 , and group size G = 4 G=4 . The updated optimizer comparison reports average results on a subset of 302 emotional prompts that does not overlap with the training set. GT denotes the pretrained generator without RL. Each guided row uses one fixed configuration: Reflect for DanceGRPO, and the complete EmoReward system for FlowGRPO and SAGE-GRPO. The controlled seven-policy comparison retains its separate step-100 evaluation protocol. VideoAlign supplies R vid R_{\\mathrm{vid}} and the reference outcome y y . Memory calibration uses K = 7 K=7 , τ = 0.5 \\tau=0.5 , a log-multiplier cap c = 1 c=1 , and minimum context support n min = 20 n_{\\min}=20 . Appendix J.1 gives the qualitative protocol.",
+    "sha256": "1300e73f289cb6df11bb8df633def80c60916927fb049d3992297147736b0749"
+  },
+  {
+    "index": 21,
+    "id": "S4.SS0.SSS0.Px2.p1",
+    "locator": "#S4.SS0.SSS0.Px2.p1",
+    "sections": [
+      {
+        "id": "S4",
+        "heading": "4  Experiments"
+      },
+      {
+        "id": "S4.SS0.SSS0.Px2",
+        "heading": "Evaluation metrics."
+      }
+    ],
+    "text": "Table 1 reports mean ± \\pm SEM across prompts for VideoAlign Overall, visual quality (VQ), motion quality (MQ), text alignment (TA), PickScore, and CLIPScore. The latter two are frame-averaged preference and alignment proxies; their exported logits are scaled by 26 26 and 30 30 , respectively. VideoAlign is also an optimization objective, so agreement with it is distinguished from independent emotional fidelity.",
+    "sha256": "d4ef175194421a4dd2ed4f2961b003402965b2831ac0f8de878bb518edd7b00e"
+  },
+  {
+    "index": 22,
+    "id": "S4.SS1.p1",
+    "locator": "#S4.SS1.p1",
+    "sections": [
+      {
+        "id": "S4",
+        "heading": "4  Experiments"
+      },
+      {
+        "id": "S4.SS1",
+        "heading": "4.1  EmoReward as a Base-RL-Agnostic Reward Add-on"
+      }
+    ],
+    "text": "Table 1 compares the pretrained reference, each optimizer baseline, and its fixed guided configuration. All four VideoAlign heads increase for every RL algorithm under the fair comparison experimental settings. Overall improves by 0.3218 0.3218 for DanceGRPO with Reflect, 0.2343 0.2343 for FlowGRPO with EmoReward, and 0.5645 0.5645 for SAGE-GRPO with EmoReward. The reference comparison and within-optimizer comparison answer different questions: the former evaluates the full post-training system, while the latter compares reward configurations. PickScore and CLIPScore show smaller, mixed changes; the VideoAlign gains do not imply uniform improvement on all evaluation axes.",
+    "sha256": "bd7359a6cf8b5f298cb72c41b94ce79cb9f0cf2fe824ed010fd0cca69788e46c"
+  },
+  {
+    "index": 23,
+    "id": "S4.SS1.SSS0.Px1.p1",
+    "locator": "#S4.SS1.SSS0.Px1.p1",
+    "sections": [
+      {
+        "id": "S4",
+        "heading": "4  Experiments"
+      },
+      {
+        "id": "S4.SS1",
+        "heading": "4.1  EmoReward as a Base-RL-Agnostic Reward Add-on"
+      },
+      {
+        "id": "S4.SS1.SSS0.Px1",
+        "heading": "Emotion-category analysis."
+      }
+    ],
+    "text": "Figure 5 compares GT and SAGE-GRPO with EmoReward across six metrics and eight emotion categories. The four VideoAlign heads improve in every category, while PickScore and CLIPScore show smaller, nonuniform changes. This GT comparison reflects the complete post-training system. Categories overlap within the evaluated set.",
+    "sha256": "cd732281bd641299e4cdc04669b064c517cdcb43e6d8f7617ccc48825114ef45"
+  },
+  {
+    "index": 24,
+    "id": "S4.SS2.SSS0.Px1.p1",
+    "locator": "#S4.SS2.SSS0.Px1.p1",
+    "sections": [
+      {
+        "id": "S4",
+        "heading": "4  Experiments"
+      },
+      {
+        "id": "S4.SS2",
+        "heading": "4.2  Ablations and Mechanism Analysis"
+      },
+      {
+        "id": "S4.SS2.SSS0.Px1",
+        "heading": "Agentic reward methods."
+      }
+    ],
+    "text": "Our controlled study fixes the backbone and optimization budget and varies the reward policy across seven arms: VideoAlign-only, single-provider, random, round-robin, fixed fusion, Reflective Reward Gating, and RewardMemory.",
+    "sha256": "e1beed061b3b3e1700ca5a1ad21ef18e5235290aff8f794f046102c1da81bb59"
+  },
+  {
+    "index": 25,
+    "id": "S4.SS2.SSS0.Px2.p1",
+    "locator": "#S4.SS2.SSS0.Px2.p1",
+    "sections": [
+      {
+        "id": "S4",
+        "heading": "4  Experiments"
+      },
+      {
+        "id": "S4.SS2",
+        "heading": "4.2  Ablations and Mechanism Analysis"
+      },
+      {
+        "id": "S4.SS2.SSS0.Px2",
+        "heading": "Reward-policy ablation."
+      }
+    ],
+    "text": "Table 2 compares relative reward dispersion, reliability selectivity, and normalized Emotion-Gating Benchmark (EGB) pillars. Adding RewardMemory yields the highest selectivity ( 0.428 0.428 ) and both composite scores (core 0.922 0.922 , emo 0.884 0.884 ); the variant without memory leads the standalone preference pillar. SNR ∗ is a dispersion statistic, not a measure of gradient quality. The composites combine an ImageReward preference proxy, dispersion, and agreement-weighted selectivity; Appendix G defines their scope.",
+    "sha256": "c76ef2ff36cd265cde44daa620de21682381c0e6d639f4de2f2565f26da24fdb"
+  },
+  {
+    "index": 26,
+    "id": "S4.SS2.SSS0.Px3.p1",
+    "locator": "#S4.SS2.SSS0.Px3.p1",
+    "sections": [
+      {
+        "id": "S4",
+        "heading": "4  Experiments"
+      },
+      {
+        "id": "S4.SS2",
+        "heading": "4.2  Ablations and Mechanism Analysis"
+      },
+      {
+        "id": "S4.SS2.SSS0.Px3",
+        "heading": "Reward-provider pool."
+      }
+    ],
+    "text": "Figure 5 compares a VideoAlign baseline, semantic emotion cues, motion naturalness, and a balanced pool. Weights and curricula also differ, so this study motivates the interface rather than isolating each channel’s causal effect (Appendix H ). Seven channels enter memory calibration; chromatic and kinetic readouts remain auxiliary.",
+    "sha256": "148cc0250492a9ac715f9e5ed314f4da3f15e3585d3f37259613b3f7478dbc50"
+  },
+  {
+    "index": 27,
+    "id": "S4.SS2.SSS0.Px4.p1",
+    "locator": "#S4.SS2.SSS0.Px4.p1",
+    "sections": [
+      {
+        "id": "S4",
+        "heading": "4  Experiments"
+      },
+      {
+        "id": "S4.SS2",
+        "heading": "4.2  Ablations and Mechanism Analysis"
+      },
+      {
+        "id": "S4.SS2.SSS0.Px4",
+        "heading": "Memory-conditioned trust."
+      }
+    ],
+    "text": "Macro and motion receive the largest global multipliers ( 1.833 1.833 , 1.510 1.510 ), whereas three constant channels receive 0.778 0.778 . Memory reallocates trust but cannot activate invalid evidence. Macro shares evaluator information with the reference outcome, so its correlation reflects objective agreement. Appendix E describes context-specific allocation; Appendix I illustrates its arithmetic on real rollout scores. A matched global-memory control remains necessary to isolate the benefit of contextual calibration.",
+    "sha256": "87c6c2907f4ef1cd416c0d24682362d70a6a651110b83a044a0da84305508ce1"
+  },
+  {
+    "index": 28,
+    "id": "S4.SS3.p1",
+    "locator": "#S4.SS3.p1",
+    "sections": [
+      {
+        "id": "S4",
+        "heading": "4  Experiments"
+      },
+      {
+        "id": "S4.SS3",
+        "heading": "4.3  Generalization to image backbones"
+      }
+    ],
+    "text": "Image transfer covers SD3.5 and FLUX with three optimizers. Results are objective-dependent: SD3.5–DanceGRPO improves on HPSv3 with calibration, whereas FLUX’s HPSv3-optimized baseline remains strongest on that metric. Unequal SD3.5 training budgets limit causal attribution. Appendix J details the settings and full-prompt comparisons.",
+    "sha256": "30bce0012f2b85708ee1ca860a766a5b4853eaeb8287e4b626c922ff917d4a98"
+  },
+  {
+    "index": 29,
+    "id": "S4.SS4.p1",
+    "locator": "#S4.SS4.p1",
+    "sections": [
+      {
+        "id": "S4",
+        "heading": "4  Experiments"
+      },
+      {
+        "id": "S4.SS4",
+        "heading": "4.4  Human evaluation"
+      }
+    ],
+    "text": "Eighteen participants rated the three methods on 30 prompts using Bad/Normal/Good for emotion fidelity, temporal coherence, and visual quality. Table 3 shows that EmoReward obtains the highest Good shares ( 60.0 % 60.0\\% , 54.3 % 54.3\\% , 57.2 % 57.2\\% ), compared with 53.0 % 53.0\\% , 51.5 % 51.5\\% , and 45.0 % 45.0\\% for SAGE-GRPO, and the lowest Bad shares on all three criteria. These descriptive results complement the automatic metrics; aggregation and statistical scope are detailed in Appendix B .",
+    "sha256": "0a03442a58b592ccd9dd0013bc5f80d2283b609eadc67d2c7d0f4e9ffb5809fd"
+  },
+  {
+    "index": 30,
+    "id": "S4.SS4.p2",
+    "locator": "#S4.SS4.p2",
+    "sections": [
+      {
+        "id": "S4",
+        "heading": "4  Experiments"
+      },
+      {
+        "id": "S4.SS4",
+        "heading": "4.4  Human evaluation"
+      }
+    ],
+    "text": "The complete distributions reveal a distinction that Good shares alone obscure: SAGE-GRPO also receives more Bad ratings than GT on every criterion. EmoReward lowers Bad shares relative to both comparison groups while increasing Good shares. This pattern supports examining the entire ordinal distribution, rather than reducing it to a binary preference. The reported margins do not resolve variation across people or prompts; participant- and prompt-level records are required for uncertainty estimates that account for repeated judgments.",
+    "sha256": "b2076a5541b0901bb87faf6a0178cfe0a39837cb5333744651e6f8176c6be061"
+  },
+  {
+    "index": 31,
+    "id": "S5.p1",
+    "locator": "#S5.p1",
+    "sections": [
+      {
+        "id": "S5",
+        "heading": "5  Conclusion"
+      }
+    ],
+    "text": "In this paper, we proposed EmoReward, a self-evolving reward calibration framework for emotional video generation reinforcement learning. EmoReward combines instance-level Reflective Reward Gating with RewardMemory, which transfers provider-reliability estimates from a completed training run to subsequent optimization without updating reward-model parameters. Experiments across video optimizers, complemented by ablations, image-transfer analyses, and human ratings, support the utility of adaptive calibration while identifying objective-dependent trade-offs. These findings suggest that completed-run experience can inform the allocation of trust among heterogeneous reward providers, providing a foundation for further research on reward-system evolution across training.",
+    "sha256": "0c17ae8e95a60c6129a82d8f1e2b1ed6b5dd480e6453ecd6daaa0e8c2c055853"
+  },
+  {
+    "index": 32,
+    "id": "Sx1.p1",
+    "locator": "#Sx1.p1",
+    "sections": [
+      {
+        "id": "Sx1",
+        "heading": "Reproducibility Statement"
+      }
+    ],
+    "text": "The appendix specifies the reward interface, calibration rule, mathematical derivation, evaluation protocol, complete comparison tables, and qualitative examples. Source artifacts include editable figures and scripts for constructing tables and visualizations.",
+    "sha256": "7ec64f7c86d65a60c23dc64e935d728d5680036450068a0173db9702f07fe724"
+  },
+  {
+    "index": 33,
+    "id": "Sx2.p1",
+    "locator": "#Sx2.p1",
+    "sections": [
+      {
+        "id": "Sx2",
+        "heading": "AI Use Statement"
+      }
+    ],
+    "text": "AI assistance was used for manuscript editing, mathematical checks, and figure preparation. The authors are responsible for verifying the scientific claims and final submission. Experimental comparison images and video frames were taken from the evaluated models; no additional media were synthesized to illustrate experimental outcomes.",
+    "sha256": "1090ee9bc3be87fb056931e35a443071ec0c12eb1ded53df41f9cea4308c0cd1"
+  },
+  {
+    "index": 34,
+    "id": "A1.SS0.SSS0.Px1.p1",
+    "locator": "#A1.SS0.SSS0.Px1.p1",
+    "sections": [
+      {
+        "id": "A1",
+        "heading": "Appendix A Limitations and Future Work"
+      },
+      {
+        "id": "A1.SS0.SSS0.Px1",
+        "heading": "Beyond emotional video generation."
+      }
+    ],
+    "text": "EmoReward studies a training-adaptive reward system that transfers evidence about provider reliability between generator-training runs without updating reward-model parameters. The present evaluation focuses on emotion, where different scenes call for different combinations of facial, gestural, semantic, and motion evidence. A broader application would require a task-appropriate provider pool and a meaningful outcome for calibration. Action fidelity and audio–visual correspondence are natural visual extensions; language models and tool-use agents could similarly combine semantic judges, execution checks, and trajectory-level assessments. Whether the same calibration rule transfers effectively remains an empirical question, especially when providers share errors or outcomes favor only part of the task.",
+    "sha256": "adaa16d5fe721432f8edefec3a447f24723afbc1bd719e9640907dbf809484d8"
+  },
+  {
+    "index": 35,
+    "id": "A1.SS0.SSS0.Px2.p1",
+    "locator": "#A1.SS0.SSS0.Px2.p1",
+    "sections": [
+      {
+        "id": "A1",
+        "heading": "Appendix A Limitations and Future Work"
+      },
+      {
+        "id": "A1.SS0.SSS0.Px2",
+        "heading": "Iterative evolution across training runs."
+      }
+    ],
+    "text": "A completed training run can be treated as a unit of experience for its successor. Repeating this procedure could produce a sequence of generators and reward-allocation tables, with each generation contributing new traces. Our experiments evaluate a reference-to-calibrated transition, not sustained improvement across many generations. Such an extension must address distribution shift, stale evidence, and feedback loops that reinforce a proxy’s errors. Retaining diverse historical traces and evaluating held-out outcomes would be important tests of whether repeated calibration remains useful.",
+    "sha256": "f8e8cdd8a85d9c88c5b31f3addc4230dfb3133243d28b983ba1f31f1e9fd8a7e"
+  },
+  {
+    "index": 36,
+    "id": "A1.SS0.SSS0.Px3.p1",
+    "locator": "#A1.SS0.SSS0.Px3.p1",
+    "sections": [
+      {
+        "id": "A1",
+        "heading": "Appendix A Limitations and Future Work"
+      },
+      {
+        "id": "A1.SS0.SSS0.Px3",
+        "heading": "Model-level human feedback."
+      }
+    ],
+    "text": "The trace representation also suggests a way to carry human assessments of a completed model into subsequent training. For example, a reviewer who finds movement too weak could request greater emphasis on suitable motion providers in the affected contexts; excessive motion could motivate the opposite adjustment. This would complement sample-level preference feedback with structured assessments of a model’s final behavior, translated into bounded changes to the next run’s reward allocation. Mapping subjective feedback to providers and regimes, reconciling different raters, and preventing compensating failures remain open design questions. The ordinal study reported here evaluates outputs; it does not implement this proposed feedback mechanism.",
+    "sha256": "1854d672484cd73f1fb4fe2db9edd046e6ffcb10a8946ee60bd5568dd576240d"
+  },
+  {
+    "index": 37,
+    "id": "A2.SS0.SSS0.Px1.p1",
+    "locator": "#A2.SS0.SSS0.Px1.p1",
+    "sections": [
+      {
+        "id": "A2",
+        "heading": "Appendix B Human Evaluation: Ordinal Ratings"
+      },
+      {
+        "id": "A2.SS0.SSS0.Px1",
+        "heading": "Study and comparison groups."
+      }
+    ],
+    "text": "The study includes 18 participants and 30 prompts, with one video per prompt from each of three methods: the pretrained generator without RL (GT), SAGE-GRPO, and SAGE-GRPO with EmoReward. GT is a generator baseline, not a ground-truth human video. Participants assessed each output separately on three criteria using Bad, Normal, or Good. The supplied aggregate results contain 540 judgments for each method–criterion combination, consistent with the full participant–prompt product. Across all three methods and criteria, there are 4,860 categorical judgments. These ordinal counts are separate from the earlier pairwise preference protocol; pairwise choices are not converted into categorical ratings.",
+    "sha256": "c86aa71801a7f15ab8eda7428e5a422d0e457924189a60b6543aacc55274fe99"
+  },
+  {
+    "index": 38,
+    "id": "A2.SS0.SSS0.Px2.p1",
+    "locator": "#A2.SS0.SSS0.Px2.p1",
+    "sections": [
+      {
+        "id": "A2",
+        "heading": "Appendix B Human Evaluation: Ordinal Ratings"
+      },
+      {
+        "id": "A2.SS0.SSS0.Px2",
+        "heading": "Criteria."
+      }
+    ],
+    "text": "Emotion fidelity concerns how convincingly the video conveys the prompt’s intended affect, including whether expression and gesture fit its emotional tone. Temporal coherence concerns continuity of expression, identity, and movement through the clip. Visual quality concerns perceptual detail, anatomy, and visible artifacts. The categories distinguish poor, intermediate, and good quality on each axis. They are rated separately rather than collapsed into a single preference or an assumption that stronger emotional intensity is always better.",
+    "sha256": "fe6740517564e02822c9795b7db1fd7be51efbec2e97c92f9248841584af2246"
+  },
+  {
+    "index": 39,
+    "id": "A2.SS0.SSS0.Px3.p1",
+    "locator": "#A2.SS0.SSS0.Px3.p1",
+    "sections": [
+      {
+        "id": "A2",
+        "heading": "Appendix B Human Evaluation: Ordinal Ratings"
+      },
+      {
+        "id": "A2.SS0.SSS0.Px3",
+        "heading": "Aggregation and rounding."
+      }
+    ],
+    "text": "For method m m , criterion c c , and rating category b b , the percentage is: p ^ m , c , b = 100 ​ N m , c , b ∑ b ′ ∈ { Bad , Normal , Good } N m , c , b ′ , ∑ b ′ N m , c , b ′ = 540 . \\widehat{p}_{m,c,b}=100\\,\\frac{N_{m,c,b}}{\\sum_{b^{\\prime}\\in\\{\\mathrm{Bad,Normal,Good}\\}}N_{m,c,b^{\\prime}}},\\qquad\\sum_{b^{\\prime}}N_{m,c,b^{\\prime}}=540. (11) Table 3 rounds each percentage independently to one decimal place and bolds only the highest Good percentage within each criterion. Rounding may make a three-category total differ from 100.0 % 100.0\\% by 0.1 0.1 percentage points. The raw integer counts are preserved in the accompanying source data, rather than rounded before normalization. All nine aggregate blocks have the stated denominator; the totals alone do not establish participant-level completeness or the absence of duplicate records.",
+    "sha256": "753149f0bbe176479cd0d95cacd13483854be4b66a5494e7d589c803864a4577"
+  },
+  {
+    "index": 40,
+    "id": "A2.SS0.SSS0.Px4.p1",
+    "locator": "#A2.SS0.SSS0.Px4.p1",
+    "sections": [
+      {
+        "id": "A2",
+        "heading": "Appendix B Human Evaluation: Ordinal Ratings"
+      },
+      {
+        "id": "A2.SS0.SSS0.Px4",
+        "heading": "Reading the distributions."
+      }
+    ],
+    "text": "Relative to SAGE-GRPO, EmoReward’s Good share increases by 7.0 7.0 , 2.8 2.8 , and 12.2 12.2 percentage points for emotion fidelity, temporal coherence, and visual quality, respectively. These differences are computed from the unrounded counts. Its Bad share falls from 31.5 % 31.5\\% to 15.4 % 15.4\\% for emotion fidelity, from 28.9 % 28.9\\% to 20.2 % 20.2\\% for temporal coherence, and from 30.9 % 30.9\\% to 15.9 % 15.9\\% for visual quality. The complete distribution matters: compared with GT, SAGE-GRPO has more Good ratings but also more Bad ratings on every criterion, so a Good-only summary would omit part of the observed pattern.",
+    "sha256": "4f1a44d7b9d8acaadad4c2e9125b4b58149ff6c8943eeed6f30935439abcfda6"
+  },
+  {
+    "index": 41,
+    "id": "A2.SS0.SSS0.Px5.p1",
+    "locator": "#A2.SS0.SSS0.Px5.p1",
+    "sections": [
+      {
+        "id": "A2",
+        "heading": "Appendix B Human Evaluation: Ordinal Ratings"
+      },
+      {
+        "id": "A2.SS0.SSS0.Px5",
+        "heading": "Statistical scope."
+      }
+    ],
+    "text": "The present report uses the supplied aggregated counts. It does not treat repeated judgments from the same participant or prompt as independent observations. Participant- and prompt-level records are needed for uncertainty estimates that respect both sources of dependence; no confidence interval or significance claim is inferred from the aggregate margins. The aggregates do not document recruitment, presentation order, blinding, exclusions, or prompt-selection provenance. Those collection details must be established from the study records rather than inferred from the rating totals.",
+    "sha256": "bb5eb335bf44b623307b72e8c7b832ad8f5f5cdb0135d7e52b1e9bc0510cd5a8"
+  },
+  {
+    "index": 42,
+    "id": "A3.p1",
+    "locator": "#A3.p1",
+    "sections": [
+      {
+        "id": "A3",
+        "heading": "Appendix C Act: Provider Interface and Reference Scoring Rules"
+      }
+    ],
+    "text": "This appendix specifies the scoring operators used by the provider interface in Eq. 6 . The six primitive families (facial expression; semantic emotion understanding; body and temporal evidence; chromatic atmosphere; kinetic intensity; motion naturalness) are instantiated by nine observation channels; Table 4 maps each family to its provider(s), the backing estimator, and the defining equation. Throughout, T T is the number of sampled frames, ℱ ⊆ { 1 , … , T } \\mathcal{F}\\subseteq\\{1,\\dots,T\\} the face-detected subset, ω t \\omega_{t} the EmoScript time weight (per-window kernels ψ ℓ ( t ) = 𝟏 [ t ∈ ω ℓ ] / ( ∑ t ′ 𝟏 [ t ′ ∈ ω ℓ ] + ϵ ) \\psi_{\\ell}(t)=\\mathbf{1}[t\\in\\omega_{\\ell}]/(\\sum_{t^{\\prime}}\\mathbf{1}[t^{\\prime}\\in\\omega_{\\ell}]+\\epsilon) over Ω = { [ t s ℓ , t e ℓ ] } \\Omega=\\{[t_{s}^{\\ell},t_{e}^{\\ell}]\\} ), and κ ( x ; σ ) = exp ( − max ( 0 , x ) / σ ) \\kappa(x;\\sigma)=\\exp(-\\max(0,x)/\\sigma) a bounded exponential score. Each provider k k returns a score s k ∈ [ 0 , 1 ] s_{k}\\in[0,1] and a validity signal u k u_{k} .",
+    "sha256": "c2775a68aec516e19a8715e54a8794a97b31326f659465f7c9f01790e0d1d1c6"
+  },
+  {
+    "index": 43,
+    "id": "A3.SS1.SSS0.Px1.p1",
+    "locator": "#A3.SS1.SSS0.Px1.p1",
+    "sections": [
+      {
+        "id": "A3",
+        "heading": "Appendix C Act: Provider Interface and Reference Scoring Rules"
+      },
+      {
+        "id": "A3.SS1",
+        "heading": "C.1  Facial expression: AU matching and expression similarity"
+      },
+      {
+        "id": "A3.SS1.SSS0.Px1",
+        "heading": "AU matching ( micro )."
+      }
+    ],
+    "text": "A face detector followed by a multi-task action-unit head emits eight AU intensities per detected face, q ^ j , t ∈ [ 0 , 1 ] \\widehat{q}_{j,t}\\in[0,1] for j ∈ 𝒜 FACS = { 1 , 2 , 4 , 6 , 9 , 12 , 25 , 26 } j\\in\\mathcal{A}_{\\mathrm{FACS}}=\\{1,2,4,6,9,12,25,26\\} . Against the EmoScript target intensities q j ⋆ q^{\\star}_{j} we score agreement by a per-AU intersection-over-union overlap (rather than an ℓ p \\ell_{p} kernel, so a target and an observation are rewarded for occupying the same activation interval), averaged over face frames: IoU ⁡ ( q j ⋆ , q ^ j , t ) = min ⁡ ( q j ⋆ , q ^ j , t ) max ⁡ ( q j ⋆ , q ^ j , t ) + ϵ , s micro = 1 | 𝒜 ⋆ | ​ ∑ j ∈ 𝒜 ⋆ 1 | ℱ | ​ ∑ t ∈ ℱ IoU ⁡ ( q j ⋆ , q ^ j , t ) , \\mathrm{IoU}(q^{\\star}_{j},\\widehat{q}_{j,t})=\\frac{\\min(q^{\\star}_{j},\\widehat{q}_{j,t})}{\\max(q^{\\star}_{j},\\widehat{q}_{j,t})+\\epsilon},\\quad s_{\\mathrm{micro}}=\\frac{1}{|\\mathcal{A}^{\\star}|}\\sum_{j\\in\\mathcal{A}^{\\star}}\\frac{1}{|\\mathcal{F}|}\\sum_{t\\in\\mathcal{F}}\\mathrm{IoU}(q^{\\star}_{j},\\widehat{q}_{j,t}), (12) with AU compliance and validity c AU = 1 | 𝒜 req ⋆ | ∑ j ∈ 𝒜 req ⋆ 𝟏 [ max t ∈ ℱ q ^ j , t > θ AU ] c_{\\mathrm{AU}}=\\tfrac{1}{|\\mathcal{A}^{\\star}_{\\mathrm{req}}|}\\sum_{j\\in\\mathcal{A}^{\\star}_{\\mathrm{req}}}\\mathbf{1}[\\max_{t\\in\\mathcal{F}}\\widehat{q}_{j,t}>\\theta_{\\mathrm{AU}}] and u micro = | ℱ | / T u_{\\mathrm{micro}}=|\\mathcal{F}|/T . The provider is inactive when no frame yields a face with AU readings. In our implementation, θ AU = 0.3 \\theta_{\\mathrm{AU}}=0.3 .",
+    "sha256": "b531ae8fadd494bfe8cd0d4c2c2f4aa585ee9865988b19cf1d88a33f50be6d83"
+  },
+  {
+    "index": 44,
+    "id": "A3.SS1.SSS0.Px2.p1",
+    "locator": "#A3.SS1.SSS0.Px2.p1",
+    "sections": [
+      {
+        "id": "A3",
+        "heading": "Appendix C Act: Provider Interface and Reference Scoring Rules"
+      },
+      {
+        "id": "A3.SS1",
+        "heading": "C.1  Facial expression: AU matching and expression similarity"
+      },
+      {
+        "id": "A3.SS1.SSS0.Px2",
+        "heading": "Expression similarity ( clip_autt )."
+      }
+    ],
+    "text": "A temporal vision–language encoder embeds a T clip T_{\\mathrm{clip}} -frame clip into 𝐯 \\mathbf{v} and compares it to N au N_{\\mathrm{au}} action-unit text-prompt embeddings { 𝐭 j } \\{\\mathbf{t}_{j}\\} by cosine similarity, mapping the mean similarity from [ − 1 , 1 ] [-1,1] to [ 0 , 1 ] [0,1] : s ¯ au = 1 N au ​ ∑ j cos ⁡ ( 𝐯 , 𝐭 j ) , s clip = 1 2 ​ ( s ¯ au + 1 ) . \\bar{s}_{\\mathrm{au}}=\\frac{1}{N_{\\mathrm{au}}}\\sum_{j}\\cos(\\mathbf{v},\\mathbf{t}_{j}),\\qquad s_{\\mathrm{clip}}=\\tfrac{1}{2}(\\bar{s}_{\\mathrm{au}}+1). (13) An auxiliary discrete head additionally yields a negative-affect probability p neg = softmax ⁡ ( logits ) neg p_{\\mathrm{neg}}=\\operatorname{softmax}(\\text{logits})_{\\mathrm{neg}} , from which the scorer derives v ^ = 1 − p neg \\hat{v}=1-p_{\\mathrm{neg}} and a ^ = min ⁡ ( 1 , λ a ​ p neg + b a ) \\hat{a}=\\min(1,\\,\\lambda_{a}p_{\\mathrm{neg}}+b_{a}) ; the linear rescale in Eq. 13 (rather than clip \\operatorname{clip} ) preserves the ordering on clips where s ¯ au < 0 \\bar{s}_{\\mathrm{au}}<0 . In our implementation, T clip = 16 T_{\\mathrm{clip}}=16 , N au = 47 N_{\\mathrm{au}}=47 , λ a = 1.5 \\lambda_{a}=1.5 , and b a = 0.2 b_{a}=0.2 .",
+    "sha256": "ca93df27a918939974fab09ff576c2b47501226a1f72a503871ea46a27128e03"
+  },
+  {
+    "index": 45,
+    "id": "A3.SS2.SSS0.Px1.p1",
+    "locator": "#A3.SS2.SSS0.Px1.p1",
+    "sections": [
+      {
+        "id": "A3",
+        "heading": "Appendix C Act: Provider Interface and Reference Scoring Rules"
+      },
+      {
+        "id": "A3.SS2",
+        "heading": "C.2  Semantic emotion understanding: Valence–arousal reading and the alignment seed"
+      },
+      {
+        "id": "A3.SS2.SSS0.Px1",
+        "heading": "Valence–arousal reading ( r1omni )."
+      }
+    ],
+    "text": "A multimodal emotion-understanding model produces a free-text emotion description that is parsed to an emotion label and continuous valence–arousal estimates ( v ^ , a ^ ) (\\hat{v},\\hat{a}) . Given EmoScript targets ( v ⋆ , a ⋆ ) (v^{\\star},a^{\\star}) the reward supports three modes (default: valence): s r1 = { 1 2 ​ [ ( 1 − | v ^ − v ⋆ | ) + ( 1 − | a ^ − a ⋆ | ) ] , alignment , v ^ , valence , 1 2 ​ ( v ^ + a ^ ) , mean . s_{\\mathrm{r1}}=\\begin{cases}\\tfrac{1}{2}\\big[(1-|\\hat{v}-v^{\\star}|)+(1-|\\hat{a}-a^{\\star}|)\\big],&\\textsc{alignment},\\\\[2.84526pt] \\hat{v},&\\textsc{valence},\\\\[2.84526pt] \\tfrac{1}{2}(\\hat{v}+\\hat{a}),&\\textsc{mean}.\\end{cases} (14)",
+    "sha256": "1f89cb4418c1bdb18bd87e9c77ec7a9c187323064d28cfe97114a7649a2844ee"
+  },
+  {
+    "index": 46,
+    "id": "A3.SS2.SSS0.Px2.p1",
+    "locator": "#A3.SS2.SSS0.Px2.p1",
+    "sections": [
+      {
+        "id": "A3",
+        "heading": "Appendix C Act: Provider Interface and Reference Scoring Rules"
+      },
+      {
+        "id": "A3.SS2",
+        "heading": "C.2  Semantic emotion understanding: Valence–arousal reading and the alignment seed"
+      },
+      {
+        "id": "A3.SS2.SSS0.Px2",
+        "heading": "Text-alignment seed ( macro )."
+      }
+    ],
+    "text": "When a general video–text alignment model is available it blends its text-alignment head TA ∈ [ 0 , 1 ] \\mathrm{TA}\\in[0,1] with AU compliance weighted by face rate w face = min ⁡ ( face rate , 1 ) w_{\\mathrm{face}}=\\min(\\text{face rate},1) ; otherwise a heuristic reads compliance directly: s macro = { λ TA ​ TA + ( 1 − λ TA ) ​ c AU ​ w face , VideoAlign reflector , b macro + ( 1 − b macro ) ​ c AU ​ π conf , OPEN heuristic (active iff face rate ≥ θ macro ) . s_{\\mathrm{macro}}=\\begin{cases}\\lambda_{\\mathrm{TA}}\\mathrm{TA}+(1-\\lambda_{\\mathrm{TA}})c_{\\mathrm{AU}}w_{\\mathrm{face}},&\\text{VideoAlign reflector},\\\\[2.84526pt] b_{\\mathrm{macro}}+(1-b_{\\mathrm{macro}})c_{\\mathrm{AU}}\\pi_{\\mathrm{conf}},&\\text{heuristic (active iff face rate}\\geq\\theta_{\\mathrm{macro}}).\\end{cases} (15)",
+    "sha256": "aabe2f08e4423df8421c32a6aed16805f368729fbf6e0b6d1cc835c038e90ac4"
+  },
+  {
+    "index": 47,
+    "id": "A3.SS2.SSS0.Px2.p2",
+    "locator": "#A3.SS2.SSS0.Px2.p2",
+    "sections": [
+      {
+        "id": "A3",
+        "heading": "Appendix C Act: Provider Interface and Reference Scoring Rules"
+      },
+      {
+        "id": "A3.SS2",
+        "heading": "C.2  Semantic emotion understanding: Valence–arousal reading and the alignment seed"
+      },
+      {
+        "id": "A3.SS2.SSS0.Px2",
+        "heading": "Text-alignment seed ( macro )."
+      }
+    ],
+    "text": "In our implementation, λ TA = 0.6 \\lambda_{\\mathrm{TA}}=0.6 , b macro = 0.3 b_{\\mathrm{macro}}=0.3 , and θ macro = 0.1 \\theta_{\\mathrm{macro}}=0.1 . The confidence π conf \\pi_{\\mathrm{conf}} belongs to the heuristic reflector. Because the alignment-seeded branch shares an evaluator with the reference outcome, its correlation cannot serve as independent emotion validation.",
+    "sha256": "0eee8bb2c040436156a554984d1a9b9a19183d94d7ddf90f711fdd64ad367b48"
+  },
+  {
+    "index": 48,
+    "id": "A3.SS3.p1",
+    "locator": "#A3.SS3.p1",
+    "sections": [
+      {
+        "id": "A3",
+        "heading": "Appendix C Act: Provider Interface and Reference Scoring Rules"
+      },
+      {
+        "id": "A3.SS3",
+        "heading": "C.3  Body and temporal evidence (body, temporal)"
+      }
+    ],
+    "text": "The body provider counts each EmoScript body marker m ∈ ℳ ⋆ m\\in\\mathcal{M}^{\\star} satisfied by at least one frame; the temporal provider locates the frame t ⋆ t^{\\star} of peak expected-AU energy and scores its distance to the EmoScript window [ t s , t e ] [t_{s},t_{e}] : s body \\displaystyle s_{\\mathrm{body}} = 1 | ℳ ⋆ | ∑ m ∈ ℳ ⋆ 𝟏 [ ∃ t : b m , t = 1 ] , \\displaystyle=\\frac{1}{|\\mathcal{M}^{\\star}|}\\sum_{m\\in\\mathcal{M}^{\\star}}\\mathbf{1}\\big[\\exists\\,t:\\ b_{m,t}=1\\big], (16) t ⋆ \\displaystyle t^{\\star} = arg ⁡ max ⁡ ∑ j ∈ 𝒜 ⋆ t ⁡ q ^ j , t , \\displaystyle=\\arg\\max_{t}\\sum_{j\\in\\mathcal{A}^{\\star}}\\widehat{q}_{j,t}, (17) s temporal \\displaystyle s_{\\mathrm{temporal}} = { 1 , t s ≤ t ⋆ ≤ t e , max ⁡ ( 0 , 1 − min ⁡ ( | t ⋆ − t s | , | t ⋆ − t e | ) max ⁡ ( t e − t s , δ Ω ) ) , else. \\displaystyle=\\begin{cases}1,&t_{s}\\leq t^{\\star}\\leq t_{e},\\\\[2.84526pt] \\max\\!(0,\\,1-\\dfrac{\\min(|t^{\\star}-t_{s}|,|t^{\\star}-t_{e}|)}{\\max(t_{e}-t_{s},\\,\\delta_{\\Omega})}),&\\text{else.}\\end{cases} (18) The window stabilizer is δ Ω = 0.1 \\delta_{\\Omega}=0.1 in our implementation. These scores require their corresponding observations; unavailable evidence receives the neutral fallback s neutral s_{\\mathrm{neutral}} and validity zero. We use s neutral = 0.5 s_{\\mathrm{neutral}}=0.5 . In the analyzed traces, the micro, body, and temporal channels are constant at 0.5 0.5 ; this does not imply that every generated video lacks a face or body.",
+    "sha256": "09e1ec269639484f3e900b0d1a1d7bd719c65437e9960e4416151946487d80b5"
+  },
+  {
+    "index": 49,
+    "id": "A3.SS4.p1",
+    "locator": "#A3.SS4.p1",
+    "sections": [
+      {
+        "id": "A3",
+        "heading": "Appendix C Act: Provider Interface and Reference Scoring Rules"
+      },
+      {
+        "id": "A3.SS4",
+        "heading": "C.4  Chromatic atmosphere (chromatic)"
+      }
+    ],
+    "text": "A per-frame chromatic signal blends the mean saturation S ¯ t ∈ [ 0 , 1 ] \\bar{S}_{t}\\in[0,1] with the fraction of warm-hue pixels W t = 𝟏 [ h ≤ θ warm − ∨ h ≥ θ warm + ] ¯ W_{t}=\\overline{\\mathbf{1}[h\\leq\\theta_{\\mathrm{warm}}^{-}\\ \\vee\\ h\\geq\\theta_{\\mathrm{warm}}^{+}]} (on the standard [ 0,179 ] [0,179] hue scale), and the clip-level score aligns the frame mean to the target valence v ⋆ v^{\\star} (linearly mapped to [ 0 , 1 ] [0,1] ): c t = λ sat ​ S ¯ t + ( 1 − λ sat ) ​ W t , c ¯ = 1 T ​ ∑ t c t , s chromatic = clip [ 0 , 1 ] ⁡ ( 1 − | c ¯ − v ⋆ | ) . c_{t}=\\lambda_{\\mathrm{sat}}\\bar{S}_{t}+(1-\\lambda_{\\mathrm{sat}})W_{t},\\qquad\\bar{c}=\\tfrac{1}{T}\\textstyle\\sum_{t}c_{t},\\qquad s_{\\mathrm{chromatic}}=\\operatorname{clip}_{[0,1]}\\!(1-|\\bar{c}-v^{\\star}|). (19)",
+    "sha256": "ce87895ceede73509f45d31f762ae86f256ddaad210c1ff804fa1fa70c27bdb8"
+  },
+  {
+    "index": 50,
+    "id": "A3.SS4.p2",
+    "locator": "#A3.SS4.p2",
+    "sections": [
+      {
+        "id": "A3",
+        "heading": "Appendix C Act: Provider Interface and Reference Scoring Rules"
+      },
+      {
+        "id": "A3.SS4",
+        "heading": "C.4  Chromatic atmosphere (chromatic)"
+      }
+    ],
+    "text": "In our implementation, λ sat = 0.5 \\lambda_{\\mathrm{sat}}=0.5 and the warm-hue thresholds are θ warm − = 30 \\theta_{\\mathrm{warm}}^{-}=30 , θ warm + = 150 \\theta_{\\mathrm{warm}}^{+}=150 on the stated hue scale.",
+    "sha256": "382ebd093ddd0307a14b8ba583c36990ac5e5125b5b4040cf8459f91172d8df6"
+  },
+  {
+    "index": 51,
+    "id": "A3.SS5.p1",
+    "locator": "#A3.SS5.p1",
+    "sections": [
+      {
+        "id": "A3",
+        "heading": "Appendix C Act: Provider Interface and Reference Scoring Rules"
+      },
+      {
+        "id": "A3.SS5",
+        "heading": "C.5  Kinetic intensity (kinetic)"
+      }
+    ],
+    "text": "A per-frame kinetic signal normalizes the mean absolute frame difference using saturation scale σ kin \\sigma_{\\mathrm{kin}} , and the clip-level score aligns the frame mean to the target arousal a ⋆ a^{\\star} : k t = clip [ 0 , 1 ] ⁡ ( 1 σ kin ​ B I ​ | I t − I t − 1 | ¯ ) , k ¯ = 1 T ​ ∑ t k t , s kinetic = clip [ 0 , 1 ] ⁡ ( 1 − | k ¯ − a ⋆ | ) . k_{t}=\\operatorname{clip}_{[0,1]}\\!(\\tfrac{1}{\\sigma_{\\mathrm{kin}}B_{I}}\\,\\overline{|I_{t}-I_{t-1}|}),\\qquad\\bar{k}=\\tfrac{1}{T}\\textstyle\\sum_{t}k_{t},\\qquad s_{\\mathrm{kinetic}}=\\operatorname{clip}_{[0,1]}\\!(1-|\\bar{k}-a^{\\star}|). (20) In our implementation, σ kin = 0.20 \\sigma_{\\mathrm{kin}}=0.20 and the pixel range is B I = 255 B_{I}=255 . Appearance features describe potential cues; they are not part of the seven-provider memory update.",
+    "sha256": "619c8cdc55c0ae0ea680410c853d8b9d1f6c284d038bcc4c8720a6cb562ff026"
+  },
+  {
+    "index": 52,
+    "id": "A3.SS6.p1",
+    "locator": "#A3.SS6.p1",
+    "sections": [
+      {
+        "id": "A3",
+        "heading": "Appendix C Act: Provider Interface and Reference Scoring Rules"
+      },
+      {
+        "id": "A3.SS6",
+        "heading": "C.6  Motion naturalness (motion)"
+      }
+    ],
+    "text": "Dense optical flow 𝐟 t \\mathbf{f}_{t} on grayscale, short-side- L flow L_{\\mathrm{flow}} frames yields per-frame magnitude m t = ‖ 𝐟 t ‖ ¯ m_{t}=\\overline{\\|\\mathbf{f}_{t}\\|} and a global (dominant) motion vector 𝐠 t = 𝐟 t ¯ \\mathbf{g}_{t}=\\overline{\\mathbf{f}_{t}} . Four bounded sub-scores reward smooth flow, low camera jerk, low warp residual, and low compensated flicker: r flow \\displaystyle r_{\\mathrm{flow}} = κ ⁡ ( | Δ ​ m t | ¯ , σ flow ) , \\displaystyle=\\kappa(\\overline{|\\Delta m_{t}|};\\,\\sigma_{\\mathrm{flow}}), r cam \\displaystyle r_{\\mathrm{cam}} = κ ⁡ ( ‖ Δ 2 ​ 𝐠 t ‖ ¯ , σ cam ) , \\displaystyle=\\kappa(\\overline{\\|\\Delta^{2}\\mathbf{g}_{t}\\|};\\,\\sigma_{\\mathrm{cam}}), (21) r warp \\displaystyle r_{\\mathrm{warp}} = κ ⁡ ( | 𝒲 ⁡ ( I t − 1 , 𝐟 t ) − I t | ¯ , σ warp ) , \\displaystyle=\\kappa(\\overline{|\\,\\mathcal{W}(I_{t-1};\\mathbf{f}_{t})-I_{t}\\,|};\\,\\sigma_{\\mathrm{warp}}), r flick \\displaystyle r_{\\mathrm{flick}} = κ ⁡ ( | 𝒮 ⁡ ( I t − 1 , 𝐠 t ) − I t | ¯ , σ flick ) , \\displaystyle=\\kappa(\\overline{|\\,\\mathcal{S}(I_{t-1};\\mathbf{g}_{t})-I_{t}\\,|};\\,\\sigma_{\\mathrm{flick}}), where 𝒲 \\mathcal{W} is flow-warping and 𝒮 \\mathcal{S} a global-shift compensation. With base r base = ∑ j ∈ { flow , cam , warp , flick } λ j ​ r j r_{\\mathrm{base}}=\\sum_{j\\in\\{\\mathrm{flow,cam,warp,flick}\\}}\\lambda_{j}r_{j} and activity E = 1 − exp ( − m ¯ / σ E ) E=1-\\exp(-\\bar{m}/\\sigma_{E}) , the arousal-conditioned score and confidence are s motion \\displaystyle s_{\\mathrm{motion}} = λ M ​ r base + ( 1 − λ M ) ​ ( 1 − | E − a ⋆ | ) , \\displaystyle=\\lambda_{M}r_{\\mathrm{base}}+(1-\\lambda_{M})(1-|E-a^{\\star}|), (22) u motion \\displaystyle u_{\\mathrm{motion}} = λ U ​ min ⁡ ( 1 , T − 2 n U ) + ( 1 − λ U ) ​ min ⁡ ( 1 , std ⁡ ( m t ) σ U ) , \\displaystyle=\\lambda_{U}\\min\\!(1,\\tfrac{T-2}{n_{U}})+(1-\\lambda_{U})\\min\\!(1,\\tfrac{\\operatorname{std}(m_{t})}{\\sigma_{U}}), (23) reverting to s motion = r base s_{\\mathrm{motion}}=r_{\\mathrm{base}} when no target arousal is supplied. The motion gate scales linearly with this observation confidence (Appendix D ). The mixture coefficients obey ∑ j λ j = 1 \\sum_{j}\\lambda_{j}=1 . In our implementation, L flow = 160 L_{\\mathrm{flow}}=160 , ( σ flow , σ cam , σ warp , σ flick ) = ( 0.35 , 0.65 , 0.085 , 0.11 ) (\\sigma_{\\mathrm{flow}},\\sigma_{\\mathrm{cam}},\\sigma_{\\mathrm{warp}},\\sigma_{\\mathrm{flick}})=(0.35,0.65,0.085,0.11) , and ( λ flow , λ cam , λ warp , λ flick ) = ( 0.34 , 0.24 , 0.24 , 0.18 ) (\\lambda_{\\mathrm{flow}},\\lambda_{\\mathrm{cam}},\\lambda_{\\mathrm{warp}},\\lambda_{\\mathrm{flick}})=(0.34,0.24,0.24,0.18) . We use σ E = 1.5 \\sigma_{E}=1.5 , λ M = 0.82 \\lambda_{M}=0.82 , λ U = 0.6 \\lambda_{U}=0.6 , n U = 8 n_{U}=8 , and σ U = 0.035 \\sigma_{U}=0.035 .",
+    "sha256": "d83baa1b6204fb8a5057217eb029f822c0f7e56bb5a20c3c8cc5d9f70d51ae9b"
+  },
+  {
+    "index": 53,
+    "id": "A3.SS7.p1",
+    "locator": "#A3.SS7.p1",
+    "sections": [
+      {
+        "id": "A3",
+        "heading": "Appendix C Act: Provider Interface and Reference Scoring Rules"
+      },
+      {
+        "id": "A3.SS7",
+        "heading": "C.7  Score normalization and validity"
+      }
+    ],
+    "text": "The evaluated fusion consumes the providers’ bounded scores directly. An optional running-statistic normalization is not an additional transformation applied to those scores. Availability and confidence are retained separately from score magnitude: unavailable evidence receives a neutral fallback but zero effective contribution. Motion confidence is incorporated once through its channel gate, while an activity mask handles unavailable motion observations. This convention avoids counting the same confidence twice. The micro, body, and temporal channels are constant in the analyzed reference traces; their neutral readings do not establish the absence of visible faces or bodies in the generated videos.",
+    "sha256": "cdc84f7bde07329d718366091476968fb7dd7d88d8103612a0076003ba736fab"
+  },
+  {
+    "index": 54,
+    "id": "A4.p1",
+    "locator": "#A4.p1",
+    "sections": [
+      {
+        "id": "A4",
+        "heading": "Appendix D Reflect: Instance-Dependent Gate Construction"
+      }
+    ],
+    "text": "Reflect separates training progress, semantic consistency, observation availability, and the prompt’s intended intensity. A factor is neutral for providers to which it does not apply. Let t t denote the generator update, s 0 < s 1 s_{0}<s_{1} the phase-transition endpoints, γ min \\gamma_{\\min} a phase floor, and q f q_{f} the available face-evidence ratio: h ⁡ ( t ) = clip [ 0 , 1 ] ⁡ ( t − s 0 s 1 − s 0 ) , b = max ⁡ ( γ min , h ⁡ ( t ) ) ​ g conflict , f = min ⁡ ( 1 , q f / θ f ) . h(t)=\\operatorname{clip}_{[0,1]}\\!\\left(\\frac{t-s_{0}}{s_{1}-s_{0}}\\right),\\quad b=\\max(\\gamma_{\\min},h(t))g_{\\mathrm{conflict}},\\quad f=\\min(1,q_{f}/\\theta_{f}). (24) The semantic-conflict factor attenuates disagreement d = | s CLIP ​ - ​ AUTT − s R1 ​ - ​ Omni | d=|s_{\\mathrm{CLIP\\text{-}AUTT}}-s_{\\mathrm{R1\\text{-}Omni}}| above a threshold θ d \\theta_{d} , with lower bound γ d \\gamma_{d} . Subtlety is detected from prompt cues or a ⋆ ≤ θ a a^{\\star}\\leq\\theta_{a} ; it selects restraint factors ξ f \\xi_{f} , ξ t \\xi_{t} , and ξ e \\xi_{e} for facial/body, temporal, and semantic channels, respectively. Otherwise these restraint factors equal one. Before applying observation-availability masks, the gates are g macro \\displaystyle g_{\\mathrm{macro}} = b , \\displaystyle=b, g micro = g body \\displaystyle g_{\\mathrm{micro}}=g_{\\mathrm{body}} = b ​ f ​ ξ f , \\displaystyle=bf\\xi_{f}, g temporal \\displaystyle g_{\\mathrm{temporal}} = b ​ f ​ ξ t , \\displaystyle=bf\\xi_{t}, (25) g CLIP ​ - ​ AUTT = g R1 ​ - ​ Omni \\displaystyle g_{\\mathrm{CLIP\\text{-}AUTT}}=g_{\\mathrm{R1\\text{-}Omni}} = b ​ ξ e , \\displaystyle=b\\xi_{e}, g motion \\displaystyle g_{\\mathrm{motion}} = λ g + ( 1 − λ g ) ​ c motion . \\displaystyle=\\lambda_{g}+(1-\\lambda_{g})c_{\\mathrm{motion}}. Here c motion c_{\\mathrm{motion}} is the optical-flow observation confidence. Availability masking and continuous confidence together instantiate the validity term in Eq. 7 ; confidence is not multiplied a second time.",
+    "sha256": "ea0b783958e77a7ddb0dd422c6c858bc379ac0c1764785f2cf0a23354d62ea1d"
+  },
+  {
+    "index": 55,
+    "id": "A4.SS0.SSS0.Px1.p1",
+    "locator": "#A4.SS0.SSS0.Px1.p1",
+    "sections": [
+      {
+        "id": "A4",
+        "heading": "Appendix D Reflect: Instance-Dependent Gate Construction"
+      },
+      {
+        "id": "A4.SS0.SSS0.Px1",
+        "heading": "Implementation settings."
+      }
+    ],
+    "text": "In our implementation, the default warmup endpoints are s 0 = 40 s_{0}=40 and s 1 = 100 s_{1}=100 , with γ min = 0.1 \\gamma_{\\min}=0.1 . Face gating uses θ f = 0.35 \\theta_{f}=0.35 ; semantic conflict uses θ d = 0.20 \\theta_{d}=0.20 and γ d = 0.35 \\gamma_{d}=0.35 . For subtle prompts, detected using θ a = 0.4 \\theta_{a}=0.4 or prompt cues, ( ξ f , ξ t , ξ e ) = ( 0.85 , 0.75 , 0.80 ) (\\xi_{f},\\xi_{t},\\xi_{e})=(0.85,0.75,0.80) ; the motion floor is λ g = 0.55 \\lambda_{g}=0.55 . These are rule-based controls rather than learned reward-model parameters. Historical exported traces retain their recorded gates; the default specification alone does not reconstruct a past run’s full configuration.",
+    "sha256": "a2ba5d0eff3b32c7452d630281d6bf03b6b6c4999736f4dbf17af8ba6bb1b32f"
+  },
+  {
+    "index": 56,
+    "id": "A4.SS0.SSS0.Px2.p1",
+    "locator": "#A4.SS0.SSS0.Px2.p1",
+    "sections": [
+      {
+        "id": "A4",
+        "heading": "Appendix D Reflect: Instance-Dependent Gate Construction"
+      },
+      {
+        "id": "A4.SS0.SSS0.Px2",
+        "heading": "Effect on normalized fusion."
+      }
+    ],
+    "text": "A factor shared by every active provider cannot by itself redistribute trust. For g k = γ ​ h k g_{k}=\\gamma h_{k} with γ > 0 \\gamma>0 , active normalization yields R emo = ∑ k w k ​ h k ​ s k ∑ k w k ​ h k + ϵ / γ . R_{\\mathrm{emo}}=\\frac{\\sum_{k}w_{k}h_{k}s_{k}}{\\sum_{k}w_{k}h_{k}+\\epsilon/\\gamma}. (26) Except for the stabilizer, the common scale cancels. Reflect changes the relative allocation through provider-specific factors, invalidation, and composition with the original reward branch. The face-activity proxy used to group exported traces in Appendix E is distinct from the current video’s face-evidence ratio.",
+    "sha256": "c9f886c7a98e57c0e1d8c97ecd7d463840c7841f3e622cc3be0f5def2e63f136"
+  },
+  {
+    "index": 57,
+    "id": "A5.SS0.SSS0.Px1.p1",
+    "locator": "#A5.SS0.SSS0.Px1.p1",
+    "sections": [
+      {
+        "id": "A5",
+        "heading": "Appendix E Evolve: RewardMemory Construction and Use"
+      },
+      {
+        "id": "A5.SS0.SSS0.Px1",
+        "heading": "Record the reference run (Figure 7 A)."
+      }
+    ],
+    "text": "A completed run with Reflective Reward Gating supplies the experience used by RewardMemory. Each trace keeps the prompt–video context, raw provider scores, gates, applied weights, and VideoAlign outcome separate. The context describes target affect and available evidence; its face-activity proxy records whether selected scoring branches depart from their neutral defaults, rather than measuring visible-face coverage. The recorded scores and outcomes provide the basis for comparing providers.",
+    "sha256": "ad4893e52954f1a6f129968071fec9613ee3d946017f36c9076f62edbb32b66b"
+  },
+  {
+    "index": 58,
+    "id": "A5.SS0.SSS0.Px2.p1",
+    "locator": "#A5.SS0.SSS0.Px2.p1",
+    "sections": [
+      {
+        "id": "A5",
+        "heading": "Appendix E Evolve: RewardMemory Construction and Use"
+      },
+      {
+        "id": "A5.SS0.SSS0.Px2",
+        "heading": "Build the calibration table (Figure 7 B)."
+      }
+    ],
+    "text": "The complete reference bank is grouped by target arousal and face-branch activity, with a global fallback for contexts with insufficient support. Within each group, reliability is the correlation between a provider’s raw scores and VideoAlign outcomes, before gating. Algorithm 2 compares each provider with the group’s average reliability and converts the difference into a capped weight multiplier (Eq. 10 ). This calibrates reward allocation without fitting a value network or changing any reward model.",
+    "sha256": "c37b4474df2ba52433c1019ba98e3cd3ba1de33b0b1a9bf2ef2b2ad29ad20d4b"
+  },
+  {
+    "index": 59,
+    "id": "A5.SS0.SSS0.Px3.p1",
+    "locator": "#A5.SS0.SSS0.Px3.p1",
+    "sections": [
+      {
+        "id": "A5",
+        "heading": "Appendix E Evolve: RewardMemory Construction and Use"
+      },
+      {
+        "id": "A5.SS0.SSS0.Px3",
+        "heading": "Use the memory in the next run (Figure 7 C)."
+      }
+    ],
+    "text": "Algorithm 1 looks up the matching multipliers, combines them with the base weights and current-video gates, and normalizes over active providers. Memory sets the allocation from prior experience; reflection can still suppress unavailable or unsuitable cues. The table remains fixed throughout generator training. Panel C illustrates this multiply-and-normalize step using recorded scores and illustrative starting weights: it is a controlled replay, not an additional training run. Reflect-only fusion omits the memory adjustment; Appendix I explains the worked example.",
+    "sha256": "3204a8ed7809535ad8638a559432ff347326d026f62109bbd295470eac4a5086"
+  },
+  {
+    "index": 60,
+    "id": "A6.p1",
+    "locator": "#A6.p1",
+    "sections": [
+      {
+        "id": "A6",
+        "heading": "Appendix F Derivation of the Closed-Form KL Update"
+      }
+    ],
+    "text": "For positive base weights on the supported simplex, consider max ⁡ ∑ k w ∈ Δ K − 1 ⁡ w k ​ A k rel − τ ​ ∑ k w k ​ log ⁡ w k w k 0 . \\max_{w\\in\\Delta^{K-1}}\\sum_{k}w_{k}A_{k}^{\\mathrm{rel}}-\\tau\\sum_{k}w_{k}\\log\\frac{w_{k}}{w_{k}^{0}}. (27) The Lagrangian has stationary condition A k rel − τ ⁡ ( log ⁡ ( w k / w k 0 ) + 1 ) + λ = 0 A_{k}^{\\mathrm{rel}}-\\tau(\\log(w_{k}/w_{k}^{0})+1)+\\lambda=0 . Normalizing the resulting exponentials gives w k = w k 0 ​ e A k rel / τ / ∑ j w j 0 ​ e A j rel / τ w_{k}=w_{k}^{0}e^{A_{k}^{\\mathrm{rel}}/\\tau}/\\sum_{j}w_{j}^{0}e^{A_{j}^{\\mathrm{rel}}/\\tau} . Strict concavity yields a unique optimum. A shared additive baseline in the utilities cancels from this unclipped solution.",
+    "sha256": "5158c7ccce972e3df70db256e88fcffd6a09d7e40b1ece893b97cb3eff895996"
+  },
+  {
+    "index": 61,
+    "id": "A6.p2",
+    "locator": "#A6.p2",
+    "sections": [
+      {
+        "id": "A6",
+        "heading": "Appendix F Derivation of the Closed-Form KL Update"
+      }
+    ],
+    "text": "For Δ k = clip ⁡ ( A k rel / τ , − c , c ) \\Delta_{k}=\\operatorname{clip}(A_{k}^{\\mathrm{rel}}/\\tau,-c,c) , the same derivation applies to clipped utilities A ~ k = τ ​ Δ k \\widetilde{A}_{k}=\\tau\\Delta_{k} . Since e − c ≤ ∑ j w j 0 ​ e Δ j ≤ e c e^{-c}\\leq\\sum_{j}w_{j}^{0}e^{\\Delta_{j}}\\leq e^{c} , normalized weights satisfy e − 2 ​ c ≤ w k RM w k 0 ≤ e 2 ​ c . e^{-2c}\\leq\\frac{w_{k}^{\\mathrm{RM}}}{w_{k}^{0}}\\leq e^{2c}. (28) The cap bounds relative changes; it does not guarantee a one-hot distribution as τ → 0 \\tau\\to 0 . Zero base weights remain outside the support.",
+    "sha256": "f4e4c46af1e95b22b55c2cd3bc330e02ab2614ed370b6b48db83f155a95c511b"
+  },
+  {
+    "index": 62,
+    "id": "A6.SS0.SSS0.Px1.p1",
+    "locator": "#A6.SS0.SSS0.Px1.p1",
+    "sections": [
+      {
+        "id": "A6",
+        "heading": "Appendix F Derivation of the Closed-Form KL Update"
+      },
+      {
+        "id": "A6.SS0.SSS0.Px1",
+        "heading": "Scope of the bound and cold start."
+      }
+    ],
+    "text": "The interval [ e − c , e c ] [e^{-c},e^{c}] bounds the exported, unnormalized multipliers; the normalized weight ratio has the wider bound above. Clipping the utilities is not equivalent to solving the original objective subject to a prescribed hard KL constraint. If all advantages are zero, the update returns w 0 w^{0} . A constant provider has ρ k = 0 \\rho_{k}=0 , but its centered advantage is negative only when the mean reliability is positive; constant scores therefore do not imply unconditional down-weighting. In the supplied traces, positive-reliability providers make this relative attenuation observable. None of these algebraic properties proves improved generalization or emotional fidelity.",
+    "sha256": "92e2e31540b181a5c0a6a17c244ab1daeb7761a322dee9e4e1fe9b329932eef2"
+  },
+  {
+    "index": 63,
+    "id": "A6.SS0.SSS0.Px2.p1",
+    "locator": "#A6.SS0.SSS0.Px2.p1",
+    "sections": [
+      {
+        "id": "A6",
+        "heading": "Appendix F Derivation of the Closed-Form KL Update"
+      },
+      {
+        "id": "A6.SS0.SSS0.Px2",
+        "heading": "Group-relative invariance."
+      }
+    ],
+    "text": "If R i ′ = a ​ R i + b R_{i}^{\\prime}=aR_{i}+b with a > 0 a>0 , then μ ′ = a ​ μ + b \\mu^{\\prime}=a\\mu+b , σ ′ = a ​ σ \\sigma^{\\prime}=a\\sigma , and A i ′ = R i − μ σ + ϵ / a . A_{i}^{\\prime}=\\frac{R_{i}-\\mu}{\\sigma+\\epsilon/a}. (29) Translation cancels exactly. By contrast, CV ⁡ ( R ) = σ / ( | μ | + ϵ ) \\operatorname{CV}(R)=\\sigma/(|\\mu|+\\epsilon) is not translation invariant. Consequently, a reward offset can increase relative dispersion without improving the standardized group advantage. This is an algebraic property, not an experimental claim about learning efficiency.",
+    "sha256": "56d51f10e1bc8fc0b6f62206044a2cbed173f1abd8103582baf9bcc5158abdf5"
+  },
+  {
+    "index": 64,
+    "id": "A6.SS0.SSS0.Px3.p1",
+    "locator": "#A6.SS0.SSS0.Px3.p1",
+    "sections": [
+      {
+        "id": "A6",
+        "heading": "Appendix F Derivation of the Closed-Form KL Update"
+      },
+      {
+        "id": "A6.SS0.SSS0.Px3",
+        "heading": "Generator Optimization Objective"
+      }
+    ],
+    "text": "For completeness, we state the clipped GRPO objective underlying the group advantages in Eq. 1 [ 46 ] . Let h i , t h_{i,t} denote the generation state and a i , t a_{i,t} its sampled transition in candidate trajectory i i . Define ϱ i , t ​ ( θ ) = π θ ​ ( a i , t ∣ h i , t , p ) / π θ old ​ ( a i , t ∣ h i , t , p ) \\varrho_{i,t}(\\theta)=\\pi_{\\theta}(a_{i,t}\\mid h_{i,t},p)/\\pi_{\\theta_{\\mathrm{old}}}(a_{i,t}\\mid h_{i,t},p) . With clipping radius ε clip \\varepsilon_{\\mathrm{clip}} and reference-policy regularization coefficient κ \\kappa , 𝒥 GRPO ​ ( θ ) = \\displaystyle\\mathcal{J}_{\\mathrm{GRPO}}(\\theta)={} 𝔼 p , { x i } ∼ π θ old [ 1 G ∑ i = 1 G 1 T i ∑ t = 1 T i ( min { ϱ i , t A i , clip ( ϱ i , t , 1 − ε clip , 1 + ε clip ) A i } \\displaystyle\\mathbb{E}_{p,\\{x_{i}\\}\\sim\\pi_{\\theta_{\\mathrm{old}}}}\\left[\\frac{1}{G}\\sum_{i=1}^{G}\\frac{1}{T_{i}}\\sum_{t=1}^{T_{i}}\\left(\\min\\!\\left\\{\\varrho_{i,t}A_{i},\\operatorname{clip}(\\varrho_{i,t},1-\\varepsilon_{\\mathrm{clip}},1+\\varepsilon_{\\mathrm{clip}})A_{i}\\right\\}\\right.\\right. (30) − κ D KL ( π θ ( ⋅ ∣ h i , t , p ) ∥ π ref ( ⋅ ∣ h i , t , p ) ) ) ] . \\displaystyle\\left.\\left.-\\kappa\\,D_{\\mathrm{KL}}\\!\\left(\\pi_{\\theta}(\\cdot\\mid h_{i,t},p)\\,\\|\\,\\pi_{\\mathrm{ref}}(\\cdot\\mid h_{i,t},p)\\right)\\right)\\right]. Here T i T_{i} is the number of sampled transitions, π θ old \\pi_{\\theta_{\\mathrm{old}}} is the rollout policy, and π ref \\pi_{\\mathrm{ref}} is a fixed reference policy. The scalar reward of the completed video determines A i A_{i} ; advantages and reward-provider outputs are treated as constants during the policy update. This expression states the common clipped objective; individual video optimizers specify their transition likelihoods, sampled timesteps, and regularization. EmoReward changes the scalar reward supplied to the optimizer, not those optimizer-specific choices. Its generator KL penalty is distinct from the reward-allocation KL term derived above, whose variables are provider weights rather than generator parameters.",
+    "sha256": "d5b1899b785631e749128dc636108c03ba840f82f0f5db6b8c724a041fe3f719"
+  },
+  {
+    "index": 65,
+    "id": "A7.p1",
+    "locator": "#A7.p1",
+    "sections": [
+      {
+        "id": "A7",
+        "heading": "Appendix G Reward-Gating Metrics and Reproducibility"
+      }
+    ],
+    "text": "Table 2 reports two reward diagnostics (SNR ∗ and Sel.), three normalized pillars (EF, GD, GR), and two composites (core, emo). All seven policies use the same backbone and optimization budget. The exported evaluation contains 160 four-candidate groups for VideoAlign, single-provider, and random routing, and 152 groups for each remaining policy. Thus the available sample counts differ, even though the nominal training budget is shared. The references identify scoring models or routing mechanisms, not reproductions of complete agentic systems.",
+    "sha256": "0b5830e0f99818c71ddd8efca10f91b250e197f664167cb4038b2ffc7dd14b6a"
+  },
+  {
+    "index": 66,
+    "id": "A7.SS1.p1",
+    "locator": "#A7.SS1.p1",
+    "sections": [
+      {
+        "id": "A7",
+        "heading": "Appendix G Reward-Gating Metrics and Reproducibility"
+      },
+      {
+        "id": "A7.SS1",
+        "heading": "G.1  Reward Diagnostics"
+      }
+    ],
+    "text": "Let R i R_{i} denote the fused training reward, y i y_{i} the VideoAlign reference outcome, and s i , k s_{i,k} provider k k ’s score. A group g g contains candidates for one prompt.",
+    "sha256": "fb5f44521d2e7a7779af5fde16116db0344bd7cb9c5d43e82a9e7961db306163"
+  },
+  {
+    "index": 67,
+    "id": "A7.SS1.SSS0.Px1.p1",
+    "locator": "#A7.SS1.SSS0.Px1.p1",
+    "sections": [
+      {
+        "id": "A7",
+        "heading": "Appendix G Reward-Gating Metrics and Reproducibility"
+      },
+      {
+        "id": "A7.SS1",
+        "heading": "G.1  Reward Diagnostics"
+      },
+      {
+        "id": "A7.SS1.SSS0.Px1",
+        "heading": "Reward–outcome agreement (ROA)."
+      }
+    ],
+    "text": "ROA is an auxiliary input to GR rather than a displayed column in Table 2 . It measures within-group pairwise ranking agreement. For outcome-nontied pairs 𝒞 g = { ( i , j ) : i ⁡ < j , | y i − y j | > ​ ϵ y } \\mathcal{C}_{g}=\\{(i,j):i<j,\\ |y_{i}-y_{j}|>\\epsilon_{y}\\} , the intended statistic is Agr ( g ) = 1 | 𝒞 g | ∑ ( i , j ) ∈ 𝒞 g [ 𝟏 { ( R i − R j ) ( y i − y j ) > 0 } + 1 2 𝟏 { R i = R j } ] . \\operatorname{Agr}(g)=\\frac{1}{|\\mathcal{C}_{g}|}\\sum_{(i,j)\\in\\mathcal{C}_{g}}\\left[\\mathbf{1}\\{(R_{i}-R_{j})(y_{i}-y_{j})>0\\}+\\frac{1}{2}\\mathbf{1}\\{R_{i}=R_{j}\\}\\right]. (31) The reported agreement is ROA = Mean g ⁡ Agr ⁡ ( g ) \\mathrm{ROA}=\\operatorname{Mean}_{g}\\operatorname{Agr}(g) . The supplied pairwise helper uses ϵ y = 10 − 9 \\epsilon_{y}=10^{-9} and returns 1 / 2 1/2 when no outcome-nontied pairs exist. However, its treatment of reward ties differs from the symmetric half-credit convention above. The original aggregation script is unavailable; we therefore retain the archived ROA values as inputs to GR, without claiming to have recomputed their tie handling. VideoAlign-only obtains one by construction when its reward and reference ordering coincide. ROA measures agreement with that evaluator, not independent human or emotional quality.",
+    "sha256": "fadd47aaa5cc3a2049c3c003a94077c1f61458194d590d3e181ab5827a1ce75a"
+  },
+  {
+    "index": 68,
+    "id": "A7.SS1.SSS0.Px2.p1",
+    "locator": "#A7.SS1.SSS0.Px2.p1",
+    "sections": [
+      {
+        "id": "A7",
+        "heading": "Appendix G Reward-Gating Metrics and Reproducibility"
+      },
+      {
+        "id": "A7.SS1",
+        "heading": "G.1  Reward Diagnostics"
+      },
+      {
+        "id": "A7.SS1.SSS0.Px2",
+        "heading": "Within-group relative dispersion (SNR ∗ )."
+      }
+    ],
+    "text": "With population standard deviation within each group, D g = Std i ∈ g ⁡ ( R i ) | Mean i ∈ g ⁡ ( R i ) | + ϵ D , SNR ∗ = 1 | 𝒢 | ​ ∑ g ∈ 𝒢 D g . D_{g}=\\frac{\\operatorname{Std}_{i\\in g}(R_{i})}{|\\operatorname{Mean}_{i\\in g}(R_{i})|+\\epsilon_{D}},\\qquad\\mathrm{SNR}^{*}=\\frac{1}{|\\mathcal{G}|}\\sum_{g\\in\\mathcal{G}}D_{g}. (32) The supplied diagnostic implementation uses ϵ D = 10 − 6 \\epsilon_{D}=10^{-6} . This is a coefficient of variation, not a signal-to-noise power ratio. A reward offset can increase it while leaving centered GRPO advantages unchanged; a high value neither establishes nor is necessary for better policy gradients. We report the archived per-policy reductions, separately from the aggregate-level checks below.",
+    "sha256": "2a078d86d0a0c430fa4968fab692e8cebd34de5008d5f9306c069a2cd66e3704"
+  },
+  {
+    "index": 69,
+    "id": "A7.SS1.SSS0.Px3.p1",
+    "locator": "#A7.SS1.SSS0.Px3.p1",
+    "sections": [
+      {
+        "id": "A7",
+        "heading": "Appendix G Reward-Gating Metrics and Reproducibility"
+      },
+      {
+        "id": "A7.SS1",
+        "heading": "G.1  Reward Diagnostics"
+      },
+      {
+        "id": "A7.SS1.SSS0.Px3",
+        "heading": "Reliability selectivity (Sel.)."
+      }
+    ],
+    "text": "Let ρ k = Corr ⁡ ( s ⋅ , k , y ) \\rho_{k}=\\operatorname{Corr}(s_{\\cdot,k},y) over the policy’s evaluated candidates, using the nine-channel diagnostic pool 𝒫 \\mathcal{P} . For Z = ∑ k ∈ 𝒫 | ρ k | > 0 Z=\\sum_{k\\in\\mathcal{P}}|\\rho_{k}|>0 , q k = | ρ k | Z , Sel . = 1 − − ∑ k ∈ 𝒫 q k log q k log ⁡ | 𝒫 | , 0 log 0 = 0 . q_{k}=\\frac{|\\rho_{k}|}{Z},\\qquad\\mathrm{Sel.}=1-\\frac{-\\sum_{k\\in\\mathcal{P}}q_{k}\\log q_{k}}{\\log|\\mathcal{P}|},\\qquad 0\\log 0=0. (33) The pool includes chromatic and kinetic readouts as well as the seven fusion providers. Sel. describes concentration of absolute provider–outcome correlations, not applied fusion weights. It discards correlation signs and does not establish causal provider usefulness. All seven reported policies have Z > 0 Z>0 ; the auxiliary zero-sample row and its all-zero-profile convention are excluded. Recomputing Sel. from the exported correlation profiles agrees with the stored values within 5 × 10 − 5 5\\times 10^{-5} .",
+    "sha256": "33ae0584b100d5c10093b91e3eacfc5dd150e1d81f8d51be771965cd621b4fc4"
+  },
+  {
+    "index": 70,
+    "id": "A7.SS2.p1",
+    "locator": "#A7.SS2.p1",
+    "sections": [
+      {
+        "id": "A7",
+        "heading": "Appendix G Reward-Gating Metrics and Reproducibility"
+      },
+      {
+        "id": "A7.SS2",
+        "heading": "G.2  Normalized Pillars and Composite Scores"
+      }
+    ],
+    "text": "For the fixed comparison set 𝒜 \\mathcal{A} of seven policies, define N ⁡ ( v a ) = v a − min b ∈ 𝒜 ⁡ v b max b ∈ 𝒜 ⁡ v b − min b ∈ 𝒜 ⁡ v b . N(v_{a})=\\frac{v_{a}-\\min_{b\\in\\mathcal{A}}v_{b}}{\\max_{b\\in\\mathcal{A}}v_{b}-\\min_{b\\in\\mathcal{A}}v_{b}}. (34) The supplied reducer returns zero for a constant input across policies; none of the three reported inputs is constant. Normalization is specific to the compared set, so the resulting scores are not absolute measures transferable across benchmarks.",
+    "sha256": "2178e9fd5d28bef6b5758f7074a3e2e1013e083fea91dca47d81740b2db12109"
+  },
+  {
+    "index": 71,
+    "id": "A7.SS2.SSS0.Px1.p1",
+    "locator": "#A7.SS2.SSS0.Px1.p1",
+    "sections": [
+      {
+        "id": "A7",
+        "heading": "Appendix G Reward-Gating Metrics and Reproducibility"
+      },
+      {
+        "id": "A7.SS2",
+        "heading": "G.2  Normalized Pillars and Composite Scores"
+      },
+      {
+        "id": "A7.SS2.SSS0.Px1",
+        "heading": "EF: preference-proxy pillar."
+      }
+    ],
+    "text": "EF a = N ⁡ ( I a ) \\mathrm{EF}_{a}=N(I_{a}) , where I a I_{a} is the archived mean ImageReward score [ 69 ] . EF retains the benchmark’s “Emotion Fidelity” abbreviation, but its input is a general visual preference model. We do not interpret it as an independent measurement of emotion fidelity. The raw means and normalization inputs are included in the supplement.",
+    "sha256": "4b3582ea867ffae36cff39b0845363fb93790838d16b82234cf5815297a54f37"
+  },
+  {
+    "index": 72,
+    "id": "A7.SS2.SSS0.Px2.p1",
+    "locator": "#A7.SS2.SSS0.Px2.p1",
+    "sections": [
+      {
+        "id": "A7",
+        "heading": "Appendix G Reward-Gating Metrics and Reproducibility"
+      },
+      {
+        "id": "A7.SS2",
+        "heading": "G.2  Normalized Pillars and Composite Scores"
+      },
+      {
+        "id": "A7.SS2.SSS0.Px2",
+        "heading": "GD: relative-dispersion pillar."
+      }
+    ],
+    "text": "GD a = N ⁡ ( SNR a ∗ ) \\mathrm{GD}_{a}=N(\\mathrm{SNR}^{*}_{a}) . The benchmark calls this Gating Discriminativeness; mathematically, it is the normalized coefficient of variation above. Its inclusion does not turn reward dispersion into a gradient-quality measurement.",
+    "sha256": "3702fc740dc9e0c24e8a30410be6950344b59c2fdfbf357c01c55f46f8843fbc"
+  },
+  {
+    "index": 73,
+    "id": "A7.SS2.SSS0.Px3.p1",
+    "locator": "#A7.SS2.SSS0.Px3.p1",
+    "sections": [
+      {
+        "id": "A7",
+        "heading": "Appendix G Reward-Gating Metrics and Reproducibility"
+      },
+      {
+        "id": "A7.SS2",
+        "heading": "G.2  Normalized Pillars and Composite Scores"
+      },
+      {
+        "id": "A7.SS2.SSS0.Px3",
+        "heading": "GR: agreement-weighted selectivity pillar."
+      }
+    ],
+    "text": "GR a = N ( Sel . a ROA a ) \\mathrm{GR}_{a}=N(\\mathrm{Sel.}_{a}\\,\\mathrm{ROA}_{a}) . GR combines correlation-profile concentration with agreement with the reference evaluator. Both inputs are diagnostic summaries; the product does not establish an independent reliability ground truth.",
+    "sha256": "118fc785b3e5edbf46d13d6bc0a2a21327d6201456507d5c366c4cfbc0c4bb37"
+  },
+  {
+    "index": 74,
+    "id": "A7.SS2.SSS0.Px4.p1",
+    "locator": "#A7.SS2.SSS0.Px4.p1",
+    "sections": [
+      {
+        "id": "A7",
+        "heading": "Appendix G Reward-Gating Metrics and Reproducibility"
+      },
+      {
+        "id": "A7.SS2",
+        "heading": "G.2  Normalized Pillars and Composite Scores"
+      },
+      {
+        "id": "A7.SS2.SSS0.Px4",
+        "heading": "core and emo: two specified aggregations."
+      }
+    ],
+    "text": "The equal-weight composite and preference-emphasized composite are core a = EF a + GD a + GR a 3 , emo a = λ EF ​ EF a + λ GD ​ GD a + λ GR ​ GR a . \\mathrm{core}_{a}=\\frac{\\mathrm{EF}_{a}+\\mathrm{GD}_{a}+\\mathrm{GR}_{a}}{3},\\qquad\\mathrm{emo}_{a}=\\lambda_{\\mathrm{EF}}\\mathrm{EF}_{a}+\\lambda_{\\mathrm{GD}}\\mathrm{GD}_{a}+\\lambda_{\\mathrm{GR}}\\mathrm{GR}_{a}. (35) Here the nonnegative coefficients sum to one; our implementation uses ( λ EF , λ GD , λ GR ) = ( 0.5 , 0.25 , 0.25 ) (\\lambda_{\\mathrm{EF}},\\lambda_{\\mathrm{GD}},\\lambda_{\\mathrm{GR}})=(0.5,0.25,0.25) . Full EmoReward scores 0.922 0.922 on core and 0.884 0.884 on emo, leading under both specified weightings. Reflect without memory leads EF. These observations concern the defined composites and comparison set, not arbitrary weightings or universal superiority.",
+    "sha256": "75293eaaac72c52661f95e49d31721888a3894e667f3958a270ba9920faa6830"
+  },
+  {
+    "index": 75,
+    "id": "A8.SS0.SSS0.Px1.p1",
+    "locator": "#A8.SS0.SSS0.Px1.p1",
+    "sections": [
+      {
+        "id": "A8",
+        "heading": "Appendix H Extended Evaluation and Ablations"
+      },
+      {
+        "id": "A8.SS0.SSS0.Px1",
+        "heading": "Provider-pool construction."
+      }
+    ],
+    "text": "Figure 5 presents the main-text visual comparison; Table 5 quantifies the same four reward configurations used to construct the provider interface. Semantic emotion and motion cues improve some axes while exposing trade-offs on text alignment and preference. The configurations also differ in fusion weights and curricula; their comparison is not a single-factor ablation. In the semantic-cue configuration, the CLIP channel has zero fusion weight and cannot explain a training gain attributed to an active CLIP reward.",
+    "sha256": "ba9843ab55a1690a4daacfc1be4ce1578efbf69e9025321b96aa2fec082df9b5"
+  },
+  {
+    "index": 76,
+    "id": "A8.SS0.SSS0.Px2.p1",
+    "locator": "#A8.SS0.SSS0.Px2.p1",
+    "sections": [
+      {
+        "id": "A8",
+        "heading": "Appendix H Extended Evaluation and Ablations"
+      },
+      {
+        "id": "A8.SS0.SSS0.Px2",
+        "heading": "Ranking agreement."
+      }
+    ],
+    "text": "For each four-candidate group, let 𝒞 = { ( i , j ) : i < j , y i ≠ y j } \\mathcal{C}=\\{(i,j):i<j,\\ y_{i}\\neq y_{j}\\} . We use Agr ( 𝒢 ) = 1 | 𝒞 | ∑ ( i , j ) ∈ 𝒞 [ 𝕀 { ( R i − R j ) ( y i − y j ) > 0 } + 1 2 𝕀 { R i = R j } ] . \\operatorname{Agr}(\\mathcal{G})=\\frac{1}{|\\mathcal{C}|}\\sum_{(i,j)\\in\\mathcal{C}}\\left[\\mathbb{I}\\{(R_{i}-R_{j})(y_{i}-y_{j})>0\\}+\\tfrac{1}{2}\\mathbb{I}\\{R_{i}=R_{j}\\}\\right]. (36) Groups without comparable pairs are excluded. Agreement is averaged over groups; reward ties receive half credit independently of sample ordering. The analysis contains 160 baseline groups for DanceGRPO and 168 groups for each other optimizer–reward configuration, totaling 1,504 groups and 6,016 videos. These training candidates are separate from the 30-prompt fixed-checkpoint evaluation sets.",
+    "sha256": "9b4a7ee547f19b257e47a65c80e4acbbec9e84bb0fb4709c0c64a32c9652da8f"
+  },
+  {
+    "index": 77,
+    "id": "A8.SS0.SSS0.Px3.p1",
+    "locator": "#A8.SS0.SSS0.Px3.p1",
+    "sections": [
+      {
+        "id": "A8",
+        "heading": "Appendix H Extended Evaluation and Ablations"
+      },
+      {
+        "id": "A8.SS0.SSS0.Px3",
+        "heading": "Memory sensitivity."
+      }
+    ],
+    "text": "Across 27 temperature, neighborhood-size, and memory-window settings, the memory rule exceeds fixed weighting at the final window in 23 settings. None has a positive difference when averaged over all windows. These settings reuse the same traces and are not independent training seeds. The results motivate sensitivity analysis rather than a claim of monotonic improvement with accumulating memory.",
+    "sha256": "3c18b07fc3a91ac3cbb40786d88fb46933c8222e8919ab10ebb7f9bdab454d03"
+  },
+  {
+    "index": 78,
+    "id": "A9.p1",
+    "locator": "#A9.p1",
+    "sections": [
+      {
+        "id": "A9",
+        "heading": "Appendix I RewardMemory: A Worked Rollout Example"
+      }
+    ],
+    "text": "Figure 7 connects recorded provider scores, a previously exported calibration table, and a reproducible allocation calculation. Appendix E explains the principles behind panels A–C. The clips contain 81 frames at 24 fps and have 624 × \\times 352 resolution; we display frames 12, 40, and 72. The four videos are candidates for one prompt from a reference rollout group. Their scores and outcomes come directly from the accompanying reward records; the images are decoded full frames. The macro provider has positive within-group outcome correlation, while three channels return their neutral constant. These four examples illustrate local behavior, not the population estimate used to construct RewardMemory.",
+    "sha256": "05cbace88e4fbf89b71e69f591b9a447f1af48d0e17b304b4513f8352814ba51"
+  },
+  {
+    "index": 79,
+    "id": "A9.SS0.SSS0.Px1.p1",
+    "locator": "#A9.SS0.SSS0.Px1.p1",
+    "sections": [
+      {
+        "id": "A9",
+        "heading": "Appendix I RewardMemory: A Worked Rollout Example"
+      },
+      {
+        "id": "A9.SS0.SSS0.Px1",
+        "heading": "Separating observations from the replay."
+      }
+    ],
+    "text": "The exported table’s global entry differs from its context-specific entries. We use the global entry here to isolate the reweighting operation, without claiming that it was the entry selected for these historical videos. The initial active allocation is ( 0.336 , 0.440 , 0.134 , 0.090 ) (0.336,0.440,0.134,0.090) over macro, motion, CLIP-AUTT, and R1-Omni, with zero mass on the other three providers. These are illustrative starting weights, not reconstructed runtime gates. Multiplying by the exported global multipliers and renormalizing produces approximately ( 0.417 , 0.450 , 0.082 , 0.052 ) (0.417,0.450,0.082,0.052) . On rollout #2’s recorded scores, the weighted mean changes from 0.578 0.578 to 0.563 0.563 ; its actual logged emotion reward is 0.721 0.721 . The distinction matters because the historical reward used its own training phase and configuration. An increase in a provider’s allocation need not increase the scalar fused score, and neither change alone establishes improved generated quality.",
+    "sha256": "41ef069a49ed2e632c2ca31777711cb957fe73c3dca0da4468a0d575eb3ebb75"
+  },
+  {
+    "index": 80,
+    "id": "A9.SS0.SSS0.Px2.p1",
+    "locator": "#A9.SS0.SSS0.Px2.p1",
+    "sections": [
+      {
+        "id": "A9",
+        "heading": "Appendix I RewardMemory: A Worked Rollout Example"
+      },
+      {
+        "id": "A9.SS0.SSS0.Px2",
+        "heading": "Prompt."
+      }
+    ],
+    "text": "The camera slowly pushes forward, a cold side light slanting through the window frame, carving a sharp beam across the dimly lit study and illuminating the man seated at his desk. He leans slightly forward, hands folded over the keyboard, fingers tapping the keys with slow, precise rhythm. Shot from a low angle behind and to the side, the frame captures his furrowed brow and narrowed eyes, his gaze fixed like a needle on the flickering stream of code on the screen. His lips are pressed into a thin line, the jawline taut with concentration, nostrils fluttering faintly with each breath, occasionally biting his lower lip as if swallowing an unspoken question. The light casts a soft shadow across his forehead, making the sharp glint in his eyes even more intense. In the background, scattered papers and empty coffee cups rest silently on the bookshelf, while the rhythmic tapping of the keyboard echoes in the stillness, like the pulse of a heartbeat. He suddenly pauses, raises his right hand to his temple, his eyes briefly drifting, then swiftly refocuses on the screen—a quiet resolve, a steadfast defiance against time.",
+    "sha256": "91630d07bda2496d68ce51c847098b2746d20619087c7199f29deb391210dd7b"
+  },
+  {
+    "index": 81,
+    "id": "A10.p1",
+    "locator": "#A10.p1",
+    "sections": [
+      {
+        "id": "A10",
+        "heading": "Appendix J Generalization to Image Generation"
+      }
+    ],
+    "text": "We evaluate Stable Diffusion 3.5 and FLUX with three optimizers and three reward configurations on 256 DrawBench prompts per checkpoint: 18 settings and 84 checkpoints. Internal Emo measures the emotion-stack reward; HPSv3 is a general preference objective also used to train the baseline. Neither independently measures perceived emotion.",
+    "sha256": "802101a2d6f5c2089271985152364462a4de26485847a0f74855df7a862920fa"
+  },
+  {
+    "index": 82,
+    "id": "A10.p2",
+    "locator": "#A10.p2",
+    "sections": [
+      {
+        "id": "A10",
+        "heading": "Appendix J Generalization to Image Generation"
+      }
+    ],
+    "text": "SD3.5 baseline results average three checkpoints at 420–500 updates; calibrated variants average five at 2,780–3,000. FLUX baseline checkpoints span 2,760–3,000, and calibrated checkpoints 2,780–3,000. Standard errors describe checkpoint variation, not independent training seeds. Per-prompt arrays support the reported means; paired significance requires complete sample and generation-seed mappings and is not claimed.",
+    "sha256": "9d549268110e4bc4849db45821e8ed08615b685e8322a25def63d47c9ec18e26"
+  },
+  {
+    "index": 83,
+    "id": "A10.SS0.SSS0.Px1.p1",
+    "locator": "#A10.SS0.SSS0.Px1.p1",
+    "sections": [
+      {
+        "id": "A10",
+        "heading": "Appendix J Generalization to Image Generation"
+      },
+      {
+        "id": "A10.SS0.SSS0.Px1",
+        "heading": "Observed transfer pattern."
+      }
+    ],
+    "text": "With SD3.5–DanceGRPO, HPSv3 rises from 9.552 9.552 (baseline) to 10.096 10.096 (Reflect) and 10.302 10.302 (EmoReward). SD3.5–FlowGRPO declines on both HPSv3 and internal Emo; FLUX’s HPSv3-optimized baseline leads on HPSv3 across optimizers. Thus transfer is objective-dependent rather than uniformly beneficial.",
+    "sha256": "d4ed84d3b42854dc4684d56f9b323ea919dd7fe01c6d4bf8a85931e973d2877a"
+  },
+  {
+    "index": 84,
+    "id": "A10.SS1.p1",
+    "locator": "#A10.SS1.p1",
+    "sections": [
+      {
+        "id": "A10",
+        "heading": "Appendix J Generalization to Image Generation"
+      },
+      {
+        "id": "A10.SS1",
+        "heading": "J.1  Qualitative comparison protocol"
+      }
+    ],
+    "text": "Image plates use four curated prompts per displayed setting; video plates cover three optimizers. Figure 5 separately compares provider configurations. These examples illustrate behavior, not a randomly estimated win rate.",
+    "sha256": "41f7de903a3d317dffc74f85c497e9d69cc7790e06d120133c6e226909c641ca"
+  },
+  {
+    "index": 85,
+    "id": "A10.SS1.p2",
+    "locator": "#A10.SS1.p2",
+    "sections": [
+      {
+        "id": "A10",
+        "heading": "Appendix J Generalization to Image Generation"
+      },
+      {
+        "id": "A10.SS1",
+        "heading": "J.1  Qualitative comparison protocol"
+      }
+    ],
+    "text": "Images retain all original pixels. SD3.5 baseline outputs use 500 updates and calibrated outputs 3,000. The first two FLUX baseline cases use the only saved examples at 500 updates; all other FLUX rows use 3,000. Unequal budgets prevent attributing qualitative differences solely to calibration. Image seeds are unavailable, so only prompts are matched. Video rows share prompts and recorded sampling seeds. Clips are 864 × \\times 480 at 24 fps; full frames at 0.5, 2.5, and 4.5 seconds are decoded without interpolation or retouching. The source bundle includes synchronized playback and editable figures.",
+    "sha256": "e33b59abb68632a297f4f7ae9d654c038659ae97001f3f79f2e9603adadfe10a"
+  },
+  {
+    "index": 86,
+    "id": "A10.SS1.p3",
+    "locator": "#A10.SS1.p3",
+    "sections": [
+      {
+        "id": "A10",
+        "heading": "Appendix J Generalization to Image Generation"
+      },
+      {
+        "id": "A10.SS1",
+        "heading": "J.1  Qualitative comparison protocol"
+      }
+    ],
+    "text": "The ordinal ratings in Appendix B complement these proxy-based and qualitative comparisons; raw participant/prompt records are needed to quantify uncertainty. The depicted scenes are generated content.",
+    "sha256": "c70bfdeef22507a62782b8b37f2c7062aac2de5f7d0406d99ffb6f59d8c07248"
+  },
+  {
+    "index": 87,
+    "id": "A11.p1",
+    "locator": "#A11.p1",
+    "sections": [
+      {
+        "id": "A11",
+        "heading": "Appendix K Video Comparisons"
+      }
+    ],
+    "text": "",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "index": 88,
+    "id": "A11.p2",
+    "locator": "#A11.p2",
+    "sections": [
+      {
+        "id": "A11",
+        "heading": "Appendix K Video Comparisons"
+      }
+    ],
+    "text": "",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "index": 89,
+    "id": "A11.p3",
+    "locator": "#A11.p3",
+    "sections": [
+      {
+        "id": "A11",
+        "heading": "Appendix K Video Comparisons"
+      }
+    ],
+    "text": "",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "index": 90,
+    "id": "A11.p4",
+    "locator": "#A11.p4",
+    "sections": [
+      {
+        "id": "A11",
+        "heading": "Appendix K Video Comparisons"
+      }
+    ],
+    "text": "",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "index": 91,
+    "id": "A11.p5",
+    "locator": "#A11.p5",
+    "sections": [
+      {
+        "id": "A11",
+        "heading": "Appendix K Video Comparisons"
+      }
+    ],
+    "text": "",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "index": 92,
+    "id": "A11.p6",
+    "locator": "#A11.p6",
+    "sections": [
+      {
+        "id": "A11",
+        "heading": "Appendix K Video Comparisons"
+      }
+    ],
+    "text": "",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  }
+]
