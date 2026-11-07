@@ -27,11 +27,19 @@ RSI papers appear every day, but every claim of improvement needs scrutiny. Foll
 
 <!-- AUTO:TODAY:START -->
 
-**[2026-11-02](https://adongwanai.github.io/follow-rsi/daily/2026-11-02.html)** · 3 papers, human reviewed.
+**Update status (not a published edition) · 2026-11-05**
 
-- [RoboArchitect](https://arxiv.org/abs/2610.42141) · 1.1 Search & evolution (frozen model) · Uses rollout feedback to revise control code around a frozen robotic policy, evaluating retained harnesses on held-out tasks in simulation.
-- [CEPO](https://arxiv.org/abs/2610.34722) · 3. Component-level evolution (skills, memory, context, interfaces) · Uses execution feedback to revise coordinator and executor prompts separately, selecting prompts on validation tasks for subsequent use.
+At 15:36 Asia/Shanghai, the complete observed HF board grew from 5 to 20 papers. The unchanged first five reuse their prior reviews; all 15 late members received complete-abstract screening and independent review with exclusion suggestions. EmoReward and SleuthVLM also received targeted method-body review and independent rereading; PyRUA retains a body follow-up. Fourteen new identities and one existing identity with new HF membership are recorded separately. No publishable Harness item is established. This is an observed snapshot, not the final full-day board or formal rejection.
+
+[View daily progress →](https://adongwanai.github.io/follow-rsi/daily/index.html#publication-status)
+
+**Latest published edition**
+
+**[2026-11-02](https://adongwanai.github.io/follow-rsi/daily/2026-11-02.html)** · 3 papers, reviewed and approved.
+
 - [R²Orch](https://arxiv.org/abs/2610.22740) · 4. Model–harness co-evolution · Co-evolves Director weights and versioned skills using execution feedback during training; deployment uses no skills.
+- [CEPO](https://arxiv.org/abs/2610.34722) · 3. Component-level evolution (skills, memory, context, interfaces) · Uses execution feedback to revise coordinator and executor prompts separately, selecting prompts on validation tasks for subsequent use.
+- [RoboArchitect](https://arxiv.org/abs/2610.42141) · 1.1 Search & evolution (frozen model) · Uses rollout feedback to revise control code around a frozen robotic policy, evaluating retained harnesses on held-out tasks in simulation.
 
 [Read this edition →](https://adongwanai.github.io/follow-rsi/daily/2026-11-02.html)
 

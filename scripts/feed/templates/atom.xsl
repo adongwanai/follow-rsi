@@ -11,7 +11,7 @@
       <body><main>
         <small>Follow RSI · 每天 5 分钟，跟上 RSI 前沿</small>
         <h1>Harness 今日动态 · Atom 订阅</h1>
-        <p>把下面的地址添加到 RSS / Atom 阅读器，即可收到经过人工审核的日报。每期日报对应一个订阅条目。</p>
+        <p>把下面的地址添加到 RSS / Atom 阅读器，即可收到经过审核的日报，包括论文期与采集审核简报。每期日报对应一个订阅条目；简报不表示有新论文获准收录。</p>
         <p><code><xsl:value-of select="a:link[@rel='self']/@href"/></code></p>
         <p><a href="../daily/">浏览今日动态</a> · <a href="../">阅读证据库</a></p>
         <section>
@@ -31,7 +31,7 @@
             </xsl:otherwise>
           </xsl:choose>
         </section>
-        <p lang="en"><small>This is an Atom feed of human-reviewed Harness daily editions. An empty feed means the first edition is still awaiting review.</small></p>
+        <p lang="en"><small>This Atom feed includes reviewed Harness paper editions and collection and review bulletins. A bulletin does not imply that new papers were approved. An empty feed means the first edition is still awaiting review.</small></p>
       </main></body>
     </html>
   </xsl:template>
