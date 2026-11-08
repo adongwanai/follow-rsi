@@ -1,0 +1,184 @@
+WeightLoop: Weight-Space Programming with Experimental Feedback Skip to main content Report GitHub Issue × Title: Content selection saved. Describe the issue below: Description: Submit without GitHub Submit in GitHub Why HTML? Report Issue Back to Abstract Download PDF Contents Reading mode Colour theme Abstract. 1 Introduction From model editing to weight-space programming Where the improvement loop lives The WeightLoop workflow 2 WeightLoop 2.1 Fixed editor, updating predictor A concrete program-design choice 2.2 Neural output-weight editing Diagnose, select, and write 2.3 Coefficient and leaf-value editing 3 Evaluation and Results 3.1 Single-round ranking Tracing a recommendation 3.2 Sequential discovery 3.3 Coefficient and leaf interfaces Persistent model updates 4 Conclusion References License: CC BY 4.0 arXiv:2611.07319v1 [cs.LG] 05 Nov 2026 \setcopyright none \settopmatter printacmref=false,printccs=false,printfolios=true \acmDOI \acmISBN WeightLoop: Weight-Space Programming with Experimental Feedback Mengran Li Affiliation: \institution Hong Kong Institute of Science and Innovation Email address: limengran1998@163.com , Bo Li Affiliation: \institution University of Macau , Weijing Zhao Affiliation: \institution University of Macau , Chengyang Zhang Affiliation: \institution Sichuan University , Boyu Zhang Affiliation: \institution Sun Yat-sen University , Jinfeng Xu Affiliation: \institution The University of British Columbia , Zelin Zang Affiliation: \institution Hong Kong Institute of Science and Innovation , Victor C. M. Leung Affiliation: \institution The University of British Columbia and Stan Z. Li Affiliation: \institution Westlake University Abstract. Weight-space programming (WSP) shows that language models can reason about and
+rewrite neural network weights; recursive self-improvement (RSI) motivates
+feedback-driven improvement. Models guiding experiments receive concrete
+feedback: completed assays reveal prediction errors and inform what to test next.
+We introduce WeightLoop, a framework that turns experimental feedback into
+persistent updates to deployed predictors. GPT-6 Astra inspects a task
+specification and the model implementation, then writes a bounded, reusable
+parameter-editing program. As new measurements arrive, the program identifies
+prediction discrepancies, validates candidate edits using observed outcomes,
+and writes the selected changes back to the original model. The editor remains
+fixed while the predictor evolves, enabling repeated updates without further
+LLM calls or gradient retraining while preserving the original inference interface.
+In offline replay, targeted edits improve mean ranking utility in seven of
+eight endpoint–budget settings (all eight versus random edits) and mean final
+discovery across three sequential tasks. WeightLoop connects WSP with an RSI-inspired
+improvement loop, making experimental evidence a direct driver of model change
+and subsequent decisions. Key words and phrases: Scientific recommendation, model editing, experimental feedback, weight-space programming 1. Introduction An experiment does more than test a prediction: it produces evidence that can
+change the next decision. In experimental decision-making Settles (2009) ; King et al. (2009) ; Roohani et al. (2025) ,
+a predictor ranks candidate interventions, but their effects become known only
+after measurement. Historical data provide reusable knowledge, yet a new
+objective may have only a few dozen functional measurements. These results can
+expose task-specific errors in an otherwise useful model. The challenge is
+therefore not only to evaluate predictions, but to incorporate evidence into
+the deployed predictor so subsequent decisions reflect what has been learned.
+Cellular perturbation research Cui et al. (2024) ; Roohani et al. (2023) and virtual
+cells Bunne et al. (2024) provide a demanding example. From model editing to weight-space programming Model-editing research studies targeted corrections to neural
+parameters Sinitsin et al. (2020) ; Mitchell et al. (2022) ; De Cao et al. (2021) ; Meng et al. (2022) ; Meng et al. (2023) . Takehi et al. introduced
+weight-space programming (WSP), demonstrating language models interpreting and
+rewriting weights according to natural-language objectives in specified
+settings Takehi et al. (2026) . This opens a possibility: can an LLM program
+how a deployed model should change when experimental evidence arrives?
+Beyond producing one parameter correction, such a program could connect
+successive measurements to the model’s future behavior. Where the improvement loop lives Recursive self-improvement (RSI) motivates systems such as STOP, whose
+improvement program revises itself Zelikman et al. (2024) . In WeightLoop, the
+sequence is concrete: the LLM writes an editor once; each returned assay batch
+lets that editor revise the predictor; the revised predictor recommends the
+next batch. The editor code and LLM remain fixed during this loop. New measured
+outcomes determine the parameter changes, without another LLM call or gradient
+retraining. The scientific predictor is the object of this improvement loop. The WeightLoop workflow Given a task objective and model, GPT-6 Astra OpenAI (2026) identifies task-relevant mutable parameters and writes a bounded editing program.
+When feedback arrives, the program evaluates discrepancies between predictions
+and measurements, constructs candidate changes, and selects a validated update.
+Changes are written into the checkpoint, which reloads through its original
+inference interface. The updated predictor guides the next decision, and the
+process repeats as measurements arrive (Figure 1 ). Feedback
+therefore changes the model itself, beyond adjusting one recommendation list. We study two complementary settings: single-round ranking and sequential
+discovery. Cellular growth, migration,
+autophagy, and LDL-uptake measurements supply concrete feedback across objectives.
+Here, biology supplies measurable outcomes for testing a reusable editing workflow.
+Neural, linear, and tree-based predictors offer different parameter structures
+for the same workflow. Recorded measurements enable offline replay to test
+whether updates improve subsequent decisions and remain usable after checkpoint
+writeback and reload. Together, these experiments demonstrate how WSP can turn
+returned measurements into an ongoing source of model improvement. Figure 1. WeightLoop separates one-time program construction from repeated
+execution with experimental feedback. The LLM builds a reusable editor;
+returned measurements validate parameter changes, followed by model save,
+reload, and the next decision. Weight values and ranking gains illustrate
+a HepG2 example. \Description One-time language-model construction produces a fixed editing
+program. Repeated execution uses observed measurements to select updates,
+write and reload the predictor, and choose the next experiment. a b c d e f Figure 2. Measured feedback changes discovery and prediction.
+(a–c) Complete acquisition curves and paired final Δ ​ D 100 \Delta D_{100} ; diamonds
+are means. HuH7 has an expanded scale. (d,e) All paired gene-fold scores for D 100 D_{100} and permanent-set BU ​ @ ​ 50 \mathrm{BU}@50 . (f) Modified-weight counts, including
+no-ops; fold order 0–4 is shared. The last update affects only permanent-set
+prediction. Folds partition the same studies. \Description Three complete acquisition curves are accompanied by paired
+final discovery and permanent-evaluation scores for all fifteen gene folds,
+and the actual number of edited weights at each feedback step, including zeros. 2. WeightLoop 2.1. Fixed editor, updating predictor GPT-6 Astra OpenAI (2026) constructs the editor from the task objective,
+model implementation, parameter structure, and available feedback. It produces
+an executable editor specifying mutable parameters, candidate updates,
+validation rules, and model saving. The editor uses measured support to update the predictor through
+repeated numerical execution, with no additional LLM calls. For original parameters θ 0 \theta_{0} , editor ℰ ℐ \mathcal{E}_{\mathcal{I}} , and accumulated support S t = { ( g i , x i , y i ) } S_{t}=\{(g_{i},x_{i},y_{i})\} recording identities, inputs, and measured outcomes, (1) Δ t = ℰ ℐ ​ ( θ 0 , S t ) , θ t = θ 0 + Δ t , A t + 1 = 𝒟 ⁡ ( f θ t ) , \Delta_{t}=\mathcal{E}_{\mathcal{I}}(\theta_{0},S_{t}),\qquad\theta_{t}=\theta_{0}+\Delta_{t},\qquad A_{t+1}=\mathcal{D}(f_{\theta_{t}}), where 𝒟 \mathcal{D} applies the remaining candidates, budget, and decision rule; Δ t , j = 0 \Delta_{t,j}=0 outside ℐ \mathcal{I} . Updates are constructed on support-training
+records, selected on support-validation records, then reconstructed on all
+support. No qualifying improvement gives Δ t = 0 \Delta_{t}=0 . Each update starts from θ 0 \theta_{0} , so patches do not compound. Only observed outcomes enter support; outcomes of unmeasured candidates
+and the permanent test set are excluded. A concrete program-design choice The neural editor exposes the functional output weights as its update interface.
+The model code separates a reusable molecular encoder from a linear functional
+readout: changing one readout weight alters that feature’s contribution while
+preserving both the representation and the RNA auxiliary branches. This structure
+also makes a candidate change exactly computable from cached activations, so the
+editor can test individual connections without backpropagation. Its diagnostic
+asks whether weakening a connection improves the ordering of measured genes;
+its validation combines a pairwise ranking loss with top-budget utility.
+For coefficient and leaf-value updates, the implemented objective is instead
+residual prediction error. Thus the program construction ties the mutable
+interface and validation criterion to the model structure and task objective.
+Once those choices are encoded, measurements determine the affected coordinates
+and accepted parameter values on each execution. 2.2. Neural output-weight editing A ReLU MLP encodes static GO The Gene Ontology Consortium (2023) , scGPT Cui et al. (2024) , and
+MAP-KG features, with availability indicators, as h ϕ ​ ( x g ) ∈ ℝ 128 h_{\phi}(x_{g})\in\mathbb{R}^{128} . Its original fit used functional labels and
+historical RNA auxiliary supervision; candidate-specific perturbation RNA is
+not an inference input. The functional prediction in assay units is (2) f θ ​ ( g ) = s y ​ { w ⊤ ​ h ϕ ​ ( x g ) + b } + μ y . f_{\theta}(g)=s_{y}\{w^{\top}h_{\phi}(x_{g})+b\}+\mu_{y}. Only the 128 entries of w w are editable. The encoder, bias, input transform,
+original 25-label output scaler ( μ y , s y ) (\mu_{y},s_{y}) , RNA head, and source parameters
+remain fixed; the edit reweights the existing representation. Diagnose, select, and write Feedback consists of newly measured gene effects. If a hidden feature gives
+high scores to genes with weak measured effects, attenuating its output
+connection can reduce ranking errors. The editor tests this possibility
+against the observed measurements.
+Using the original 25-label output scaler, let p i = ( f θ ​ ( g i ) − μ y ) / s y p_{i}=(f_{\theta}(g_{i})-\mu_{y})/s_{y} and y ~ i = ( y i − μ y ) / s y \tilde{y}_{i}=(y_{i}-\mu_{y})/s_{y} .
+Let a i ​ j = | y ~ i − y ~ j | a_{ij}=|\tilde{y}_{i}-\tilde{y}_{j}| and s i ​ j = sgn ⁡ ( y ~ i − y ~ j ) s_{ij}=\operatorname{sgn}(\tilde{y}_{i}-\tilde{y}_{j}) . The support loss is (3) ℒ ⁡ ( p , y ~ ) = ∑ i < j a i ​ j ​ log ⁡ { 1 + exp ⁡ [ − s i ​ j ​ ( p i − p j ) ] } ∑ i < j a i ​ j . \mathcal{L}(p,\tilde{y})=\frac{\sum_{i<j}a_{ij}\log\{1+\exp[-s_{ij}(p_{i}-p_{j})]\}}{\sum_{i<j}a_{ij}}. The logistic comparison follows learning-to-rank formulations Burges et al. (2005) .
+We cache h i h_{i} and probe each connection by halving w j w_{j} , which changes
+standardized predictions by exactly − 0.5 ​ w j ​ h i ​ j -0.5w_{j}h_{ij} . Its diagnostic gain is the
+resulting decrease in ℒ \mathcal{L} . The top positive gains above 10 − 12 10^{-12} determine
+at most k k coordinates S k S_{k} for six update settings: k ∈ { 4 , 8 , 16 } k\in\{4,8,16\} and α ∈ { 0.25 , 0.5 } \alpha\in\{0.25,0.5\} , (4) w j ′ = w j ( 1 − α 𝟏 [ j ∈ S k ] ) . w^{\prime}_{j}=w_{j}(1-\alpha\mathbf{1}[j\in S_{k}]). Equal-label pairs have zero weight; an all-tied set has zero loss. Diagnostic
+and update ties follow fixed orders. Three identity-based support folds select the lowest mean validation
+loss subject to non-decreasing mean validation utility ( BU ​ @ ​ 10 \mathrm{BU}@10 for single-round ranking).
+Each fold diagnoses coordinates using only its training genes. The accepted
+update is rebuilt on all feedback and written to the model’s output-weight vector.
+Its effect is gene-specific: δ ​ f ​ ( g ) = s y ​ ∑ j δ ​ w j ​ h j ​ ( x g ) \delta f(g)=s_{y}\sum_{j}\delta w_{j}h_{j}(x_{g}) , so it can change ordering while
+preserving the learned representation. Matched controls permute the same diagnostic update across coordinates. For a
+given support set and update setting, they preserve the number and norm of changes and
+receive the same six-setting validation opportunity. Single-round ranking uses
+three fixed permutations; sequential discovery uses one and may acquire different
+subsequent support. 2.3. Coefficient and leaf-value editing With standardized feedback y ~ i \tilde{y}_{i} and original prediction p 0 ​ i p_{0i} , define residuals r i = y ~ i − p 0 ​ i r_{i}=\tilde{y}_{i}-p_{0i} . Ridge Hoerl and Kennard (1970) adds δ ​ w = ( X c ⊤ ​ X c + λ ​ I ) − 1 ​ X c ⊤ ​ r c \delta w=(X_{c}^{\top}X_{c}+\lambda I)^{-1}X_{c}^{\top}r_{c} and δ ​ b = r ¯ − x ¯ ⊤ ​ δ ​ w \delta b=\bar{r}-\bar{x}^{\top}\delta w , where centering uses the fitting
+support, λ = m ​ γ \lambda=m\gamma , and γ ∈ { 0.1 , 1 , 10 , 100 } \gamma\in\{0.1,1,10,100\} .
+XGBoost Chen and Guestrin (2016) retains all 300 tree structures and revises each supported prediction
+leaf by v ℓ ′ = v ℓ + α ​ ∑ i ∈ ℓ r i / [ 300 ​ ( n ℓ + 5 ) ] v^{\prime}_{\ell}=v_{\ell}+\alpha\sum_{i\in\ell}r_{i}/[300(n_{\ell}+5)] ,
+with α ∈ { 0.1 , 0.25 , 0.5 } \alpha\in\{0.1,0.25,0.5\} . Here m m is the support size; n ℓ n_{\ell} counts support records reaching leaf ℓ \ell .
+Unsupported leaves remain unchanged.
+Three-fold support MSE selects these updates; no improvement retains the
+original model. These supervised analytical operators change coefficients or
+native leaf values while retaining input/output transforms and inference code. Table 1. Single-round ranking: all eight endpoint–budget settings, mean BU \mathrm{BU} over five folds and two seeds. Rand.: three-control mean;
+Full: original 100-label fit. Endpoint B B Orig. Rand. Edited Full HepG2 growth 20 0.5239 0.5270 0.5419 0.6254 HepG2 growth 50 0.5208 0.5309 0.5421 0.6025 Jurkat growth 20 0.5223 0.5270 0.5344 0.5993 Jurkat growth 50 0.5175 0.5304 0.5355 0.6038 HL60 proliferation 20 0.2251 0.2239 0.2254 0.2201 HL60 proliferation 50 0.2523 0.2590 0.2665 0.2632 HL60 migration 20 -0.0171 -0.0246 -0.0147 0.0832 HL60 migration 50 0.0103 0.0051 0.0087 0.0581 3. Evaluation and Results We evaluate single-round ranking and sequential discovery using public
+functional screens. Editor design used DepMap experiments; the resulting rules
+were fixed for HL60 and sequential evaluation. Each prediction or batch choice
+precedes access to its evaluation outcomes. Tables present the complete
+endpoint–budget grid under matched feedback budgets. 3.1. Single-round ranking The single-round experiment asks whether one feedback update improves subsequent ranking. It covers
+HepG2/Jurkat negative Chronos effects from DepMap
+24Q4 Broad DepMap (2024) ; Dempster et al. (2021) , HL60 proliferation, and serum-gradient
+migration inhibition Belliveau et al. (2023) . Five gene partitions and two seeds per
+endpoint give 40 initial n = 25 n=25 models. Feedback is the 75 genes in the
+corresponding n = 100 n=100 training set but outside the initial 25; query genes are
+excluded from both. All six arms share the query pool. The existing n = 100 n=100 reference and initial models were each fitted for 1600 updates; editing maintains the n = 25 n=25 model using the additional measurements. For budget B = 20 , 50 B=20,50 , let d r d_{r} be 1 / log 2 ⁡ ( r + 1 ) 1/\log_{2}(r+1) normalized over all B B positions. We report (5) U B = ∑ r = 1 B d r ​ y π r , BU B = U B − y ¯ U B oracle − y ¯ . U_{B}=\sum_{r=1}^{B}d_{r}y_{\pi_{r}},\qquad\mathrm{BU}_{B}=\frac{U_{B}-\bar{y}}{U_{B}^{\mathrm{oracle}}-\bar{y}}. where zero is the same-pool random expectation and one the oracle. Paired
+summaries average seeds within each gene partition of a study. Edited utility exceeds Random in all eight settings and improves over Original
+in seven (Table 1 ). HepG2 improves in all five paired folds at both
+budgets, connecting the mean gains to consistent within-task improvements. Tracing a recommendation In the HepG2 example of Figure 1 , the editor selects k = 16 , α = 0.5 k=16,\alpha=0.5 :
+validation loss falls 0.54235 → 0.53837 0.54235\to 0.53837 and BU ​ @ ​ 10 \mathrm{BU}@10 rises 0.43363 → 0.47502 0.43363\to 0.47502 . Figure 1 shows two realized weight changes.
+Top20 retains 19 genes, adds SNRPB, and removes GEMIN2; query BU ​ @ ​ 20 \mathrm{BU}@20 rises 0.604554 → 0.621258 0.604554\to 0.621258 ( BU ​ @ ​ 50 \mathrm{BU}@50 : 0.559769 → 0.560715 0.559769\to 0.560715 ). 3.2. Sequential discovery Sequential discovery reuses 15 initial 25-label models for LC3/NBR1 autophagic flux Shoemaker et al. (2019) and reduced LDL uptake in
+HuH7 cells with lipoprotein-rich medium Emmer et al. (2021) : three endpoints, five gene folds, and one seed. Unchanged,
+targeted-edit, and permuted-edit policies each acquire five batches of 20 genes.
+Each batch is chosen before its measurements become available. Later edits use only
+that policy’s acquired feedback; the initial 25 labels influence θ 0 \theta_{0} but do not reenter S t S_{t} . Each patch is reconstructed from θ 0 \theta_{0} , with a
+validation guard at B = min ⁡ ( 5 , n validation − 1 ) B=\min(5,n_{\mathrm{validation}}-1) . For acquired set A K A_{K} from candidate pool C C , discovery is D K = ( ∑ g ∈ A K y g − K ​ y ¯ C ) / ( ∑ g ∈ Top K ​ ( C ) y g − K ​ y ¯ C ) D_{K}=(\sum_{g\in A_{K}}y_{g}-K\bar{y}_{C})/(\sum_{g\in\mathrm{Top}_{K}(C)}y_{g}-K\bar{y}_{C}) .
+Its oracle normalization changes with K K , so policies are compared at the same
+acquisition count. Permanent-set predictions are evaluated after all 45
+trajectories finish, separately from discovery in the queried pool. Edited selection improves mean D 100 D_{100} over both controls in all three tasks,
+with 4/5, 4/5, and 3/5 positive paired folds (Table 2 ). Identical
+first batches locate these differences in later feedback-driven selections.
+Permanent-set BU ​ @ ​ 50 \mathrm{BU}@50 increases by 0.0254, 0.0098, and 0.0096
+(Figure 2 e). Of 75 targeted updates, 56 change weights, at most
+16 each; the final update serves only permanent-set prediction. The paired panels connect these aggregate improvements to actual model updates.
+Discovery measures the value of genes selected for assay, whereas permanent-set
+utility measures ranking of genes that never supplied feedback. Their joint
+mean improvement links the selection loop to predictions beyond the acquired
+set. The edit-count panel makes the mechanism visible: individual feedback
+batches can retain the original model or select different numbers of
+coordinates. Thus the fixed program translates changing evidence into adaptive
+model states, rather than applying the same perturbation after every batch. Table 2. Sequential discovery: mean D 100 D_{100} from the same initial models. Δ \Delta : edited minus original; Pos.: positive paired folds.
+HuH7: LDL decrease, lipoprotein-rich conditions. Task Original Permuted Edited Δ \Delta Pos. LC3 0.1757 0.1894 0.2091 +0.0334 4/5 NBR1 0.1671 0.1735 0.1878 +0.0207 4/5 HuH7 0.0038 0.0073 0.0185 +0.0147 3/5 3.3. Coefficient and leaf interfaces Ridge and XGBoost reuse the two DepMap cells, five folds, and one seed
+(20 models), with 25 initial labels and 75 feedback genes. Here support MSE
+selects updates and query MSE is primary; ranking is secondary. Coefficient
+updates reduce MSE by 10.0% and 13.0%, and leaf updates by 2.4% and 2.6%
+(Table 3 ); all four mean BU ​ @ ​ 20 \mathrm{BU}@20 values also increase. Parameter
+edits also improve MSE over same-feedback affine calibration in three of four
+model–cell settings. Table 3. All coefficient/leaf settings: original-unit MSE and
+edited-minus-original Δ ​ BU ​ @ ​ 20 \Delta\mathrm{BU}@20 . Aff.: feedback-fitted affine calibration;
+Full: 100-label fit. H=HepG2, J=Jurkat. Model Orig. Edited Aff. Full Δ ​ BU ​ @ ​ 20 \Delta\mathrm{BU}@20 Ridge/H 0.3023 0.2720 0.2844 0.2705 +0.1086 Ridge/J 0.3239 0.2817 0.3110 0.2852 +0.0586 XGB/H 0.3218 0.3140 0.3188 0.2807 +0.0069 XGB/J 0.3346 0.3258 0.3183 0.2957 +0.0013 Persistent model updates In a deployed predictor with 3,604,535 network parameters, the HepG2 update changes only
+16 weights (0.00044%) and reproduces all 914 edited predictions exactly after
+native checkpoint reload. These are 16 of the 128 functional output weights;
+the network count includes the encoder and RNA head. Both remain unchanged,
+as do the separately stored source adapters. Reordered queries also reproduce
+all saved scores, and a single-gene inference check passes with the original
+input/output transforms.
+The update therefore persists in the predictor and serves subsequent queries
+through the original inference interface. 4. Conclusion WeightLoop converts experimental feedback into persistent model updates.
+A fixed, LLM-constructed editor selects parameter changes from observed
+measurements, and the updated predictor guides the next decision. Ranking,
+sequential acquisition, and multiple parameter interfaces demonstrate how
+WSP connects accumulating scientific evidence to future experimental choices
+through the original prediction interface. Ethical Considerations The study uses public functional-screen measurements, with no new human-subject
+experiments or personal data collection. Recommendations guide research assays;
+biological efficacy requires validation in the intended setting.
+Retaining the original
+model makes parameter updates reversible and supports traceable deployment. References Belliveau et al. (2023) N. M. Belliveau, M. J. Footer, E. Akdoǧan, A. P. van Loon, S. R. Collins, and J. A. Theriot Whole-genome screens reveal regulators of differentiation state and context-dependent migration in human neutrophils . Nature Communications 14 ( 1 ), pp. 5770 . External Links: Document Cited by: §3.1 . Broad DepMap (2024) Broad DepMap DepMap 24q4 public . Note: Figshare+, dataset, version 1 External Links: Document , Link Cited by: §3.1 . Bunne et al. (2024) C. Bunne, Y. Roohani, Y. Rosen, A. Gupta, X. Zhang, M. Roed, et al. How to build the virtual cell with artificial intelligence: priorities and opportunities . Cell 187 ( 25 ), pp. 7045–7063 . External Links: Document Cited by: §1 . Burges et al. (2005) C. Burges, T. Shaked, E. Renshaw, A. Lazier, M. Deeds, N. Hamilton, and G. Hullender Learning to rank using gradient descent . In Proceedings of the 22nd International Conference on Machine Learning , pp. 89–96 . External Links: Document Cited by: §2.2 . Chen and Guestrin (2016) T. Chen and C. Guestrin XGBoost: a scalable tree boosting system . In Proceedings of the 22nd ACM SIGKDD International Conference on Knowledge Discovery and Data Mining , pp. 785–794 . External Links: Document Cited by: §2.3 . Cui et al. (2024) H. Cui, C. Wang, H. Maan, K. Pang, F. Luo, N. Duan, and B. Wang scGPT: toward building a foundation model for single-cell multi-omics using generative AI . Nature Methods 21 , pp. 1470–1480 . External Links: Document Cited by: §1 , §2.2 . De Cao et al. (2021) N. De Cao, W. Aziz, and I. Titov Editing factual knowledge in language models . In Proceedings of the 2021 Conference on Empirical Methods in Natural Language Processing , pp. 6491–6506 . External Links: Document Cited by: §1 . Dempster et al. (2021) J. M. Dempster, I. Boyle, F. Vazquez, D. E. Root, J. S. Boehm, W. C. Hahn, A. Tsherniak, and J. M. McFarland Chronos: a cell population dynamics model of CRISPR experiments that improves inference of gene fitness effects . Genome Biology 22 ( 1 ), pp. 343 . External Links: Document Cited by: §3.1 . Emmer et al. (2021) B. T. Emmer, E. J. Sherman, P. J. Lascuna, S. E. Graham, C. J. Willer, and D. Ginsburg Genome-scale CRISPR screening for modifiers of cellular LDL uptake . PLOS Genetics 17 ( 1 ), pp. e1009285 . External Links: Document Cited by: §3.2 . Hoerl and Kennard (1970) A. E. Hoerl and R. W. Kennard Ridge regression: biased estimation for nonorthogonal problems . Technometrics 12 ( 1 ), pp. 55–67 . External Links: Document Cited by: §2.3 . King et al. (2009) R. D. King, J. Rowland, S. G. Oliver, M. Young, W. Aubrey, E. Byrne, M. Liakata, M. Markham, P. Pir, L. N. Soldatova, A. Sparkes, K. E. Whelan, and A. Clare The automation of science . Science 324 ( 5923 ), pp. 85–89 . External Links: Document Cited by: §1 . Meng et al. (2022) K. Meng, D. Bau, A. Andonian, and Y. Belinkov Locating and editing factual associations in GPT . In Advances in Neural Information Processing Systems , Vol. 35 . External Links: Link Cited by: §1 . Meng et al. (2023) K. Meng, A. S. Sharma, A. Andonian, Y. Belinkov, and D. Bau Mass-editing memory in a transformer . In International Conference on Learning Representations , External Links: Link Cited by: §1 . Mitchell et al. (2022) E. Mitchell, C. Lin, A. Bosselut, C. Finn, and C. D. Manning Fast model editing at scale . In International Conference on Learning Representations , External Links: Link Cited by: §1 . OpenAI (2026) OpenAI GPT-6 Astra . Note: OpenAI API model documentationAccessed: 2026-11-03 External Links: Link Cited by: §1 , §2.1 . Roohani et al. (2023) Y. Roohani, K. Huang, and J. Leskovec Predicting transcriptional outcomes of novel multigene perturbations with GEARS . Nature Biotechnology . Note: Published online 17 August 2023 External Links: Document Cited by: §1 . Roohani et al. (2025) Y. Roohani, A. Lee, Q. Huang, J. Vora, Z. Steinhart, K. Huang, A. Marson, P. Liang, and J. Leskovec BioDiscoveryAgent: an AI agent for designing genetic perturbation experiments . In International Conference on Learning Representations , External Links: Link Cited by: §1 . Settles (2009) B. Settles Active learning literature survey . Computer Sciences Technical Report Technical Report 1648 , University of Wisconsin–Madison . External Links: Link Cited by: §1 . Shoemaker et al. (2019) C. J. Shoemaker, T. Q. Huang, N. R. Weir, N. J. Polyakov, S. W. Schultz, and V. Denic CRISPR screening using an expanded toolkit of autophagy reporters identifies TMEM41B as a novel autophagy factor . PLOS Biology 17 ( 4 ), pp. e2007044 . External Links: Document Cited by: §3.2 . Sinitsin et al. (2020) A. Sinitsin, V. Plokhotnyuk, D. Pyrkin, S. Popov, and A. Babenko Editable neural networks . External Links: 2004.00345 , Document , Link Cited by: §1 . Takehi et al. (2026) R. Takehi, J. Teoh, A. Zhang, and O. Khattab Sparks of Weight-Space Programming: LLMs can natively read & write neural network weights . Note: https://rikiyat.github.io/blog/weight-space-programming/ Blog post Cited by: §1 . The Gene Ontology Consortium (2023) The Gene Ontology Consortium The Gene Ontology knowledgebase in 2023 . Genetics 224 ( 1 ), pp. iyad031 . External Links: Document Cited by: §2.2 . Zelikman et al. (2024) E. Zelikman, E. Lorch, L. Mackey, and A. T. Kalai Self-taught optimizer (STOP): recursively self-improving code generation . In Conference on Language Modeling , External Links: Link Cited by: §1 . Experimental support, please view the build logs for errors. Generated by L A T E xml . Instructions for reporting errors We are continuing to improve HTML versions of papers, and your feedback helps enhance accessibility and mobile
+      support. To report errors in the HTML that will help us improve conversion and rendering, choose any of the
+      methods listed below: Click the "Report Issue" ( ) button, located in the page header. Tip: You can select the relevant text first, to include it in your report. Our team has already identified the following issues . We appreciate your time reviewing and reporting rendering errors we
+      may not have found yet. Your efforts will help us improve the HTML versions for all readers, because disability
+      should not be a barrier to accessing research. Thank you for your continued support in championing open access for
+      all. Have a free development cycle? Help support accessibility at arXiv! Our collaborators at LaTeXML maintain a list of packages that need conversion , and welcome developer contributions . We gratefully acknowledge support from our major funders , member institutions , ,
+        and all contributors. About · Help · Contact · Subscribe · Copyright · Privacy · Accessibility · Operational Status (opens in new tab)
