@@ -27,13 +27,22 @@ RSI papers appear every day, but every claim of improvement needs scrutiny. Foll
 
 <!-- AUTO:TODAY:START -->
 
-**[2026-11-02](https://adongwanai.github.io/follow-rsi/daily/2026-11-02.html)** · 3 papers, human reviewed.
+**Update status (not a published edition) · 2026-11-07**
 
-- [RoboArchitect](https://arxiv.org/abs/2610.42141) · 1.1 Search & evolution (frozen model) · Uses rollout feedback to revise control code around a frozen robotic policy, evaluating retained harnesses on held-out tasks in simulation.
-- [CEPO](https://arxiv.org/abs/2610.34722) · 3. Component-level evolution (skills, memory, context, interfaces) · Uses execution feedback to revise coordinator and executor prompts separately, selecting prompts on validation tasks for subsequent use.
-- [R²Orch](https://arxiv.org/abs/2610.22740) · 4. Model–harness co-evolution · Co-evolves Director weights and versioned skills using execution feedback during training; deployment uses no skills.
+All 12 enabled sources were attempted at 08:07–08:11 Asia/Shanghai. Today’s HF board was not ready (available through Nov 6); the complete Nov 5 and Nov 6 boards contained 39 and 31 papers. Reconciliation added 46 identities and four recommendation dates; three-round review supported two inclusions and 48 scope exclusions, retaining their original HF dates. Three arXiv queries succeeded with zero results; 13 GitHub repositories had zero releases in the source window. All five RSS feeds succeeded, returning 58 window entries. S2 citations yielded seven window entries from the first 100 raw records before 429 throttling; citation continuation and author tracking were not fully collected. This is a collection and review brief, not a claim of new papers or no updates for the whole day.
 
-[Read this edition →](https://adongwanai.github.io/follow-rsi/daily/2026-11-02.html)
+[View daily progress →](https://adongwanai.github.io/follow-rsi/daily/index.html#publication-status)
+
+**Latest published edition**
+
+**[2026-11-04](https://adongwanai.github.io/follow-rsi/daily/2026-11-04.html)** · 4 papers, reviewed and approved.
+
+- [EvoTeam](https://arxiv.org/abs/2610.39813) · 1.1 Search & evolution (frozen model) · Uses execution feedback to revise team rules and procedural skills, retaining updates for subsequent collaboration and tasks.
+- [Mage-VL-Cowork](https://arxiv.org/abs/2610.40747) · 1.1 Search & evolution (frozen model) · Evolves a frozen teacher’s harness using execution feedback, then reuses the selected version to generate student training trajectories.
+- [ParetoSaddler](https://arxiv.org/abs/2611.02079) · 1.2 Generalization, regularization, admission & cost · Uses quality and cost feedback to promote revised harnesses and retains candidates evaluated on development tasks for later optimization.
+- [Recursa](https://arxiv.org/abs/2611.04035) · 3. Component-level evolution (skills, memory, context, interfaces) · Revises instructions and procedural skills from failure feedback, validates changes for regressions, and merges them for subsequent tasks.
+
+[Read this edition →](https://adongwanai.github.io/follow-rsi/daily/2026-11-04.html)
 
 <!-- AUTO:TODAY:END -->
 
@@ -137,7 +146,7 @@ Icons: held-out · matched budget · cross-model · cost; ❔ means not yet revi
 
 <!-- AUTO:SOURCES:START -->
 
-Sources with recorded successful runs: arxiv-adjacent · arxiv-harness · arxiv-rsi · github-releases · hf-daily · rss-deepmind · rss-metr · rss-openai · rss-sakana · rss-weco · s2-citations。 Failed in the latest run: s2-authors。 [Source status](https://adongwanai.github.io/follow-rsi/feed/status.json).
+Sources with recorded successful runs: arxiv-adjacent · arxiv-harness · arxiv-rsi · github-releases · hf-daily · rss-deepmind · rss-metr · rss-openai · rss-sakana · rss-weco · s2-citations。 Failed in the latest run: s2-authors · s2-citations。 Daily list not ready: hf-daily。 [Source status](https://adongwanai.github.io/follow-rsi/feed/status.json).
 
 <!-- AUTO:SOURCES:END -->
 

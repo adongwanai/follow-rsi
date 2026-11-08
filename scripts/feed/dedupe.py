@@ -53,6 +53,9 @@ def merge_item(old, new):
     if old['title'] != new['title']:
         merged['aliases'] = sorted(set(merged['aliases']) | {old['title'], new['title']})
     merged['links'] = {**old.get('links', {}), **new.get('links', {})}
+    if old.get('discovery_referrers') or new.get('discovery_referrers'):
+        merged['discovery_referrers'] = {**new.get('discovery_referrers', {}),
+                                          **old.get('discovery_referrers', {})}
     merged['hf_upvotes'] = max(old.get('hf_upvotes', 0), new.get('hf_upvotes', 0))
     merged['in_repo'] = old.get('in_repo', False) or new.get('in_repo', False)
     merged['retracted'] = old.get('retracted', False) or new.get('retracted', False)

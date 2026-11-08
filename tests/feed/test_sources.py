@@ -190,10 +190,13 @@ def test_rss_recording_and_paper_link_hydration():
     records = fetch_rss.parse_feed((FIX / 'rss.xml').read_text(), 'rss-weco', NOW)
     assert records and all(item['kind'] in {'paper', 'post'} for item in records)
     body = '<rss version="2.0"><channel><title>Lab</title><item><title>Lab commentary</title><link>https://lab.example/post</link><description>Read https://arxiv.org/abs/2610.10001v2</description></item></channel></rss>'
-    item = fetch_rss.parse_feed(body, 'rss-lab', NOW)[0]
+    post, item = fetch_rss.parse_feed(body, 'rss-lab', NOW)
+    assert post['id'] == 'post:https://lab.example/post'
+    assert post['referenced_arxiv_ids'] == ['2610.10001']
     assert item['arxiv_id'] == '2610.10001'
     assert item['metadata_pending'] and item['abstract'] == ''
-    assert item['links']['post'] == 'https://lab.example/post'
+    assert 'post' not in item['links']
+    assert item['discovery_referrers']['https://lab.example/post']['relation'] == 'cited_by_post'
     with pytest.raises(ValueError):
         fetch_rss.parse_feed('<html>Not a feed</html>', 'bad')
 
@@ -500,3 +503,54 @@ def test_rss_transport_failure_is_not_an_empty_success(failure):
     with pytest.raises(type(failure)):
         fetch_rss.fetch(source, datetime(2026, 11, 2, tzinfo=timezone.utc), session)
     session.get.assert_called_once()
+
+
+def test_rss_article_keeps_identity_when_citing_multiple_papers():
+    body = """<rss version="2.0" xmlns:content="http://purl.org/rss/1.0/modules/content/">
+      <channel><title>Lab</title><item><title>Independent R&amp;D assessment</title>
+      <link>https://metr.org/blog/assessment/</link>
+      <pubDate>Thu, 05 Nov 2026 00:00:00 -0800</pubDate>
+      <description>Cites https://arxiv.org/abs/2609.36054 and https://arxiv.org/abs/2511.19492</description>
+      <content:encoded><![CDATA[Cites https://arxiv.org/abs/2609.36054 and https://arxiv.org/abs/2511.19492]]></content:encoded>
+      </item></channel></rss>"""
+    post, *papers = fetch_rss.parse_feed(body, 'rss-metr', NOW)
+    assert post['kind'] == 'post' and post['id'] == 'post:https://metr.org/blog/assessment/'
+    assert post['title'] == 'Independent R&D assessment'
+    assert post['published'] == '2026-11-05T08:00:00+00:00'
+    assert post['first_seen'] == NOW
+    assert post['abstract'].count('Cites') == 1
+    assert post['referenced_arxiv_ids'] == ['2609.36054', '2511.19492']
+    assert {paper['id'] for paper in papers} == {'arxiv:2609.36054', 'arxiv:2511.19492'}
+    for paper in papers:
+        assert paper['metadata_pending'] and not paper['published'] and not paper['abstract']
+        assert paper['title'] != post['title']
+        assert 'post' not in paper['links']
+        referrer = paper['discovery_referrers'][post['links']['url']]
+        assert referrer['published'] == post['published']
+        assert referrer['relation'] == 'cited_by_post'
+
+
+def test_rss_arxiv_entry_identity_does_not_include_body_citations():
+    body = """<rss version="2.0"><channel><title>arXiv</title><item>
+      <title>Actual paper</title><link>https://arxiv.org/abs/2611.10001</link>
+      <description>Cites https://arxiv.org/abs/2501.10002</description>
+      <pubDate>Thu, 05 Nov 2026 00:00:00 GMT</pubDate></item></channel></rss>"""
+    paper, = fetch_rss.parse_feed(body, 'rss-arxiv', NOW)
+    assert paper['id'] == 'arxiv:2611.10001'
+    assert paper['abstract'] == 'Cites https://arxiv.org/abs/2501.10002'
+    assert paper['metadata_pending'] is False
+
+
+def test_rss_redacted_url_warns_without_losing_post_or_valid_code_link(caplog):
+    # These two redacted forms occur in METR's 2026-05-19 RSS article.
+    body = """<rss version="2.0"><channel><title>METR</title><item>
+      <title>Frontier Risk Report</title><link>https://metr.org/blog/risk-report/</link>
+      <description>https://[redacted] and https://api.[redacted]
+      Source https://github.com/example/harness</description></item></channel></rss>"""
+    with caplog.at_level('WARNING', logger='scripts.feed.normalize'):
+        post, = fetch_rss.parse_feed(body, 'rss-metr', NOW)
+    assert post['id'] == 'post:https://metr.org/blog/risk-report/'
+    assert 'https://[redacted]' in post['abstract']
+    assert post['code_links'] == ['https://github.com/example/harness']
+    assert len(caplog.records) == 2
+    assert all('Ignoring malformed URL candidate' in record.message for record in caplog.records)

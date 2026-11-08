@@ -1,4 +1,4 @@
-"""RSS/Atom discovery. Posts with arXiv links contribute source hits to papers."""
+"""RSS/Atom discovery with separate post identities and cited-paper provenance."""
 from datetime import datetime, timedelta, timezone
 from html import unescape
 import re
@@ -26,24 +26,31 @@ def parse_feed(text, source_id, now=None, feed_url=None):
         parsed_link = urlsplit(link)
         if parsed_link.scheme not in ('http', 'https') or not parsed_link.hostname:
             raise ValueError('RSS entry requires an absolute HTTP(S) URL')
-        content = ' '.join([entry.get('summary', ''), *[c.get('value', '') for c in entry.get('content', [])]])
+        content = ' '.join(c.get('value', '') for c in entry.get('content', [])) or entry.get('summary', '')
         parsed = entry.get('published_parsed') or entry.get('updated_parsed')
         published = datetime.fromtimestamp(calendar.timegm(parsed), timezone.utc).isoformat() if parsed else ''
-        ids = arxiv_ids(link + ' ' + content)
-        if ids:
-            # A blog's prose is not a paper abstract. Hydration by the metadata
-            # stage is required before automatic judgement.
-            for aid in ids:
-                record = {'arxiv_id': aid, 'title': entry['title'], 'abstract': '',
-                          'links': {'arxiv': f'https://arxiv.org/abs/{aid}', 'post': link},
-                          'source_hits': [source_id], 'metadata_pending': True, 'source_published': published}
-                if 'arxiv.org' in link:
-                    record.update(abstract=plain_text(content), published=published, metadata_pending=False)
-                records.append(normalize_record(record, now=now))
-        else:
-            records.append(normalize_record({'kind': 'post', 'title': entry['title'],
-                                            'abstract': plain_text(content), 'published': published,
-                                            'links': {'url': link}, 'source_hits': [source_id]}, now=now))
+        direct_ids = (arxiv_ids(parsed_link.path)
+                      if parsed_link.hostname in {'arxiv.org', 'www.arxiv.org', 'export.arxiv.org'} else [])
+        if direct_ids:
+            # The entry itself is a paper; citations in its body are not its identity.
+            aid = direct_ids[0]
+            records.append(normalize_record({'arxiv_id': aid, 'title': entry['title'],
+                'abstract': plain_text(content), 'published': published, 'metadata_pending': False,
+                'links': {'arxiv': f'https://arxiv.org/abs/{aid}'}, 'source_hits': [source_id]}, now=now))
+            continue
+        ids = arxiv_ids(content)
+        post = normalize_record({'kind': 'post', 'title': entry['title'],
+            'abstract': plain_text(content), 'published': published,
+            'links': {'url': link}, 'source_hits': [source_id], 'referenced_arxiv_ids': ids}, now=now)
+        records.append(post)
+        for aid in ids:
+            # References are discovery evidence, not a claim that this post
+            # describes the linked paper. Official metadata supplies its title.
+            records.append(normalize_record({'arxiv_id': aid, 'title': f'arXiv {aid}', 'abstract': '',
+                'links': {'arxiv': f'https://arxiv.org/abs/{aid}'}, 'source_hits': [source_id],
+                'metadata_pending': True, 'source_published': published,
+                'discovery_referrers': {link: {'relation': 'cited_by_post', 'source_id': source_id,
+                    'title': entry['title'], 'published': published, 'observed_at': post['first_seen']}}}, now=now))
     return records
 
 

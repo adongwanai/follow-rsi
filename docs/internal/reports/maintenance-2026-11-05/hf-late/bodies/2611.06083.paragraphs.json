@@ -1,0 +1,1076 @@
+[
+  {
+    "index": 0,
+    "id": "p1",
+    "locator": "#p1",
+    "sections": [],
+    "text": "1]University of Bristol 2]Ant Group 3]Tsinghua University \\contribution [†]Corresponding author",
+    "sha256": "de255e2b5904e5eec466b6e5ce41f698bc1a01848d792e85bac4c7aa42e977c7"
+  },
+  {
+    "index": 1,
+    "id": "p2",
+    "locator": "#p2",
+    "sections": [],
+    "text": "Project: https://wpr001.github.io/sleuthVLM/ Code: https://github.com/WPR001/OpenOmniHarness(coming soon)",
+    "sha256": "705d9bb3655c7c6c17bf01ccbf6e1858f37d6495f7aeb1ba99eb053bc9d7d7fa"
+  },
+  {
+    "index": 2,
+    "id": "p2.pic1.p1",
+    "locator": "#p2.pic1.p1",
+    "sections": [],
+    "text": "Project: https://wpr001.github.io/sleuthVLM/ Code: https://github.com/WPR001/OpenOmniHarness(coming soon)",
+    "sha256": "705d9bb3655c7c6c17bf01ccbf6e1858f37d6495f7aeb1ba99eb053bc9d7d7fa"
+  },
+  {
+    "index": 3,
+    "id": "p2.pic1.p1.p1",
+    "locator": "#p2.pic1.p1.p1",
+    "sections": [],
+    "text": "Project: https://wpr001.github.io/sleuthVLM/ Code: https://github.com/WPR001/OpenOmniHarness(coming soon)",
+    "sha256": "705d9bb3655c7c6c17bf01ccbf6e1858f37d6495f7aeb1ba99eb053bc9d7d7fa"
+  },
+  {
+    "index": 4,
+    "id": "S1.p1",
+    "locator": "#S1.p1",
+    "sections": [
+      {
+        "id": "S1",
+        "heading": "1 Introduction"
+      }
+    ],
+    "text": "Many questions about videos require understanding both visual and audio content. Omni models address this task by combining a vision-language model (VLM) with an audio encoder and training on paired omni data, enabling them to answer questions from sampled frames and the audio track in one turn. Closed-source models such as Gemini 3.8 Flash, Qwen3.8-Omni-Flash ( Team, 2026a ) and many open-source models follow this recipe, and the field improves them mainly by making model size bigger and using more data ( Tang et al., 2025 ; Zhang et al., 2024 ; Wang et al., 2025 ; Wu et al., 2025 ; Cui et al., 2026 ) .",
+    "sha256": "9d97936155f4ea7eda55cad7ff6c18c71c47f2a29f59e95833b682d5c0d2091a"
+  },
+  {
+    "index": 5,
+    "id": "S1.p2",
+    "locator": "#S1.p2",
+    "sections": [
+      {
+        "id": "S1",
+        "heading": "1 Introduction"
+      }
+    ],
+    "text": "We think this recipe gets two things wrong. First, it assumes that the model must hear the audio directly ( Xu et al., 2025b ; Cui et al., 2026 ; Tang et al., 2025 ) . In practice, most of the audio that questions depend on is speech (75.2% of the questions of LVOmniBench ( Tao et al., 2026 ) ), and speech is easily turned into text with time stamps. Teaching a model to hear makes every new skill depend on costly joint training ( Chowdhury et al., 2024 ; Jiang et al., 2025 ) , and it weakens the reasoning and tool use that strong VLMs already have. Second, it assumes that one turn is enough. A fixed sampling rate covers the whole video thinly, while the answer often sits in a few seconds ( Bai et al., 2023 ; Liu et al., 2023 ; Wu et al., 2026 ) ; in a long video those seconds are easily missed, but this kind of model cannot go back ( Wu et al., 2024 ; Chen et al., 2025 ; Fu et al., 2025 ; Yang et al., 2025 ) .",
+    "sha256": "36060702702e76778fc145bb861d9d7ab35ddeca48cf5a2fb3faadabed6ec053"
+  },
+  {
+    "index": 6,
+    "id": "S1.p3",
+    "locator": "#S1.p3",
+    "sections": [
+      {
+        "id": "S1",
+        "heading": "1 Introduction"
+      }
+    ],
+    "text": "Many works in video understanding have recognized this problem ( Zhang et al., 2026 ; Fan et al., 2024 ; Ren et al., 2026 ; Xing et al., 2026 ; Tao et al., 2025 ) . The Qwen team runs Qwen3.8-Omni-Flash and Gemini 3.8 Flash as agents in the Qwen Code harness and gains up to 10.3 points on long videos, and Video-Index ( Song et al., 2026 ) finds that agent tools add about 20 points over a fixed input. We agree: a model should sleuth a video for the evidence it needs rather than take in everything at once. The community should therefore rethink how omni models are built: omni models such as Qwen3-Omni, MiniCPM-o and video-SALMONN have the most to gain by moving from one turn to agentic understanding.",
+    "sha256": "b0ccfd6c8e0527a8aecbfd2276e46e85061dfcc41f8982ea62ab4e480a2ef84b"
+  },
+  {
+    "index": 7,
+    "id": "S1.p4",
+    "locator": "#S1.p4",
+    "sections": [
+      {
+        "id": "S1",
+        "heading": "1 Introduction"
+      }
+    ],
+    "text": "Following this question, we propose SleuthVLM, which answers audio-visual questions with a VLM that never hears the audio directly ( Figure 2 ). The audio is transcribed once with word-level timestamps, and the VLM uses a small set of tools to search the video and transcript. We specify only its accessible resources, a brief agentic guide, and a budget; the VLM decides where to look, how closely to inspect, and when to stop, using the transcript as an index to locate relevant moments in long videos.",
+    "sha256": "a5f720fce4b1a43f6eded8604158246502178e07350d2a8687ca339f30f276e3"
+  },
+  {
+    "index": 8,
+    "id": "S1.p5",
+    "locator": "#S1.p5",
+    "sections": [
+      {
+        "id": "S1",
+        "heading": "1 Introduction"
+      }
+    ],
+    "text": "SleuthVLM establishes a new state of the art ( Figure 1 ), achieving an average accuracy of 75.0% across four omni benchmarks, 2.6 points above the strongest closed-source omni model, Gemini 3.8 Flash. It also leads every metric on the Video-MME-v2 leaderboard, reaching 77.8% accuracy, 6.8 points above Gemini 3.8 Flash. With Qwen3.8-27B, SleuthVLM outperforms every open-source omni model by 13.8 points. Our experiments reveal three findings: • Searching outperforms passive observation. Agentic inference improves accuracy by up to 10.3 points, and our simple harness outperforms agents equipped with specialized tools. • Agentic ability matters more than direct audio access. Even with access to audio, omni models in our harness perform below SleuthVLM with Opus 5.5, which relies on transcripts; omni models also need strong agentic capabilities. • Small agentic models are highly competitive. An open 27B VLM running on a single GPU matches the performance of closed-source omni models. Taken together, SleuthVLM provides a simple yet effective starting point for agentic omni video understanding.",
+    "sha256": "f34db2947b2f9426c758402d9138f357af96b8d752196e194cb1ecfb09a7113e"
+  },
+  {
+    "index": 9,
+    "id": "S1.I1.i1.p1",
+    "locator": "#S1.I1.i1.p1",
+    "sections": [
+      {
+        "id": "S1",
+        "heading": "1 Introduction"
+      }
+    ],
+    "text": "Searching outperforms passive observation. Agentic inference improves accuracy by up to 10.3 points, and our simple harness outperforms agents equipped with specialized tools.",
+    "sha256": "8a5462158d2308d8f5c28d71790e0e44211fd877fc173cae08727ccbb2300f75"
+  },
+  {
+    "index": 10,
+    "id": "S1.I1.i2.p1",
+    "locator": "#S1.I1.i2.p1",
+    "sections": [
+      {
+        "id": "S1",
+        "heading": "1 Introduction"
+      }
+    ],
+    "text": "Agentic ability matters more than direct audio access. Even with access to audio, omni models in our harness perform below SleuthVLM with Opus 5.5, which relies on transcripts; omni models also need strong agentic capabilities.",
+    "sha256": "af1b4f2d05580284103a387eb68e2cb4bf1d47885fecb810472bb55b5fdd6218"
+  },
+  {
+    "index": 11,
+    "id": "S1.I1.i3.p1",
+    "locator": "#S1.I1.i3.p1",
+    "sections": [
+      {
+        "id": "S1",
+        "heading": "1 Introduction"
+      }
+    ],
+    "text": "Small agentic models are highly competitive. An open 27B VLM running on a single GPU matches the performance of closed-source omni models.",
+    "sha256": "4a146ce5c328048ea2c6fbd8cf930ca8c8aadb8c5ff5a9ab9420f6ef231643a4"
+  },
+  {
+    "index": 12,
+    "id": "S2.p1",
+    "locator": "#S2.p1",
+    "sections": [
+      {
+        "id": "S2",
+        "heading": "2 Related Work"
+      }
+    ],
+    "text": "Omnimodal Large Language Models. Omnimodal large language models aim to understand video, audio, and text within a single model ( Xu et al., 2025b ; Cui et al., 2026 ; Tang et al., 2025 ; Xie and Wu, 2024 ) . They typically extend a vision-language model (VLM) with an audio encoder and train on large amounts of paired audio-visual data, enabling them to answer from sampled frames and audio in a single pass. Open-source models following this approach include Qwen2.5-Omni ( Xu et al., 2025a ) , Qwen3-Omni ( Xu et al., 2025b ) , MiniCPM-o ( Cui et al., 2026 ) , the video-SALMONN series ( Tang et al., 2025 ) , LongCat-Flash-Omni ( Team et al., 2025 ) , and Nemotron-Nano-Omni ( Deshmukh et al., 2026 ) . Closed-source models such as Gemini, Qwen3.8-Omni-Flash ( Team, 2026a ) , and Qwen3.5-Omni-Plus ( Team, 2026b ) lead audio-visual benchmarks. Progress in this direction relies heavily on scaling data and models, while acquiring new capabilities requires costly multimodal training. Such training also costs part of the reasoning and tool-use abilities of strong VLMs, and a single pass over fixed frame samples cannot revisit moments relevant to a question. SleuthVLM instead uses a VLM that accesses audio information through timestamped text and tools.",
+    "sha256": "37a17332aefdcd4b883ecb183bfc153ff90504a6299c7f5a53d9221df8c8d7aa"
+  },
+  {
+    "index": 13,
+    "id": "S2.p2",
+    "locator": "#S2.p2",
+    "sections": [
+      {
+        "id": "S2",
+        "heading": "2 Related Work"
+      }
+    ],
+    "text": "Video Understanding Agent. Agents offer a promising approach to understanding long and complex videos ( Ren et al., 2026 ; Zhang et al., 2026 ; Fan et al., 2024 ; Xing et al., 2026 ; Tao et al., 2025 ) . Early methods reason over clip captions or decompose questions into steps handled by specialized tools, while recent agents actively decide where to look. Audio-visual agents follow a similar progression: OmniAgent ( Tao et al., 2025 ) equips o3 with tools backed by separate models; OmniReasoner ( Chen et al., 2026b ) and OmniAgent-7B ( Xing et al., 2026 ) train omni models to use tools; and the Qwen3.8-Omni report evaluates agents in the Qwen Code harness. TFO ( Deria et al., 2026 ) provides a frozen VLM with frames and a speech transcript but answers in a single pass. In contrast, SleuthVLM equips a single VLM with general-purpose tools over video frames and a timestamped transcript, allowing it to decide where to look, how closely to inspect, and when to stop. Concurrent methods also trail SleuthVLM: Omni-Decision ( Ma et al., 2026 ) combines a GPT-5.2 planner with Gemini-3.1-Pro perception, while sandboxed coding agents ( Chen et al., 2026a ) process videos using scripts and transcripts; both underperform Gemini-3.1-Pro in a single pass. SleuthVLM exceeds Omni-Decision by 11.8 points on WorldSense and the best coding agent by 15.5 points on LVOmniBench ( Section 7 ).",
+    "sha256": "875f8b692721289199331561d3e6218cd2bd9ed93f3fa54e7273f1e4321bf810"
+  },
+  {
+    "index": 14,
+    "id": "S3.p1",
+    "locator": "#S3.p1",
+    "sections": [
+      {
+        "id": "S3",
+        "heading": "3 Method"
+      }
+    ],
+    "text": "SleuthVLM answers audio-visual questions using a vision-language model (VLM) without direct access to audio. Instead, the audio is transcribed once per video with timestamps, and the VLM uses tools in a sandbox to gather evidence until it can answer ( Figure 2 ).",
+    "sha256": "071365a72ebc4e5ac31de1476a2b874928fba2e74e03601e325d7428615f4678"
+  },
+  {
+    "index": 15,
+    "id": "S3.SS1.p1",
+    "locator": "#S3.SS1.p1",
+    "sections": [
+      {
+        "id": "S3",
+        "heading": "3 Method"
+      },
+      {
+        "id": "S3.SS1",
+        "heading": "3.1 Problem formulation"
+      }
+    ],
+    "text": "Each example consists of a video of duration D D , with frames V V and an audio track A A , a question q q , and a set of answer options 𝒪 \\mathcal{O} . An omni model processes both streams in a single turn: y ^ = arg ​ max o ∈ 𝒪 ⁡ p ​ ( o ∣ V , A , q ) . \\hat{y}=\\argmax_{o\\in\\mathcal{O}}\\;p(o\\mid V,A,q). (1) SleuthVLM instead transcribes the audio once per video, independently of the question, to obtain T = ASR ⁡ ( A ) T=\\mathrm{ASR}(A) . It then uses an agent built on a VLM π \\pi to read T T , inspect frames from V V , and decide what evidence to gather next: y ^ = Agent π ​ ( V , T , q , 𝒪 ) . \\hat{y}=\\mathrm{Agent}_{\\pi}(V,T,q,\\mathcal{O}). (2) The VLM receives no direct audio input and selects the evidence for each question autonomously.",
+    "sha256": "f0ddf5fd5bd98729c5c9669022387d0484e313d91eb6b102fc9f3e12c15bf1a0"
+  },
+  {
+    "index": 16,
+    "id": "S3.SS2.p1",
+    "locator": "#S3.SS2.p1",
+    "sections": [
+      {
+        "id": "S3",
+        "heading": "3 Method"
+      },
+      {
+        "id": "S3.SS2",
+        "heading": "3.2 Audio as timed text"
+      }
+    ],
+    "text": "An ASR model transcribes the speech, and a forced aligner gives every word w j w_{j} its start time s j s_{j} and end time e j e_{j} ( Figure 2 a): W = { ( w j , s j , e j ) } j = 1 M . W=\\{(w_{j},s_{j},e_{j})\\}_{j=1}^{M}. (3) Stretches of at least γ \\gamma seconds without a word are kept as gaps, G = { ( e j , s j + 1 ) : s j + 1 − e j ≥ γ } , G=\\{(e_{j},s_{j+1}):s_{j+1}-e_{j}\\geq\\gamma\\}, (4) with e 0 = 0 e_{0}=0 and s M + 1 = D s_{M+1}=D . The sandbox holds the transcript as two files: asr.txt lists the sentences and the gaps in time order, one line [ s s - e e ] sentence or [no words s s - e e ] each, and asr_words.tsv lists the words of W W with their times. The transcript carries what was said and when, lyrics included, and its gaps mark the stretches where no one speaks, which often hold music or other sounds.",
+    "sha256": "947733bac319122e30e87e8da7bd9b0e8cabbbaf85aca41a4f90916652c19611"
+  },
+  {
+    "index": 17,
+    "id": "S3.SS3.p1",
+    "locator": "#S3.SS3.p1",
+    "sections": [
+      {
+        "id": "S3",
+        "heading": "3 Method"
+      },
+      {
+        "id": "S3.SS3",
+        "heading": "3.3 Agentic harness"
+      }
+    ],
+    "text": "The harness consists of a scope definition, which fixes what the model can access and do, and an operating guide, which suggests how to gather evidence; both are part of the system prompt and are the same on every benchmark.",
+    "sha256": "50f971d555e8e0a710fb8456cc064341b529e1f31b825b3d446bbb1c4577130e"
+  },
+  {
+    "index": 18,
+    "id": "S3.SS3.SSS0.Px1.p1",
+    "locator": "#S3.SS3.SSS0.Px1.p1",
+    "sections": [
+      {
+        "id": "S3",
+        "heading": "3 Method"
+      },
+      {
+        "id": "S3.SS3",
+        "heading": "3.3 Agentic harness"
+      },
+      {
+        "id": "S3.SS3.SSS0.Px1",
+        "heading": "Scope definition."
+      }
+    ],
+    "text": "The files are the muted video, the question with its options, asr.txt and asr_words.tsv . The tools are bash , view (show images), watch (show a short clip) and answer . Inside bash , vsheet renders a contact sheet of time-stamped frames over [ t 0 , t 1 ] [t_{0},t_{1}] , vframes extracts frames at a chosen rate, optionally at native resolution, vcrop crops a native-resolution frame, asr searches the transcript or lists word times and gaps, and standard tools such as grep and python3 are available. The rules keep the model inside its sandbox (relative paths, no network, no package or process commands, no audio extraction), and the budget ℬ = ( N turn , N img , N clip , T max ) \\mathcal{B}=(N_{\\text{turn}},N_{\\text{img}},N_{\\text{clip}},T_{\\max}) limits the turns, viewed images, clips and time per question.",
+    "sha256": "828b70811877d134e3c3e9bcd6a7a90b28923f2def1c058a6be78c7730b746ba"
+  },
+  {
+    "index": 19,
+    "id": "S3.SS3.SSS0.Px2.p1",
+    "locator": "#S3.SS3.SSS0.Px2.p1",
+    "sections": [
+      {
+        "id": "S3",
+        "heading": "3 Method"
+      },
+      {
+        "id": "S3.SS3",
+        "heading": "3.3 Agentic harness"
+      },
+      {
+        "id": "S3.SS3.SSS0.Px2",
+        "heading": "Operating guide."
+      }
+    ],
+    "text": "The guide suggests a sequence that usually works: read the question and the transcript, get an overview from one contact sheet, localize a window from transcript hits, sheet cells and gaps, zoom in, check the detail asked about, and answer once the evidence decides the question. The model decides which steps a question needs.",
+    "sha256": "ff121fceab4fe490daba06c9069e04ff81445fdd896aca74df18861549953fbe"
+  },
+  {
+    "index": 20,
+    "id": "S3.SS3.SSS0.Px3.p1",
+    "locator": "#S3.SS3.SSS0.Px3.p1",
+    "sections": [
+      {
+        "id": "S3",
+        "heading": "3 Method"
+      },
+      {
+        "id": "S3.SS3",
+        "heading": "3.3 Agentic harness"
+      },
+      {
+        "id": "S3.SS3.SSS0.Px3",
+        "heading": "Interaction."
+      }
+    ],
+    "text": "At turn t t , the VLM reads its history h t h_{t} , which starts from the system prompt and the question, writes its reasoning and tool calls a t a_{t} , and receives their results x t x_{t} (text, images or a clip): a t ∼ π ( ⋅ ∣ h t ) , h t + 1 = h t ⊕ ( a t , x t ) . a_{t}\\sim\\pi(\\cdot\\mid h_{t}),\\qquad h_{t+1}=h_{t}\\oplus(a_{t},x_{t}). (5) The trajectory ends when the model calls answer ​ ( o ) \\texttt{answer}(o) , giving y ^ = o \\hat{y}=o ; when the budget is used up, the model answers with its most likely option. Any VLM can serve as π \\pi without other changes ( Table 3 ).",
+    "sha256": "da502d33c10d230cd937e8e85acd93688d4a8047cc90fb1affa8e12c09253ea7"
+  },
+  {
+    "index": 21,
+    "id": "S3.SS4.p1",
+    "locator": "#S3.SS4.p1",
+    "sections": [
+      {
+        "id": "S3",
+        "heading": "3 Method"
+      },
+      {
+        "id": "S3.SS4",
+        "heading": "3.4 The transcript as a temporal index"
+      }
+    ],
+    "text": "The time stamps of the transcript tell the model where to look. Looking through a video every Δ \\Delta seconds costs D / Δ D/\\Delta frames, 2100 for a 35-minute video at one frame per second. Instead, the model searches the transcript for the words of the question, and a hit spoken over [ s , e ] [s,e] gives the window Ω = [ s − δ , e + δ ] \\Omega=[\\,s-\\delta,\\;e+\\delta\\,] (6) with a margin δ \\delta of its choosing; for a sound that is not speech, the gaps and scene changes give the candidates. It then zooms in from coarse to fine, on windows Ω 1 ⊃ Ω 2 ⊃ ⋯ \\Omega_{1}\\supset\\Omega_{2}\\supset\\cdots at intervals Δ 1 > Δ 2 > ⋯ \\Delta_{1}>\\Delta_{2}>\\cdots , and views n = ∑ k | Ω k | / Δ k ≪ D / Δ K n=\\sum_{k}|\\Omega_{k}|/\\Delta_{k}\\;\\ll\\;D/\\Delta_{K} (7) frames in total. The word times also tell whether a phrase and a visual event happen together: a phrase spoken over [ s , e ] [s,e] and an event seen over [ α , β ] [\\alpha,\\beta] coincide when [ s , e ] ∩ [ α , β ] ≠ ∅ , [\\,s,\\,e\\,]\\cap[\\,\\alpha,\\,\\beta\\,]\\neq\\varnothing, (8) which is how the trajectory in Figure 2 b rules out option D at turn 8. The model takes these steps on its own; the harness prescribes no window or interval.",
+    "sha256": "548163f4b489873fe7694d4cf2e3040b6b039fa6d99d8b57b39a02831e428ae3"
+  },
+  {
+    "index": 22,
+    "id": "S3.SS5.p1",
+    "locator": "#S3.SS5.p1",
+    "sections": [
+      {
+        "id": "S3",
+        "heading": "3 Method"
+      },
+      {
+        "id": "S3.SS5",
+        "heading": "3.5 Listening on demand (omni models only)"
+      }
+    ],
+    "text": "When the reasoning model is an omni model, the harness adds one tool, listen_audio ​ ( t 0 , t 1 ) \\texttt{listen\\_audio}(t_{0},t_{1}) , which returns the audio A ⁡ [ t 0 , t 1 ] A[t_{0},t_{1}] as input, with t 1 − t 0 ≤ L a t_{1}-t_{0}\\leq L_{\\text{a}} and at most N listen N_{\\text{listen}} calls per question. A VLM, such as the Qwen3.8-27B model of our main results, does not get this tool.",
+    "sha256": "a9e2e5772fd644d7a801827bec7c2f29b08851b196e60b90796ca334230e21dc"
+  },
+  {
+    "index": 23,
+    "id": "S4.SS1.SSS0.Px1.p1",
+    "locator": "#S4.SS1.SSS0.Px1.p1",
+    "sections": [
+      {
+        "id": "S4",
+        "heading": "4 Experiments"
+      },
+      {
+        "id": "S4.SS1",
+        "heading": "4.1 Setup"
+      },
+      {
+        "id": "S4.SS1.SSS0.Px1",
+        "heading": "Benchmarks."
+      }
+    ],
+    "text": "We evaluate on four omni video question-answering benchmarks, spanning videos from 30 seconds to 90 minutes: Daily-Omni (1,197 questions on 684 clips of 30 or 60 s), WorldSense (3,172 questions on 1,662 videos, averaging 2.4 min), OmniVideoBench (1,000 questions on 628 videos, averaging 6.4 min), and LVOmniBench (1,014 questions on 275 videos of 10–90 min, averaging 34.6 min). We also evaluate on Video-MME-v2 (3,200 questions on 800 videos, averaging 10.4 min, with questions grouped in sets of four), which reports average accuracy and a grouped nonlinear score across three difficulty levels. All questions are multiple choice.",
+    "sha256": "f5b3092a0bcef80708cb5f3acdf51b6fbb74bc36688852d09e6a5d5a4b943085"
+  },
+  {
+    "index": 24,
+    "id": "S4.SS1.SSS0.Px2.p1",
+    "locator": "#S4.SS1.SSS0.Px2.p1",
+    "sections": [
+      {
+        "id": "S4",
+        "heading": "4 Experiments"
+      },
+      {
+        "id": "S4.SS1",
+        "heading": "4.1 Setup"
+      },
+      {
+        "id": "S4.SS1.SSS0.Px2",
+        "heading": "Compared methods."
+      }
+    ],
+    "text": "Table 1 compares SleuthVLM with closed-source and open-source omni models, as well as omni and VL + ASR agents. The agent baselines include OmniAgent, OmniReasoner, Qwen Code agents, and TFO. We use scores reported in the corresponding papers or technical reports; all closed-source results are from the Qwen3.8-Omni technical report.",
+    "sha256": "36691ebccb6da70f0aac91a44a39b457173427e2ea735d9d0ff359adc68ef498"
+  },
+  {
+    "index": 25,
+    "id": "S4.SS1.SSS0.Px3.p1",
+    "locator": "#S4.SS1.SSS0.Px3.p1",
+    "sections": [
+      {
+        "id": "S4",
+        "heading": "4 Experiments"
+      },
+      {
+        "id": "S4.SS1",
+        "heading": "4.1 Setup"
+      },
+      {
+        "id": "S4.SS1.SSS0.Px3",
+        "heading": "Implementation details."
+      }
+    ],
+    "text": "The reasoning model is Qwen3.8-27B, served with vLLM on H200/A100 GPUs; SleuthVLM (Opus 5.5) uses Claude Opus 5.5 instead and changes nothing else. All reasoning models run with high reasoning effort; the ablations in Section 4.3 and the results marked medium use Qwen3.8-27B with medium effort. The transcript is produced by Qwen3-ASR-1.7B and Qwen3-ForcedAligner-0.6B, with gaps of γ = 3 \\gamma=3 s. On every benchmark, the budget ℬ \\mathcal{B} is 50 turns, 30 images, 10 clips and 30 minutes per question. Omni reasoning models may also call listen_audio , up to 4 times on windows of at most 30 s. More details are in Section 9 .",
+    "sha256": "3b1c83c84142b07950a46cf318d3ab28ba40d33fd77dad9d782c73a048f10cd9"
+  },
+  {
+    "index": 26,
+    "id": "S4.SS2.p1",
+    "locator": "#S4.SS2.p1",
+    "sections": [
+      {
+        "id": "S4",
+        "heading": "4 Experiments"
+      },
+      {
+        "id": "S4.SS2",
+        "heading": "4.2 Main results"
+      }
+    ],
+    "text": "Table 1 compares SleuthVLM with frontier omni models and agents on the four benchmarks; SleuthVLM sets a new state of the art both with a closed-source and with an open reasoning model.",
+    "sha256": "86a6b02f3e8db07698c82be2eeb16783f94a74df9f5724cf5deb650fef9fe19d"
+  },
+  {
+    "index": 27,
+    "id": "S4.SS2.SSS0.Px1.p1",
+    "locator": "#S4.SS2.SSS0.Px1.p1",
+    "sections": [
+      {
+        "id": "S4",
+        "heading": "4 Experiments"
+      },
+      {
+        "id": "S4.SS2",
+        "heading": "4.2 Main results"
+      },
+      {
+        "id": "S4.SS2.SSS0.Px1",
+        "heading": "Comparison with omni models."
+      }
+    ],
+    "text": "Without direct access to audio, SleuthVLM with Opus 5.5 achieves the highest average accuracy of 75.0%, outperforming all closed-source omni models. Its lead grows on longer-video benchmarks, reaching 4.7 points on OmniVideoBench and 4.8 points on LVOmniBench ( Figure 3 a), suggesting that agents benefit from revisiting evidence missed by fixed frame sampling. With an open 27B model, SleuthVLM outperforms the strongest open-source omni model by 13.8 points on average and 18.8 points on LVOmniBench; it also exceeds the similarly sized Qwen3-Omni-30B-A3B by 16.8 points.",
+    "sha256": "ddbb1549bf02db90dce68432101a52daabc123a554e9f0f318c7603582c0a529"
+  },
+  {
+    "index": 28,
+    "id": "S4.SS2.SSS0.Px2.p1",
+    "locator": "#S4.SS2.SSS0.Px2.p1",
+    "sections": [
+      {
+        "id": "S4",
+        "heading": "4 Experiments"
+      },
+      {
+        "id": "S4.SS2",
+        "heading": "4.2 Main results"
+      },
+      {
+        "id": "S4.SS2.SSS0.Px2",
+        "heading": "Comparison with agents."
+      }
+    ],
+    "text": "SleuthVLM (Opus 5.5) outperforms OmniAgent, which coordinates o3 with three audio and video models, by up to 10.8 points, and SleuthVLM (Qwen3.8-27B) surpasses the trained 7B agents by 15.6 to 26.3 points without any training. The Qwen team has also moved towards agentic omni understanding with its Qwen Code harness; without hearing the audio directly, SleuthVLM (Opus 5.5) is 2.1 points above its Qwen3.8-Omni-Flash agent and on par with its Gemini 3.8 Flash agent on OmniVideoBench, and ahead of both on LVOmniBench. TFO, which also gives a VLM a transcript but answers in a single pass, trails SleuthVLM (Qwen3.8-27B) by about 12 points: the transcript makes the audio accessible, and the agent turns it into accuracy.",
+    "sha256": "374ef0fb6faab3c9acf1be4dd1d041a4cc4158cdf5e45e5b927d034a2bec5a82"
+  },
+  {
+    "index": 29,
+    "id": "S4.SS2.SSS0.Px3.p1",
+    "locator": "#S4.SS2.SSS0.Px3.p1",
+    "sections": [
+      {
+        "id": "S4",
+        "heading": "4 Experiments"
+      },
+      {
+        "id": "S4.SS2",
+        "heading": "4.2 Main results"
+      },
+      {
+        "id": "S4.SS2.SSS0.Px3",
+        "heading": "Video-MME-v2."
+      }
+    ],
+    "text": "SleuthVLM (Opus 5.5) also sets a new state of the art on Video-MME-v2: with 77.8% average accuracy and a non-linear score of 63.5, it is the best model on every metric of the leaderboard, and over the five benchmarks it achieves the best average, 75.5% ( Table 2 ). It is 6.8 points above Gemini 3.8 Flash and 11.7 above Gemini-3-Pro in accuracy, 14.1 points above Gemini-3-Pro in non-linear score, and ahead of the Qwen Code agents of Gemini 3.8 Flash and Qwen3.8-Omni-Flash as well. With Qwen3.8-27B, SleuthVLM reaches 62.0% accuracy and a non-linear score of 44.4, ahead of Gemini-3-Flash, GPT-5 and every open-source model on the leaderboard. The full leaderboard is given in Section 11 .",
+    "sha256": "26679c5982359608f9e80f2e8a956aaa4d5ea7d028b257ea8cb2336216d6080a"
+  },
+  {
+    "index": 30,
+    "id": "S4.SS2.SSS0.Px4.p1",
+    "locator": "#S4.SS2.SSS0.Px4.p1",
+    "sections": [
+      {
+        "id": "S4",
+        "heading": "4 Experiments"
+      },
+      {
+        "id": "S4.SS2",
+        "heading": "4.2 Main results"
+      },
+      {
+        "id": "S4.SS2.SSS0.Px4",
+        "heading": "Finding 1: Searching outperforms passive observation."
+      }
+    ],
+    "text": "Fixed sampling limits performance: when used as agents, the same omni models gain up to 10.3 points ( Tables 1 and 3 ). SleuthVLM also adapts its search to each video: with medium effort, it uses an average of 5.8 turns per question on Daily-Omni and 17.0 on LVOmniBench ( Figure 3 b). The design of the agent matters. Earlier agents delegate perception to task-specific tools backed by other models; OmniAgent, for example, uses seven such tools. In contrast, the SleuthVLM harness specifies the resources and budget available to the VLM while leaving perception decisions to the model itself ( Section 3.3 ). With this harness, a single VLM without direct audio access outperforms both OmniAgent and the Qwen Code agent based on Qwen3.8-Omni-Flash.",
+    "sha256": "a39e529af9dd7b4c809e591e81e50f1cd7be144e4a6cd7db2bbaeb66fc0cfeff"
+  },
+  {
+    "index": 31,
+    "id": "S4.SS2.SSS0.Px5.p1",
+    "locator": "#S4.SS2.SSS0.Px5.p1",
+    "sections": [
+      {
+        "id": "S4",
+        "heading": "4 Experiments"
+      },
+      {
+        "id": "S4.SS2",
+        "heading": "4.2 Main results"
+      },
+      {
+        "id": "S4.SS2.SSS0.Px5",
+        "heading": "Finding 2: Agentic ability matters more than direct audio access."
+      }
+    ],
+    "text": "The advantage of SleuthVLM comes from the agentic ability of its reasoning model. Even when omni models use the same harness and can listen to audio, SleuthVLM with Opus 5.5 remains the strongest, with its largest lead on logical reasoning ( Table 3 ). Trained on large amounts of audio-visual data to hear, omni models lose part of the reasoning and tool-use ability that a VLM keeps ( Section 5.3 ). Much of the relevant audio information is accessible through the transcript: 75.2% of LVOmniBench questions involve speech ( Table 4 ), which is captured as timestamped text, while an external audio tool handles other audio information ( Section 4.3 ). A VLM equipped with audio tools therefore performs strongly on omni understanding, exceeding Qwen3-Omni-30B-A3B by 16.8 points. Omni models also benefit from agentic inference: run as agents in our harness, they gain up to 7.3 points.",
+    "sha256": "88481412978ad645df11709c0d62afa1e46092083aa7441a337a248de13c3b67"
+  },
+  {
+    "index": 32,
+    "id": "S4.SS2.SSS0.Px6.p1",
+    "locator": "#S4.SS2.SSS0.Px6.p1",
+    "sections": [
+      {
+        "id": "S4",
+        "heading": "4 Experiments"
+      },
+      {
+        "id": "S4.SS2",
+        "heading": "4.2 Main results"
+      },
+      {
+        "id": "S4.SS2.SSS0.Px6",
+        "heading": "Finding 3: Small agentic models are highly competitive."
+      }
+    ],
+    "text": "SleuthVLM with Qwen3.8-27B runs on a single GPU, yet outperforms the closed-source Qwen3.5-Omni-Plus on average and performs within the range of closed-source omni models ( Figure 1 a). The same harness also scales with the reasoning model: Opus 5.5 adds another 8.2 points. A small model with strong agentic capabilities already matches closed-source omni models, highlighting the value of developing agentic ability alongside scaling.",
+    "sha256": "715e006acd1b9c781d0e7f0f078b42169afb831c75194b05361009046e3c946f"
+  },
+  {
+    "index": 33,
+    "id": "S4.SS3.SSS0.Px1.p1",
+    "locator": "#S4.SS3.SSS0.Px1.p1",
+    "sections": [
+      {
+        "id": "S4",
+        "heading": "4 Experiments"
+      },
+      {
+        "id": "S4.SS3",
+        "heading": "4.3 Ablations"
+      },
+      {
+        "id": "S4.SS3.SSS0.Px1",
+        "heading": "Timed transcript and word times."
+      }
+    ],
+    "text": "All ablations use SleuthVLM (Qwen3.8-27B) at medium effort (A0: the medium row of Table 1 ). Table 5 removes the transcript (A1: only the muted video and the question remain) or only its word times (A2), and Figure 3 c adds the parts back one at a time. Each part adds accuracy on both benchmarks. Without the transcript, accuracy falls by 17.4 and 16.6 points, although on LVOmniBench the model takes 24.6 turns and views 15.1 images per question instead of 17.0 and 9.2; even its sound questions lose 10.5 points, as the transcript also tells the model where to look ( Section 3.4 ). The word times add 1.3 points on both benchmarks at no extra turns, mostly on the music and sound questions of LVOmniBench (6.6 and 6.1 points), whose timing is read from the boundaries of the words around them.",
+    "sha256": "35b966f2828a7db4e6f9288b6bfef211907208b521a849c1e0940e70059cb360"
+  },
+  {
+    "index": 34,
+    "id": "S4.SS3.SSS0.Px2.p1",
+    "locator": "#S4.SS3.SSS0.Px2.p1",
+    "sections": [
+      {
+        "id": "S4",
+        "heading": "4 Experiments"
+      },
+      {
+        "id": "S4.SS3",
+        "heading": "4.3 Ablations"
+      },
+      {
+        "id": "S4.SS3.SSS0.Px2",
+        "heading": "An external audio tool."
+      }
+    ],
+    "text": "For the music itself, SleuthVLM can also call audio_caption ​ ( t 0 , t 1 , p ) \\texttt{audio\\_caption}(t_{0},t_{1},p) , which has Ming-3.0-audio-tiny (9.3B parameters, 2.7B active) answer a question p p of the VLM’s own about the window [ t 0 , t 1 ] [t_{0},t_{1}] of the original audio. The tool adds 9.8 points on the 448 questions about music and raises all four benchmarks when offered on every question, while the reasoning model remains a VLM; the results are given in Sections 7 and 12 .",
+    "sha256": "07a5a332f98e868aa100c7ce0968b2845c80ca996928be3e9fc1efe34980c8af"
+  },
+  {
+    "index": 35,
+    "id": "S5.p1",
+    "locator": "#S5.p1",
+    "sections": [
+      {
+        "id": "S5",
+        "heading": "5 Case Studies"
+      }
+    ],
+    "text": "Figure 4 shows four trajectories with the decisive steps highlighted; Section 10 walks through each of them turn by turn.",
+    "sha256": "f8b68343de31958f4a985f74d3ecb699c3795931f1e59cb98f3f38929ac41adc"
+  },
+  {
+    "index": 36,
+    "id": "S5.SS1.p1",
+    "locator": "#S5.SS1.p1",
+    "sections": [
+      {
+        "id": "S5",
+        "heading": "5 Case Studies"
+      },
+      {
+        "id": "S5.SS1",
+        "heading": "5.1 Answering from the timed transcript"
+      }
+    ],
+    "text": "In Figure 4 a, one search of the transcript lands at 20:37 of a 38-minute show, and the model counts six people after viewing only the 20 seconds around it. In Figure 4 b, the helicopter never appears on screen, but the transcript holds the speaker naming it: “flybys with a helicopter. Hear that?”. The transcript gives the decisive clue, a moment in (a) and the sound itself in (b), and the frames confirm it.",
+    "sha256": "8e0ac6288598b5eaff46a514155e920f289fd7af37ec02da270cf3cb5a3837fc"
+  },
+  {
+    "index": 37,
+    "id": "S5.SS2.p1",
+    "locator": "#S5.SS2.p1",
+    "sections": [
+      {
+        "id": "S5",
+        "heading": "5 Case Studies"
+      },
+      {
+        "id": "S5.SS2",
+        "heading": "5.2 Hearing the music through a tool"
+      }
+    ],
+    "text": "In Figure 4 c, neither the transcript, a single word, nor the frames tell how the music changes. One call to audio_caption on the first 30 s returns a fast opening that turns slow and gentle near 0:08, and the model checks it against the strumming in the frames.",
+    "sha256": "c34dd917556fa9f374c6a5b10141d4569de41cda77dcc89d864611075a08b774"
+  },
+  {
+    "index": 38,
+    "id": "S5.SS3.p1",
+    "locator": "#S5.SS3.p1",
+    "sections": [
+      {
+        "id": "S5",
+        "heading": "5 Case Studies"
+      },
+      {
+        "id": "S5.SS3",
+        "heading": "5.3 Agentic ability: a VLM against an omni model"
+      }
+    ],
+    "text": "In Figure 4 d, Claude Opus 5.5, a VLM, and Gemini 3.8 Flash, an omni model that may also see, answer the same question in the same harness: what was the host saying when a viewer first commented, at 05:19 of an 83-minute stream? The key step is to bind the comment to the sentence spoken at that moment, “same category of business”. Opus 5.5 reads the frames and the transcript of the same window and binds them in five turns. Gemini 3.8 Flash finds the comment at 05:19 and the word “business” at 05:18.8, then rescans the whole video, listens to a window that ends before the comment, and answers Money after 27 turns and 21 times the tokens. This is the agentic gap of Finding 2: trained on large amounts of audio-visual data to hear, the omni model loses the planning and evidence binding that a VLM keeps.",
+    "sha256": "58e835609b0a0588291a1cc8489f8d6c848e141dbefdc18b5437e089e7d1fc7a"
+  },
+  {
+    "index": 39,
+    "id": "S6.p1",
+    "locator": "#S6.p1",
+    "sections": [
+      {
+        "id": "S6",
+        "heading": "6 Conclusion"
+      }
+    ],
+    "text": "We investigated whether omni video understanding requires direct audio access and introduced SleuthVLM, an agent harness that enables a VLM to read a word-timestamped transcript and autonomously search the video. SleuthVLM establishes a new state of the art across four omni benchmarks and on Video-MME-v2. With Opus 5.5, it achieves an average accuracy of 75.0% across the four benchmarks, outperforming all closed-source omni model, and leads the Video-MME-v2 leaderboard with 77.8%. With an open 27B VLM, it outperforms all open-source omni models by 13.8 points. Our results highlight three findings:1. Searching outperforms passive observation , 2. Agentic ability matters more than direct audio access , and 3. Small agentic models are highly competitive . SleuthVLM provides a simple but effective starting point for doing omni video understanding.",
+    "sha256": "ffe20fea849fd6f4ca55e1f64afcd49989784421c510936c660ce9ea53c317c5"
+  },
+  {
+    "index": 40,
+    "id": "p3",
+    "locator": "#p3",
+    "sections": [],
+    "text": "\\beginappendix",
+    "sha256": "b69f4d7a49d29ebf07d9a13ecfbdd30122a0f3cc437130d40baf18fe77d88f6c"
+  },
+  {
+    "index": 41,
+    "id": "S7.p1",
+    "locator": "#S7.p1",
+    "sections": [
+      {
+        "id": "S7",
+        "heading": "7 Per-benchmark comparisons"
+      }
+    ],
+    "text": "Tables 6 , 7 , 8 and 9 give the full leaderboards of the four benchmarks with every category each benchmark reports. Rows are sorted by the overall score; our rows are shaded. Bold : best; underline : second best; New A: not reported. Scores of other methods are as reported by their authors.",
+    "sha256": "f2f7291417265ea6b8a513ad48ba320c2e2f5c4f6fa04ed7c2bc56863a89762b"
+  },
+  {
+    "index": 42,
+    "id": "S8.p1",
+    "locator": "#S8.p1",
+    "sections": [
+      {
+        "id": "S8",
+        "heading": "8 Other reasoning models by question type"
+      }
+    ],
+    "text": "Table 10 breaks the runs of Table 3 down by the nine question types of LVOmniBench.",
+    "sha256": "6faf192433b1ae69b90dc3da8733ab2b1991a4fb0cfc0170b05fb6d6281d2c10"
+  },
+  {
+    "index": 43,
+    "id": "S9.p1",
+    "locator": "#S9.p1",
+    "sections": [
+      {
+        "id": "S9",
+        "heading": "9 Implementation details"
+      }
+    ],
+    "text": "This section complements Section 4.1 .",
+    "sha256": "42b9a912d5c062742c4d49677e9e8ed7cfeff5cd1337d5527ef3f2890080fa41"
+  },
+  {
+    "index": 44,
+    "id": "S9.SS0.SSS0.Px1.p1",
+    "locator": "#S9.SS0.SSS0.Px1.p1",
+    "sections": [
+      {
+        "id": "S9",
+        "heading": "9 Implementation details"
+      },
+      {
+        "id": "S9.SS0.SSS0.Px1",
+        "heading": "Reasoning model and serving."
+      }
+    ],
+    "text": "Qwen3.8-27B runs in thinking mode with high reasoning effort (medium for the ablations and the results marked medium), sampled at temperature 1.0, top- p p 0.95 and top- k k 20, with at most 8192 generated tokens per turn (reasoning included) and up to four tool calls per turn. It is served with vLLM on one H200 GPU per shard, with sixteen questions in flight per GPU; a finished question is replaced by the next one at once. Earlier reasoning stays in the history, so prompts only grow and the prefix cache is reused; when a prompt exceeds 110k tokens, the oldest images are dropped from it. Claude Opus 5.5, Qwen3.8-Omni-Flash and Gemini 3.8 Flash are called through APIs with the same harness, prompts and budget; time spent waiting on rate limits does not count towards T max T_{\\max} .",
+    "sha256": "e84566c1354aa5475906699a5b75f95c18aeb1bdf52d54c8284754c9117ecf8b"
+  },
+  {
+    "index": 45,
+    "id": "S9.SS0.SSS0.Px2.p1",
+    "locator": "#S9.SS0.SSS0.Px2.p1",
+    "sections": [
+      {
+        "id": "S9",
+        "heading": "9 Implementation details"
+      },
+      {
+        "id": "S9.SS0.SSS0.Px2",
+        "heading": "Commands."
+      }
+    ],
+    "text": "view shows up to four images per call, and a contact sheet counts as one image; watch shows a segment of at most 30 s at 1 to 8 fps and at most 32 frames; vsheet tiles up to 64 time-stamped frames, vframes extracts up to 32 frames, and vcrop takes its box on a 0–1000 scale of a native-resolution frame. listen_audio returns a mono 16 kHz clip of the original audio. Each command may run for 120 s, and at most 8000 characters of its output are kept in the conversation. Each question gets its own sandbox in memory, with a muted copy of the video, and every command is logged.",
+    "sha256": "7d793ad4b6b4e5b9e7559181bc809f4accbc2a3b4afdd0fcf58db381b732576e"
+  },
+  {
+    "index": 46,
+    "id": "S9.SS0.SSS0.Px3.p1",
+    "locator": "#S9.SS0.SSS0.Px3.p1",
+    "sections": [
+      {
+        "id": "S9",
+        "heading": "9 Implementation details"
+      },
+      {
+        "id": "S9.SS0.SSS0.Px3",
+        "heading": "Transcription."
+      }
+    ],
+    "text": "Long recordings are cut at quiet points into pieces of at most 180 s, transcribed and aligned piecewise, and merged back on the video’s time axis. When alignment fails, for example for a language the aligner does not cover, the video is transcribed in 30 s chunks and the transcript carries chunk-level times, with no word file. Transcribing the 3249 videos of the four benchmarks, about 302 hours of audio, takes about 113 minutes on a single H200.",
+    "sha256": "902f698dc6f35c3b482c659e45def5daba23da2a0f2d2c86253778c929463621"
+  },
+  {
+    "index": 47,
+    "id": "S10.p1",
+    "locator": "#S10.p1",
+    "sections": [
+      {
+        "id": "S10",
+        "heading": "10 Case studies in detail"
+      }
+    ],
+    "text": "Figures 5 , 6 , 7 , 8 and 9 give ten trajectories of SleuthVLM (Qwen3.8-27B, medium) step by step, with every call, what came back and the decision it led to. Decisions in quotation marks are the notes the model wrote between its calls; the others state what its next call shows it concluded. Highlighted rows supplied the decisive evidence. The first six cases are answered from the timed transcript and the picture ( Figures 5 , 6 and 7 ); the last four use the audio_caption tool of Section 4.3 ( Figures 8 and 9 ). Figure 10 gives the comparison of Figure 4 d turn by turn, with SleuthVLM (Opus 5.5) and SleuthVLM (Gemini 3.8 Flash) on the same question.",
+    "sha256": "536100ae37d098fc4d334ba0b2e9c592be382d8a854532d4d6a5b2e76a3eb626"
+  },
+  {
+    "index": 48,
+    "id": "S10.SS0.SSS0.Px1.p1",
+    "locator": "#S10.SS0.SSS0.Px1.p1",
+    "sections": [
+      {
+        "id": "S10",
+        "heading": "10 Case studies in detail"
+      },
+      {
+        "id": "S10.SS0.SSS0.Px1",
+        "heading": "The transcript as a temporal index ( Figure 5 a)."
+      }
+    ],
+    "text": "The model starts from the words of the question rather than from the picture. At T1, one search for “goldfish” returns the suggestion at 20:37 in a transcript of 991 lines, so the count is needed only there. At T2–T3, since other suggestions also begin with “imagine”, it reads the word times and the surrounding lines, which bound this one to 20:37–20:50. At T4–T5, a contact sheet of 20:35–20:55 shows the volunteers seated in a row, unchanged over the window, with those on the left slumped against each other. At T6–T9, it extracts a native-resolution frame at 20:51, crops the left cluster and checks with a denser sheet that the row stays the same: three people in the cluster and three more. It answers six after viewing four images, all within 20 seconds of a 38-minute video.",
+    "sha256": "6b6eedeab830a7fb3e03a29d355470cc901e8bdf744b0215718704c844e34d29"
+  },
+  {
+    "index": 49,
+    "id": "S10.SS0.SSS0.Px2.p1",
+    "locator": "#S10.SS0.SSS0.Px2.p1",
+    "sections": [
+      {
+        "id": "S10",
+        "heading": "10 Case studies in detail"
+      },
+      {
+        "id": "S10.SS0.SSS0.Px2",
+        "heading": "A sound named in speech ( Figure 5 b)."
+      }
+    ],
+    "text": "At T1–T2, the model locates the introduction and takes an overview of the 30-minute video: a guitar build at a workbench, with saws and sanders but no aircraft in view, so the picture does not show what interrupted the speaker. At T3, it searches the transcript for the words of all four options and for signs of an interruption, and the one matching option word is “flybys with a helicopter” at 05:08. At T4, the next lines, “Hear that? In the middle of one of my episodes … Thank you so much for that”, show the speaker stopping to point out a helicopter flying over, and the model answers after five turns and a single image.",
+    "sha256": "d370623c5c5ffc407160957b1a8d5587f70ef1d6470484f9127badfaa852f4d2"
+  },
+  {
+    "index": 50,
+    "id": "S10.SS0.SSS0.Px3.p1",
+    "locator": "#S10.SS0.SSS0.Px3.p1",
+    "sections": [
+      {
+        "id": "S10",
+        "heading": "10 Case studies in detail"
+      },
+      {
+        "id": "S10.SS0.SSS0.Px3",
+        "heading": "A gap that times the music ( Figure 6 a)."
+      }
+    ],
+    "text": "At T1, “just in case” is found at 05:33.6, so the music ends right after it and began earlier. At T2, the lines before it show the car dialogue ending at 04:46.8 and a 34-second gap before speech resumes at 05:20.8; the model reads this stretch without words as the music. At T3–T4, a sheet of 4:00–5:33 shows that the scenes of all four options occur within two minutes, so the order of the shots decides. At T5–T6, the gap list confirms the stretch, and a dense sheet finds a key in a box at 04:48–04:50, right after the dialogue ends. At T7, a clip of 4:44–4:56 fixes the order of the cuts, the car, then the key from 04:47.9, then the red tunnel at 04:51, and the model concludes that the key is “the first visual that appears with this BGM”.",
+    "sha256": "f6ed425db2f4a450ec6042575006fd5f98012f7677db249a207ac8c9a3a63876"
+  },
+  {
+    "index": 51,
+    "id": "S10.SS0.SSS0.Px4.p1",
+    "locator": "#S10.SS0.SSS0.Px4.p1",
+    "sections": [
+      {
+        "id": "S10",
+        "heading": "10 Case studies in detail"
+      },
+      {
+        "id": "S10.SS0.SSS0.Px4",
+        "heading": "Lyrics ( Figure 6 b)."
+      }
+    ],
+    "text": "At T1, the transcript holds 111 sung lines, such as “Who controls our parliaments?” and “Who squashes all dissent?”, and the model reads the message of the song from them. At T2, the sheet shows a choir in flowered hats smiling as they sing; the model keeps to what the question asks, the emotion the song conveys. At T3, lines such as “We want you gone, gone, gone” decide it: anger toward government actions, in three turns.",
+    "sha256": "0512ccb6a041d45d47ebb81a98f73e951d607a111fb245019ac2d34f3392bf36"
+  },
+  {
+    "index": 52,
+    "id": "S10.SS0.SSS0.Px5.p1",
+    "locator": "#S10.SS0.SSS0.Px5.p1",
+    "sections": [
+      {
+        "id": "S10",
+        "heading": "10 Case studies in detail"
+      },
+      {
+        "id": "S10.SS0.SSS0.Px5",
+        "heading": "A gap that rules out the spoken options ( Figure 7 a)."
+      }
+    ],
+    "text": "At T1, the model prints the transcript around 5:20 and finds one gap from 4:24 to 5:57: no word is said at that moment, which rules out the three options that are spoken words. At T2–T3, a sheet and a clip of 5:15–5:30 show the pet stuck on a lower ledge and the boy with it. At T4, the model answers that he whistled, because “the transcript shows no speech at all between 4:24 and 5:57”.",
+    "sha256": "c2565c642f8fd2d718ca2164145998ab815041f68d736007c52bcd92d400ab32"
+  },
+  {
+    "index": 53,
+    "id": "S10.SS0.SSS0.Px6.p1",
+    "locator": "#S10.SS0.SSS0.Px6.p1",
+    "sections": [
+      {
+        "id": "S10",
+        "heading": "10 Case studies in detail"
+      },
+      {
+        "id": "S10.SS0.SSS0.Px6",
+        "heading": "Word times that reveal a sustained voice ( Figure 7 b)."
+      }
+    ],
+    "text": "At T1, the transcript of this 30-second clip holds a single sung “ah” from 0.1 to 15.7 s. At T2–T5, a sheet, a denser sheet, native-resolution frames and two crops place the question mark at about 1–4.5 s. At T6, the word file shows that the “ah” is one word lasting 15.6 s, so one continuous voice spans the whole question mark: a sustained vocal hum, not music with a beat or a choir singing words.",
+    "sha256": "b068251736548f0becdcdff3d78c3e4ad5d7d4ff6e1e1efe3f9d2a02e2dc6b55"
+  },
+  {
+    "index": 54,
+    "id": "S10.SS0.SSS0.Px7.p1",
+    "locator": "#S10.SS0.SSS0.Px7.p1",
+    "sections": [
+      {
+        "id": "S10",
+        "heading": "10 Case studies in detail"
+      },
+      {
+        "id": "S10.SS0.SSS0.Px7",
+        "heading": "How the music changes ( Figure 8 a)."
+      }
+    ],
+    "text": "At T1, the transcript holds one word over 52 s, so the words give no clue. At T2–T3, the sheet shows a guzheng player by a lake, and the model notes that “the frames alone cannot determine the musical mood/tempo changes” and decides to listen. At T4, one call on the first half, asking how tempo and mood develop, returns a fast, energetic opening that turns slow and gentle near 0:08, that is, from passionate to soothing. At T5, the model checks the reply against the frames, “rapid strumming close-ups at 0–4 s, then slower single-note picking”, before answering.",
+    "sha256": "94bfc34c3c0da062bac39c2373e064f7622d9669d21764c0d07560bba7ca702b"
+  },
+  {
+    "index": 55,
+    "id": "S10.SS0.SSS0.Px8.p1",
+    "locator": "#S10.SS0.SSS0.Px8.p1",
+    "sections": [
+      {
+        "id": "S10",
+        "heading": "10 Case studies in detail"
+      },
+      {
+        "id": "S10.SS0.SSS0.Px8",
+        "heading": "Two calls that agree ( Figure 8 b)."
+      }
+    ],
+    "text": "At T1–T2, with only “Oh,” in the transcript and a duet of cello and piano on screen, the model recognizes that rhythm is something “I have to hear”. At T3, it asks the tool to describe the role and rhythm of each part over the full minute: the cello is “steady and driving”, the piano “more flowing”. At T4, it asks again over 5–55 s in other words, listening to each part in turn, and the second reply agrees that the cello gives the stronger pulse; the model answers yes.",
+    "sha256": "8b89a33ba27206b568c7adba567e2fff1faadc531f945abfce554be2599ccd47"
+  },
+  {
+    "index": 56,
+    "id": "S10.SS0.SSS0.Px9.p1",
+    "locator": "#S10.SS0.SSS0.Px9.p1",
+    "sections": [
+      {
+        "id": "S10",
+        "heading": "10 Case studies in detail"
+      },
+      {
+        "id": "S10.SS0.SSS0.Px9",
+        "heading": "A non-speech sound ( Figure 9 a)."
+      }
+    ],
+    "text": "At T1, the girl’s words break off before “tiger”, with a gap at 12.0–15.8 s. At T2–T3, the frames show a girl with a tiger mark on her forehead, petted like a cat. At T4, a first call over the whole clip reports a cat’s meow, a crash, a musical sting and a switch to electronic music. At T5, a second call on 10–22 s places the change exactly at the word “tiger”, with a meow right before it, which separates the meow (A) from being named (C). At T6–T7, after watching the moment, the model asks whether the speaker meows herself; she does, at 0:09. A self-declared tiger who meows is the joke, and the model answers A.",
+    "sha256": "295a4e3e6df045f19509349ef3775a849fd0666fb9193eb1903a2d4b6dae5a23"
+  },
+  {
+    "index": 57,
+    "id": "S10.SS0.SSS0.Px10.p1",
+    "locator": "#S10.SS0.SSS0.Px10.p1",
+    "sections": [
+      {
+        "id": "S10",
+        "heading": "10 Case studies in detail"
+      },
+      {
+        "id": "S10.SS0.SSS0.Px10",
+        "heading": "Gaps and the tool together ( Figure 9 b)."
+      }
+    ],
+    "text": "At T1, in a 41-minute vlog with 492 lines of speech, the model lists the gaps, where background music is most likely; the first two are at 00:00–00:12 and 03:03–03:43. At T2–T3, sheets of both show a title card and a mirror selfie, then the woman sorting gifts on the floor. At T4, the tool hears no music in the first 30 s, so the model moves to the next gap. At T5, over 2:45–4:00, the music starts about 19 s in, at 03:04, inside the second gap. At T6, to make sure that this is the first music, the model checks the speech before it, 1:30–2:45, and finds none. At T7, the frames at 03:04 show the woman sorting and putting away the gifts, as she announces at 02:35, and the model answers after three short calls.",
+    "sha256": "40a0595054196c79c2d9a81e6f78b20b5eead034ff5e488cf50941563cf7f5d2"
+  },
+  {
+    "index": 58,
+    "id": "S10.SS0.SSS0.Px11.p1",
+    "locator": "#S10.SS0.SSS0.Px11.p1",
+    "sections": [
+      {
+        "id": "S10",
+        "heading": "10 Case studies in detail"
+      },
+      {
+        "id": "S10.SS0.SSS0.Px11",
+        "heading": "A VLM against an omni model ( Figure 10 )."
+      }
+    ],
+    "text": "The question comes from an 83-minute live stream and asks what the host was talking about when a viewer named Elminster commented for the first time. Both models work in the same harness, with the same transcript and the same tools, and Gemini 3.8 Flash may in addition listen to the original audio. The question is decided by a single check in time. The comment first appears at 319 s (05:19). The host says “when you put money in, you like to know how that money’s doing” over 308.1–314.0 s and then “similar to No Before, same category of business” over 314.1–324.6 s, with the word “business” at 318.8–319.3 s. Since 319 s lies in the second sentence, the answer is Business.",
+    "sha256": "111a8649b0eaf42dc4a1598ba3da38414c8f7159d28fcaca2a11df6f076458e5"
+  },
+  {
+    "index": 59,
+    "id": "S10.SS0.SSS0.Px12.p1",
+    "locator": "#S10.SS0.SSS0.Px12.p1",
+    "sections": [
+      {
+        "id": "S10",
+        "heading": "10 Case studies in detail"
+      },
+      {
+        "id": "S10.SS0.SSS0.Px12",
+        "heading": "The VLM binds the evidence in five turns."
+      }
+    ],
+    "text": "At T1, SleuthVLM (Opus 5.5) reads the question and the transcript and sees that the name is not in the speech: Elminster is a viewer whose comment is shown on screen. At T2, it searches the transcript for the words of the options and obtains the candidate sentences with their times. At T3, one contact sheet of the first ten minutes shows where the chat appears. At T4, it zooms in on 05:10–05:35 and, in the same turn, reads the transcript of 05:00–05:45, so that the picture and the speech of one window are in front of it together. The comment appears at 05:19–05:20, and the model binds it to the sentence spoken at that moment: “Between 5:14 and 5:24 the host is saying ‘same category of business’ ”. It answers Business at T5, after two images and 27k tokens ( Table 11 ). Every call serves the one open question, where the comment falls in the speech, and the search stops as soon as that question is settled.",
+    "sha256": "779d1fcc3dbc074bb0f496a7167aba3c392804c00cb6784530ca1fb23589cafd"
+  },
+  {
+    "index": 60,
+    "id": "S10.SS0.SSS0.Px13.p1",
+    "locator": "#S10.SS0.SSS0.Px13.p1",
+    "sections": [
+      {
+        "id": "S10",
+        "heading": "10 Case studies in detail"
+      },
+      {
+        "id": "S10.SS0.SSS0.Px13",
+        "heading": "The omni model finds the evidence and loses it."
+      }
+    ],
+    "text": "SleuthVLM (Gemini 3.8 Flash) collects every piece of this evidence. At T3, its search of the transcript returns both the money sentence and the business sentence. At T8–T10, crops of single frames show the comment absent at 05:18 and present at 05:19. At T15–T20, it crops a reference avatar and scans the frames for its colour, which returns 319 s as the first appearance. At T21, the word times put “business” at 05:18.8–05:19.3, the very moment of the comment. At this point the moment, the sentence and the word are all in its history. It does not use them. At T22–T23, it listens to 05:05–05:25 and rereads the transcript of the same lines; at T24–T25, it scans the whole video for later appearances of the commenter, which adds appearances from 05:20 to 07:16 and beyond but nothing about 05:19; and at T26, it listens to 04:55–05:15, a window that covers the money sentence and ends four seconds before the comment. At T27, it answers Money with the reason “when Elminster’s chat message appeared on screen for the first time around 05:19, the host was talking about investing money”. Its own reason places the comment at 05:19 and quotes a sentence that ended at 05:14. The omni model spends 27 turns, 21 times the tokens and 7.8 times the time of the VLM, listens to the audio twice, and still answers wrongly ( Table 11 ).",
+    "sha256": "05124be26a8922cf9e1a2519bee0c19f299de51208a711c54d337414ccd0e2dc"
+  },
+  {
+    "index": 61,
+    "id": "S10.SS0.SSS0.Px14.p1",
+    "locator": "#S10.SS0.SSS0.Px14.p1",
+    "sections": [
+      {
+        "id": "S10",
+        "heading": "10 Case studies in detail"
+      },
+      {
+        "id": "S10.SS0.SSS0.Px14",
+        "heading": "Where the agentic ability is lost."
+      }
+    ],
+    "text": "The trajectory of the omni model breaks at the three points an agent depends on. First, it does not bind evidence across modalities: it holds the visual moment and the spoken word for that moment, but never joins them into one fact. Second, its later calls do not converge on the open question: after the first appearance is settled, it rescans the whole video and listens to a window that does not contain the moment it has already found. Third, it does not check its answer against its own evidence: a reason that names 05:19 and quotes a sentence that ended at 05:14 contradicts itself. The VLM does all three within a single turn. Hearing does not close this gap; the omni model listens twice and still misses the moment it found itself. This is the cost of training an omni model on large amounts of audio-visual data: the training that teaches the model to hear takes away the planning, evidence binding and self-checking that a VLM keeps, and these abilities, not hearing, decide the question.",
+    "sha256": "177a2982895e08f002e67b6d79ae555d404362bece6856eb1c5c88a1aa4f2fdd"
+  },
+  {
+    "index": 62,
+    "id": "S11.p1",
+    "locator": "#S11.p1",
+    "sections": [
+      {
+        "id": "S11",
+        "heading": "11 Video-MME-v2"
+      }
+    ],
+    "text": "Table 12 lists the Video-MME-v2 leaderboard with subtitles (w. sub).",
+    "sha256": "8fcd7ddc6d36cac138e05f6cc096660ea0473fc2f2dcc61a94fcdff09e5dd6e0"
+  },
+  {
+    "index": 63,
+    "id": "S12.p1",
+    "locator": "#S12.p1",
+    "sections": [
+      {
+        "id": "S12",
+        "heading": "12 Audio caption on music questions"
+      }
+    ],
+    "text": "Table 13 gives the audio_caption tool of Section 4.3 on the 448 questions about the music itself: the questions a benchmark labels as music tasks, and those whose text asks about music, melody, rhythm or instruments rather than lyrics. The model calls the tool on 84% of them, and accuracy rises from 48.9% to 58.7%, by up to 18.7 points on WorldSense. Offered on every question, the tool raises SleuthVLM (Qwen3.8-27B, medium) on Daily-Omni from 80.3 to 81.3, WorldSense from 62.8 to 64.4, OmniVideoBench from 58.3 to 59.9 and LVOmniBench from 60.2 to 61.9 (rows V+ASR+Audio Caption in Tables 6 , 7 , 8 and 9 ).",
+    "sha256": "eee8914ac615f2b590547124d47652e3b974334f8fba805be3981220dfc6a668"
+  },
+  {
+    "index": 64,
+    "id": "S13.SS0.SSS0.Px1.p1",
+    "locator": "#S13.SS0.SSS0.Px1.p1",
+    "sections": [
+      {
+        "id": "S13",
+        "heading": "13 Sandbox rules and trajectory audit"
+      },
+      {
+        "id": "S13.SS0.SSS0.Px1",
+        "heading": "Rules."
+      }
+    ],
+    "text": "The sandbox of each question holds the muted video, question.md with the question and its options, and the two transcript files; none of them carries the answer. Commands run with the sandbox as working and home directory and a minimal search path. Before a command runs, a guard checks it against fixed rules and refuses absolute paths to system directories, climbing out with .. , network, package, process and system commands such as curl , wget , ssh , git , pip and sudo , the Python modules for network and process control, and extracting audio with ffmpeg . A refused command is not run, and the model is told the reason.",
+    "sha256": "3beab5a15940dba3917eb076e86f200cf0605e1a194e99081fc832a75c125f6a"
+  },
+  {
+    "index": 65,
+    "id": "S13.SS0.SSS0.Px2.p1",
+    "locator": "#S13.SS0.SSS0.Px2.p1",
+    "sections": [
+      {
+        "id": "S13",
+        "heading": "13 Sandbox rules and trajectory audit"
+      },
+      {
+        "id": "S13.SS0.SSS0.Px2",
+        "heading": "Every access is logged."
+      }
+    ],
+    "text": "The model acts only through four tools: view opens only image files inside the sandbox, watch plays only the sandbox video and answer ends the question, so any other file can be reached only through bash . Every bash command and its output are written to the result file, and every refused command is kept with its reason.",
+    "sha256": "ae81cbcf50841520dc7816488e065ed2f821c935fb17b8bad8fe759e06fa21c9"
+  },
+  {
+    "index": 66,
+    "id": "S13.SS0.SSS0.Px3.p1",
+    "locator": "#S13.SS0.SSS0.Px3.p1",
+    "sections": [
+      {
+        "id": "S13",
+        "heading": "13 Sandbox rules and trajectory audit"
+      },
+      {
+        "id": "S13.SS0.SSS0.Px3",
+        "heading": "Audit."
+      }
+    ],
+    "text": "We audit every trajectory and log of SleuthVLM (Qwen3.8-27B, medium) on the four benchmarks, 6,383 questions and 71,132 tool calls, including every command that builds a path at run time. No command opens an annotation or result file, no output contains an answer, and every attempt to reach the network was refused: there is no answer leakage.",
+    "sha256": "5d4cb4be80d90ab6c788465b3695c503c8f58e3c1e7cdd61da22091c9fdb81f6"
+  }
+]
