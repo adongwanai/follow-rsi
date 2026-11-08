@@ -64,6 +64,51 @@ def test_pending_blocks_and_defer_is_not_an_approval(tmp_path):
     assert approved_daily_items(root, DAY) == []
 
 
+@pytest.mark.parametrize("historical", [False, True])
+def test_review_can_correct_model_exclusion_without_rewriting_it_or_paper_dates(tmp_path, historical):
+    from scripts.feed.review import _review_row, approved_weekly_backlog, source_hash
+    from scripts.feed.window import daily_metadata
+
+    root = make_daily_repo(tmp_path)
+    item = next(row for row in load_items(root) if row["arxiv_id"] == "2610.99991")
+    item["llm"]["label"] = "exclude"
+    if historical:
+        item.update(published="2026-08-01", updated="2026-08-01", hf_daily_dates=[])
+    save_items(root, [item])
+    original_hash = source_hash(item)
+    row = {**_review_row(item), **daily_metadata(root, item, DAY),
+           "decision": "backlog" if historical else "accept",
+           "note": "Source-bound review corrects the prior model exclusion."}
+    review = {"date": DAY, "items": [row], "lab_updates": []}
+    path = root / "review/daily" / f"{DAY}.yaml"
+    path.write_text(yaml.safe_dump(review))
+    with pytest.raises(ValueError, match="excluded items"):
+        validate_daily_review(root, DAY)
+
+    row["direction_override"] = "harness/component"
+    path.write_text(yaml.safe_dump(review))
+    validate_daily_review(root, DAY)
+    apply_daily_review(root, DAY, provenance={"github_pr": 7, "owner_login": "fixture-owner",
+                                            "merge_commit": "fixture-merge"})
+    stored = next(value for value in load_items(root) if value["id"] == item["id"])
+    assert stored["llm"] == item["llm"] and source_hash(stored) == original_hash
+    assert {key: stored.get(key) for key in ("published", "updated", "hf_daily_dates")} == {
+        key: item.get(key) for key in ("published", "updated", "hf_daily_dates")}
+    assert bool(approved_daily_items(root, DAY)) is not historical
+    assert bool(approved_weekly_backlog(root, WEEK)) is historical
+
+    if historical:
+        before = (root / "data/feed/items.jsonl").read_bytes()
+        row["decision"] = "defer"
+        path.write_text(yaml.safe_dump(review))
+        assert apply_daily_review(root, DAY) == 0
+        assert (root / "data/feed/items.jsonl").read_bytes() == before
+        row["decision"] = "accept"
+        path.write_text(yaml.safe_dump(review))
+        with pytest.raises(ValueError, match="in_window"):
+            validate_daily_review(root, DAY)
+
+
 def test_partial_code_evidence_survives_queue_without_approval(tmp_path):
     root = make_daily_repo(tmp_path)
     items = load_items(root)

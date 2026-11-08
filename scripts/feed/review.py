@@ -524,11 +524,11 @@ def validate_daily_review(root=ROOT, date=None):
                 if row['decision'] == 'accept' or row['decision'] == 'backlog' or publishable:
                     require_scope(effective, scope)
                     timing = daily_metadata(root, item, date)
-                    required = 'backlog' if row['decision'] == 'backlog' else 'in_window'
-                    if timing['window_status'] != required or row.get('window_status') != required:
-                        raise ValueError(f"{key}: {row['decision']} requires window_status={required}; use backlog for historical papers")
-                    if item.get('llm', {}).get('label') == 'exclude':
-                        raise ValueError(f"{key}: excluded items cannot be accepted")
+                    allowed = ('backlog', 'stale') if row['decision'] == 'backlog' else ('in_window',)
+                    if timing['window_status'] not in allowed or row.get('window_status') != timing['window_status']:
+                        raise ValueError(f"{key}: {row['decision']} requires window_status={'/'.join(allowed)}; use backlog for historical papers")
+                    if item.get('llm', {}).get('label') == 'exclude' and not row.get('direction_override'):
+                        raise ValueError(f"{key}: excluded items need an explicit reviewed direction_override")
                     if item.get('gate', {}).get('verdict') != 'harness' and not row.get('direction_override'):
                         raise ValueError(f"{key}: Harness gate did not pass; an explicit direction_override is required")
                     if (effective['llm']['primary'] in ('evaluation_benchmark', 'theory_survey')
@@ -574,7 +574,7 @@ def approved_weekly_backlog(root=ROOT, week=None):
         row = {**_review_row(item), **review}
         effective = effective_item(item, row, taxonomy)
         effective.update(daily_metadata(root, item, review['date']))
-        if effective['window_status'] == 'backlog':
+        if effective['window_status'] in ('backlog', 'stale'):
             require_scope(effective, scope)
             result.append(effective)
     return result
@@ -589,7 +589,7 @@ def apply_daily_review(root=ROOT, date=None, now=None, provenance=None):
     for row in [*review["items"], *review["lab_updates"]]:
         item = deepcopy(sources[row["id"]])
         previous = item.get("review", {})
-        if (row["decision"] == "defer" and previous.get("decision") in (*APPROVED, "reject")
+        if (row["decision"] == "defer" and previous.get("decision") in (*APPROVED, "reject", "backlog")
                 and previous.get("source_hash") == row["source_hash"]):
             continue  # Replaying a deferred queue cannot revoke a still-current decision.
         decision = {field: deepcopy(row.get(field)) for field in OWNER_FIELDS}
