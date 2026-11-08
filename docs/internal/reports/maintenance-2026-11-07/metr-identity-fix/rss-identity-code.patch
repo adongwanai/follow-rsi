@@ -1,0 +1,187 @@
+--- a/scripts/feed/fetch_rss.py
++++ b/scripts/feed/fetch_rss.py
+@@ -1,4 +1,4 @@
+-"""RSS/Atom discovery. Posts with arXiv links contribute source hits to papers."""
++"""RSS/Atom discovery with separate post identities and cited-paper provenance."""
+ from datetime import datetime, timedelta, timezone
+ from html import unescape
+ import re
+@@ -26,24 +26,31 @@
+         parsed_link = urlsplit(link)
+         if parsed_link.scheme not in ('http', 'https') or not parsed_link.hostname:
+             raise ValueError('RSS entry requires an absolute HTTP(S) URL')
+-        content = ' '.join([entry.get('summary', ''), *[c.get('value', '') for c in entry.get('content', [])]])
++        content = ' '.join(c.get('value', '') for c in entry.get('content', [])) or entry.get('summary', '')
+         parsed = entry.get('published_parsed') or entry.get('updated_parsed')
+         published = datetime.fromtimestamp(calendar.timegm(parsed), timezone.utc).isoformat() if parsed else ''
+-        ids = arxiv_ids(link + ' ' + content)
+-        if ids:
+-            # A blog's prose is not a paper abstract. Hydration by the metadata
+-            # stage is required before automatic judgement.
+-            for aid in ids:
+-                record = {'arxiv_id': aid, 'title': entry['title'], 'abstract': '',
+-                          'links': {'arxiv': f'https://arxiv.org/abs/{aid}', 'post': link},
+-                          'source_hits': [source_id], 'metadata_pending': True, 'source_published': published}
+-                if 'arxiv.org' in link:
+-                    record.update(abstract=plain_text(content), published=published, metadata_pending=False)
+-                records.append(normalize_record(record, now=now))
+-        else:
+-            records.append(normalize_record({'kind': 'post', 'title': entry['title'],
+-                                            'abstract': plain_text(content), 'published': published,
+-                                            'links': {'url': link}, 'source_hits': [source_id]}, now=now))
++        direct_ids = (arxiv_ids(parsed_link.path)
++                      if parsed_link.hostname in {'arxiv.org', 'www.arxiv.org', 'export.arxiv.org'} else [])
++        if direct_ids:
++            # The entry itself is a paper; citations in its body are not its identity.
++            aid = direct_ids[0]
++            records.append(normalize_record({'arxiv_id': aid, 'title': entry['title'],
++                'abstract': plain_text(content), 'published': published, 'metadata_pending': False,
++                'links': {'arxiv': f'https://arxiv.org/abs/{aid}'}, 'source_hits': [source_id]}, now=now))
++            continue
++        ids = arxiv_ids(content)
++        post = normalize_record({'kind': 'post', 'title': entry['title'],
++            'abstract': plain_text(content), 'published': published,
++            'links': {'url': link}, 'source_hits': [source_id], 'referenced_arxiv_ids': ids}, now=now)
++        records.append(post)
++        for aid in ids:
++            # References are discovery evidence, not a claim that this post
++            # describes the linked paper. Official metadata supplies its title.
++            records.append(normalize_record({'arxiv_id': aid, 'title': f'arXiv {aid}', 'abstract': '',
++                'links': {'arxiv': f'https://arxiv.org/abs/{aid}'}, 'source_hits': [source_id],
++                'metadata_pending': True, 'source_published': published,
++                'discovery_referrers': {link: {'relation': 'cited_by_post', 'source_id': source_id,
++                    'title': entry['title'], 'published': published, 'observed_at': post['first_seen']}}}, now=now))
+     return records
+ 
+ 
+--- a/scripts/feed/dedupe.py
++++ b/scripts/feed/dedupe.py
+@@ -53,6 +53,9 @@
+     if old['title'] != new['title']:
+         merged['aliases'] = sorted(set(merged['aliases']) | {old['title'], new['title']})
+     merged['links'] = {**old.get('links', {}), **new.get('links', {})}
++    if old.get('discovery_referrers') or new.get('discovery_referrers'):
++        merged['discovery_referrers'] = {**new.get('discovery_referrers', {}),
++                                          **old.get('discovery_referrers', {})}
+     merged['hf_upvotes'] = max(old.get('hf_upvotes', 0), new.get('hf_upvotes', 0))
+     merged['in_repo'] = old.get('in_repo', False) or new.get('in_repo', False)
+     merged['retracted'] = old.get('retracted', False) or new.get('retracted', False)
+--- a/scripts/feed/normalize.py
++++ b/scripts/feed/normalize.py
+@@ -1,6 +1,7 @@
+ """Validate source metadata and put it in the feed's common representation."""
+ from datetime import datetime, timezone
+ import re
++import logging
+ import unicodedata
+ from urllib.parse import urlparse
+ 
+@@ -37,7 +38,12 @@
+     links = []
+     for url in URL_RE.findall(text):
+         url = url.rstrip('.,;:)')
+-        if urlparse(url).hostname in {'github.com', 'gitlab.com', 'codeberg.org', 'bitbucket.org'}:
++        try:
++            hostname = urlparse(url).hostname
++        except ValueError as error:
++            logging.getLogger(__name__).warning('Ignoring malformed URL candidate in source text: %s', error)
++            continue
++        if hostname in {'github.com', 'gitlab.com', 'codeberg.org', 'bitbucket.org'}:
+             links.append(url)
+     return sorted(set(links))
+ 
+--- a/tests/feed/test_sources.py
++++ b/tests/feed/test_sources.py
+@@ -190,10 +190,13 @@
+     records = fetch_rss.parse_feed((FIX / 'rss.xml').read_text(), 'rss-weco', NOW)
+     assert records and all(item['kind'] in {'paper', 'post'} for item in records)
+     body = '<rss version="2.0"><channel><title>Lab</title><item><title>Lab commentary</title><link>https://lab.example/post</link><description>Read https://arxiv.org/abs/2610.10001v2</description></item></channel></rss>'
+-    item = fetch_rss.parse_feed(body, 'rss-lab', NOW)[0]
++    post, item = fetch_rss.parse_feed(body, 'rss-lab', NOW)
++    assert post['id'] == 'post:https://lab.example/post'
++    assert post['referenced_arxiv_ids'] == ['2610.10001']
+     assert item['arxiv_id'] == '2610.10001'
+     assert item['metadata_pending'] and item['abstract'] == ''
+-    assert item['links']['post'] == 'https://lab.example/post'
++    assert 'post' not in item['links']
++    assert item['discovery_referrers']['https://lab.example/post']['relation'] == 'cited_by_post'
+     with pytest.raises(ValueError):
+         fetch_rss.parse_feed('<html>Not a feed</html>', 'bad')
+ 
+@@ -500,3 +503,54 @@
+     with pytest.raises(type(failure)):
+         fetch_rss.fetch(source, datetime(2026, 11, 2, tzinfo=timezone.utc), session)
+     session.get.assert_called_once()
++
++
++def test_rss_article_keeps_identity_when_citing_multiple_papers():
++    body = """<rss version="2.0" xmlns:content="http://purl.org/rss/1.0/modules/content/">
++      <channel><title>Lab</title><item><title>Independent R&amp;D assessment</title>
++      <link>https://metr.org/blog/assessment/</link>
++      <pubDate>Thu, 05 Nov 2026 00:00:00 -0800</pubDate>
++      <description>Cites https://arxiv.org/abs/2609.36054 and https://arxiv.org/abs/2511.19492</description>
++      <content:encoded><![CDATA[Cites https://arxiv.org/abs/2609.36054 and https://arxiv.org/abs/2511.19492]]></content:encoded>
++      </item></channel></rss>"""
++    post, *papers = fetch_rss.parse_feed(body, 'rss-metr', NOW)
++    assert post['kind'] == 'post' and post['id'] == 'post:https://metr.org/blog/assessment/'
++    assert post['title'] == 'Independent R&D assessment'
++    assert post['published'] == '2026-11-05T08:00:00+00:00'
++    assert post['first_seen'] == NOW
++    assert post['abstract'].count('Cites') == 1
++    assert post['referenced_arxiv_ids'] == ['2609.36054', '2511.19492']
++    assert {paper['id'] for paper in papers} == {'arxiv:2609.36054', 'arxiv:2511.19492'}
++    for paper in papers:
++        assert paper['metadata_pending'] and not paper['published'] and not paper['abstract']
++        assert paper['title'] != post['title']
++        assert 'post' not in paper['links']
++        referrer = paper['discovery_referrers'][post['links']['url']]
++        assert referrer['published'] == post['published']
++        assert referrer['relation'] == 'cited_by_post'
++
++
++def test_rss_arxiv_entry_identity_does_not_include_body_citations():
++    body = """<rss version="2.0"><channel><title>arXiv</title><item>
++      <title>Actual paper</title><link>https://arxiv.org/abs/2611.10001</link>
++      <description>Cites https://arxiv.org/abs/2501.10002</description>
++      <pubDate>Thu, 05 Nov 2026 00:00:00 GMT</pubDate></item></channel></rss>"""
++    paper, = fetch_rss.parse_feed(body, 'rss-arxiv', NOW)
++    assert paper['id'] == 'arxiv:2611.10001'
++    assert paper['abstract'] == 'Cites https://arxiv.org/abs/2501.10002'
++    assert paper['metadata_pending'] is False
++
++
++def test_rss_redacted_url_warns_without_losing_post_or_valid_code_link(caplog):
++    # These two redacted forms occur in METR's 2026-05-19 RSS article.
++    body = """<rss version="2.0"><channel><title>METR</title><item>
++      <title>Frontier Risk Report</title><link>https://metr.org/blog/risk-report/</link>
++      <description>https://[redacted] and https://api.[redacted]
++      Source https://github.com/example/harness</description></item></channel></rss>"""
++    with caplog.at_level('WARNING', logger='scripts.feed.normalize'):
++        post, = fetch_rss.parse_feed(body, 'rss-metr', NOW)
++    assert post['id'] == 'post:https://metr.org/blog/risk-report/'
++    assert 'https://[redacted]' in post['abstract']
++    assert post['code_links'] == ['https://github.com/example/harness']
++    assert len(caplog.records) == 2
++    assert all('Ignoring malformed URL candidate' in record.message for record in caplog.records)
+--- a/tests/feed/test_storage.py
++++ b/tests/feed/test_storage.py
+@@ -150,3 +150,19 @@
+     assert save_items(tmp_path, []) == 0
+     assert len(path.read_text().splitlines()) == 2
+     assert {row['id']: row for row in load_items(tmp_path)} == {latest['id']: latest, other['id']: other}
++
++
++def test_rss_reference_merge_keeps_first_discovery_evidence_and_review():
++    url = 'https://lab.example/assessment'
++    first = item(discovery_referrers={url: {'relation': 'cited_by_post',
++        'observed_at': NOW, 'evidence': {'raw_path': 'recorded-rss.xml'}}})
++    first['review'] = {'decision': 'defer'}
++    fresh = item(source_hits=['rss-lab'], discovery_referrers={
++        url: {'relation': 'cited_by_post', 'observed_at': '2026-11-07T00:00:00Z'},
++        'https://other.example/post': {'relation': 'cited_by_post'}})
++    result, = dedupe_items([fresh], [first])
++    assert result['discovery_referrers'][url] == first['discovery_referrers'][url]
++    assert 'https://other.example/post' in result['discovery_referrers']
++    assert result['review'] == first['review'] and result['first_seen'] == first['first_seen']
++    assert 'post' not in result['links']
++    assert dedupe_items([fresh], [result]) == [result]
