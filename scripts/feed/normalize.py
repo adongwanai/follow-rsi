@@ -1,6 +1,7 @@
 """Validate source metadata and put it in the feed's common representation."""
 from datetime import datetime, timezone
 import re
+import logging
 import unicodedata
 from urllib.parse import urlparse
 
@@ -37,7 +38,12 @@ def code_links(text):
     links = []
     for url in URL_RE.findall(text):
         url = url.rstrip('.,;:)')
-        if urlparse(url).hostname in {'github.com', 'gitlab.com', 'codeberg.org', 'bitbucket.org'}:
+        try:
+            hostname = urlparse(url).hostname
+        except ValueError as error:
+            logging.getLogger(__name__).warning('Ignoring malformed URL candidate in source text: %s', error)
+            continue
+        if hostname in {'github.com', 'gitlab.com', 'codeberg.org', 'bitbucket.org'}:
             links.append(url)
     return sorted(set(links))
 
