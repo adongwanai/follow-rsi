@@ -1,0 +1,327 @@
+{
+  "date": "2026-11-01",
+  "audited_at": "2026-11-01T13:29:41.792601+00:00",
+  "status": "local_fix_verified_remote_not_changed",
+  "scope": "Legacy daily-review pending carry-forward, PR 13 owner check, workflow-approval status, schedule timing, and frozen-batch coverage accounting",
+  "remote_snapshot": {
+    "repository": "adongwanai/follow-rsi",
+    "main_sha": "0734286c6d389cd6bd392b0e6a08dd3a0dbd4ebe",
+    "pr": 13,
+    "url": "https://github.com/adongwanai/follow-rsi/pull/13",
+    "state": "OPEN",
+    "head_ref": "feed/review-2026-11-01",
+    "head_sha": "06ebb67720d30cf0024705c91df243bb48616a36",
+    "queue": {
+      "papers": 75,
+      "lab_updates": 69,
+      "total": 144,
+      "decisions": {
+        "pending": 144
+      }
+    },
+    "owner_review_run": {
+      "id": 41297323897,
+      "url": "https://github.com/adongwanai/follow-rsi/actions/runs/41297323897",
+      "event": "workflow_dispatch",
+      "conclusion": "failure",
+      "code_ref": "main",
+      "error": "ValueError: arxiv:2507.11473: pending review blocks publication; use defer to carry it forward"
+    },
+    "legacy_queue": {
+      "date": "2026-10-31",
+      "head_sha": "307b018be6e61a39550971bbeef6108d25540406",
+      "papers": 75,
+      "lab_updates": 69,
+      "decisions": {
+        "pending": 144
+      }
+    },
+    "unchanged_target": {
+      "id": "arxiv:2507.11473",
+      "decision": "pending",
+      "source_hash": "08d33b14abfdadce781bbaba0fa1c760570e9819a5a5cc39f493c2c82a4d93c6",
+      "carried_from": "2026-10-30",
+      "note": ""
+    }
+  },
+  "diagnosis": {
+    "trusted_main": "Still generates pending and changes prior defer to pending during rollover; the current fix branch is not used by the remote owner checker.",
+    "current_branch_gap": "queue_daily_review defaults new rows to defer but OWNER_FIELDS copied an unchanged legacy pending back over that default.",
+    "normalization": "After retaining owner fields, normalize only pending to defer in the generated daily queue.",
+    "unchanged_publication_boundary": "validate_daily_review continues rejecting pending for both papers and announcements; normalization creates no accept or move decisions.",
+    "legacy_files": "Previous review files and carried review objects remain unchanged."
+  },
+  "action_required": {
+    "runs": [
+      {
+        "id": 41297323223,
+        "workflow": "Validate data and tests",
+        "url": "https://github.com/adongwanai/follow-rsi/actions/runs/41297323223",
+        "jobs": 0,
+        "check_runs": 0
+      },
+      {
+        "id": 41297323256,
+        "workflow": "Check generated files",
+        "url": "https://github.com/adongwanai/follow-rsi/actions/runs/41297323256",
+        "jobs": 0,
+        "check_runs": 0
+      }
+    ],
+    "github_page_exact_message": "This workflow is awaiting approval from a maintainer in #13",
+    "http_status": 200,
+    "actor": "github-actions[bot]",
+    "repository_fork_pr_approval_policy": "first_time_contributors",
+    "interpretation": "Awaiting workflow execution approval; no test or build job has run. This is separate from the owner-decision ValueError.",
+    "approval_performed": false,
+    "repository_settings_changed": false
+  },
+  "schedule": {
+    "timezone": "Asia/Shanghai",
+    "local_heartbeat": {
+      "config": "$CODEX_HOME/automations/follow-rsi/automation.toml",
+      "id": "follow-rsi",
+      "status": "ACTIVE",
+      "kind": "heartbeat",
+      "time_local": "08:00",
+      "daily": true,
+      "prompt_timezone": "Asia/Shanghai",
+      "actual_execution_verified": false
+    },
+    "remote_main": [
+      {
+        "workflow": "Follow RSI daily",
+        "path": ".github/workflows/feed-daily.yml",
+        "cron_utc": "23 2 * * *",
+        "planned_local": "10:23",
+        "run": 41292895944,
+        "created_at_utc": "2026-11-01T09:22:57Z",
+        "job_started_at_utc": "2026-11-01T09:22:59Z",
+        "created_at_local": "2026-11-01T17:22:57+08:00",
+        "delay_after_scheduled_seconds": 25197
+      },
+      {
+        "workflow": "Follow RSI owner review",
+        "path": ".github/workflows/feed-review.yml",
+        "cron_utc": "17 3 * * *",
+        "planned_local": "11:17",
+        "run": 41297291395,
+        "created_at_utc": "2026-11-01T10:23:38Z",
+        "job_started_at_utc": "2026-11-01T10:23:41Z",
+        "created_at_local": "2026-11-01T18:23:38+08:00",
+        "delay_after_scheduled_seconds": 25598
+      }
+    ],
+    "observation": "The GitHub cron configuration differs from the requested local 08:00 heartbeat. Actual runs were created later again; job startup took only 2 or 3 seconds. API evidence does not explain the scheduler delay.",
+    "changed": false
+  },
+  "validation": {
+    "regression_before_fix": "The added regression failed because an inherited decision was pending instead of defer.",
+    "command": ".venv/bin/python -m pytest tests/feed/test_daily.py tests/feed/test_review.py tests/feed/test_ci.py tests/feed/test_corrections.py tests/feed/test_window.py -q",
+    "passed": 62,
+    "failed": 0,
+    "duration_seconds": 20.8,
+    "new_regression_cases": 6,
+    "coverage": [
+      "saved prior review and carried unmerged PR",
+      "pending paper and announcement normalize to defer",
+      "accept/reject/move and owner note/direction/summary/promotion edits preserved",
+      "prior YAML including comments is byte-for-byte unchanged",
+      "caller-provided carried review remains unchanged",
+      "normalized defer rows are not approved",
+      "explicit pending papers and announcements still fail validation"
+    ],
+    "full_suite_run_by_this_agent": false,
+    "files": {
+      "scripts/feed/review.py": "7379ad4e140d21f4007060661551cc3ac9e02406249e71301508b56e79b0f2d4",
+      "tests/feed/test_daily.py": "b943eed0aa91d882ec1d7192b8bd39ed7a2892cc677c8246946d9052e18c124e"
+    }
+  },
+  "boundaries": {
+    "paid_api_calls": 0,
+    "model_calls": 0,
+    "canonical_data_changed": false,
+    "prior_reviews_changed": false,
+    "git_commits": 0,
+    "pushes": 0,
+    "main_changed": false,
+    "workflow_approvals": 0,
+    "published": 0
+  },
+  "remaining": [
+    "The local fix is not on remote main; it cannot change the current PR 13 check result until integrated and a queue is regenerated.",
+    "Maintainer approval is still needed to start the two action_required workflows.",
+    "The 08:00 local heartbeat and GitHub cron times are separate schedules; actual heartbeat execution was not audited here."
+  ],
+  "coverage_accounting": {
+    "checked_at": "2026-11-01T13:38:09.510323+00:00",
+    "scope": "Frozen 2026-10-30 inventory plus the saved 2026-10-31 new-intake/resume snapshot. Ongoing 2026-11-01 reviews are not incorporated into these frozen counts.",
+    "source_hashes": {
+      "docs/internal/reports/maintenance-2026-10-30/coverage/item-status.jsonl": "626f0c37f2d4dd5c58b02a3bdd40cc98aae26fbfe964afb54b2950af4ffbbebd",
+      "docs/internal/reports/maintenance-2026-10-30/coverage/coverage-ledger.json": "5a73c4adf412ffc76a687f21e0a3702ba3d60a8cfd682701b172977a80e02044",
+      "docs/internal/reports/maintenance-2026-10-30/coverage/resume-plan.json": "d5d048a0fbb188a962a20350da1830360adfb400d951beda9392d771fa919ada",
+      "docs/internal/reports/maintenance-2026-10-30/coverage/model-run-final-status.json": "d8a7c68491b6076abe4d3ae96031e768b38d4eec57ddbc9a433ecf5bdc3f4331",
+      "docs/internal/reports/maintenance-2026-10-31/new-item-status.jsonl": "e5b5ad7cec9abedfe4d74e6e7d3ec1a01a7eb5f995e2cdb5c6ec4354bf9455cb",
+      "docs/internal/reports/maintenance-2026-10-31/resume-plan.json": "3ccb1be27198a106e840719cafac0062ed1c133395e3c191be9ecedd08028e7d"
+    },
+    "inventory_partition": {
+      "frozen_2026_10_30": 1139,
+      "original_baseline": 1124,
+      "hf_new_appendix": 15,
+      "new_2026_10_31": 67,
+      "total": 1206,
+      "overlap_ids": 0
+    },
+    "frozen_1139_status_partition": {
+      "current_three_round_advice": 163,
+      "model_advice_only": 787,
+      "protected_owner_correction": 33,
+      "new_curated_catalog_source": 1,
+      "protected_curated_catalog": 17,
+      "official_body_model_advice": 47,
+      "source_blocked": 9,
+      "prior_three_round_reuse_candidate": 56,
+      "model_error_pending": 11,
+      "hf_three_phase_source_advice": 15
+    },
+    "original_1124_status_partition": {
+      "current_three_round_advice": 163,
+      "model_advice_only": 787,
+      "protected_owner_correction": 33,
+      "new_curated_catalog_source": 1,
+      "protected_curated_catalog": 17,
+      "official_body_model_advice": 47,
+      "source_blocked": 9,
+      "prior_three_round_reuse_candidate": 56,
+      "model_error_pending": 11
+    },
+    "hf_new_15_status_partition": {
+      "hf_three_phase_source_advice": 15
+    },
+    "new_67_status_partition": {
+      "three_round_scope_recommendation_owner_pending": 37,
+      "source_scope_review_pending": 21,
+      "official_post_body_review_pending": 9
+    },
+    "partitions_are_mutually_exclusive": true,
+    "completion_protocols": {
+      "original_1124_matching_three_phase_advice": 163,
+      "hf_new_15_separate_three_phase_source_advice": 15,
+      "all_1139_rows_with_three_matching_phase_numbers": 178,
+      "new_67_scope_recommendations_complete_owner_pending": 37,
+      "new_67_recommendations": {
+        "exclude": 30,
+        "include": 5,
+        "defer": 2
+      },
+      "new_67_scope_or_body_review_pending": 30,
+      "protocols_identical": false,
+      "publication_readiness_inferred": false,
+      "interpretation": "163 belongs to the original 1124 protocol; 15 HF additions use a separate source-review protocol. 178 is a count of rows with matching phase numbers, not identical-protocol completion, independent reviewers, or owner approval. The later 37 completed scope recommendations remain owner-pending and lack production text/classification steps.",
+      "original_163_with_remaining_historical_equivalence_caveat": [
+        "arxiv:2610.32046",
+        "post:https://openai.com/index/updated-model-spec",
+        "post:https://openai.com/index/how-we-detect-frontier-model-misalignment"
+      ]
+    },
+    "owner_review_accounting": {
+      "all_1206_advice_manifest_formal_decisions": {
+        "defer": 1206
+      },
+      "new_owner_approvals_in_these_runs": 0,
+      "new_publications_in_these_runs": 0,
+      "protected_original_records": 50,
+      "historical_owner_decisions_in_frozen_1139": {
+        "missing": 1087,
+        "defer": 20,
+        "move": 10,
+        "accept": 16,
+        "reject": 6
+      },
+      "scope_recommendation_complete_and_owner_pending_overlap": 37,
+      "disjoint_completed_owner_pending_external_blocked_counts_available": false,
+      "interpretation": "Scope completion, awaiting owner adjudication, and an automated-stage error are separate axes. Do not add 37 scope-complete to 37 owner-pending, and do not label all 1206 manifest deferrals as new owner workload or publish-ready items."
+    },
+    "resume_stage_tasks": {
+      "queue_counts": {
+        "classify_new_papers": 57,
+        "complete_official_post_summary": 1,
+        "independent_source_review_not_yet_recorded": 164,
+        "new_metadata_confirmation": 1,
+        "new_official_post_body_review": 9,
+        "new_source_scope_review": 21,
+        "reconcile_source_version_or_text": 73,
+        "resume_summary": 369,
+        "retrieve_original_abstract": 9,
+        "retry_model_api": 31
+      },
+      "sum_of_task_memberships": 735,
+      "unique_ids_in_any_queue": 495,
+      "frozen_ids_in_any_queue": 428,
+      "new_ids_in_any_queue": 67,
+      "unique_ids_not_in_named_resume_queues": 711,
+      "absence_from_named_queues_implies_completion": false,
+      "frozen_no_queue_status_partition": {
+        "current_three_round_advice": 163,
+        "model_advice_only": 384,
+        "protected_owner_correction": 33,
+        "protected_curated_catalog": 17,
+        "official_body_model_advice": 46,
+        "prior_three_round_reuse_candidate": 53,
+        "hf_three_phase_source_advice": 15
+      },
+      "independent_source_gap_ids": 164,
+      "independent_source_gap_is_external_block": false,
+      "independent_source_gap_and_summary_queue_overlap": 158,
+      "independent_source_gap_and_recorded_model_errors_overlap": 0,
+      "independent_source_gap_and_original_abstract_gap_overlap": 0,
+      "interpretation": "735 task memberships deduplicate to 495 IDs (428 frozen plus all 67 new). The other 711 IDs are not automatically complete: 384 have only model advice and 53 are historical reuse candidates, among other states. The 164 missing third-round records are internal unfinished work, including 158 also awaiting summaries.",
+      "independent_source_gap_and_source_reconciliation_overlap": 0
+    },
+    "external_dependency_accounting": {
+      "historical_model_api_error_ids": 31,
+      "historical_model_api_error_original": 11,
+      "historical_model_api_error_new": 20,
+      "publisher_access_blocked_at_frozen_audit": 8,
+      "unique_ids_with_recorded_api_or_publisher_access_failure": 39,
+      "recorded_failure_and_new_scope_complete_overlap": 20,
+      "original_abstract_unavailable": 9,
+      "official_editorial_with_no_abstract": [
+        "s2:c470d4b2c990d73e0b34f5f9e384423fd7c09a14"
+      ],
+      "new_missing_abstract_and_future_date_confirmation": [
+        "s2:33e84e388ed32372fb1a7fbbc251f96f3375a29a"
+      ],
+      "source_availability_or_metadata_gap_ids": 10,
+      "budget_status_at_frozen_snapshot": "blocked_by_new_http_402",
+      "paper_summary_queue_paused": 369,
+      "post_summary_queue_pending": 1,
+      "current_external_failure_count_reverified": false,
+      "not_all_unattempted_items_are_failures": true,
+      "interpretation": "39 distinct records have saved external-failure evidence: 31 prior API errors plus 8 publisher access failures. This is historical evidence, not a live 11/01 blockage test. One editorial has no abstract, and one new S2 record has missing abstract/future date, so report these as metadata/source gaps rather than failed access. HTTP 402 is a shared dependency of paused model stages, not evidence that every unrun scope/body review is externally blocked."
+    },
+    "recommended_reporting": [
+      "Inventory: 1139 frozen plus 67 new; every ID has a saved state.",
+      "Review progress: original 1124 has 163 matching three-phase records; 15 new HF entries use a separate three-phase source review; 37 later entries have completed scope recommendations pending owner adjudication.",
+      "Unfinished work: report named stage queues with overlaps and the 495-ID union; never treat 711 outside those queues as complete.",
+      "External dependencies: report the shared HTTP 402 pause and 31 historical API-error plus 8 publisher-access records separately from 164 internal third-round gaps.",
+      "No new owner approvals or publications; retain protected historical decisions."
+    ],
+    "historical_reports_changed": false,
+    "canonical_changed": false,
+    "tests_rerun": false,
+    "model_or_network_calls": 0,
+    "verification": {
+      "checked_at": "2026-11-01T13:42:35.848874+00:00",
+      "source_files_hash_verified_unchanged": 6,
+      "status_rows_recounted": 1206,
+      "status_partitions_recomputed": true,
+      "resume_queue_unions_and_intersections_recomputed": true,
+      "historical_failure_overlap_recomputed": true,
+      "local_markdown_links_validated": 7,
+      "personal_absolute_paths_present": false,
+      "tests_rerun": false,
+      "network_or_model_calls": 0
+    }
+  }
+}
