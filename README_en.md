@@ -27,19 +27,11 @@ RSI papers appear every day, but every claim of improvement needs scrutiny. Foll
 
 <!-- AUTO:TODAY:START -->
 
-**Update status (not a published edition) · 2026-11-08**
+**[2026-11-08](https://adongwanai.github.io/follow-rsi/daily/2026-11-08.html)** · Collection and review brief
 
-All 12 enabled sources were attempted at 08:04–08:13 Asia/Shanghai. The Nov 8 HF board was not ready, with availability through Nov 6; the Nov 7 request returned HTTP 200 with an empty list. The complete Nov 6 board has 32 papers, adding late member Coca-Cola, reviewed as outside Harness scope. Five RSS feeds returned 59 window records; 13 GitHub repositories had no releases in the window. Three arXiv queries yielded two timeouts and one HTTP 429. Successful S2 citation pages held 2,919 raw records and 327 window records (295 deduplicated); anonymous throttling left traversal unfinished, and author tracking obtained no paper pages. Reconciliation added 19 identities; five passed scope cross-review for supplements under their original source dates. Evolver needs mechanism evidence and ELLMO needs original identity verification. Older papers were not relabeled as today’s new papers.
+Collection and review bulletin published; no new papers were included. Collection and review record before publication: All 12 sources were attempted at 08:04–08:13 Asia/Shanghai. Today’s HF board was not ready; the latest available complete board, Nov 6, contained 32 papers, with late member Coca-Cola excluded. Nineteen new identities yielded five individually reviewed papers for supplements dated Nov 4 or Nov 5, 13 exclusions, and Evolver pending evidence. Another 443 historical records were reviewed: 15 historical backlog inclusions, 419 exclusions and nine scope boundaries. Including source retries, the combined 467-row review has 434 exclusions, 15 historical backlog decisions and 18 deferrals. Five RSS feeds returned 59 window records; 13 GitHub repositories had no window releases. Three arXiv queries timed out or returned 429; anonymous S2 throttling left parts of the source uncollected. Older papers were not relabeled as new today. This is a collection snapshot, not a claim that no later updates exist.
 
-[View daily progress →](https://adongwanai.github.io/follow-rsi/daily/index.html#publication-status)
-
-**Latest published edition**
-
-**[2026-11-07](https://adongwanai.github.io/follow-rsi/daily/2026-11-07.html)** · Collection and review brief
-
-Collection and review bulletin published; no new papers were included. Collection and review record before publication: All 12 enabled sources were attempted at 08:07–08:11 Asia/Shanghai. Today’s HF board was not ready (available through Nov 6); the complete Nov 5 and Nov 6 boards contained 39 and 31 papers. Reconciliation added 46 identities and four recommendation dates; three-round review supported two inclusions and 48 scope exclusions, retaining their original HF dates. Three arXiv queries succeeded with zero results; 13 GitHub repositories had zero releases in the source window. All five RSS feeds succeeded, returning 58 window entries. S2 citations yielded seven window entries from the first 100 raw records before 429 throttling; citation continuation and author tracking were not fully collected. This is a collection and review brief, not a claim of new papers or no updates for the whole day.
-
-[Read this edition →](https://adongwanai.github.io/follow-rsi/daily/2026-11-07.html)
+[Read this edition →](https://adongwanai.github.io/follow-rsi/daily/2026-11-08.html)
 
 <!-- AUTO:TODAY:END -->
 
