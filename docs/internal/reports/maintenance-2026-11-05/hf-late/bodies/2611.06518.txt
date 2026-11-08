@@ -1,0 +1,6482 @@
+EmoReward: Self-Evolving Reward Calibration for Emotional Video Generation RL
+Mingzhe Zheng
+Affiliation:
+The Hong Kong University of Science and Technology Tencent Hunyuan
+Yue Wu
+Affiliation:
+The Hong Kong University of Science and Technology Tencent Hunyuan
+Jing Tan
+Affiliation:
+The Hong Kong University of Science and Technology Tencent Hunyuan
+Chang Zou
+Affiliation:
+The Hong Kong University of Science and Technology Tencent Hunyuan
+Dengyang Jiang
+Zeyue Tian
+Xuanhua He
+Ryan Xu
+Affiliation:
+The Hong Kong University of Science and Technology Tencent Hunyuan
+Yunyang Ge
+Affiliation:
+The Hong Kong University of Science and Technology Tencent Hunyuan
+Sihui Ji
+Affiliation:
+The Hong Kong University of Science and Technology Tencent Hunyuan
+Yunlong Lin
+Affiliation:
+The Hong Kong University of Science and Technology Tencent Hunyuan
+Kaihang Pan
+Affiliation:
+The Hong Kong University of Science and Technology Tencent Hunyuan
+Hongru Yan
+Affiliation:
+The Hong Kong University of Science and Technology Tencent Hunyuan
+Sixiang Chen
+Affiliation:
+The Hong Kong University of Science and Technology Tencent Hunyuan
+Dianyi Wang
+Julian Zhang
+Affiliation:
+Fudan University University of Waterloo
+Weijie Kong
+Affiliation:
+The Hong Kong University of Science and Technology Tencent Hunyuan
+Changlin Li
+Affiliation:
+The Hong Kong University of Science and Technology Tencent Hunyuan
+Lanqing Guo
+Affiliation:
+The Hong Kong University of Science and Technology Tencent Hunyuan
+Zhao Zhong
+Affiliation:
+The Hong Kong University of Science and Technology Tencent Hunyuan
+Qifeng Chen
+Harry Yang
+*
+Work done during internship at Tencent Hunyuan
+Project leader  Corresponding author
+Abstract
+Group Relative Policy Optimization (GRPO) has advanced generative model post-training in verifiable domains such as code and mathematics, but evaluating video quality, especially emotional expression, often depends on subjective aesthetics and has no uniquely correct target.
+Existing approaches typically rely on fixed rewards for visual quality, motion quality, and text alignment that poorly capture emotional intent and can invite reward hacking, while reinforcement learning from human feedback (RLHF) is difficult to scale and subject to individual aesthetic differences that complicate the calibration of facial, body motion, and chromatic cues across narrative contexts.
+We introduce
+EmoReward
+, a new self-evolving training mechanism that distills evidence reliability from reward traces collected during an actual training run to adaptively guide multi-reward weight allocation in subsequent training by determining which emotional evidence to trust and how much to weight it.
+EmoReward first plans specific grounding cues from the emotional prompt to guide evaluation, then uses heterogeneous signal primitives to score the generated video during the act stage.
+Reflective Reward Gating
+calibrates their contributions through instance-level gates for phase, face confidence, conflict, and subtlety, then renormalizes weights over the active set to produce the sample’s fused reward.
+RewardMemory
+then estimates each primitive’s reliability from rollout scores and outcomes within each emotional regime in the finished training run, then fixes bounded multipliers that calibrate fusion weights in the next training run without updating reward models.
+Experiments on HunyuanVideo 1.5 show improvements across multiple RL algorithms and compare EmoReward with other agentic reward methods under SAGE-GRPO.
+Ablations and transfer experiments on SD 3.5 and FLUX further support adaptive reward calibration for visual generation.
+Project Page:
+https://emoreward-project.github.io/
+GitHub Repo:
+https://github.com/Tencent-Hunyuan/EmoReward
+1  Introduction
+Reinforcement learning (RL), especially Group Relative Policy Optimization (GRPO), has advanced model post-training in verifiable domains such as code and mathematics, where correctness provides a direct learning signal
+[
+46
+,
+16
+,
+50
+,
+75
+]
+.
+In contrast, evaluating video quality, especially emotional expression, often depends on subjective aesthetics and has no uniquely correct target.
+Visual post-training adapts diffusion and flow generators through RL and preference objectives
+[
+2
+,
+12
+,
+43
+,
+60
+,
+72
+,
+29
+,
+80
+]
+.
+Learned evaluators provide scores for image preference and video quality
+[
+69
+,
+22
+,
+38
+,
+68
+,
+17
+,
+30
+]
+, but a visually clear, temporally stable video can match its prompt without conveying the intended emotion.
+Facial analysis, dynamic expression recognition, and multimodal emotion models supply complementary evidence
+[
+1
+,
+3
+,
+7
+,
+26
+,
+79
+]
+, whose reliability varies with context: facial cues require visible faces, strong motion can undermine restrained sadness, and saturated colors may reflect style rather than emotional intent.
+This raises a central question:
+Which emotional evidence should the reward system trust in the current video, and how can it adaptively determine how much weight to assign to that evidence?
+Figure 1:
+From fixed scoring to contextual reward calibration.
+The reward design progresses from a fixed evaluator to a heterogeneous provider pool and
+then to EmoReward. Reflective Reward Gating selects relevant evidence for the current
+video; RewardMemory calibrates provider trust from experience. All three stages ultimately
+return a scalar reward. The reward providers remain frozen while the generator undergoes
+RL updates.
+Agentic systems coordinate interaction, refine outputs through feedback, and organize evaluation into rubrics
+[
+65
+,
+62
+,
+39
+,
+47
+,
+15
+]
+.
+These capabilities motivate adaptive evaluation, yet existing video GRPO methods typically rely on fixed rewards for visual quality, motion quality, and text alignment that inadequately capture emotional intent.
+Reinforcement learning from human feedback (RLHF) and preference optimization address subjective goals
+[
+8
+,
+48
+,
+41
+,
+44
+]
+, but human annotation is costly at scale, and aesthetic differences complicate the calibration of emotional cues across contexts.
+Fixed fusion can mix informative, missing, and saturated signals, allowing policy updates to exploit scoring shortcuts rather than improve emotional fidelity.
+This motivates reward calibration at two complementary levels: assessing which cues are valid within each video, and learning from a completed training run how much those cues should influence rewards in the next run.
+We introduce
+EmoReward
+, a
+self-evolving training mechanism
+for emotional video-generation RL (Figure
+1
+).
+It distills
+evidence reliability
+from reward–outcome traces collected during an actual, completed training run, then uses this experience to guide multi-reward weight allocation in the next run to decide which emotional evidence to trust and how much to weight it.
+Plan
+translates emotional intent into an EmoScript specifying affect targets, facial and body cues, and an expression window;
+Act
+scores generated videos with heterogeneous primitives, keeping criterion scores separate from evidence validity.
+Within each video,
+Reflective Reward Gating
+calibrates these cues using the training phase, face confidence, semantic conflict, and subtlety, then renormalizes weights over active providers.
+After a training run,
+RewardMemory
+estimates provider reliability for each emotional regime from traces.
+Providers with stronger agreement are given larger weight multipliers for the next run, with limits on the size of the adjustment.
+These multipliers and all reward models stay fixed throughout that run; for each new video, reflection further downweights or excludes missing or unsuitable cues before the active scores are combined into a weighted average
+EmoReward can be integrated into several RL algorithms alongside general video rewards, and directly use training experience to calibrate reward allocation without retraining the evaluators.
+We evaluate EmoReward on HunyuanVideo 1.5
+[
+64
+]
+with DanceGRPO
+[
+72
+]
+, FlowGRPO
+[
+29
+]
+, and SAGE-GRPO
+[
+80
+]
+, observing higher VideoAlign scores for the guided configurations across all three RL algorithms on emotional prompts as the evaluation dataset for rollout.
+Under a fair comparison on the same RL architecture and training budget, EmoReward achieves the highest reliability selectivity and both composite calibration scores among seven reward policies.
+Ablation studies and mechanism analyses examine the contributions of reflective gating, provider pools, and RewardMemory (Section
+4.2
+).
+Transfer experiments on Stable Diffusion 3.5 and FLUX show gains in selected configurations alongside objective-dependent trade-offs, while user studies show that EmoReward receives the highest human preference and proportion of Good ratings and the lowest proportion of Bad ratings for emotional fidelity, temporal coherence, and visual quality.
+Our contributions are threefold.
+•
+We introduce
+EmoReward
+, to our knowledge the first self-evolving training mechanism for emotional video generation RL that calibrates reward providers across training runs without updating reward model parameters.
+•
+We propose
+RewardMemory
+, to our knowledge the first memory designed for multi-reward systems in video generation. It distills evidence reliability into bounded fusion weights, enabling iterative calibration of RL reward signals across training runs.
+•
+We inspire a novel
+cross-run self-evolution paradigm
+for post-training multimodal foundation models: a completed training run informs reward allocation in the next, making training experience reusable at the run level. Extensive experiments across three video RL algorithms and two image backbones, with ablations and human evaluations, validate EmoReward’s effectiveness.
+2  Related Work
+From verifiable RL to agentic feedback for non-verifiable rewards.
+RLHF learns subjective preferences
+[
+8
+,
+41
+]
+, whereas verifiable RL exploits correctness checks
+[
+16
+,
+75
+]
+.
+Agentic evaluators
+[
+77
+,
+9
+]
+and adaptive rubrics
+[
+15
+,
+70
+,
+78
+]
+structure open-ended feedback.
+Related approaches route experts
+[
+40
+]
+, refine responses
+[
+39
+]
+, evolve rewards
+[
+35
+,
+76
+]
+, or organize experience
+[
+47
+,
+71
+]
+.
+JitRL derives closed-form policy updates from retrieved action advantages
+[
+25
+]
+.
+EmoReward instead transfers reward–outcome evidence across completed training runs to calibrate frozen providers, combining sample-level gating with persistent fusion weights.
+Agents for visual content creation.
+Agentic visual creation organizes generation into planning, tool use, and feedback-driven refinement.
+Video agents coordinate multi-shot narratives, script evaluation, audiovisual planning, and learned camera control
+[
+82
+,
+18
+,
+81
+,
+11
+,
+57
+,
+67
+]
+.
+Image agents combine knowledge retrieval
+[
+14
+,
+4
+]
+, learned creation and editing policies
+[
+23
+,
+27
+]
+, and experience reuse
+[
+5
+,
+6
+]
+.
+Other approaches jointly improve generation and evaluation
+[
+28
+,
+51
+]
+.
+EmoReward naturally achieves a self-evolving mechanism in video generation RL training, rather than building a workflow or retraining reward models.
+RLHF for visual generation and the emotion-reward gap.
+Visual reward models capture preferences and multidimensional quality
+[
+69
+,
+22
+,
+66
+,
+38
+,
+68
+,
+63
+,
+30
+]
+.
+Optimization using rewards and preferences extends from images
+[
+2
+,
+12
+,
+43
+,
+60
+]
+to video and flow models
+[
+72
+,
+29
+,
+80
+,
+31
+]
+, with benchmarks assessing quality and compositional alignment
+[
+20
+,
+32
+,
+49
+]
+.
+Related 3D, audiovisual, and objectives for human animation address complementary aspects of visual generation
+[
+24
+,
+19
+,
+59
+,
+55
+]
+.
+Motion editing and transfer
+[
+52
+,
+54
+,
+37
+]
+, shape-aware and consistent image editing
+[
+33
+,
+36
+]
+, and pose- and identity-preserving animation
+[
+58
+,
+42
+,
+56
+]
+offer finer control over visual content.
+Distillation
+[
+74
+,
+21
+,
+13
+]
+and feature reuse
+[
+34
+]
+improve generation efficiency, complementing reward-based post-training.
+Affect-grounded augmentation
+[
+61
+]
+and reflective action-conditioned generation
+[
+73
+]
+further connect feedback with video synthesis.
+Temporal video modeling and dynamic facial-expression recognition provide additional perceptual foundations
+[
+53
+,
+3
+]
+.
+Emotion understanding supplies multimodal evidence
+[
+7
+,
+26
+,
+79
+]
+and grounded affect representations
+[
+45
+,
+10
+,
+1
+]
+; EmoReward addresses how their reliability should govern reward fusion across scenes and training runs.
+3  Method
+Figure 2:
+EmoReward calibrates emotional evidence within videos and across training runs.
+Plan translates intent into evaluation criteria, and Act obtains provider scores and evidence validity.
+Reflect combines current-video gates with memory-derived multipliers and normalizes over active providers.
+Evolve estimates contextual reliability from a completed reference run to construct the fixed multipliers
+used in subsequent training. The calibrated emotion reward complements the original video reward;
+GRPO updates the generator while the providers and memory table remain frozen.
+3.1  Preliminaries
+Multi-reward optimization with GRPO.
+Let
+p
+p
+be a prompt and
+x
+x
+a generated video from a policy
+π
+θ
+​
+(
+x
+∣
+p
+)
+\pi_{\theta}(x\mid p)
+; a scalar
+reward is
+R
+⁡
+(
+x
+,
+p
+)
+∈
+ℝ
+R(x,p)\in\mathbb{R}
+. For a prompt
+p
+p
+, GRPO samples a group
+𝒢
+⁡
+(
+p
+)
+=
+{
+x
+i
+}
+i
+=
+1
+G
+\mathcal{G}(p)=\{x_{i}\}_{i=1}^{G}
+and forms standardized group advantages
+A
+i
+=
+R
+⁡
+(
+x
+i
+,
+p
+)
+−
+μ
+𝒢
+σ
+𝒢
++
+ϵ
+,
+μ
+𝒢
+=
+1
+G
+​
+∑
+j
+R
+⁡
+(
+x
+j
+,
+p
+)
+,
+σ
+𝒢
+2
+=
+1
+G
+​
+∑
+j
+(
+R
+⁡
+(
+x
+j
+,
+p
+)
+−
+μ
+𝒢
+)
+2
+,
+A_{i}=\frac{R(x_{i},p)-\mu_{\mathcal{G}}}{\sigma_{\mathcal{G}}+\epsilon},\qquad\mu_{\mathcal{G}}=\tfrac{1}{G}\textstyle\sum_{j}R(x_{j},p),\quad\sigma_{\mathcal{G}}^{2}=\tfrac{1}{G}\textstyle\sum_{j}(R(x_{j},p)-\mu_{\mathcal{G}})^{2},
+(1)
+which enter the clipped, KL-regularized objective in Appendix
+F
+. The
+policy update depends on reward differences inside the group. A common additive constant
+cancels exactly; positive rescaling changes only the relative effect of
+ϵ
+\epsilon
+.
+A coefficient of variation measures dispersion, not policy-learning signal quality;
+we also assess within-prompt ranking agreement and downstream quality.
+Why static emotion fusion fails.
+Given reward primitives
+𝒯
+=
+{
+1
+,
+…
+,
+K
+}
+\mathcal{T}=\{1,\ldots,K\}
+with normalized scores
+s
+k
+​
+(
+x
+,
+p
+)
+∈
+[
+0
+,
+1
+]
+s_{k}(x,p)\in[0,1]
+, a fixed fusion is
+R
+emo
+static
+=
+∑
+k
+w
+k
+0
+​
+s
+k
+R_{\mathrm{emo}}^{\mathrm{static}}=\sum_{k}w_{k}^{0}s_{k}
+with
+w
+k
+0
+≥
+0
+,
+∑
+k
+w
+k
+0
+=
+1
+w_{k}^{0}\geq 0,\sum_{k}w_{k}^{0}=1
+. This
+assumes a fixed trust allocation across scenes, although facial visibility and the relevance
+of motion depend on the intended emotion. Writing
+each primitive as a constant plus a group-varying part
+s
+k
+=
+c
+k
++
+δ
+k
+s_{k}=c_{k}+\delta_{k}
+and splitting into
+an active set
+𝒜
+\mathcal{A}
+and a dead/saturated set
+𝒟
+\mathcal{D}
+,
+R
+emo
+static
+=
+∑
+k
+∈
+𝒜
+w
+k
+0
+​
+δ
+k
++
+∑
+k
+∈
+𝒜
+w
+k
+0
+​
+c
+k
++
+∑
+k
+∈
+𝒟
+w
+k
+0
+​
+c
+k
+,
+R_{\mathrm{emo}}^{\mathrm{static}}=\sum_{k\in\mathcal{A}}w_{k}^{0}\delta_{k}+\sum_{k\in\mathcal{A}}w_{k}^{0}c_{k}+\sum_{k\in\mathcal{D}}w_{k}^{0}c_{k},
+(2)
+the constant terms cancel from the centered GRPO numerator. Removing them alone need not
+change the standardized advantage. Calibration matters when provider validity, errors, or
+relative contributions vary across candidates, or when the emotion branch is mixed with
+another reward. EmoReward addresses these cases through gates and memory-conditioned fusion.
+3.2  Overview
+EmoReward grounds emotional intent, scores visual evidence, and calibrates provider trust:
+p
+→
+Plan
+e
+⁡
+(
+p
+)
+,
+(
+x
+,
+e
+)
+→
+Act
+{
+s
+k
+,
+u
+k
+}
+,
+(
+s
+,
+u
+,
+e
+,
+x
+)
+→
+Reflect
+R
+emo
+,
+ℳ
+→
+Evolve
+w
+RM
+​
+(
+z
+)
+.
+p\xrightarrow{\mathrm{Plan}}e(p),\quad(x,e)\xrightarrow{\mathrm{Act}}\{s_{k},u_{k}\},\quad(s,u,e,x)\xrightarrow{\mathrm{Reflect}}R_{\mathrm{emo}},\quad\mathcal{M}\xrightarrow{\mathrm{Evolve}}w^{\mathrm{RM}}(z).
+(3)
+Here
+e
+⁡
+(
+p
+)
+e(p)
+is an EmoScript,
+u
+k
+u_{k}
+denotes evidence validity, and
+z
+z
+is the emotional-context
+signature. RewardMemory
+ℳ
+\mathcal{M}
+stores completed reference-run traces; Evolve produces
+w
+RM
+​
+(
+z
+)
+w^{\mathrm{RM}}(z)
+and exports the corresponding regime multipliers
+m
+k
+​
+(
+r
+)
+m_{k}(r)
+(Section
+3.5
+). Reflect combines these fixed multipliers with current-video gates.
+The resulting emotion reward is mixed with a general video reward:
+R
+total
+​
+(
+x
+,
+p
+)
+=
+α
+​
+R
+vid
+​
+(
+x
+,
+p
+)
++
+β
+​
+R
+emo
+​
+(
+x
+,
+p
+)
+α
++
+β
+,
+R_{\mathrm{total}}(x,p)=\frac{\alpha R_{\mathrm{vid}}(x,p)+\beta R_{\mathrm{emo}}(x,p)}{\alpha+\beta},
+(4)
+where
+R
+vid
+R_{\mathrm{vid}}
+is the evaluation score supplied by the original reward system,
+for example a general video-quality evaluator
+[
+30
+]
+;
+α
+,
+β
+≥
+0
+\alpha,\beta\geq 0
+control its mixture with the calibrated emotion reward, with
+α
++
+β
+>
+0
+\alpha+\beta>0
+.
+Figure
+2
+connects these stages through their shared fusion interface.
+3.3  Plan and Act: Emotional Grounding
+Plan: prompt-conditioned criteria.
+The planner converts the prompt into an EmoScript independently of RewardMemory:
+e
+⁡
+(
+p
+)
+=
+(
+v
+⋆
+,
+a
+⋆
+,
+𝐪
+AU
+⋆
+,
+𝐛
+⋆
+,
+Ω
+)
+.
+e(p)=(v^{\star},a^{\star},\mathbf{q}^{\star}_{\mathrm{AU}},\mathbf{b}^{\star},\Omega).
+(5)
+The implemented representation contains scalar valence and arousal targets, target facial
+AU intensities, body cues, and an expression window. The memory regime is inferred later from observed context. Continuous VAD trajectories
+and dominance targets are outside this implementation.
+The EmoScript separates intended affect from its observable cues. For example,
+restrained sadness need not imply large motion or an exaggerated face: target
+intensities, body cues, and the expression window define what to assess, while
+reliability is determined from the generated evidence and completed-run experience.
+Act: observation and scoring.
+Act evaluates a video already sampled from
+π
+θ
+(
+⋅
+∣
+p
+)
+\pi_{\theta}(\cdot\mid p)
+; it does not generate
+or revise the video. Each provider returns
+(
+s
+k
+,
+u
+k
+)
+=
+𝒮
+k
+​
+(
+x
+,
+e
+⁡
+(
+p
+)
+)
+,
+s
+k
+,
+u
+k
+∈
+[
+0
+,
+1
+]
+,
+(s_{k},u_{k})=\mathcal{S}_{k}(x,e(p)),\qquad s_{k},u_{k}\in[0,1],
+(6)
+where
+𝒮
+k
+\mathcal{S}_{k}
+is provider
+k
+k
+’s scoring operator, which aggregates frame-level
+measurements or evaluates the whole clip.
+The seven fusion providers comprise a VLM judge, facial AUs, body cues, temporal evidence,
+CLIP-AUTT, R1-Omni, and motion naturalness; chromatic atmosphere and kinetic intensity
+are auxiliary readouts, giving nine observation channels. Score
+s
+k
+s_{k}
+measures criterion
+agreement, while
+u
+k
+u_{k}
+marks usable evidence. A missing face channel’s neutral default
+is not evidence and is excluded through its validity mask. Auxiliary readouts do not
+enter the seven-provider calibration policy. Appendix
+C
+specifies
+scoring interfaces; Figure
+5
+illustrates the toolkit studied in
+Section
+4.2
+.
+Algorithm 1
+EmoReward reward computation with experience-calibrated weights
+1:
+prompt
+p
+p
+, generated video
+x
+x
+, fixed table
+𝒯
+ℳ
+\mathcal{T}_{\mathcal{M}}
+from a completed reference run, base weights
+w
+0
+w^{0}
+2:
+Build EmoScript
+e
+⁡
+(
+p
+)
+e(p)
+3:
+Compute primitive scores and validity
+{
+s
+k
+,
+u
+k
+}
+k
+=
+1
+K
+\{s_{k},u_{k}\}_{k=1}^{K}
+⊳
+\triangleright
+Eq.
+6
+4:
+Compute instance gates
+{
+g
+k
+}
+k
+=
+1
+K
+\{g_{k}\}_{k=1}^{K}
+⊳
+\triangleright
+Eq.
+7
+5:
+Form state signature
+z
+←
+z
+⁡
+(
+p
+,
+x
+,
+e
+,
+s
+,
+g
+)
+z\leftarrow z(p,x,e,s,g)
+6:
+Look up regime
+r
+⁡
+(
+z
+)
+r(z)
+in
+𝒯
+ℳ
+\mathcal{T}_{\mathcal{M}}
+⊳
+\triangleright
+Appendix
+E
+7:
+if
+a supported regime or global entry is available
+then
+8:
+Read fixed multipliers
+m
+k
+m_{k}
+, constructed by Eq.
+10
+9:
+else
+10:
+m
+k
+←
+1
+m_{k}\leftarrow 1
+⊳
+\triangleright
+cold start: fall back to base
+11:
+end
+if
+12:
+Form active weights
+a
+k
+←
+w
+k
+0
+​
+m
+k
+​
+g
+k
+a_{k}\leftarrow w_{k}^{0}m_{k}g_{k}
+13:
+Fuse active primitives with renormalization
+→
+R
+emo
+\to R_{\mathrm{emo}}
+⊳
+\triangleright
+Eq.
+8
+14:
+Compute total reward
+R
+total
+​
+(
+x
+,
+p
+)
+R_{\mathrm{total}}(x,p)
+⊳
+\triangleright
+Eq.
+4
+15:
+Log the reward trace for inspection; keep
+𝒯
+ℳ
+\mathcal{T}_{\mathcal{M}}
+fixed
+16:
+return
+R
+total
+​
+(
+x
+,
+p
+)
+R_{\mathrm{total}}(x,p)
+3.4  Reflect: Instance-Level Calibration
+Reflect computes provider-specific gates from the current evidence, prompt, and training
+step. The factorization is
+g
+k
+=
+g
+k
+phase
+​
+g
+k
+conflict
+​
+g
+k
+face
+​
+g
+k
+subtle
+​
+u
+k
+,
+g
+k
+∈
+[
+0
+,
+1
+]
+,
+g_{k}=g^{\mathrm{phase}}_{k}\,g^{\mathrm{conflict}}_{k}\,g^{\mathrm{face}}_{k}\,g^{\mathrm{subtle}}_{k}\,u_{k},\qquad g_{k}\in[0,1],
+(7)
+with neutral factors for channels to which a condition does not apply. Phase denotes the
+training-step warmup, face gating controls face-dependent evidence, conflict gating
+attenuates disagreement between semantic providers, and subtlety gating restrains
+intensity-sensitive cues. Motion naturalness uses its observation confidence.
+These controls are computed, not learned (Appendix
+D
+).
+Evidence-dependent trust.
+The phase factor schedules reward evidence over generator training, distinct from
+the within-video expression window. Face gating limits channels requiring facial
+evidence; conflict and subtlety gating temper disagreeing semantic assessments and
+intensity-sensitive cues. Their provider-specific application changes relative
+influence; a shared positive attenuation would largely cancel under normalization.
+Composition with experience.
+For a fixed base weight
+w
+k
+0
+w_{k}^{0}
+, define the effective contribution
+a
+k
+​
+(
+x
+,
+p
+)
+=
+w
+k
+0
+​
+g
+k
+​
+(
+x
+,
+p
+)
+​
+m
+k
+​
+(
+r
+⁡
+(
+x
+,
+p
+)
+)
+a_{k}(x,p)=w_{k}^{0}g_{k}(x,p)m_{k}(r(x,p))
+. Reflective Reward Gating uses
+m
+k
+=
+1
+m_{k}=1
+;
+EmoReward uses the fixed table produced by Evolve. With
+𝒜
+=
+{
+k
+:
+a
+k
+>
+ϵ
+g
+}
+\mathcal{A}=\{k:a_{k}>\epsilon_{g}\}
+, active-provider normalization gives
+R
+emo
+​
+(
+x
+,
+p
+)
+=
+∑
+k
+∈
+𝒜
+a
+k
+​
+(
+x
+,
+p
+)
+​
+s
+k
+​
+(
+x
+,
+p
+)
+∑
+k
+∈
+𝒜
+a
+k
+​
+(
+x
+,
+p
+)
++
+ϵ
+.
+R_{\mathrm{emo}}(x,p)=\frac{\sum_{k\in\mathcal{A}}a_{k}(x,p)s_{k}(x,p)}{\sum_{k\in\mathcal{A}}a_{k}(x,p)+\epsilon}.
+(8)
+Invalid evidence receives no mass. A common positive factor cancels except through the
+stabilizer; calibration acts through relative provider contributions and differences
+between videos. Regime
+r
+r
+selects a table entry; gate
+g
+k
+g_{k}
+controls current evidence validity.
+A provider favored by memory still contributes nothing when its current evidence
+is invalid. With no memory entry, unit multipliers recover Reflect-only fusion;
+the scoring interfaces and generator objective remain the same.
+Algorithm 2
+RewardMemory construction from reflective reward traces
+1:
+Traces
+ℳ
+\mathcal{M}
+from a completed reference run, provider count
+K
+K
+, temperature
+τ
+\tau
+, log-multiplier cap
+c
+c
+, minimum support
+n
+min
+n_{\min}
+2:
+for
+each context and the global fallback
+do
+3:
+Select matching traces; use the global set if the context has fewer than
+n
+min
+n_{\min}
+traces
+4:
+for
+each provider
+k
+k
+do
+5:
+ρ
+k
+←
+Corr
+⁡
+(
+s
+i
+,
+k
+,
+y
+i
+)
+\rho_{k}\leftarrow\operatorname{Corr}(s_{i,k},y_{i})
+; use zero for constant scores
+6:
+end
+for
+7:
+ρ
+¯
+←
+K
+−
+1
+​
+∑
+j
+ρ
+j
+\bar{\rho}\leftarrow K^{-1}\sum_{j}\rho_{j}
+8:
+for
+each provider
+k
+k
+do
+9:
+m
+k
+←
+exp
+⁡
+(
+clip
+⁡
+(
+(
+ρ
+k
+−
+ρ
+¯
+)
+/
+τ
+,
+−
+c
+,
+c
+)
+)
+m_{k}\leftarrow\exp(\operatorname{clip}((\rho_{k}-\bar{\rho})/\tau,-c,c))
+10:
+end
+for
+11:
+Store the context multipliers
+12:
+end
+for
+13:
+Export once; freeze the table for a subsequent generator-training run
+3.5  Evolve: RewardMemory
+RewardMemory treats reward allocation as a decision over emotional context
+z
+z
+: the
+providers are actions, their fusion weights form a policy, and a stored outcome
+y
+y
+supplies a non-parametric reliability signal. Experience is collected during a
+completed reference training run
+with Reflective Reward Gating. Each trace
+m
+i
+=
+(
+z
+i
+,
+{
+s
+i
+k
+}
+,
+{
+g
+i
+k
+}
+,
+w
+i
+,
+R
+i
+,
+y
+i
+)
+m_{i}=(z_{i},\{s_{i}^{k}\},\{g_{i}^{k}\},w_{i},R_{i},y_{i})
+records context, scores, gates, weights,
+and outcomes. Evolve groups these traces into a regime neighborhood
+𝒩
+⁡
+(
+z
+)
+\mathcal{N}(z)
+,
+with a global fallback for insufficient support, and computes
+ρ
+k
+​
+(
+z
+)
+=
+Cov
+i
+∈
+𝒩
+⁡
+(
+z
+)
+⁡
+(
+s
+i
+k
+,
+y
+i
+)
+σ
+s
+k
+​
+σ
+y
++
+ϵ
+,
+A
+k
+rel
+​
+(
+z
+)
+=
+ρ
+k
+​
+(
+z
+)
+−
+1
+K
+​
+∑
+j
+ρ
+j
+​
+(
+z
+)
+.
+\rho_{k}(z)=\frac{\operatorname{Cov}_{i\in\mathcal{N}(z)}(s_{i}^{k},y_{i})}{\sigma_{s^{k}}\sigma_{y}+\epsilon},\qquad A_{k}^{\mathrm{rel}}(z)=\rho_{k}(z)-\frac{1}{K}\sum_{j}\rho_{j}(z).
+(9)
+Reliability uses raw provider scores; constant scores receive zero correlation.
+It measures agreement with the reference outcome, not independent emotional fidelity.
+The centered advantage tilts the base allocation through bounded multipliers:
+Δ
+k
+=
+clip
+⁡
+(
+A
+k
+rel
+/
+τ
+,
+−
+c
+,
+c
+)
+,
+w
+k
+RM
+​
+(
+z
+)
+=
+w
+k
+0
+​
+e
+Δ
+k
+∑
+j
+w
+j
+0
+​
+e
+Δ
+j
+.
+\Delta_{k}=\operatorname{clip}(A_{k}^{\mathrm{rel}}/\tau,-c,c),\qquad w_{k}^{\mathrm{RM}}(z)=\frac{w_{k}^{0}e^{\Delta_{k}}}{\sum_{j}w_{j}^{0}e^{\Delta_{j}}}.
+(10)
+This is the closed-form optimum of a KL-regularized allocation with clipped utilities
+(Appendix
+F
+). The exported
+m
+k
+​
+(
+r
+)
+=
+e
+Δ
+k
+m_{k}(r)=e^{\Delta_{k}}
+compose with current
+instance gates in Eq.
+8
+. The table is fixed throughout the next
+training run: only the generator receives gradient updates, and runtime lookup neither
+re-estimates reliability nor writes back to the table. Algorithms
+1
+and
+2
+separate reward computation from between-run memory construction.
+Appendix
+E
+explains context grouping and table construction;
+Appendix
+I
+provides a trace-based worked example.
+4  Experiments
+Experimental settings.
+We use HunyuanVideo 1.5 with DanceGRPO, FlowGRPO, and SAGE-GRPO, fusion
+α
+=
+β
+=
+0.5
+\alpha=\beta=0.5
+, batch size
+2
+2
+, and group size
+G
+=
+4
+G=4
+.
+The updated optimizer comparison reports average results on a subset of
+302 emotional prompts
+that does not overlap with the training set. GT denotes the pretrained generator without RL. Each guided row uses one fixed
+configuration: Reflect for DanceGRPO, and the complete EmoReward system for FlowGRPO
+and SAGE-GRPO.
+The controlled seven-policy comparison retains its separate step-100 evaluation protocol.
+VideoAlign supplies
+R
+vid
+R_{\mathrm{vid}}
+and the reference outcome
+y
+y
+.
+Memory calibration uses
+K
+=
+7
+K=7
+,
+τ
+=
+0.5
+\tau=0.5
+, a log-multiplier cap
+c
+=
+1
+c=1
+, and
+minimum context support
+n
+min
+=
+20
+n_{\min}=20
+. Appendix
+J.1
+gives the qualitative protocol.
+Evaluation metrics.
+Table
+1
+reports mean
+±
+\pm
+SEM across prompts for VideoAlign Overall,
+visual quality (VQ), motion quality (MQ), text alignment (TA), PickScore, and CLIPScore.
+The latter two are frame-averaged preference and alignment proxies; their exported logits
+are scaled by
+26
+26
+and
+30
+30
+, respectively. VideoAlign is also an optimization objective,
+so agreement with it is distinguished from independent emotional fidelity.
+4.1  EmoReward as a Base-RL-Agnostic Reward Add-on
+Table
+1
+compares the pretrained reference, each optimizer baseline, and its
+fixed guided configuration. All four VideoAlign heads increase
+for every RL algorithm under the fair comparison experimental settings. Overall improves by
+0.3218
+0.3218
+for DanceGRPO with Reflect,
+0.2343
+0.2343
+for FlowGRPO with EmoReward, and
+0.5645
+0.5645
+for SAGE-GRPO with EmoReward.
+The reference comparison and within-optimizer comparison answer different questions:
+the former evaluates the full post-training system, while the latter compares reward
+configurations. PickScore and CLIPScore show smaller, mixed changes; the VideoAlign gains
+do not imply uniform improvement on all evaluation axes.
+Table 1:
+EmoReward across different RL algorithms.
+Mean
+±
+\pm
+SEM on the comparison defined in the experimental setting; all metrics are higher-is-better. GT is the pretrained no-RL reference. Bold marks an increase over the corresponding optimizer baseline.
+Method
+Overall
+VQ
+MQ
+TA
+PickScore
+CLIPScore
+GT (reference)
+-1.1938
+±
+\pm
+0.0520
+-0.5899
+±
+\pm
+0.0255
+-0.4289
+±
+\pm
+0.0220
+-0.1750
+±
+\pm
+0.0363
+0.7059
+±
+\pm
+0.0018
+0.5623
+±
+\pm
+0.0037
+DanceGRPO
+-1.2812
+±
+\pm
+0.0513
+-0.6392
+±
+\pm
+0.0230
+-0.3867
+±
+\pm
+0.0235
+-0.2554
+±
+\pm
+0.0357
+0.7177
+±
+\pm
+0.0018
+0.5675
+±
+\pm
+0.0036
++ EmoReward
+-0.9594
+±
+\pm
+0.0574
+-0.5187
+±
+\pm
+0.0304
+-0.2054
+±
+\pm
+0.0298
+-0.2354
+±
+\pm
+0.0364
+0.7039
+±
+\pm
+0.0017
+0.5565
+±
+\pm
+0.0037
+FlowGRPO
+-0.7719
+±
+\pm
+0.0569
+-0.3567
+±
+\pm
+0.0290
+-0.2753
+±
+\pm
+0.0271
+-0.1398
+±
+\pm
+0.0361
+0.7061
+±
+\pm
+0.0019
+0.5634
+±
+\pm
+0.0036
++ EmoReward
+-0.5376
+±
+\pm
+0.0556
+-0.3398
+±
+\pm
+0.0291
+-0.2302
+±
+\pm
+0.0275
+0.0323
+±
+\pm
+0.0356
+0.7115
+±
+\pm
+0.0018
+0.5605
+±
+\pm
+0.0037
+SAGE-GRPO
+-0.8269
+±
+\pm
+0.0532
+-0.4106
+±
+\pm
+0.0261
+-0.3275
+±
+\pm
+0.0263
+-0.0888
+±
+\pm
+0.0360
+0.7091
+±
+\pm
+0.0019
+0.5624
+±
+\pm
+0.0036
++ EmoReward
+-0.2624
+±
+\pm
+0.0600
+-0.1710
+±
+\pm
+0.0304
+-0.0926
+±
+\pm
+0.0324
+0.0012
+±
+\pm
+0.0364
+0.7107
+±
+\pm
+0.0018
+0.5663
+±
+\pm
+0.0035
+Figure 3:
+EmoReward in performance scenes.
+Eight curated generated clips, each shown as three chronological full frames, illustrate expressions, gestures, and staging.
+Figure 4:
+Emotion-category quality.
+GT (gray) versus SAGE-GRPO with EmoReward (red); mean
+±
+\pm
+SEM. Axes are truncated; categories overlap within the evaluated set.
+Figure 5:
+Ablation of provider-pool construction.
+Three frames per clip compare four configurations on the same prompt. See Appendix
+H
+for quantitative results.
+Emotion-category analysis.
+Figure
+5
+compares GT and SAGE-GRPO with EmoReward across
+six metrics and eight emotion categories. The four VideoAlign heads improve in every
+category, while PickScore and CLIPScore show smaller, nonuniform changes. This GT
+comparison reflects the complete post-training system. Categories overlap within the evaluated set.
+4.2  Ablations and Mechanism Analysis
+Agentic reward methods.
+Our controlled study fixes the backbone and optimization budget and varies the reward
+policy across seven arms: VideoAlign-only, single-provider, random, round-robin, fixed
+fusion, Reflective Reward Gating, and RewardMemory.
+Reward-policy ablation.
+Table
+2
+compares relative reward dispersion, reliability selectivity, and
+normalized Emotion-Gating Benchmark (EGB) pillars. Adding RewardMemory yields the
+highest selectivity (
+0.428
+0.428
+) and both composite scores (core
+0.922
+0.922
+, emo
+0.884
+0.884
+);
+the variant without memory leads the standalone preference pillar. SNR
+∗
+is a
+dispersion statistic, not a measure of gradient quality. The composites combine an
+ImageReward preference proxy, dispersion, and agreement-weighted selectivity;
+Appendix
+G
+defines their scope.
+Table 2:
+Reward-policy ablation under SAGE-GRPO.
+Controlled policies share the backbone and training budget. Citations identify evaluators or routing/fusion mechanisms, not full-system reproductions. SNR
+∗
+is relative dispersion; bold marks column maxima. Appendix
+G
+defines all metrics and the supplementary verification.
+Reward method
+SNR
+∗
+Sel.
+↑
+\uparrow
+EF
+↑
+\uparrow
+GD
+↑
+\uparrow
+GR
+↑
+\uparrow
+core
+↑
+\uparrow
+emo
+↑
+\uparrow
+VideoAlign
+[
+30
+]
+0.378
+0.307
+0.518
+0.000
+0.197
+0.238
+0.308
+Single provider
+[
+79
+]
+2.403
+0.314
+0.454
+0.305
+0.147
+0.302
+0.340
+Random routing
+[
+65
+]
+1.105
+0.340
+0.000
+0.109
+0.146
+0.085
+0.064
+Round-robin
+[
+65
+]
+1.217
+0.376
+0.291
+0.126
+0.381
+0.266
+0.272
+Fixed fusion
+[
+68
+]
+0.773
+0.371
+0.026
+0.060
+0.653
+0.246
+0.191
+EmoReward (w/o RewardMemory)
+0.451
+0.293
+1.000
+0.011
+0.000
+0.337
+0.503
+EmoReward (w RewardMemory)
+7.022
+0.428
+0.767
+1.000
+1.000
+0.922
+0.884
+Reward-provider pool.
+Figure
+5
+compares a VideoAlign baseline, semantic emotion cues,
+motion naturalness, and a balanced pool. Weights and curricula also differ, so this
+study motivates the interface rather than isolating each channel’s causal effect
+(Appendix
+H
+). Seven channels enter memory calibration; chromatic and
+kinetic readouts remain auxiliary.
+Memory-conditioned trust.
+Macro and motion receive the largest global multipliers (
+1.833
+1.833
+,
+1.510
+1.510
+), whereas
+three constant channels receive
+0.778
+0.778
+. Memory reallocates trust but cannot activate
+invalid evidence. Macro shares evaluator information with the reference outcome,
+so its correlation reflects objective agreement. Appendix
+E
+describes
+context-specific allocation; Appendix
+I
+illustrates its arithmetic
+on real rollout scores. A matched global-memory control remains necessary to isolate
+the benefit of contextual calibration.
+4.3  Generalization to image backbones
+Image transfer covers SD3.5 and FLUX with three optimizers. Results are
+objective-dependent: SD3.5–DanceGRPO improves on HPSv3 with calibration, whereas
+FLUX’s HPSv3-optimized baseline remains strongest on that metric. Unequal SD3.5
+training budgets limit causal attribution. Appendix
+J
+details the
+settings and full-prompt comparisons.
+4.4  Human evaluation
+Eighteen participants rated the three methods on 30 prompts using Bad/Normal/Good
+for emotion fidelity, temporal coherence, and visual quality. Table
+3
+shows
+that EmoReward obtains the highest Good shares (
+60.0
+%
+60.0\%
+,
+54.3
+%
+54.3\%
+,
+57.2
+%
+57.2\%
+),
+compared with
+53.0
+%
+53.0\%
+,
+51.5
+%
+51.5\%
+, and
+45.0
+%
+45.0\%
+for SAGE-GRPO, and the lowest
+Bad shares on all three criteria. These descriptive results complement the automatic
+metrics; aggregation and statistical scope are detailed in Appendix
+B
+.
+The complete distributions reveal a distinction that Good shares alone obscure:
+SAGE-GRPO also receives more Bad ratings than GT on every criterion. EmoReward lowers
+Bad shares relative to both comparison groups while increasing Good shares. This
+pattern supports examining the entire ordinal distribution, rather than reducing it
+to a binary preference. The reported margins do not resolve variation across people
+or prompts; participant- and prompt-level records are required for uncertainty estimates
+that account for repeated judgments.
+Table 3:
+Human evaluation.
+Rating percentages from 18 participants on 30 prompts.
+Each method and criterion block contains 540 judgments. Bold marks the highest Good share
+per criterion; percentages are rounded to one decimal place.
+Emotion Fidelity
+Temporal Coherence
+Visual Quality
+Method
+Bad
+↓
+\downarrow
+Normal
+Good
+↑
+\uparrow
+Bad
+↓
+\downarrow
+Normal
+Good
+↑
+\uparrow
+Bad
+↓
+\downarrow
+Normal
+Good
+↑
+\uparrow
+GT
+21.9%
+34.8%
+43.3%
+23.5%
+37.8%
+38.7%
+25.2%
+38.5%
+36.3%
+SAGE-GRPO
+31.5%
+15.6%
+53.0%
+28.9%
+19.6%
+51.5%
+30.9%
+24.1%
+45.0%
+SAGE-GRPO + EmoReward
+15.4
+%
+24.6%
+60.0%
+20.2
+%
+25.6%
+54.3%
+15.9
+%
+26.9%
+57.2%
+5  Conclusion
+In this paper, we proposed EmoReward, a self-evolving reward calibration framework
+for emotional video generation reinforcement learning.
+EmoReward combines instance-level Reflective Reward Gating with RewardMemory, which transfers provider-reliability estimates from a completed training run to subsequent optimization without updating reward-model parameters. Experiments across video optimizers, complemented by ablations,
+image-transfer analyses, and human ratings, support the utility of adaptive calibration
+while identifying objective-dependent trade-offs. These findings suggest that
+completed-run experience can inform the allocation of trust among heterogeneous
+reward providers, providing a foundation for further research on reward-system evolution across training.
+Reproducibility Statement
+The appendix specifies the reward interface, calibration rule, mathematical derivation,
+evaluation protocol, complete comparison tables, and qualitative examples. Source artifacts
+include editable figures and scripts for constructing tables and visualizations.
+AI Use Statement
+AI assistance was used for manuscript editing, mathematical checks, and figure preparation.
+The authors are responsible for verifying the scientific claims and final submission.
+Experimental comparison images and video frames were taken from the evaluated models;
+no additional media were synthesized to illustrate experimental outcomes.
+References
+[1]
+T. Baltrušaitis, A. Zadeh, Y. C. Lim, and L. Morency
+(2018)
+OpenFace 2.0: Facial Behavior Analysis Toolkit
+.
+In
+IEEE International Conference on Automatic Face and Gesture Recognition
+,
+pp. 59–66
+.
+Cited by:
+§1
+,
+§2
+.
+[2]
+K. Black, M. Janner, Y. Du, I. Kostrikov, and S. Levine
+(2024)
+Training diffusion models with reinforcement learning
+.
+In
+International Conference on Learning Representations
+,
+Vol.
+2024
+,
+pp. 4965–4987
+.
+Cited by:
+§1
+,
+§2
+.
+[3]
+H. Chen, H. Huang, J. Dong, M. Zheng, and D. Shao
+(2024)
+Finecliper: Multi-modal fine-grained clip for dynamic facial expression recognition with adapters
+.
+In
+Proceedings of the 32nd ACM International Conference on Multimedia
+,
+pp. 2301–2310
+.
+Cited by:
+§1
+,
+§2
+.
+[4]
+S. Chen, K. Feng, H. Chen, W. Huang, D. Dai, Q. Shou, Y. Lin, X. Yue, S. Gao, and T. Pang
+(2026)
+OpenSearch-VL: An Open Recipe for Frontier Multimodal Search Agents
+.
+arXiv preprint arXiv:2605.05185
+.
+Cited by:
+§2
+.
+[5]
+S. Chen, Z. Xing, T. Ye, X. Geng, Y. Lin, J. Lai, X. He, F. Zhai, J. Gao, and L. Zhu
+(2026)
+GenEvolve: Self-Evolving Image Generation Agents via Tool-Orchestrated Visual Experience Distillation
+.
+arXiv preprint arXiv:2605.21605
+.
+Cited by:
+§2
+.
+[6]
+W. Chen, K. Yu, B. Tian, J. Song, S. Liang, H. Jia, K. Cheng, H. Li, K. Yuan, L. Wang, J. Wu, S. Lai, and Y. Yue
+(2026)
+MemoGen: Can Past Experience Improve Future Text-to-Image Generation?
+.
+arXiv preprint arXiv:2606.03243
+.
+Cited by:
+§2
+.
+[7]
+Z. Cheng, Z. Cheng, J. He, J. Sun, K. Wang, Y. Lin, Z. Lian, X. Peng, and A. G. Hauptmann
+(2024)
+Emotion-llama: multimodal emotion recognition and reasoning with instruction tuning
+.
+Advances in Neural Information Processing Systems
+37
+,
+pp. 110805–110853
+.
+Cited by:
+§1
+,
+§2
+.
+[8]
+P. F. Christiano, J. Leike, T. Brown, M. Martic, S. Legg, and D. Amodei
+(2017)
+Deep reinforcement learning from human preferences
+.
+Advances in neural information processing systems
+30
+.
+Cited by:
+§1
+,
+§2
+.
+[9]
+F. Cui, R. Zhu, C. Fang, S. Li, and J. Li
+(2026)
+Rethinking agentic reinforcement learning in large language models
+.
+arXiv preprint arXiv:2604.27859
+.
+Cited by:
+§2
+.
+[10]
+P. Ekman and W. V. Friesen
+(1978)
+Facial Action Coding System: A Technique for the Measurement of Facial Movement
+.
+Consulting Psychologists Press
+,
+Palo Alto, CA
+.
+Cited by:
+§2
+.
+[11]
+L. Fan, Y. Zheng, D. Mao, H. Ran, S. Hu, W. Mao, R. Zhao, W. Wu, G. Fang, Y. Chen, Z. Zhu, Y. Jiang, Y. Song, Y. Gu, J. Yi, Q. Hu, D. Kong, A. J. Wang, K. Q. Lin, M. Z. Shou, and W. Liu
+(2026)
+Video Generation Meets Agent Harness: Agentic Video Generation, Agentic World Modeling and Recursive Self-Improvement
+.
+arXiv preprint arXiv:2610.40191
+.
+Cited by:
+§2
+.
+[12]
+Y. Fan, O. Watkins, Y. Du, H. Liu, M. Ryu, C. Boutilier, P. Abbeel, M. Ghavamzadeh, K. Lee, and K. Lee
+(2023)
+Dpok: reinforcement learning for fine-tuning text-to-image diffusion models
+.
+Advances in neural information processing systems
+36
+,
+pp. 79858–79885
+.
+Cited by:
+§1
+,
+§2
+.
+[13]
+Z. Fang, W. Huang, Y. Zeng, Y. Zhao, S. Chen, K. Feng, Y. Lin, L. Chen, Z. Chen, S. Cao,
+et al.
+(2026)
+Flow-OPD: On-policy distillation for flow matching models
+.
+arXiv preprint arXiv:2605.08063
+.
+Cited by:
+§2
+.
+[14]
+K. Feng, M. Zhang, S. Chen, Y. Lin, K. Fan, Y. Jiang, H. Li, D. Zheng, C. Wang, and X. Yue
+(2026)
+Gen-searcher: Reinforcing agentic search for image generation
+.
+arXiv preprint arXiv:2603.28767
+.
+Cited by:
+§2
+.
+[15]
+A. Gunjal, A. Wang, E. Lau, V. Nath, Y. He, B. Liu, and S. Hendryx
+(2026)
+Rubrics as rewards: reinforcement learning beyond verifiable domains
+.
+In
+International Conference on Learning Representations
+,
+Vol.
+2026
+,
+pp. 127924–127945
+.
+Cited by:
+§1
+,
+§2
+.
+[16]
+D. Guo, D. Yang, H. Zhang, J. Song, P. Wang, Q. Zhu, R. Xu, R. Zhang, S. Ma, X. Bi,
+et al.
+(2025)
+Deepseek-r1: incentivizing reasoning capability in llms via reinforcement learning
+.
+arXiv preprint arXiv:2501.12948
+.
+Cited by:
+§1
+,
+§2
+.
+[17]
+X. He, D. Jiang, G. Zhang, M. Ku, A. Soni, S. Siu, H. Chen, A. Chandra, Z. Jiang, A. Arulraj,
+et al.
+(2024)
+Videoscore: building automatic metrics to simulate fine-grained human feedback for video generation
+.
+In
+Proceedings of the 2024 Conference on Empirical Methods in Natural Language Processing
+,
+pp. 2105–2123
+.
+Cited by:
+§1
+.
+[18]
+H. Hu, Q. Mao, Y. Li, and L. Jin
+(2026)
+Camera Artist: A Multi-Agent Framework for Cinematic Language Storytelling Video Generation
+.
+arXiv preprint arXiv:2604.09195
+.
+Cited by:
+§2
+.
+[19]
+Y. Huang, S. Tu, X. Yan, Z. Yang, J. Han, H. Xu, K. Pan, Y. Jiang, and Z. Wu
+(2026)
+VA-judger: reward modeling from human preference feedback for joint video-audio generation
+.
+arXiv preprint arXiv:2608.18607
+.
+Cited by:
+§2
+.
+[20]
+Z. Huang, Y. He, J. Yu, F. Zhang, C. Si, Y. Jiang, Y. Zhang, T. Wu, Q. Jin, N. Chanpaisit,
+et al.
+(2024)
+Vbench: comprehensive benchmark suite for video generative models
+.
+In
+2024 IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)
+,
+pp. 21807–21818
+.
+Cited by:
+§2
+.
+[21]
+D. Jiang, X. Jin, D. Liu, Z. Wang, M. Zheng, R. Du, X. Yang, Q. Wu, Z. Li, P. Gao,
+et al.
+(2026)
+D-OPSD: On-Policy Self-Distillation for Continuously Tuning Step-Distilled Diffusion Models
+.
+arXiv preprint arXiv:2605.05204
+.
+Cited by:
+§2
+.
+[22]
+Y. Kirstain, A. Polyak, U. Singer, S. Matiana, J. Penna, and O. Levy
+(2023)
+Pick-a-pic: an open dataset of user preferences for text-to-image generation
+.
+Advances in neural information processing systems
+36
+,
+pp. 36652–36663
+.
+Cited by:
+§1
+,
+§2
+.
+[23]
+J. Lai, Z. Lu, J. He, R. Quan, W. Zhao, Q. Yang, Q. Chen, Q. Lin, C. Li, T. Gao, Y. Shan, S. Shao, S. Guo, and Q. Lu
+(2026)
+VisionCreator: A Native Visual-Generation Agentic Model with Understanding, Thinking, Planning and Creation
+.
+arXiv preprint arXiv:2603.02681
+.
+Cited by:
+§2
+.
+[24]
+J. Leng, S. Tu, H. Cao, S. Xie, D. Dong, Z. Wu, and Y. Jiang
+(2026)
+Preference score distillation: leveraging 2d rewards to align text-to-3d generation with human preference
+.
+arXiv preprint arXiv:2603.01594
+.
+Cited by:
+§2
+.
+[25]
+Y. Li, Z. Lin, A. Deng, X. Zhang, Y. He, S. Ji, T. Cao, and B. Hooi
+(2026)
+Just-In-Time Reinforcement Learning: Continual Learning in LLM Agents Without Gradient Updates
+.
+arXiv preprint arXiv:2601.18510
+.
+Cited by:
+§2
+.
+[26]
+Z. Lian, H. Chen, L. Chen, H. Sun, L. Sun, Y. Ren, Z. Cheng, B. Liu, R. Liu, X. Peng,
+et al.
+(2025)
+Affectgpt: a new dataset, model, and benchmark for emotion understanding with multimodal large language models
+.
+arXiv preprint arXiv:2501.16566
+.
+Cited by:
+§1
+,
+§2
+.
+[27]
+Y. Lin, Z. Lin, K. Lin, J. Bai, P. Pan, C. Li, H. Chen, Z. Wang, X. Ding, W. Li,
+et al.
+(2025)
+JarvisArt: Liberating Human Artistic Creativity via an Intelligent Photo Retouching Agent
+.
+arXiv preprint arXiv:2506.17612
+.
+Cited by:
+§2
+.
+[28]
+Y. Lin, L. Wang, K. Lin, Z. Lin, K. Gong, W. Li, B. Lin, Z. Li, S. Zhang, Y. Peng,
+et al.
+(2025)
+JarvisEvo: Towards a Self-Evolving Photo Editing Agent with Synergistic Editor-Evaluator Optimization
+.
+arXiv preprint arXiv:2511.23002
+.
+Cited by:
+§2
+.
+[29]
+J. Liu, G. Liu, J. Liang, Y. Li, J. Liu, X. Wang, P. Wan, D. Zhang, and W. Ouyang
+(2026)
+Flow-grpo: training flow matching models via online rl
+.
+Advances in neural information processing systems
+38
+,
+pp. 40783–40818
+.
+Cited by:
+§1
+,
+§1
+,
+§2
+.
+[30]
+J. Liu, G. Liu, J. Liang, Z. Yuan, X. Liu, M. Zheng, X. Wu, Q. Wang, M. Xia, X. Wang,
+et al.
+(2026)
+Improving video generation with human feedback
+.
+Advances in Neural Information Processing Systems
+38
+,
+pp. 82155–82192
+.
+Cited by:
+§1
+,
+§2
+,
+§3.2
+,
+Table 2
+.
+[31]
+R. Liu, H. Wu, Z. Zheng, C. Wei, Y. He, R. Pi, and Q. Chen
+(2025)
+VideoDPO: Omni-Preference Alignment for Video Diffusion Generation
+.
+In
+Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition
+,
+External Links:
+2412.14167
+Cited by:
+§2
+.
+[32]
+Y. Liu, X. Cun, X. Liu, X. Wang, Y. Zhang, H. Chen, Y. Liu, T. Zeng, R. Chan, and Y. Shan
+(2024)
+Evalcrafter: benchmarking and evaluating large video generation models
+.
+In
+2024 IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)
+,
+pp. 22139–22149
+.
+Cited by:
+§2
+.
+[33]
+Z. Long, M. Zheng, K. Feng, X. Zhang, H. Liu, H. Yang, L. Zhang, Q. Chen, and Y. Ma
+(2026)
+Follow-your-shape: Shape-aware image editing via trajectory-guided region control
+.
+International Conference on Learning Representations
+.
+Cited by:
+§2
+.
+[34]
+X. Ma, Y. Liu, Y. Liu, X. Wu, M. Zheng, Z. Wang, S. Lim, and H. Yang
+(2025)
+Model reveals what to cache: Profiling-based feature reuse for video diffusion models
+.
+In
+Proceedings of the IEEE/CVF International Conference on Computer Vision
+,
+pp. 17150–17159
+.
+Cited by:
+§2
+.
+[35]
+Y. J. Ma, W. Liang, G. Wang, D. Huang, O. Bastani, D. Jayaraman, Y. Zhu, L. Fan, and A. Anandkumar
+(2024)
+Eureka: Human-Level Reward Design via Coding Large Language Models
+.
+In
+International Conference on Learning Representations
+,
+External Links:
+2310.12931
+Cited by:
+§2
+.
+[36]
+Y. Ma, X. Wang, Q. Ma, Q. Wang, M. Zheng, X. Yang, H. Li, C. Zhao, J. Ying, H. Yang,
+et al.
+(2026)
+Group editing: Edit multiple images in one go
+.
+Proceedings of the IEEE/CVF Conference on Computer Vision & Pattern Recognition
+.
+Cited by:
+§2
+.
+[37]
+Y. Ma, Z. Wang, T. Ren, M. Zheng, H. Liu, J. Guo, K. Feng, Y. Xue, Z. Zhao, K. Schindler,
+et al.
+(2026)
+Fastvmt: Eliminating redundancy in video motion transfer
+.
+International Conference on Learning Representations
+.
+Cited by:
+§2
+.
+[38]
+Y. Ma, X. Wu, K. Sun, and H. Li
+(2025)
+Hpsv3: towards wide-spectrum human preference score
+.
+In
+2025 IEEE/CVF International Conference on Computer Vision (ICCV)
+,
+pp. 15086–15095
+.
+Cited by:
+§1
+,
+§2
+.
+[39]
+A. Madaan, N. Tandon, P. Gupta, S. Hallinan, L. Gao, S. Wiegreffe, U. Alon, N. Dziri, S. Prabhumoye, Y. Yang,
+et al.
+(2023)
+Self-refine: iterative refinement with self-feedback
+.
+Advances in neural information processing systems
+36
+,
+pp. 46534–46594
+.
+Cited by:
+§1
+,
+§2
+.
+[40]
+I. Ong, A. Almahairi, V. Wu, W. Chiang, T. Wu, J. E. Gonzalez, M. W. Kadous, and I. Stoica
+(2024)
+RouteLLM: Learning to Route LLMs with Preference Data
+.
+arXiv preprint arXiv:2406.18665
+.
+Cited by:
+§2
+.
+[41]
+L. Ouyang, J. Wu, X. Jiang, D. Almeida, C. Wainwright, P. Mishkin, C. Zhang, S. Agarwal, K. Slama, A. Ray, J. Schulman, J. Hilton, F. Kelton, L. Miller, M. Simens, A. Askell, P. Welinder, P. F. Christiano, J. Leike, and R. Lowe
+(2022)
+Training Language Models to Follow Instructions with Human Feedback
+.
+In
+Advances in Neural Information Processing Systems
+,
+Cited by:
+§1
+,
+§2
+.
+[42]
+Y. Pang, B. Zhu, B. Lin, M. Zheng, F. E. Tay, S. Lim, H. Yang, and L. Yuan
+(2025)
+Dreamdance: Animating human images by enriching 3d geometry cues from 2d poses
+.
+In
+Proceedings of the IEEE/CVF International Conference on Computer Vision
+,
+pp. 14039–14050
+.
+Cited by:
+§2
+.
+[43]
+M. Prabhudesai, A. Goyal, D. Pathak, and K. Fragkiadaki
+(2023)
+Aligning text-to-image diffusion models with reward backpropagation
+.
+Cited by:
+§1
+,
+§2
+.
+[44]
+R. Rafailov, A. Sharma, E. Mitchell, C. D. Manning, S. Ermon, and C. Finn
+(2023)
+Direct preference optimization: your language model is secretly a reward model
+.
+Advances in neural information processing systems
+36
+,
+pp. 53728–53741
+.
+Cited by:
+§1
+.
+[45]
+J. A. Russell
+(1980)
+A Circumplex Model of Affect
+.
+Journal of Personality and Social Psychology
+39
+(
+6
+),
+pp. 1161–1178
+.
+Cited by:
+§2
+.
+[46]
+Z. Shao, P. Wang, Q. Zhu, R. Xu, J. Song, X. Bi, H. Zhang, M. Zhang, Y. Li, Y. Wu,
+et al.
+(2024)
+Deepseekmath: pushing the limits of mathematical reasoning in open language models
+.
+arXiv preprint arXiv:2402.03300
+.
+Cited by:
+Appendix F
+,
+§1
+.
+[47]
+N. Shinn, F. Cassano, A. Gopinath, K. Narasimhan, and S. Yao
+(2023)
+Reflexion: language agents with verbal reinforcement learning
+.
+Advances in neural information processing systems
+36
+,
+pp. 8634–8652
+.
+Cited by:
+§1
+,
+§2
+.
+[48]
+N. Stiennon, L. Ouyang, J. Wu, D. Ziegler, R. Lowe, C. Voss, A. Radford, D. Amodei, and P. F. Christiano
+(2020)
+Learning to summarize with human feedback
+.
+Advances in neural information processing systems
+33
+,
+pp. 3008–3021
+.
+Cited by:
+§1
+.
+[49]
+K. Sun, K. Huang, X. Liu, Y. Wu, Z. Xu, Z. Li, and X. Liu
+(2025)
+T2v-compbench: a comprehensive benchmark for compositional text-to-video generation
+.
+In
+2025 IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)
+,
+pp. 8406–8416
+.
+Cited by:
+§2
+.
+[50]
+K. Team, A. Du, B. Gao, B. Xing, C. Jiang, C. Chen, C. Li, C. Xiao, C. Du, C. Liao,
+et al.
+(2025)
+Kimi k1. 5: scaling reinforcement learning with llms
+.
+arXiv preprint arXiv:2501.12599
+.
+Cited by:
+§1
+.
+[51]
+R. Thawkar, S. Venkatraman, O. Thawakar, A. Shaker, F. Khan, H. Cholakkal, S. Khan, and R. M. Anwer
+(2026)
+Ask, Solve, Generate: Self-Evolving Unified Multimodal Understanding and Generation via Self-Consistency Rewards
+.
+arXiv preprint arXiv:2606.27376
+.
+Cited by:
+§2
+.
+[52]
+S. Tu, Q. Dai, Z. Cheng, H. Hu, X. Han, Z. Wu, and Y. Jiang
+(2024)
+Motioneditor: Editing video motion via content-aware diffusion
+.
+In
+CVPR
+,
+Cited by:
+§2
+.
+[53]
+S. Tu, Q. Dai, Z. Wu, Z. Cheng, H. Hu, and Y. Jiang
+(2023)
+Implicit temporal modeling with learnable alignment for video recognition
+.
+In
+ICCV
+,
+Cited by:
+§2
+.
+[54]
+S. Tu, Q. Dai, Z. Zhang, S. Xie, Z. Cheng, C. Luo, X. Han, Z. Wu, and Y. Jiang
+(2024)
+Motionfollower: Editing video motion via lightweight score-guided diffusion
+.
+arXiv preprint arXiv:2405.20325
+.
+Cited by:
+§2
+.
+[55]
+S. Tu, Y. Pan, Y. Huang, X. Han, Z. Xing, Q. Dai, C. Luo, Z. Wu, and Y. Jiang
+(2025)
+Stableavatar: infinite-length audio-driven avatar video generation
+.
+arXiv preprint arXiv:2508.08248
+.
+Cited by:
+§2
+.
+[56]
+S. Tu, Y. Pan, Y. Huang, X. Han, Z. Xing, Q. Dai, K. Qiu, C. Luo, and Z. Wu
+(2026)
+Flashportrait: 6x faster infinite portrait animation with adaptive latent prediction
+.
+In
+CVPR
+,
+Cited by:
+§2
+.
+[57]
+S. Tu, Q. Tian, Z. Yang, Y. Wu, X. Han, W. Kong, J. Xiong, J. Zhang, Z. Zhong, L. Bo,
+et al.
+(2026)
+Baton: Explicit Semantic Blueprints for Joint Video-Audio Generation
+.
+arXiv preprint arXiv:2605.25195
+.
+Cited by:
+§2
+.
+[58]
+S. Tu, Z. Xing, X. Han, Z. Cheng, Q. Dai, C. Luo, Z. Wu, and Y. Jiang
+(2025)
+Stableanimator++: Overcoming pose misalignment and face distortion for human image animation
+.
+arXiv preprint arXiv:2507.15064
+.
+Cited by:
+§2
+.
+[59]
+S. Tu, Z. Xing, X. Han, Z. Cheng, Q. Dai, C. Luo, and Z. Wu
+(2025)
+Stableanimator: high-quality identity-preserving human image animation
+.
+In
+2025 IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)
+,
+pp. 21096–21106
+.
+Cited by:
+§2
+.
+[60]
+B. Wallace, M. Dang, R. Rafailov, L. Zhou, A. Lou, S. Purushwalkam, S. Ermon, C. Xiong, S. Joty, and N. Naik
+(2023)
+Diffusion Model Alignment Using Direct Preference Optimization
+.
+arXiv preprint arXiv:2311.12908
+.
+Cited by:
+§1
+,
+§2
+.
+[61]
+H. Wang, Z. Zhou, J. Song, L. He, Y. Lan, Y. Wang, and W. Zhang
+(2026)
+ARGen: Affect-Reinforced Generative Augmentation towards Vision-based Dynamic Emotion Perception
+.
+External Links:
+2604.12255
+Cited by:
+§2
+.
+[62]
+J. Wang, J. Wang, B. Athiwaratkun, C. Zhang, and J. Zou
+(2025)
+Mixture-of-Agents Enhances Large Language Model Capabilities
+.
+In
+International Conference on Learning Representations (ICLR)
+,
+Cited by:
+§1
+.
+[63]
+Y. Wang, Y. Zang, F. Han, J. Bu, Y. Zhou, C. Jin, and J. Wang
+(2026)
+Unified personalized reward model for vision generation
+.
+arXiv preprint arXiv:2602.02380
+.
+Cited by:
+§2
+.
+[64]
+B. Wu, C. Zou, C. Li, D. Huang, F. Yang, H. Tan, J. Peng, J. Wu, J. Xiong, J. Jiang,
+et al.
+(2025)
+Hunyuanvideo 1.5 technical report
+.
+arXiv preprint arXiv:2511.18870
+.
+Cited by:
+§1
+.
+[65]
+Q. Wu, G. Bansal, J. Zhang, Y. Wu, B. Li, E. Zhu, L. Jiang, X. Zhang, S. Zhang, J. Liu,
+et al.
+(2023)
+Autogen: enabling next-gen llm applications via multi-agent conversation
+.
+arXiv preprint arXiv:2308.08155
+.
+Cited by:
+§1
+,
+Table 2
+,
+Table 2
+.
+[66]
+X. Wu, Y. Hao, K. Sun, Y. Chen, F. Zhu, R. Zhao, and H. Li
+(2023)
+Human preference score v2: a solid benchmark for evaluating human preferences of text-to-image synthesis
+.
+arXiv preprint arXiv:2306.09341
+.
+Cited by:
+§2
+.
+[67]
+Y. Wu, S. Petrangeli, I. Dasgupta, and Y. Shen
+(2026)
+CamPilot: A Multi-Agent Cinematic Assistant for Camera-Controlled Movie Generation
+.
+arXiv preprint arXiv:2609.10943
+.
+Cited by:
+§2
+.
+[68]
+J. Xu, Y. Huang, J. Cheng, Y. Yang, J. Xu, Y. Wang, W. Duan, S. Yang, Q. Jin, S. Li,
+et al.
+(2026)
+Visionreward: fine-grained multi-dimensional human preference learning for image and video generation
+.
+In
+Proceedings of the AAAI Conference on Artificial Intelligence
+,
+Vol.
+40
+,
+pp. 11269–11277
+.
+Cited by:
+§1
+,
+§2
+,
+Table 2
+.
+[69]
+J. Xu, X. Liu, Y. Wu, Y. Tong, Q. Li, M. Ding, J. Tang, and Y. Dong
+(2023)
+Imagereward: learning and evaluating human preferences for text-to-image generation
+.
+Advances in Neural Information Processing Systems
+36
+,
+pp. 15903–15935
+.
+Cited by:
+§G.2
+,
+§1
+,
+§2
+.
+[70]
+R. Xu, T. Liu, Z. Dong, T. Yu, I. Hong, C. Yang, L. Zhang, T. Zhao, and H. Wang
+(2026)
+Alternating reinforcement learning for rubric-based reward modeling in non-verifiable llm post-training
+.
+arXiv preprint arXiv:2602.01511
+.
+Cited by:
+§2
+.
+[71]
+W. Xu, Z. Liang, K. Mei, H. Gao, J. Tan, and Y. Zhang
+(2025)
+A-MEM: Agentic Memory for LLM Agents
+.
+In
+Advances in Neural Information Processing Systems
+,
+Vol.
+38
+.
+External Links:
+2502.12110
+Cited by:
+§2
+.
+[72]
+Z. Xue, J. Wu, Y. Gao, F. Kong, L. Zhu, M. Chen, Z. Liu, W. Liu, Q. Guo, W. Huang,
+et al.
+(2025)
+Dancegrpo: unleashing grpo on visual generation
+.
+arXiv preprint arXiv:2505.07818
+.
+Cited by:
+§1
+,
+§1
+,
+§2
+.
+[73]
+Y. Yang, Y. Liao, J. Mei, B. Wang, X. Yang, L. Wen, J. Zhang, X. Li, L. Lv, H. Chen, B. Shi, Y. Liu, S. Yan, and G. H. Lee
+(2026)
+SPIRAL: Self-Evolving Action-Conditioned Video Generation via Reflective Planning Agents
+.
+External Links:
+2603.08403
+Cited by:
+§2
+.
+[74]
+Z. Yang, S. Tu, L. Zhang, Q. Dai, Y. Jiang, and Z. Wu
+(2026)
+ArcFlow: Unleashing 2-Step Text-to-Image Generation via High-Precision Non-Linear Flow Distillation
+.
+arXiv preprint arXiv:2602.09014
+.
+Cited by:
+§2
+.
+[75]
+Q. Yu, Z. Zhang, R. Zhu, Y. Yuan, X. Zuo, Y. Yue, W. Dai, T. Fan, G. Liu, L. Liu,
+et al.
+(2026)
+Dapo: an open-source llm reinforcement learning system at scale
+.
+Advances in Neural Information Processing Systems
+38
+,
+pp. 113222–113244
+.
+Cited by:
+§1
+,
+§2
+.
+[76]
+W. Yuan, R. Y. Pang, K. Cho, X. Li, S. Sukhbaatar, J. Xu, and J. Weston
+(2024)
+Self-Rewarding Language Models
+.
+In
+Proceedings of the 41st International Conference on Machine Learning
+,
+External Links:
+2401.10020
+Cited by:
+§2
+.
+[77]
+G. Zhang, H. Geng, X. Yu, Z. Yin, Z. Zhang, Z. Tan, H. Zhou, Z. Li, X. Xue, Y. Li,
+et al.
+(2025)
+The landscape of agentic reinforcement learning for llms: a survey
+.
+arXiv preprint arXiv:2509.02547
+.
+Cited by:
+§2
+.
+[78]
+R. Zhang, R. Feng, Z. Zhang, J. Yang, Q. Yin, X. Liu, Z. Zhang, P. Nigam, B. Yin, T. Zhao,
+et al.
+(2026)
+QUBRIC: co-designing queries and rubrics for rl beyond verifiable rewards
+.
+arXiv preprint arXiv:2606.03968
+.
+Cited by:
+§2
+.
+[79]
+J. Zhao, X. Wei, and L. Bo
+(2025)
+R1-omni: explainable omni-multimodal emotion recognition with reinforcement learning
+.
+arXiv preprint arXiv:2503.05379
+.
+Cited by:
+§1
+,
+§2
+,
+Table 2
+.
+[80]
+M. Zheng, W. Kong, Y. Wu, D. Jiang, Y. Ma, X. He, B. Lin, K. Gong, Z. Zhong, L. Bo,
+et al.
+(2026)
+Manifold-aware exploration for reinforcement learning in video generation
+.
+arXiv preprint arXiv:2603.21872
+.
+Cited by:
+§1
+,
+§1
+,
+§2
+.
+[81]
+M. Zheng, D. Song, G. Zhou, J. You, J. Zhan, X. Ma, X. Song, S. Lim, Q. Chen, and H. Yang
+(2025)
+CML-Bench: A Framework for Evaluating and Enhancing LLM-Powered Movie Scripts Generation
+.
+arXiv preprint arXiv:2510.06231
+.
+Cited by:
+§2
+.
+[82]
+M. Zheng, Y. Xu, H. Huang, X. Ma, Y. Liu, W. Shu, Y. Pang, F. Tang, Q. Chen, H. Yang,
+et al.
+(2025)
+VideoGen-of-Thought: Step-by-step generating multi-shot video with minimal manual intervention
+.
+NeurIPS NextVid Workshop
+.
+Cited by:
+§2
+.
+Appendix A
+Limitations and Future Work
+Beyond emotional video generation.
+EmoReward studies a training-adaptive reward system that transfers evidence about
+provider reliability between generator-training runs without updating reward-model
+parameters. The present evaluation focuses on emotion, where different scenes call
+for different combinations of facial, gestural, semantic, and motion evidence.
+A broader application would require a task-appropriate provider pool and a meaningful
+outcome for calibration. Action fidelity and audio–visual correspondence are natural
+visual extensions; language models and tool-use agents could similarly combine
+semantic judges, execution checks, and trajectory-level assessments. Whether the same
+calibration rule transfers effectively remains an empirical question, especially when
+providers share errors or outcomes favor only part of the task.
+Iterative evolution across training runs.
+A completed training run can be treated as a unit of experience for its successor.
+Repeating this procedure could produce a sequence of generators and reward-allocation
+tables, with each generation contributing new traces. Our experiments evaluate a
+reference-to-calibrated transition, not sustained improvement across many generations.
+Such an extension must address distribution shift, stale evidence, and feedback loops
+that reinforce a proxy’s errors. Retaining diverse historical traces and evaluating
+held-out outcomes would be important tests of whether repeated calibration remains useful.
+Model-level human feedback.
+The trace representation also suggests a way to carry human assessments of a completed
+model into subsequent training. For example, a reviewer who finds movement too weak
+could request greater emphasis on suitable motion providers in the affected contexts;
+excessive motion could motivate the opposite adjustment. This would complement
+sample-level preference feedback with structured assessments of a model’s final
+behavior, translated into bounded changes to the next run’s reward allocation.
+Mapping subjective feedback to providers and regimes, reconciling different raters,
+and preventing compensating failures remain open design questions. The ordinal study
+reported here evaluates outputs; it does not implement this proposed feedback mechanism.
+Appendix B
+Human Evaluation: Ordinal Ratings
+Study and comparison groups.
+The study includes 18 participants and 30 prompts, with one video per prompt from
+each of three methods: the pretrained generator without RL (GT), SAGE-GRPO, and
+SAGE-GRPO with EmoReward. GT is a generator baseline, not a ground-truth human video.
+Participants assessed each output separately on three criteria using Bad, Normal,
+or Good. The supplied aggregate results contain 540 judgments for each method–criterion
+combination, consistent with the full participant–prompt product. Across all three
+methods and criteria, there are 4,860 categorical judgments. These ordinal counts
+are separate from the earlier pairwise preference protocol; pairwise choices are
+not converted into categorical ratings.
+Criteria.
+Emotion fidelity
+concerns how convincingly the video conveys the prompt’s intended
+affect, including whether expression and gesture fit its emotional tone.
+Temporal coherence
+concerns continuity of expression, identity, and movement
+through the clip.
+Visual quality
+concerns perceptual detail, anatomy, and visible
+artifacts. The categories distinguish poor, intermediate, and good quality on each
+axis. They are rated separately rather than collapsed into a single preference or
+an assumption that stronger emotional intensity is always better.
+Figure 6:
+Interface for ordinal human evaluation.
+The interface presents the prompt and generated video with independent ratings of emotional fidelity, temporal coherence, and visual quality, each using three ordered categories: Bad, Normal, and Good. This reconstruction illustrates the reported rating protocol rather than the original data-collection interface.
+Aggregation and rounding.
+For method
+m
+m
+, criterion
+c
+c
+, and rating category
+b
+b
+, the percentage is:
+p
+^
+m
+,
+c
+,
+b
+=
+100
+​
+N
+m
+,
+c
+,
+b
+∑
+b
+′
+∈
+{
+Bad
+,
+Normal
+,
+Good
+}
+N
+m
+,
+c
+,
+b
+′
+,
+∑
+b
+′
+N
+m
+,
+c
+,
+b
+′
+=
+540
+.
+\widehat{p}_{m,c,b}=100\,\frac{N_{m,c,b}}{\sum_{b^{\prime}\in\{\mathrm{Bad,Normal,Good}\}}N_{m,c,b^{\prime}}},\qquad\sum_{b^{\prime}}N_{m,c,b^{\prime}}=540.
+(11)
+Table
+3
+rounds each percentage independently to one decimal place and
+bolds only the highest Good percentage within each criterion. Rounding may make a
+three-category total differ from
+100.0
+%
+100.0\%
+by
+0.1
+0.1
+percentage points. The raw integer
+counts are preserved in the accompanying source data, rather than rounded before
+normalization. All nine aggregate blocks have the stated denominator; the totals alone
+do not establish participant-level completeness or the absence of duplicate records.
+Reading the distributions.
+Relative to SAGE-GRPO, EmoReward’s Good share increases by
+7.0
+7.0
+,
+2.8
+2.8
+, and
+12.2
+12.2
+percentage points for emotion fidelity, temporal coherence, and visual quality,
+respectively. These differences are computed from the unrounded counts.
+Its Bad share falls from
+31.5
+%
+31.5\%
+to
+15.4
+%
+15.4\%
+for emotion fidelity, from
+28.9
+%
+28.9\%
+to
+20.2
+%
+20.2\%
+for temporal coherence, and from
+30.9
+%
+30.9\%
+to
+15.9
+%
+15.9\%
+for visual quality.
+The complete distribution matters: compared with GT, SAGE-GRPO has more Good ratings
+but also more Bad ratings on every criterion, so a Good-only summary would omit
+part of the observed pattern.
+Statistical scope.
+The present report uses the supplied aggregated counts. It does not treat repeated
+judgments from the same participant or prompt as independent observations. Participant-
+and prompt-level records are needed for uncertainty estimates that respect both sources
+of dependence; no confidence interval or significance claim is inferred from the
+aggregate margins. The aggregates do not document recruitment, presentation order,
+blinding, exclusions, or prompt-selection provenance. Those collection details must
+be established from the study records rather than inferred from the rating totals.
+Appendix C
+Act: Provider Interface and Reference Scoring Rules
+This appendix specifies the scoring operators used by the provider interface in
+Eq.
+6
+. The six primitive
+families
+(facial
+expression; semantic emotion understanding; body and temporal evidence; chromatic atmosphere;
+kinetic intensity; motion naturalness) are instantiated by nine observation channels;
+Table
+4
+maps each family to its provider(s), the backing estimator, and the
+defining equation. Throughout,
+T
+T
+is the number of sampled frames,
+ℱ
+⊆
+{
+1
+,
+…
+,
+T
+}
+\mathcal{F}\subseteq\{1,\dots,T\}
+the face-detected subset,
+ω
+t
+\omega_{t}
+the EmoScript time
+weight (per-window kernels
+ψ
+ℓ
+(
+t
+)
+=
+𝟏
+[
+t
+∈
+ω
+ℓ
+]
+/
+(
+∑
+t
+′
+𝟏
+[
+t
+′
+∈
+ω
+ℓ
+]
++
+ϵ
+)
+\psi_{\ell}(t)=\mathbf{1}[t\in\omega_{\ell}]/(\sum_{t^{\prime}}\mathbf{1}[t^{\prime}\in\omega_{\ell}]+\epsilon)
+over
+Ω
+=
+{
+[
+t
+s
+ℓ
+,
+t
+e
+ℓ
+]
+}
+\Omega=\{[t_{s}^{\ell},t_{e}^{\ell}]\}
+), and
+κ
+(
+x
+;
+σ
+)
+=
+exp
+(
+−
+max
+(
+0
+,
+x
+)
+/
+σ
+)
+\kappa(x;\sigma)=\exp(-\max(0,x)/\sigma)
+a bounded
+exponential score. Each provider
+k
+k
+returns a score
+s
+k
+∈
+[
+0
+,
+1
+]
+s_{k}\in[0,1]
+and a validity signal
+u
+k
+u_{k}
+.
+Table 4:
+Primitive family, provider, backing estimator, and defining equation.
+The two
+appearance channels (chromatic, kinetic) are always-on lightweight signals; the remaining seven
+form the memory support whose per-provider reliability is reported in the calibration analysis
+(Table
+6
+).
+Family
+Provider
+Estimator / signal
+Eq.
+Facial
+AU matching
+Facial action-unit head
+12
+Facial
+CLIP-AUTT
+Temporal AU–text similarity
+13
+Semantic
+R1-Omni
+Valence–arousal estimation
+14
+Semantic
+Macro
+Alignment and AU compliance
+15
+Body
+Body cues
+Body-marker satisfaction
+16
+Temporal
+Peak alignment
+AU peak versus target window
+18
+Appearance
+Chromatic
+Saturation and warm hue
+19
+Appearance
+Kinetic
+Inter-frame differences
+20
+Motion
+Naturalness
+Optical-flow consistency
+21
+C.1  Facial expression: AU matching and expression similarity
+AU matching (
+micro
+).
+A face detector followed by a multi-task action-unit head emits eight AU intensities per detected
+face,
+q
+^
+j
+,
+t
+∈
+[
+0
+,
+1
+]
+\widehat{q}_{j,t}\in[0,1]
+for
+j
+∈
+𝒜
+FACS
+=
+{
+1
+,
+2
+,
+4
+,
+6
+,
+9
+,
+12
+,
+25
+,
+26
+}
+j\in\mathcal{A}_{\mathrm{FACS}}=\{1,2,4,6,9,12,25,26\}
+.
+Against the EmoScript target intensities
+q
+j
+⋆
+q^{\star}_{j}
+we score agreement by a per-AU
+intersection-over-union overlap (rather than an
+ℓ
+p
+\ell_{p}
+kernel, so a target and an observation
+are rewarded for occupying the same activation interval), averaged over face frames:
+IoU
+⁡
+(
+q
+j
+⋆
+,
+q
+^
+j
+,
+t
+)
+=
+min
+⁡
+(
+q
+j
+⋆
+,
+q
+^
+j
+,
+t
+)
+max
+⁡
+(
+q
+j
+⋆
+,
+q
+^
+j
+,
+t
+)
++
+ϵ
+,
+s
+micro
+=
+1
+|
+𝒜
+⋆
+|
+​
+∑
+j
+∈
+𝒜
+⋆
+1
+|
+ℱ
+|
+​
+∑
+t
+∈
+ℱ
+IoU
+⁡
+(
+q
+j
+⋆
+,
+q
+^
+j
+,
+t
+)
+,
+\mathrm{IoU}(q^{\star}_{j},\widehat{q}_{j,t})=\frac{\min(q^{\star}_{j},\widehat{q}_{j,t})}{\max(q^{\star}_{j},\widehat{q}_{j,t})+\epsilon},\quad s_{\mathrm{micro}}=\frac{1}{|\mathcal{A}^{\star}|}\sum_{j\in\mathcal{A}^{\star}}\frac{1}{|\mathcal{F}|}\sum_{t\in\mathcal{F}}\mathrm{IoU}(q^{\star}_{j},\widehat{q}_{j,t}),
+(12)
+with AU compliance and validity
+c
+AU
+=
+1
+|
+𝒜
+req
+⋆
+|
+∑
+j
+∈
+𝒜
+req
+⋆
+𝟏
+[
+max
+t
+∈
+ℱ
+q
+^
+j
+,
+t
+>
+θ
+AU
+]
+c_{\mathrm{AU}}=\tfrac{1}{|\mathcal{A}^{\star}_{\mathrm{req}}|}\sum_{j\in\mathcal{A}^{\star}_{\mathrm{req}}}\mathbf{1}[\max_{t\in\mathcal{F}}\widehat{q}_{j,t}>\theta_{\mathrm{AU}}]
+and
+u
+micro
+=
+|
+ℱ
+|
+/
+T
+u_{\mathrm{micro}}=|\mathcal{F}|/T
+. The provider is inactive when no frame yields a face
+with AU readings. In our implementation,
+θ
+AU
+=
+0.3
+\theta_{\mathrm{AU}}=0.3
+.
+Expression similarity (
+clip_autt
+).
+A temporal vision–language encoder embeds a
+T
+clip
+T_{\mathrm{clip}}
+-frame clip into
+𝐯
+\mathbf{v}
+and compares it to
+N
+au
+N_{\mathrm{au}}
+action-unit text-prompt embeddings
+{
+𝐭
+j
+}
+\{\mathbf{t}_{j}\}
+by cosine similarity,
+mapping the mean similarity from
+[
+−
+1
+,
+1
+]
+[-1,1]
+to
+[
+0
+,
+1
+]
+[0,1]
+:
+s
+¯
+au
+=
+1
+N
+au
+​
+∑
+j
+cos
+⁡
+(
+𝐯
+,
+𝐭
+j
+)
+,
+s
+clip
+=
+1
+2
+​
+(
+s
+¯
+au
++
+1
+)
+.
+\bar{s}_{\mathrm{au}}=\frac{1}{N_{\mathrm{au}}}\sum_{j}\cos(\mathbf{v},\mathbf{t}_{j}),\qquad s_{\mathrm{clip}}=\tfrac{1}{2}(\bar{s}_{\mathrm{au}}+1).
+(13)
+An auxiliary discrete head additionally yields a negative-affect probability
+p
+neg
+=
+softmax
+⁡
+(
+logits
+)
+neg
+p_{\mathrm{neg}}=\operatorname{softmax}(\text{logits})_{\mathrm{neg}}
+, from which the scorer
+derives
+v
+^
+=
+1
+−
+p
+neg
+\hat{v}=1-p_{\mathrm{neg}}
+and
+a
+^
+=
+min
+⁡
+(
+1
+,
+λ
+a
+​
+p
+neg
++
+b
+a
+)
+\hat{a}=\min(1,\,\lambda_{a}p_{\mathrm{neg}}+b_{a})
+; the linear
+rescale in Eq.
+13
+(rather than
+clip
+\operatorname{clip}
+) preserves the ordering on
+clips where
+s
+¯
+au
+<
+0
+\bar{s}_{\mathrm{au}}<0
+. In our implementation,
+T
+clip
+=
+16
+T_{\mathrm{clip}}=16
+,
+N
+au
+=
+47
+N_{\mathrm{au}}=47
+,
+λ
+a
+=
+1.5
+\lambda_{a}=1.5
+, and
+b
+a
+=
+0.2
+b_{a}=0.2
+.
+C.2  Semantic emotion understanding: Valence–arousal reading and the alignment seed
+Valence–arousal reading (
+r1omni
+).
+A multimodal emotion-understanding model produces a free-text emotion description that is parsed
+to an emotion label and continuous valence–arousal estimates
+(
+v
+^
+,
+a
+^
+)
+(\hat{v},\hat{a})
+. Given EmoScript
+targets
+(
+v
+⋆
+,
+a
+⋆
+)
+(v^{\star},a^{\star})
+the reward supports three modes (default: valence):
+s
+r1
+=
+{
+1
+2
+​
+[
+(
+1
+−
+|
+v
+^
+−
+v
+⋆
+|
+)
++
+(
+1
+−
+|
+a
+^
+−
+a
+⋆
+|
+)
+]
+,
+alignment
+,
+v
+^
+,
+valence
+,
+1
+2
+​
+(
+v
+^
++
+a
+^
+)
+,
+mean
+.
+s_{\mathrm{r1}}=\begin{cases}\tfrac{1}{2}\big[(1-|\hat{v}-v^{\star}|)+(1-|\hat{a}-a^{\star}|)\big],&\textsc{alignment},\\[2.84526pt]
+\hat{v},&\textsc{valence},\\[2.84526pt]
+\tfrac{1}{2}(\hat{v}+\hat{a}),&\textsc{mean}.\end{cases}
+(14)
+Text-alignment seed (
+macro
+).
+When a general video–text alignment model is available it blends its text-alignment head
+TA
+∈
+[
+0
+,
+1
+]
+\mathrm{TA}\in[0,1]
+with AU compliance weighted by face rate
+w
+face
+=
+min
+⁡
+(
+face rate
+,
+1
+)
+w_{\mathrm{face}}=\min(\text{face rate},1)
+; otherwise a heuristic reads compliance directly:
+s
+macro
+=
+{
+λ
+TA
+​
+TA
++
+(
+1
+−
+λ
+TA
+)
+​
+c
+AU
+​
+w
+face
+,
+VideoAlign reflector
+,
+b
+macro
++
+(
+1
+−
+b
+macro
+)
+​
+c
+AU
+​
+π
+conf
+,
+OPEN
+heuristic (active iff face rate
+≥
+θ
+macro
+)
+.
+s_{\mathrm{macro}}=\begin{cases}\lambda_{\mathrm{TA}}\mathrm{TA}+(1-\lambda_{\mathrm{TA}})c_{\mathrm{AU}}w_{\mathrm{face}},&\text{VideoAlign reflector},\\[2.84526pt]
+b_{\mathrm{macro}}+(1-b_{\mathrm{macro}})c_{\mathrm{AU}}\pi_{\mathrm{conf}},&\text{heuristic (active iff face rate}\geq\theta_{\mathrm{macro}}).\end{cases}
+(15)
+In our implementation,
+λ
+TA
+=
+0.6
+\lambda_{\mathrm{TA}}=0.6
+,
+b
+macro
+=
+0.3
+b_{\mathrm{macro}}=0.3
+, and
+θ
+macro
+=
+0.1
+\theta_{\mathrm{macro}}=0.1
+. The confidence
+π
+conf
+\pi_{\mathrm{conf}}
+belongs to the
+heuristic reflector. Because the alignment-seeded branch shares an evaluator with
+the reference outcome, its correlation cannot serve as independent emotion validation.
+C.3  Body and temporal evidence (body, temporal)
+The body provider counts each EmoScript body marker
+m
+∈
+ℳ
+⋆
+m\in\mathcal{M}^{\star}
+satisfied by at least
+one frame; the temporal provider locates the frame
+t
+⋆
+t^{\star}
+of peak expected-AU energy and
+scores its distance to the EmoScript window
+[
+t
+s
+,
+t
+e
+]
+[t_{s},t_{e}]
+:
+s
+body
+\displaystyle s_{\mathrm{body}}
+=
+1
+|
+ℳ
+⋆
+|
+∑
+m
+∈
+ℳ
+⋆
+𝟏
+[
+∃
+t
+:
+b
+m
+,
+t
+=
+1
+]
+,
+\displaystyle=\frac{1}{|\mathcal{M}^{\star}|}\sum_{m\in\mathcal{M}^{\star}}\mathbf{1}\big[\exists\,t:\ b_{m,t}=1\big],
+(16)
+t
+⋆
+\displaystyle t^{\star}
+=
+arg
+⁡
+max
+⁡
+∑
+j
+∈
+𝒜
+⋆
+t
+⁡
+q
+^
+j
+,
+t
+,
+\displaystyle=\arg\max_{t}\sum_{j\in\mathcal{A}^{\star}}\widehat{q}_{j,t},
+(17)
+s
+temporal
+\displaystyle s_{\mathrm{temporal}}
+=
+{
+1
+,
+t
+s
+≤
+t
+⋆
+≤
+t
+e
+,
+max
+⁡
+(
+0
+,
+1
+−
+min
+⁡
+(
+|
+t
+⋆
+−
+t
+s
+|
+,
+|
+t
+⋆
+−
+t
+e
+|
+)
+max
+⁡
+(
+t
+e
+−
+t
+s
+,
+δ
+Ω
+)
+)
+,
+else.
+\displaystyle=\begin{cases}1,&t_{s}\leq t^{\star}\leq t_{e},\\[2.84526pt]
+\max\!(0,\,1-\dfrac{\min(|t^{\star}-t_{s}|,|t^{\star}-t_{e}|)}{\max(t_{e}-t_{s},\,\delta_{\Omega})}),&\text{else.}\end{cases}
+(18)
+The window stabilizer is
+δ
+Ω
+=
+0.1
+\delta_{\Omega}=0.1
+in our implementation.
+These scores require their corresponding observations; unavailable evidence receives
+the neutral fallback
+s
+neutral
+s_{\mathrm{neutral}}
+and validity zero. We use
+s
+neutral
+=
+0.5
+s_{\mathrm{neutral}}=0.5
+.
+In the analyzed traces, the micro, body, and temporal channels are constant at
+0.5
+0.5
+;
+this does not imply that every generated video lacks a face or body.
+C.4  Chromatic atmosphere (chromatic)
+A per-frame chromatic signal blends the mean saturation
+S
+¯
+t
+∈
+[
+0
+,
+1
+]
+\bar{S}_{t}\in[0,1]
+with the fraction of
+warm-hue pixels
+W
+t
+=
+𝟏
+[
+h
+≤
+θ
+warm
+−
+∨
+h
+≥
+θ
+warm
++
+]
+¯
+W_{t}=\overline{\mathbf{1}[h\leq\theta_{\mathrm{warm}}^{-}\ \vee\ h\geq\theta_{\mathrm{warm}}^{+}]}
+(on the standard
+[
+0,179
+]
+[0,179]
+hue scale), and the clip-level score aligns the frame mean to the target valence
+v
+⋆
+v^{\star}
+(linearly mapped to
+[
+0
+,
+1
+]
+[0,1]
+):
+c
+t
+=
+λ
+sat
+​
+S
+¯
+t
++
+(
+1
+−
+λ
+sat
+)
+​
+W
+t
+,
+c
+¯
+=
+1
+T
+​
+∑
+t
+c
+t
+,
+s
+chromatic
+=
+clip
+[
+0
+,
+1
+]
+⁡
+(
+1
+−
+|
+c
+¯
+−
+v
+⋆
+|
+)
+.
+c_{t}=\lambda_{\mathrm{sat}}\bar{S}_{t}+(1-\lambda_{\mathrm{sat}})W_{t},\qquad\bar{c}=\tfrac{1}{T}\textstyle\sum_{t}c_{t},\qquad s_{\mathrm{chromatic}}=\operatorname{clip}_{[0,1]}\!(1-|\bar{c}-v^{\star}|).
+(19)
+In our implementation,
+λ
+sat
+=
+0.5
+\lambda_{\mathrm{sat}}=0.5
+and the warm-hue thresholds are
+θ
+warm
+−
+=
+30
+\theta_{\mathrm{warm}}^{-}=30
+,
+θ
+warm
++
+=
+150
+\theta_{\mathrm{warm}}^{+}=150
+on the stated hue scale.
+C.5  Kinetic intensity (kinetic)
+A per-frame kinetic signal normalizes the mean absolute frame difference using saturation scale
+σ
+kin
+\sigma_{\mathrm{kin}}
+,
+and the clip-level score aligns the frame mean to the target arousal
+a
+⋆
+a^{\star}
+:
+k
+t
+=
+clip
+[
+0
+,
+1
+]
+⁡
+(
+1
+σ
+kin
+​
+B
+I
+​
+|
+I
+t
+−
+I
+t
+−
+1
+|
+¯
+)
+,
+k
+¯
+=
+1
+T
+​
+∑
+t
+k
+t
+,
+s
+kinetic
+=
+clip
+[
+0
+,
+1
+]
+⁡
+(
+1
+−
+|
+k
+¯
+−
+a
+⋆
+|
+)
+.
+k_{t}=\operatorname{clip}_{[0,1]}\!(\tfrac{1}{\sigma_{\mathrm{kin}}B_{I}}\,\overline{|I_{t}-I_{t-1}|}),\qquad\bar{k}=\tfrac{1}{T}\textstyle\sum_{t}k_{t},\qquad s_{\mathrm{kinetic}}=\operatorname{clip}_{[0,1]}\!(1-|\bar{k}-a^{\star}|).
+(20)
+In our implementation,
+σ
+kin
+=
+0.20
+\sigma_{\mathrm{kin}}=0.20
+and the pixel range is
+B
+I
+=
+255
+B_{I}=255
+. Appearance features describe potential cues; they are not part of the seven-provider memory update.
+C.6  Motion naturalness (motion)
+Dense optical flow
+𝐟
+t
+\mathbf{f}_{t}
+on grayscale, short-side-
+L
+flow
+L_{\mathrm{flow}}
+frames yields per-frame
+magnitude
+m
+t
+=
+‖
+𝐟
+t
+‖
+¯
+m_{t}=\overline{\|\mathbf{f}_{t}\|}
+and a global (dominant) motion vector
+𝐠
+t
+=
+𝐟
+t
+¯
+\mathbf{g}_{t}=\overline{\mathbf{f}_{t}}
+. Four bounded sub-scores reward smooth flow, low camera
+jerk, low warp residual, and low compensated flicker:
+r
+flow
+\displaystyle r_{\mathrm{flow}}
+=
+κ
+⁡
+(
+|
+Δ
+​
+m
+t
+|
+¯
+,
+σ
+flow
+)
+,
+\displaystyle=\kappa(\overline{|\Delta m_{t}|};\,\sigma_{\mathrm{flow}}),
+r
+cam
+\displaystyle r_{\mathrm{cam}}
+=
+κ
+⁡
+(
+‖
+Δ
+2
+​
+𝐠
+t
+‖
+¯
+,
+σ
+cam
+)
+,
+\displaystyle=\kappa(\overline{\|\Delta^{2}\mathbf{g}_{t}\|};\,\sigma_{\mathrm{cam}}),
+(21)
+r
+warp
+\displaystyle r_{\mathrm{warp}}
+=
+κ
+⁡
+(
+|
+𝒲
+⁡
+(
+I
+t
+−
+1
+,
+𝐟
+t
+)
+−
+I
+t
+|
+¯
+,
+σ
+warp
+)
+,
+\displaystyle=\kappa(\overline{|\,\mathcal{W}(I_{t-1};\mathbf{f}_{t})-I_{t}\,|};\,\sigma_{\mathrm{warp}}),
+r
+flick
+\displaystyle r_{\mathrm{flick}}
+=
+κ
+⁡
+(
+|
+𝒮
+⁡
+(
+I
+t
+−
+1
+,
+𝐠
+t
+)
+−
+I
+t
+|
+¯
+,
+σ
+flick
+)
+,
+\displaystyle=\kappa(\overline{|\,\mathcal{S}(I_{t-1};\mathbf{g}_{t})-I_{t}\,|};\,\sigma_{\mathrm{flick}}),
+where
+𝒲
+\mathcal{W}
+is flow-warping and
+𝒮
+\mathcal{S}
+a global-shift compensation. With base
+r
+base
+=
+∑
+j
+∈
+{
+flow
+,
+cam
+,
+warp
+,
+flick
+}
+λ
+j
+​
+r
+j
+r_{\mathrm{base}}=\sum_{j\in\{\mathrm{flow,cam,warp,flick}\}}\lambda_{j}r_{j}
+and activity
+E
+=
+1
+−
+exp
+(
+−
+m
+¯
+/
+σ
+E
+)
+E=1-\exp(-\bar{m}/\sigma_{E})
+, the arousal-conditioned score and confidence are
+s
+motion
+\displaystyle s_{\mathrm{motion}}
+=
+λ
+M
+​
+r
+base
++
+(
+1
+−
+λ
+M
+)
+​
+(
+1
+−
+|
+E
+−
+a
+⋆
+|
+)
+,
+\displaystyle=\lambda_{M}r_{\mathrm{base}}+(1-\lambda_{M})(1-|E-a^{\star}|),
+(22)
+u
+motion
+\displaystyle u_{\mathrm{motion}}
+=
+λ
+U
+​
+min
+⁡
+(
+1
+,
+T
+−
+2
+n
+U
+)
++
+(
+1
+−
+λ
+U
+)
+​
+min
+⁡
+(
+1
+,
+std
+⁡
+(
+m
+t
+)
+σ
+U
+)
+,
+\displaystyle=\lambda_{U}\min\!(1,\tfrac{T-2}{n_{U}})+(1-\lambda_{U})\min\!(1,\tfrac{\operatorname{std}(m_{t})}{\sigma_{U}}),
+(23)
+reverting to
+s
+motion
+=
+r
+base
+s_{\mathrm{motion}}=r_{\mathrm{base}}
+when no target arousal is supplied. The
+motion gate scales linearly with this observation confidence (Appendix
+D
+).
+The mixture coefficients obey
+∑
+j
+λ
+j
+=
+1
+\sum_{j}\lambda_{j}=1
+. In our implementation,
+L
+flow
+=
+160
+L_{\mathrm{flow}}=160
+,
+(
+σ
+flow
+,
+σ
+cam
+,
+σ
+warp
+,
+σ
+flick
+)
+=
+(
+0.35
+,
+0.65
+,
+0.085
+,
+0.11
+)
+(\sigma_{\mathrm{flow}},\sigma_{\mathrm{cam}},\sigma_{\mathrm{warp}},\sigma_{\mathrm{flick}})=(0.35,0.65,0.085,0.11)
+, and
+(
+λ
+flow
+,
+λ
+cam
+,
+λ
+warp
+,
+λ
+flick
+)
+=
+(
+0.34
+,
+0.24
+,
+0.24
+,
+0.18
+)
+(\lambda_{\mathrm{flow}},\lambda_{\mathrm{cam}},\lambda_{\mathrm{warp}},\lambda_{\mathrm{flick}})=(0.34,0.24,0.24,0.18)
+. We use
+σ
+E
+=
+1.5
+\sigma_{E}=1.5
+,
+λ
+M
+=
+0.82
+\lambda_{M}=0.82
+,
+λ
+U
+=
+0.6
+\lambda_{U}=0.6
+,
+n
+U
+=
+8
+n_{U}=8
+, and
+σ
+U
+=
+0.035
+\sigma_{U}=0.035
+.
+C.7  Score normalization and validity
+The evaluated fusion consumes the providers’ bounded scores directly. An optional
+running-statistic normalization is not an additional transformation applied to those
+scores. Availability and confidence are retained separately from score magnitude:
+unavailable evidence receives a neutral fallback but zero effective contribution.
+Motion confidence is incorporated once through its channel gate, while an activity
+mask handles unavailable motion observations. This convention avoids counting the same
+confidence twice. The micro, body, and temporal channels are constant in the analyzed
+reference traces; their neutral readings do not establish the absence of visible faces
+or bodies in the generated videos.
+Appendix D
+Reflect: Instance-Dependent Gate Construction
+Reflect separates training progress, semantic consistency, observation availability,
+and the prompt’s intended intensity. A factor is neutral for providers to which it does
+not apply. Let
+t
+t
+denote the generator update,
+s
+0
+<
+s
+1
+s_{0}<s_{1}
+the phase-transition endpoints,
+γ
+min
+\gamma_{\min}
+a phase floor, and
+q
+f
+q_{f}
+the available face-evidence ratio:
+h
+⁡
+(
+t
+)
+=
+clip
+[
+0
+,
+1
+]
+⁡
+(
+t
+−
+s
+0
+s
+1
+−
+s
+0
+)
+,
+b
+=
+max
+⁡
+(
+γ
+min
+,
+h
+⁡
+(
+t
+)
+)
+​
+g
+conflict
+,
+f
+=
+min
+⁡
+(
+1
+,
+q
+f
+/
+θ
+f
+)
+.
+h(t)=\operatorname{clip}_{[0,1]}\!\left(\frac{t-s_{0}}{s_{1}-s_{0}}\right),\quad b=\max(\gamma_{\min},h(t))g_{\mathrm{conflict}},\quad f=\min(1,q_{f}/\theta_{f}).
+(24)
+The semantic-conflict factor attenuates disagreement
+d
+=
+|
+s
+CLIP
+​
+-
+​
+AUTT
+−
+s
+R1
+​
+-
+​
+Omni
+|
+d=|s_{\mathrm{CLIP\text{-}AUTT}}-s_{\mathrm{R1\text{-}Omni}}|
+above a threshold
+θ
+d
+\theta_{d}
+, with lower bound
+γ
+d
+\gamma_{d}
+. Subtlety is detected from prompt cues or
+a
+⋆
+≤
+θ
+a
+a^{\star}\leq\theta_{a}
+; it selects restraint factors
+ξ
+f
+\xi_{f}
+,
+ξ
+t
+\xi_{t}
+, and
+ξ
+e
+\xi_{e}
+for facial/body, temporal, and semantic channels, respectively. Otherwise these
+restraint factors equal one. Before applying observation-availability masks, the gates are
+g
+macro
+\displaystyle g_{\mathrm{macro}}
+=
+b
+,
+\displaystyle=b,
+g
+micro
+=
+g
+body
+\displaystyle g_{\mathrm{micro}}=g_{\mathrm{body}}
+=
+b
+​
+f
+​
+ξ
+f
+,
+\displaystyle=bf\xi_{f},
+g
+temporal
+\displaystyle g_{\mathrm{temporal}}
+=
+b
+​
+f
+​
+ξ
+t
+,
+\displaystyle=bf\xi_{t},
+(25)
+g
+CLIP
+​
+-
+​
+AUTT
+=
+g
+R1
+​
+-
+​
+Omni
+\displaystyle g_{\mathrm{CLIP\text{-}AUTT}}=g_{\mathrm{R1\text{-}Omni}}
+=
+b
+​
+ξ
+e
+,
+\displaystyle=b\xi_{e},
+g
+motion
+\displaystyle g_{\mathrm{motion}}
+=
+λ
+g
++
+(
+1
+−
+λ
+g
+)
+​
+c
+motion
+.
+\displaystyle=\lambda_{g}+(1-\lambda_{g})c_{\mathrm{motion}}.
+Here
+c
+motion
+c_{\mathrm{motion}}
+is the optical-flow observation confidence. Availability
+masking and continuous confidence together instantiate the validity term in
+Eq.
+7
+; confidence is not multiplied a second time.
+Implementation settings.
+In our implementation, the default warmup endpoints are
+s
+0
+=
+40
+s_{0}=40
+and
+s
+1
+=
+100
+s_{1}=100
+,
+with
+γ
+min
+=
+0.1
+\gamma_{\min}=0.1
+. Face gating uses
+θ
+f
+=
+0.35
+\theta_{f}=0.35
+; semantic conflict uses
+θ
+d
+=
+0.20
+\theta_{d}=0.20
+and
+γ
+d
+=
+0.35
+\gamma_{d}=0.35
+. For subtle prompts, detected using
+θ
+a
+=
+0.4
+\theta_{a}=0.4
+or prompt cues,
+(
+ξ
+f
+,
+ξ
+t
+,
+ξ
+e
+)
+=
+(
+0.85
+,
+0.75
+,
+0.80
+)
+(\xi_{f},\xi_{t},\xi_{e})=(0.85,0.75,0.80)
+;
+the motion floor is
+λ
+g
+=
+0.55
+\lambda_{g}=0.55
+. These are rule-based controls rather than learned
+reward-model parameters. Historical exported traces retain their recorded gates;
+the default specification alone does not reconstruct a past run’s full configuration.
+Effect on normalized fusion.
+A factor shared by every active provider cannot by itself redistribute trust.
+For
+g
+k
+=
+γ
+​
+h
+k
+g_{k}=\gamma h_{k}
+with
+γ
+>
+0
+\gamma>0
+, active normalization yields
+R
+emo
+=
+∑
+k
+w
+k
+​
+h
+k
+​
+s
+k
+∑
+k
+w
+k
+​
+h
+k
++
+ϵ
+/
+γ
+.
+R_{\mathrm{emo}}=\frac{\sum_{k}w_{k}h_{k}s_{k}}{\sum_{k}w_{k}h_{k}+\epsilon/\gamma}.
+(26)
+Except for the stabilizer, the common scale cancels. Reflect changes the relative
+allocation through provider-specific factors, invalidation, and composition with the
+original reward branch. The face-activity proxy used to group exported traces in
+Appendix
+E
+is distinct from the current video’s face-evidence ratio.
+Appendix E
+Evolve: RewardMemory Construction and Use
+Record the reference run (Figure
+7
+A).
+A completed run with Reflective Reward Gating supplies the experience used by RewardMemory.
+Each trace keeps the prompt–video context, raw provider scores, gates, applied weights, and VideoAlign outcome separate.
+The context describes target affect and available evidence; its face-activity proxy records whether selected scoring branches depart from their neutral defaults, rather than measuring visible-face coverage.
+The recorded scores and outcomes provide the basis for comparing providers.
+Build the calibration table (Figure
+7
+B).
+The complete reference bank is grouped by target arousal and face-branch activity, with a global fallback for contexts with insufficient support.
+Within each group, reliability is the correlation between a provider’s raw scores and VideoAlign outcomes, before gating.
+Algorithm
+2
+compares each provider with the group’s average reliability and converts the difference into a capped weight multiplier (Eq.
+10
+).
+This calibrates reward allocation without fitting a value network or changing any reward model.
+Use the memory in the next run (Figure
+7
+C).
+Algorithm
+1
+looks up the matching multipliers, combines them with the base weights and current-video gates, and normalizes over active providers.
+Memory sets the allocation from prior experience; reflection can still suppress unavailable or unsuitable cues.
+The table remains fixed throughout generator training.
+Panel C illustrates this multiply-and-normalize step using recorded scores and illustrative starting weights: it is a controlled replay, not an additional training run.
+Reflect-only fusion omits the memory adjustment; Appendix
+I
+explains the worked example.
+Appendix F
+Derivation of the Closed-Form KL Update
+For positive base weights on the supported simplex, consider
+max
+⁡
+∑
+k
+w
+∈
+Δ
+K
+−
+1
+⁡
+w
+k
+​
+A
+k
+rel
+−
+τ
+​
+∑
+k
+w
+k
+​
+log
+⁡
+w
+k
+w
+k
+0
+.
+\max_{w\in\Delta^{K-1}}\sum_{k}w_{k}A_{k}^{\mathrm{rel}}-\tau\sum_{k}w_{k}\log\frac{w_{k}}{w_{k}^{0}}.
+(27)
+The Lagrangian has stationary condition
+A
+k
+rel
+−
+τ
+⁡
+(
+log
+⁡
+(
+w
+k
+/
+w
+k
+0
+)
++
+1
+)
++
+λ
+=
+0
+A_{k}^{\mathrm{rel}}-\tau(\log(w_{k}/w_{k}^{0})+1)+\lambda=0
+.
+Normalizing the resulting exponentials gives
+w
+k
+=
+w
+k
+0
+​
+e
+A
+k
+rel
+/
+τ
+/
+∑
+j
+w
+j
+0
+​
+e
+A
+j
+rel
+/
+τ
+w_{k}=w_{k}^{0}e^{A_{k}^{\mathrm{rel}}/\tau}/\sum_{j}w_{j}^{0}e^{A_{j}^{\mathrm{rel}}/\tau}
+.
+Strict concavity yields a unique optimum. A shared additive baseline in the utilities
+cancels from this unclipped solution.
+For
+Δ
+k
+=
+clip
+⁡
+(
+A
+k
+rel
+/
+τ
+,
+−
+c
+,
+c
+)
+\Delta_{k}=\operatorname{clip}(A_{k}^{\mathrm{rel}}/\tau,-c,c)
+, the same derivation
+applies to clipped utilities
+A
+~
+k
+=
+τ
+​
+Δ
+k
+\widetilde{A}_{k}=\tau\Delta_{k}
+. Since
+e
+−
+c
+≤
+∑
+j
+w
+j
+0
+​
+e
+Δ
+j
+≤
+e
+c
+e^{-c}\leq\sum_{j}w_{j}^{0}e^{\Delta_{j}}\leq e^{c}
+, normalized weights satisfy
+e
+−
+2
+​
+c
+≤
+w
+k
+RM
+w
+k
+0
+≤
+e
+2
+​
+c
+.
+e^{-2c}\leq\frac{w_{k}^{\mathrm{RM}}}{w_{k}^{0}}\leq e^{2c}.
+(28)
+The cap bounds relative changes; it does not guarantee a one-hot distribution as
+τ
+→
+0
+\tau\to 0
+. Zero base weights remain outside the support.
+Scope of the bound and cold start.
+The interval
+[
+e
+−
+c
+,
+e
+c
+]
+[e^{-c},e^{c}]
+bounds the exported, unnormalized multipliers; the normalized
+weight ratio has the wider bound above. Clipping the utilities is not equivalent to
+solving the original objective subject to a prescribed hard KL constraint. If all
+advantages are zero, the update returns
+w
+0
+w^{0}
+. A constant provider has
+ρ
+k
+=
+0
+\rho_{k}=0
+, but
+its centered advantage is negative only when the mean reliability is positive; constant
+scores therefore do not imply unconditional down-weighting. In the supplied traces,
+positive-reliability providers make this relative attenuation observable. None of these
+algebraic properties proves improved generalization or emotional fidelity.
+Group-relative invariance.
+If
+R
+i
+′
+=
+a
+​
+R
+i
++
+b
+R_{i}^{\prime}=aR_{i}+b
+with
+a
+>
+0
+a>0
+, then
+μ
+′
+=
+a
+​
+μ
++
+b
+\mu^{\prime}=a\mu+b
+,
+σ
+′
+=
+a
+​
+σ
+\sigma^{\prime}=a\sigma
+, and
+A
+i
+′
+=
+R
+i
+−
+μ
+σ
++
+ϵ
+/
+a
+.
+A_{i}^{\prime}=\frac{R_{i}-\mu}{\sigma+\epsilon/a}.
+(29)
+Translation cancels exactly. By contrast,
+CV
+⁡
+(
+R
+)
+=
+σ
+/
+(
+|
+μ
+|
++
+ϵ
+)
+\operatorname{CV}(R)=\sigma/(|\mu|+\epsilon)
+is not translation invariant.
+Consequently, a reward offset can increase relative dispersion without improving
+the standardized group advantage. This is an algebraic property, not an experimental
+claim about learning efficiency.
+Generator Optimization Objective
+For completeness, we state the clipped GRPO objective underlying the group advantages
+in Eq.
+1
+[
+46
+]
+. Let
+h
+i
+,
+t
+h_{i,t}
+denote the generation
+state and
+a
+i
+,
+t
+a_{i,t}
+its sampled transition in candidate trajectory
+i
+i
+. Define
+ϱ
+i
+,
+t
+​
+(
+θ
+)
+=
+π
+θ
+​
+(
+a
+i
+,
+t
+∣
+h
+i
+,
+t
+,
+p
+)
+/
+π
+θ
+old
+​
+(
+a
+i
+,
+t
+∣
+h
+i
+,
+t
+,
+p
+)
+\varrho_{i,t}(\theta)=\pi_{\theta}(a_{i,t}\mid h_{i,t},p)/\pi_{\theta_{\mathrm{old}}}(a_{i,t}\mid h_{i,t},p)
+. With clipping radius
+ε
+clip
+\varepsilon_{\mathrm{clip}}
+and reference-policy regularization coefficient
+κ
+\kappa
+,
+𝒥
+GRPO
+​
+(
+θ
+)
+=
+\displaystyle\mathcal{J}_{\mathrm{GRPO}}(\theta)={}
+𝔼
+p
+,
+{
+x
+i
+}
+∼
+π
+θ
+old
+[
+1
+G
+∑
+i
+=
+1
+G
+1
+T
+i
+∑
+t
+=
+1
+T
+i
+(
+min
+{
+ϱ
+i
+,
+t
+A
+i
+,
+clip
+(
+ϱ
+i
+,
+t
+,
+1
+−
+ε
+clip
+,
+1
++
+ε
+clip
+)
+A
+i
+}
+\displaystyle\mathbb{E}_{p,\{x_{i}\}\sim\pi_{\theta_{\mathrm{old}}}}\left[\frac{1}{G}\sum_{i=1}^{G}\frac{1}{T_{i}}\sum_{t=1}^{T_{i}}\left(\min\!\left\{\varrho_{i,t}A_{i},\operatorname{clip}(\varrho_{i,t},1-\varepsilon_{\mathrm{clip}},1+\varepsilon_{\mathrm{clip}})A_{i}\right\}\right.\right.
+(30)
+−
+κ
+D
+KL
+(
+π
+θ
+(
+⋅
+∣
+h
+i
+,
+t
+,
+p
+)
+∥
+π
+ref
+(
+⋅
+∣
+h
+i
+,
+t
+,
+p
+)
+)
+)
+]
+.
+\displaystyle\left.\left.-\kappa\,D_{\mathrm{KL}}\!\left(\pi_{\theta}(\cdot\mid h_{i,t},p)\,\|\,\pi_{\mathrm{ref}}(\cdot\mid h_{i,t},p)\right)\right)\right].
+Here
+T
+i
+T_{i}
+is the number of sampled transitions,
+π
+θ
+old
+\pi_{\theta_{\mathrm{old}}}
+is the rollout
+policy, and
+π
+ref
+\pi_{\mathrm{ref}}
+is a fixed reference policy. The scalar reward of the
+completed video determines
+A
+i
+A_{i}
+; advantages and reward-provider outputs are treated as
+constants during the policy update. This expression states the common clipped objective;
+individual video optimizers specify their transition likelihoods, sampled timesteps,
+and regularization. EmoReward changes the scalar reward supplied to the optimizer,
+not those optimizer-specific choices. Its generator KL penalty is distinct from the
+reward-allocation KL term derived above, whose variables are provider weights rather
+than generator parameters.
+Appendix G
+Reward-Gating Metrics and Reproducibility
+Table
+2
+reports two reward diagnostics (SNR
+∗
+and Sel.), three
+normalized pillars (EF, GD, GR), and two composites (core, emo). All seven policies
+use the same backbone and optimization budget. The exported evaluation contains
+160 four-candidate groups for VideoAlign, single-provider, and random routing, and
+152 groups for each remaining policy. Thus the available sample counts differ,
+even though the nominal training budget is shared. The references identify scoring
+models or routing mechanisms, not reproductions of complete agentic systems.
+G.1  Reward Diagnostics
+Let
+R
+i
+R_{i}
+denote the fused training reward,
+y
+i
+y_{i}
+the VideoAlign reference outcome,
+and
+s
+i
+,
+k
+s_{i,k}
+provider
+k
+k
+’s score. A group
+g
+g
+contains candidates for one prompt.
+Reward–outcome agreement (ROA).
+ROA is an auxiliary input to GR rather than a displayed column in Table
+2
+.
+It measures within-group pairwise ranking agreement. For outcome-nontied pairs
+𝒞
+g
+=
+{
+(
+i
+,
+j
+)
+:
+i
+⁡
+<
+j
+,
+|
+y
+i
+−
+y
+j
+|
+>
+​
+ϵ
+y
+}
+\mathcal{C}_{g}=\{(i,j):i<j,\ |y_{i}-y_{j}|>\epsilon_{y}\}
+, the intended statistic is
+Agr
+(
+g
+)
+=
+1
+|
+𝒞
+g
+|
+∑
+(
+i
+,
+j
+)
+∈
+𝒞
+g
+[
+𝟏
+{
+(
+R
+i
+−
+R
+j
+)
+(
+y
+i
+−
+y
+j
+)
+>
+0
+}
++
+1
+2
+𝟏
+{
+R
+i
+=
+R
+j
+}
+]
+.
+\operatorname{Agr}(g)=\frac{1}{|\mathcal{C}_{g}|}\sum_{(i,j)\in\mathcal{C}_{g}}\left[\mathbf{1}\{(R_{i}-R_{j})(y_{i}-y_{j})>0\}+\frac{1}{2}\mathbf{1}\{R_{i}=R_{j}\}\right].
+(31)
+The reported agreement is
+ROA
+=
+Mean
+g
+⁡
+Agr
+⁡
+(
+g
+)
+\mathrm{ROA}=\operatorname{Mean}_{g}\operatorname{Agr}(g)
+. The supplied pairwise helper uses
+ϵ
+y
+=
+10
+−
+9
+\epsilon_{y}=10^{-9}
+and returns
+1
+/
+2
+1/2
+when no
+outcome-nontied pairs exist. However, its treatment of reward ties differs from the
+symmetric half-credit convention above. The original aggregation script is unavailable;
+we therefore retain the archived ROA values as inputs to GR, without claiming to have
+recomputed their tie handling. VideoAlign-only obtains one by construction when its
+reward and reference ordering coincide. ROA measures agreement with that evaluator,
+not independent human or emotional quality.
+Within-group relative dispersion (SNR
+∗
+).
+With population standard deviation within each group,
+D
+g
+=
+Std
+i
+∈
+g
+⁡
+(
+R
+i
+)
+|
+Mean
+i
+∈
+g
+⁡
+(
+R
+i
+)
+|
++
+ϵ
+D
+,
+SNR
+∗
+=
+1
+|
+𝒢
+|
+​
+∑
+g
+∈
+𝒢
+D
+g
+.
+D_{g}=\frac{\operatorname{Std}_{i\in g}(R_{i})}{|\operatorname{Mean}_{i\in g}(R_{i})|+\epsilon_{D}},\qquad\mathrm{SNR}^{*}=\frac{1}{|\mathcal{G}|}\sum_{g\in\mathcal{G}}D_{g}.
+(32)
+The supplied diagnostic implementation uses
+ϵ
+D
+=
+10
+−
+6
+\epsilon_{D}=10^{-6}
+. This is a
+coefficient of variation, not a signal-to-noise power ratio. A reward offset can
+increase it while leaving centered GRPO advantages unchanged; a high value neither
+establishes nor is necessary for better policy gradients. We report the archived
+per-policy reductions, separately from the aggregate-level checks below.
+Reliability selectivity (Sel.).
+Let
+ρ
+k
+=
+Corr
+⁡
+(
+s
+⋅
+,
+k
+,
+y
+)
+\rho_{k}=\operatorname{Corr}(s_{\cdot,k},y)
+over the policy’s evaluated candidates,
+using the nine-channel diagnostic pool
+𝒫
+\mathcal{P}
+. For
+Z
+=
+∑
+k
+∈
+𝒫
+|
+ρ
+k
+|
+>
+0
+Z=\sum_{k\in\mathcal{P}}|\rho_{k}|>0
+,
+q
+k
+=
+|
+ρ
+k
+|
+Z
+,
+Sel
+.
+=
+1
+−
+−
+∑
+k
+∈
+𝒫
+q
+k
+log
+q
+k
+log
+⁡
+|
+𝒫
+|
+,
+0
+log
+0
+=
+0
+.
+q_{k}=\frac{|\rho_{k}|}{Z},\qquad\mathrm{Sel.}=1-\frac{-\sum_{k\in\mathcal{P}}q_{k}\log q_{k}}{\log|\mathcal{P}|},\qquad 0\log 0=0.
+(33)
+The pool includes chromatic and kinetic readouts as well as the seven fusion providers.
+Sel. describes concentration of absolute provider–outcome correlations, not applied
+fusion weights. It discards correlation signs and does not establish causal provider
+usefulness. All seven reported policies have
+Z
+>
+0
+Z>0
+; the auxiliary zero-sample row and
+its all-zero-profile convention are excluded. Recomputing Sel. from the exported
+correlation profiles agrees with the stored values within
+5
+×
+10
+−
+5
+5\times 10^{-5}
+.
+G.2  Normalized Pillars and Composite Scores
+For the fixed comparison set
+𝒜
+\mathcal{A}
+of seven policies, define
+N
+⁡
+(
+v
+a
+)
+=
+v
+a
+−
+min
+b
+∈
+𝒜
+⁡
+v
+b
+max
+b
+∈
+𝒜
+⁡
+v
+b
+−
+min
+b
+∈
+𝒜
+⁡
+v
+b
+.
+N(v_{a})=\frac{v_{a}-\min_{b\in\mathcal{A}}v_{b}}{\max_{b\in\mathcal{A}}v_{b}-\min_{b\in\mathcal{A}}v_{b}}.
+(34)
+The supplied reducer returns zero for a constant input across policies; none of the
+three reported inputs is constant. Normalization is specific to the compared set,
+so the resulting scores are not absolute measures transferable across benchmarks.
+EF: preference-proxy pillar.
+EF
+a
+=
+N
+⁡
+(
+I
+a
+)
+\mathrm{EF}_{a}=N(I_{a})
+, where
+I
+a
+I_{a}
+is the archived mean ImageReward score
+[
+69
+]
+. EF retains the benchmark’s “Emotion Fidelity” abbreviation,
+but its input is a general visual preference model. We do not interpret it as an
+independent measurement of emotion fidelity. The raw means and normalization inputs
+are included in the supplement.
+GD: relative-dispersion pillar.
+GD
+a
+=
+N
+⁡
+(
+SNR
+a
+∗
+)
+\mathrm{GD}_{a}=N(\mathrm{SNR}^{*}_{a})
+. The benchmark calls this Gating Discriminativeness;
+mathematically, it is the normalized coefficient of variation above. Its inclusion
+does not turn reward dispersion into a gradient-quality measurement.
+GR: agreement-weighted selectivity pillar.
+GR
+a
+=
+N
+(
+Sel
+.
+a
+ROA
+a
+)
+\mathrm{GR}_{a}=N(\mathrm{Sel.}_{a}\,\mathrm{ROA}_{a})
+. GR combines correlation-profile
+concentration with agreement with the reference evaluator. Both inputs are diagnostic
+summaries; the product does not establish an independent reliability ground truth.
+core and emo: two specified aggregations.
+The equal-weight composite and preference-emphasized composite are
+core
+a
+=
+EF
+a
++
+GD
+a
++
+GR
+a
+3
+,
+emo
+a
+=
+λ
+EF
+​
+EF
+a
++
+λ
+GD
+​
+GD
+a
++
+λ
+GR
+​
+GR
+a
+.
+\mathrm{core}_{a}=\frac{\mathrm{EF}_{a}+\mathrm{GD}_{a}+\mathrm{GR}_{a}}{3},\qquad\mathrm{emo}_{a}=\lambda_{\mathrm{EF}}\mathrm{EF}_{a}+\lambda_{\mathrm{GD}}\mathrm{GD}_{a}+\lambda_{\mathrm{GR}}\mathrm{GR}_{a}.
+(35)
+Here the nonnegative coefficients sum to one; our implementation uses
+(
+λ
+EF
+,
+λ
+GD
+,
+λ
+GR
+)
+=
+(
+0.5
+,
+0.25
+,
+0.25
+)
+(\lambda_{\mathrm{EF}},\lambda_{\mathrm{GD}},\lambda_{\mathrm{GR}})=(0.5,0.25,0.25)
+.
+Full EmoReward scores
+0.922
+0.922
+on core and
+0.884
+0.884
+on emo, leading under both specified
+weightings. Reflect without memory leads EF. These observations concern the defined
+composites and comparison set, not arbitrary weightings or universal superiority.
+Appendix H
+Extended Evaluation and Ablations
+Provider-pool construction.
+Figure
+5
+presents the main-text visual comparison;
+Table
+5
+quantifies the same four reward configurations used to construct the
+provider interface. Semantic emotion and motion cues improve some axes while exposing
+trade-offs on text alignment and preference. The configurations also differ in fusion
+weights and curricula; their comparison is not a single-factor ablation. In the
+semantic-cue configuration, the CLIP channel has zero fusion weight and cannot explain
+a training gain attributed to an active CLIP reward.
+Table 5:
+Provider-pool configurations.
+Higher is better. TA denotes text alignment.
+The reward configurations use different weights and curricula; missing VQ is not imputed.
+Configuration
+Overall
+VQ
+MQ
+TA
+ImageReward
+VideoAlign
+-1.614
+-0.505
+-0.313
+-0.797
+-0.866
++Semantic emotion
+-1.363
+—
+-0.014
+-0.991
+-0.922
++Motion naturalness
+-1.453
+-0.505
+0.075
+-1.024
+-1.293
+Balanced tool pool
+-1.178
+-0.297
+0.074
+-0.954
+-1.113
+Ranking agreement.
+For each four-candidate group, let
+𝒞
+=
+{
+(
+i
+,
+j
+)
+:
+i
+<
+j
+,
+y
+i
+≠
+y
+j
+}
+\mathcal{C}=\{(i,j):i<j,\ y_{i}\neq y_{j}\}
+. We use
+Agr
+(
+𝒢
+)
+=
+1
+|
+𝒞
+|
+∑
+(
+i
+,
+j
+)
+∈
+𝒞
+[
+𝕀
+{
+(
+R
+i
+−
+R
+j
+)
+(
+y
+i
+−
+y
+j
+)
+>
+0
+}
++
+1
+2
+𝕀
+{
+R
+i
+=
+R
+j
+}
+]
+.
+\operatorname{Agr}(\mathcal{G})=\frac{1}{|\mathcal{C}|}\sum_{(i,j)\in\mathcal{C}}\left[\mathbb{I}\{(R_{i}-R_{j})(y_{i}-y_{j})>0\}+\tfrac{1}{2}\mathbb{I}\{R_{i}=R_{j}\}\right].
+(36)
+Groups without comparable pairs are excluded. Agreement is averaged over groups;
+reward ties receive half credit independently of sample ordering. The analysis contains
+160 baseline groups for DanceGRPO and 168 groups for each other optimizer–reward
+configuration, totaling 1,504 groups and 6,016 videos. These training candidates are
+separate from the 30-prompt fixed-checkpoint evaluation sets.
+Memory sensitivity.
+Across 27 temperature, neighborhood-size, and memory-window settings, the memory rule
+exceeds fixed weighting at the final window in 23 settings. None has a positive difference
+when averaged over all windows. These settings reuse the same traces and are not
+independent training seeds. The results motivate sensitivity analysis rather than a claim
+of monotonic improvement with accumulating memory.
+Table 6:
+RewardMemory calibration.
+Provider reliability and unnormalized multipliers, estimated from 3,232 reflective reward traces (
+τ
+=
+0.5
+\tau=0.5
+,
+c
+=
+1
+c=1
+). Macro includes VideoAlign information, so its association is partly shared with the outcome.
+Provider
+Macro
+Motion
+CLIP
+R1-Omni
+Micro
+Body
+Temporal
+ρ
+k
+\rho_{k}
+0.429
+0.332
+0.073
+0.047
+0.000
+0.000
+0.000
+m
+k
+m_{k}
+1.833
+1.510
+0.899
+0.854
+0.778
+0.778
+0.778
+Appendix I
+RewardMemory: A Worked Rollout Example
+Figure
+7
+connects recorded provider scores, a previously exported
+calibration table, and a reproducible allocation calculation. Appendix
+E
+explains the principles behind panels A–C. The clips contain 81 frames at 24 fps and have 624
+×
+\times
+352 resolution; we display
+frames 12, 40, and 72. The four videos are
+candidates for one prompt from a reference rollout group. Their scores and outcomes
+come directly from the accompanying reward records; the images are decoded full frames.
+The macro provider has positive within-group outcome correlation, while three channels
+return their neutral constant. These four examples illustrate local behavior, not the
+population estimate used to construct RewardMemory.
+Figure 7:
+From completed-run evidence to calibrated fusion.
+Recorded observations (A) supply provider scores and outcomes; RewardMemory (B) supplies fixed multipliers estimated from the complete reference bank, rather than the four displayed clips. A controlled replay (C) applies these multipliers to illustrative initial weights for rollout #2. The resulting
+→
+0.563
+0.578\!\rightarrow\!0.563
+calculation demonstrates reallocation with fixed scores; it is distinct from the logged reward
+0.721
+0.721
+and does not represent a second training run.
+Separating observations from the replay.
+The exported table’s global entry differs from its context-specific entries. We use the
+global entry here to isolate the reweighting operation, without claiming that it was
+the entry selected for these historical videos. The initial active allocation is
+(
+0.336
+,
+0.440
+,
+0.134
+,
+0.090
+)
+(0.336,0.440,0.134,0.090)
+over macro, motion, CLIP-AUTT, and R1-Omni,
+with zero mass on the other three providers. These are illustrative starting weights,
+not reconstructed runtime gates. Multiplying by the exported global multipliers and
+renormalizing produces approximately
+(
+0.417
+,
+0.450
+,
+0.082
+,
+0.052
+)
+(0.417,0.450,0.082,0.052)
+.
+On rollout #2’s recorded scores, the weighted mean changes from
+0.578
+0.578
+to
+0.563
+0.563
+;
+its actual logged emotion reward is
+0.721
+0.721
+. The distinction matters because the
+historical reward used its own training phase and configuration. An increase in a
+provider’s allocation need not increase the scalar fused score, and neither change
+alone establishes improved generated quality.
+Prompt.
+The camera slowly pushes forward, a cold side light slanting through the window frame, carving a sharp beam across the dimly lit study and illuminating the man seated at his desk. He leans slightly forward, hands folded over the keyboard, fingers tapping the keys with slow, precise rhythm. Shot from a low angle behind and to the side, the frame captures his furrowed brow and narrowed eyes, his gaze fixed like a needle on the flickering stream of code on the screen. His lips are pressed into a thin line, the jawline taut with concentration, nostrils fluttering faintly with each breath, occasionally biting his lower lip as if swallowing an unspoken question. The light casts a soft shadow across his forehead, making the sharp glint in his eyes even more intense. In the background, scattered papers and empty coffee cups rest silently on the bookshelf, while the rhythmic tapping of the keyboard echoes in the stillness, like the pulse of a heartbeat. He suddenly pauses, raises his right hand to his temple, his eyes briefly drifting, then swiftly refocuses on the screen—a quiet resolve, a steadfast defiance against time.
+Appendix J
+Generalization to Image Generation
+We evaluate Stable Diffusion 3.5 and FLUX with three optimizers and three reward
+configurations on 256 DrawBench prompts per checkpoint: 18 settings and 84 checkpoints.
+Internal Emo measures the emotion-stack reward; HPSv3 is a general preference objective
+also used to train the baseline. Neither independently measures perceived emotion.
+SD3.5 baseline results average three checkpoints at 420–500 updates; calibrated
+variants average five at 2,780–3,000. FLUX baseline checkpoints span 2,760–3,000,
+and calibrated checkpoints 2,780–3,000. Standard errors describe checkpoint variation,
+not independent training seeds. Per-prompt arrays support the reported means;
+paired significance requires complete sample and generation-seed mappings and is not claimed.
+Observed transfer pattern.
+With SD3.5–DanceGRPO, HPSv3 rises from
+9.552
+9.552
+(baseline) to
+10.096
+10.096
+(Reflect)
+and
+10.302
+10.302
+(EmoReward). SD3.5–FlowGRPO declines on both HPSv3 and internal Emo;
+FLUX’s HPSv3-optimized baseline leads on HPSv3 across optimizers. Thus transfer is
+objective-dependent rather than uniformly beneficial.
+J.1  Qualitative comparison protocol
+Image plates use four curated prompts per displayed setting; video plates cover three
+optimizers. Figure
+5
+separately compares provider configurations.
+These examples illustrate behavior, not a randomly estimated win rate.
+Images retain all original pixels. SD3.5 baseline outputs use 500 updates and calibrated
+outputs 3,000. The first two FLUX baseline cases use the only saved examples at 500
+updates; all other FLUX rows use 3,000. Unequal budgets prevent attributing qualitative
+differences solely to calibration. Image seeds are unavailable, so only prompts are matched.
+Video rows share prompts and recorded sampling seeds. Clips are 864
+×
+\times
+480 at 24 fps;
+full frames at 0.5, 2.5, and 4.5 seconds are decoded without interpolation or retouching.
+The source bundle includes synchronized playback and editable figures.
+The ordinal ratings in Appendix
+B
+complement these proxy-based and
+qualitative comparisons; raw participant/prompt records are needed to quantify uncertainty.
+The depicted scenes are generated content.
+Figure 8:
+Qualitative comparison of reward calibration.
+Columns show the baseline, the addition of Reflect, and the complete EmoReward configuration for SD3.5 with DanceGRPO. Prompt (b) is spelling-normalized for readability; the images retain the original perturbed input. Budgets and seed limitations appear in Appendix
+J.1
+.
+Figure 9:
+Image transfer across SD3.5 and FLUX. Five backbone–optimizer settings share four prompts; each panel compares HPSv3 RL, Reflective gating, and EmoReward. Rows show the same curated prompts as the preceding figure. The first two FLUX baseline rows use earlier saved outputs; see Appendix
+J.1
+for budgets and seed limitations.
+Appendix K
+Video Comparisons
+Figure 10:
+DanceGRPO.
+Street-corner hesitation: a strained smile and averted gaze.
+Figure 11:
+DanceGRPO.
+A quiet exchange at dusk: the prompt couples a smile with a tentative hand gesture.
+Figure 12:
+FlowGRPO.
+Unease on the stone steps at twilight.
+Figure 13:
+FlowGRPO.
+A pause in a rain-streaked café.
+Figure 14:
+SAGE-GRPO.
+Composure under the spotlight in a restrained, emotionally charged stage scene.
+Figure 15:
+SAGE-GRPO.
+Recognition in an old letter in a close-up with gradually softening expression.

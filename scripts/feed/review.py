@@ -589,6 +589,9 @@ def apply_daily_review(root=ROOT, date=None, now=None, provenance=None):
     for row in [*review["items"], *review["lab_updates"]]:
         item = deepcopy(sources[row["id"]])
         previous = item.get("review", {})
+        if (row["decision"] == "defer" and previous.get("decision") in (*APPROVED, "reject")
+                and previous.get("source_hash") == row["source_hash"]):
+            continue  # Replaying a deferred queue cannot revoke a still-current decision.
         decision = {field: deepcopy(row.get(field)) for field in OWNER_FIELDS}
         decision.update(kind="daily", date=date, week=day_week(date), source_hash=row["source_hash"])
         if "reviewed_on" in review:

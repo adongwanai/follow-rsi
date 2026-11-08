@@ -150,3 +150,19 @@ def test_legacy_duplicate_migration_preserves_latest_review_and_other_ids(tmp_pa
     assert save_items(tmp_path, []) == 0
     assert len(path.read_text().splitlines()) == 2
     assert {row['id']: row for row in load_items(tmp_path)} == {latest['id']: latest, other['id']: other}
+
+
+def test_rss_reference_merge_keeps_first_discovery_evidence_and_review():
+    url = 'https://lab.example/assessment'
+    first = item(discovery_referrers={url: {'relation': 'cited_by_post',
+        'observed_at': NOW, 'evidence': {'raw_path': 'recorded-rss.xml'}}})
+    first['review'] = {'decision': 'defer'}
+    fresh = item(source_hits=['rss-lab'], discovery_referrers={
+        url: {'relation': 'cited_by_post', 'observed_at': '2026-11-07T00:00:00Z'},
+        'https://other.example/post': {'relation': 'cited_by_post'}})
+    result, = dedupe_items([fresh], [first])
+    assert result['discovery_referrers'][url] == first['discovery_referrers'][url]
+    assert 'https://other.example/post' in result['discovery_referrers']
+    assert result['review'] == first['review'] and result['first_seen'] == first['first_seen']
+    assert 'post' not in result['links']
+    assert dedupe_items([fresh], [result]) == [result]
