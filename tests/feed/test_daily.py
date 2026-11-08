@@ -472,6 +472,37 @@ def test_status_bulletin_requires_opt_in_and_preserves_observed_snapshot(tmp_pat
     assert "后续观察不应改写既有简报。" not in path.with_suffix(".html").read_text()
 
 
+@pytest.mark.parametrize("legacy_snapshot", [False, True])
+def test_source_not_ready_partial_and_failed_are_distinct_in_public_brief(tmp_path, legacy_snapshot):
+    root = make_daily_repo(tmp_path)
+    status = record_daily_status(root)
+    status["status"] = "hf_not_ready"
+    (root / "data/feed/daily-status.json").write_text(json.dumps({"days": [status]}))
+    (root / "data/feed/state.json").write_text(json.dumps({"sources": {
+        "hf-daily": {"last_run": DAY + "T09:00:00Z", "last_count": 32,
+                     "availability": "not_ready", "last_error": "Today's list is not ready"},
+        "s2-citations": {"last_run": DAY + "T09:01:00Z", "last_count": 295,
+                         "last_error": "Pagination was rate-limited"},
+        "arxiv": {"last_run": DAY + "T09:02:00Z", "last_count": 0, "last_error": "Timeout"},
+    }}))
+    publish_day(root, DAY, allow_status=True)
+    path = root / "site/daily" / f"{DAY}.json"
+    edition = json.loads(path.read_text())
+    assert edition["sources"]["hf-daily"]["availability"] == "not_ready"
+    if legacy_snapshot:
+        for source in edition["sources"].values():
+            source.pop("availability")
+        path.write_text(json.dumps(edition))
+        initialize_public(root)
+    for relative in (f"daily/{DAY}.md", f"site/daily/{DAY}.html", "site/daily/index.html"):
+        content = (root / relative).read_text()
+        assert "榜单未就绪" in content and "部分采集，尚未完成" in content and "抓取失败" in content
+        assert content.index("hf-daily") < content.index("榜单未就绪") < content.index("s2-citations")
+        assert content.index("s2-citations") < content.index("部分采集，尚未完成") < content.index("arxiv")
+    english = (root / "daily" / f"{DAY}.en.md").read_text()
+    assert "Daily list not ready" in english and "Partial collection; incomplete" in english and "Fetch failed" in english
+
+
 @pytest.mark.parametrize("failure,message", [
     ("missing_status", "recorded bilingual daily-status"),
     ("wrong_status_date", "recorded bilingual daily-status"),

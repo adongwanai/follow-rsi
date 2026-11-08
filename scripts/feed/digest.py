@@ -231,6 +231,18 @@ def _trend(editions, week, directions):
     return "".join(content) + "</svg>\n"
 
 
+def _source_notice(name, source, edition, lang):
+    not_ready = source.get("availability") == "not_ready" or (
+        name == "hf-daily" and edition.get("status_report", {}).get("status") == "hf_not_ready")
+    if not_ready:
+        return "榜单未就绪" if lang == "zh" else "Daily list not ready"
+    if source.get("error"):
+        if source["count"]:
+            return "部分采集，尚未完成" if lang == "zh" else "Partial collection; incomplete"
+        return "抓取失败" if lang == "zh" else "Fetch failed"
+    return ""
+
+
 def _markdown(edition, lang, directions, config, subdirections=None):
     edition = _chronological_edition(edition)
     week = edition["week"]
@@ -265,8 +277,8 @@ def _markdown(edition, lang, directions, config, subdirections=None):
         if edition["sources"]:
             lines += ["## 信源快照" if lang == "zh" else "## Source snapshot", ""]
             for name, source in edition["sources"].items():
-                failed = (" · 抓取失败" if lang == "zh" else " · Fetch failed") if source.get("error") else ""
-                lines.append(f"- {_md(name)} · {source['count']} · {source['run_at']}{failed}")
+                notice = _source_notice(name, source, edition, lang)
+                lines.append(f"- {_md(name)} · {source['count']} · {source['run_at']}" + (f" · {notice}" if notice else ""))
             lines.append("")
     if retrospective:
         lines += [("第 0 期 · 历史回顾；下列论文不是当日新增。" if lang == "zh" else
@@ -469,7 +481,8 @@ def _source_snapshot(root, date):
     if not path.exists():
         return {}
     sources = json.loads(path.read_text())["sources"]
-    return {name: {"count": source["last_count"], "run_at": source["last_run"], "error": source.get("last_error")}
+    return {name: {"count": source["last_count"], "run_at": source["last_run"], "error": source.get("last_error"),
+                   "availability": source.get("availability")}
             for name, source in sources.items() if str(source.get("last_run", ""))[:10] == date}
 
 
@@ -484,7 +497,7 @@ def _render_recap(root, edition, directions, config):
     context = {"edition": edition, "editions": daily, "directions": directions,
                "daily_archive": sorted([*daily, *recaps], key=lambda row: row.get("date", row.get("end"))),
                "config": config, "evidence_labels": EVIDENCE_LABELS, "object_labels": OBJECT_LABELS_EN,
-               "subdirections": subdirections,
+               "subdirections": subdirections, "source_notice": _source_notice,
                "withdrawn_editions": load_withdrawn_editions(root),
                "daily_date_note": DAILY_DATE_NOTE, "daily_groups": _daily_groups(edition, subdirections, directions),
                "header": Markup(render_header(config, "weekly", "../")), "recaps": recaps}
@@ -545,7 +558,7 @@ def _render_day(root, edition, editions, directions, config):
     context = {"editions": ordered, "directions": directions, "config": config,
                "daily_archive": sorted([*ordered, *_recaps(root)], key=lambda row: row.get("date", row.get("end"))),
                "evidence_labels": EVIDENCE_LABELS, "object_labels": OBJECT_LABELS_EN,
-               "subdirections": subdirections,
+               "subdirections": subdirections, "source_notice": _source_notice,
                "withdrawn_editions": load_withdrawn_editions(root),
                "daily_status": sorted((entry for entry in daily_status if entry["date"] not in published_status_dates),
                                       key=lambda entry: entry["date"]),
