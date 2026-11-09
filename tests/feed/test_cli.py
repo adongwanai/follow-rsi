@@ -3,6 +3,7 @@ from copy import deepcopy
 from concurrent.futures import Future
 import hashlib
 import json
+from pathlib import Path
 import sys
 
 import pytest
@@ -18,6 +19,68 @@ from test_daily import accept_daily, make_daily_repo, record_daily_status, write
 from test_review import make_repo
 
 DAY = '2026-10-27'
+
+
+def test_version_scan_stages_metadata_without_rebinding_reviewed_content(tmp_path, monkeypatch):
+    from scripts.feed.review import source_hash
+    root = make_repo(tmp_path)
+    original = load_items(root)[0]
+    original['review'] = {'decision': 'backlog', 'source_hash': source_hash(original),
+                          'github_pr': 58, 'owner_login': 'owner'}
+    (root / 'data/feed/items.jsonl').unlink()
+    save_items(root, [original])
+    before = (root / 'data/feed/items.jsonl').read_bytes()
+    fresh = deepcopy(original)
+    fresh.update(version=original['version'] + 1, title='A revised paper title',
+                 abstract='New version body, not yet reviewed.', published='2026-09-01T12:00:00Z',
+                 updated='2026-11-09T01:02:03Z', published_source='arxiv',
+                 first_seen='2026-11-09T02:00:00Z')
+    monkeypatch.setattr(fetch_arxiv, 'fetch_ids', lambda ids: [fresh])
+    result = cli.check_versions(root)
+    assert result['checked'] == 1 and result['candidates'] == 1 and result['retracted'] == 0
+    assert (root / 'data/feed/items.jsonl').read_bytes() == before
+    snapshot = json.loads(Path(result['snapshot']).read_text())
+    assert snapshot['requested_ids'] == [original['arxiv_id']]
+    assert snapshot['records'][0]['updated'] == '2026-11-09T01:02:03Z'
+    assert load_items(root)[0]['review']['source_hash'] == source_hash(original)
+
+
+def test_version_scan_retains_retraction_without_importing_unreviewed_version(tmp_path, monkeypatch):
+    from scripts.feed import digest
+    root = make_repo(tmp_path)
+    original = load_items(root)[0]
+    (root / 'data/feed/items.jsonl').unlink()
+    save_items(root, [original])
+    fresh = deepcopy(original)
+    fresh.update(retracted=True, title='Changed unreviewed title', version=original['version'] + 1,
+                 published='2026-09-01', updated='2026-11-09', published_source='arxiv')
+    monkeypatch.setattr(fetch_arxiv, 'fetch_ids', lambda ids: [fresh])
+    removed = []
+    monkeypatch.setattr(digest, 'remove_retracted', lambda root: removed.append(load_items(root)))
+    result = cli.check_versions(root)
+    assert result['retracted'] == 1
+    assert load_items(root) == [{**original, 'retracted': True}]
+    assert removed == [[{**original, 'retracted': True}]]
+    assert result['alerts'][0]['title'].startswith('Retraction:')
+
+
+@pytest.mark.parametrize('result_kind', ['missing', 'unexpected', 'duplicate'])
+def test_version_scan_rejects_identity_mismatch_before_canonical_changes(tmp_path, monkeypatch, result_kind):
+    root = make_repo(tmp_path)
+    original = load_items(root)[0]
+    (root / 'data/feed/items.jsonl').unlink()
+    save_items(root, [original])
+    fresh = deepcopy(original)
+    if result_kind == 'unexpected':
+        fresh.update(id='arxiv:2610.99999', arxiv_id='2610.99999')
+    records = [] if result_kind == 'missing' else [fresh, fresh] if result_kind == 'duplicate' else [fresh]
+    before = (root / 'data/feed/items.jsonl').read_bytes()
+    monkeypatch.setattr(fetch_arxiv, 'fetch_ids', lambda ids: records)
+    with pytest.raises(ValueError, match='version-check identity mismatch'):
+        cli.check_versions(root)
+    assert (root / 'data/feed/items.jsonl').read_bytes() == before
+    saved = list((root / 'data/feed/raw/arxiv-version-check').glob('*.json'))
+    assert len(saved) == 1 and json.loads(saved[0].read_text())['records'] == records
 
 
 class OfflineLLM:

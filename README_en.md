@@ -27,6 +27,14 @@ RSI papers appear every day, but every claim of improvement needs scrutiny. Foll
 
 <!-- AUTO:TODAY:START -->
 
+**Update status (not a published edition) · 2026-11-09**
+
+All 12 sources were attempted at 12:39–12:43 Asia/Shanghai. The complete Nov 9 HF board had eight papers: seven new identities and the already-published Beneath. Nov 8 and Nov 7 were empty; Nov 6 remained at 32 without late additions. S2 added one new identity. Three source/body review rounds recommend one inclusion, six exclusions and one evidence-pending item. Only HEELO’s Harness primitive development and acceptance branch is included; its original publication date is Nov 5. Five RSS feeds returned 51 window records; 13 GitHub repositories had no window release. All three arXiv searches returned 429. S2 citations returned 50 pages with partial coverage after throttling; no author-paper page was obtained. IAPO remains pending the boundary between a neural policy and explicit control plans. Older source dates were not reassigned to today. This is the observed collection snapshot.
+
+[View daily progress →](https://adongwanai.github.io/follow-rsi/daily/index.html#publication-status)
+
+**Latest published edition**
+
 **[2026-11-08](https://adongwanai.github.io/follow-rsi/daily/2026-11-08.html)** · Collection and review brief
 
 Collection and review bulletin published; no new papers were included. Collection and review record before publication: All 12 sources were attempted at 08:04–08:13 Asia/Shanghai. Today’s HF board was not ready; the latest available complete board, Nov 6, contained 32 papers, with late member Coca-Cola excluded. Nineteen new identities yielded five individually reviewed papers for supplements dated Nov 4 or Nov 5, 13 exclusions, and Evolver pending evidence. Another 443 historical records were reviewed: 15 historical backlog inclusions, 419 exclusions and nine scope boundaries. Including source retries, the combined 467-row review has 434 exclusions, 15 historical backlog decisions and 18 deferrals. Five RSS feeds returned 59 window records; 13 GitHub repositories had no window releases. Three arXiv queries timed out or returned 429; anonymous S2 throttling left parts of the source uncollected. Older papers were not relabeled as new today. This is a collection snapshot, not a claim that no later updates exist.
@@ -135,7 +143,7 @@ Icons: held-out · matched budget · cross-model · cost; ❔ means not yet revi
 
 <!-- AUTO:SOURCES:START -->
 
-Sources with recorded successful runs: arxiv-adjacent · arxiv-harness · arxiv-rsi · github-releases · hf-daily · rss-deepmind · rss-metr · rss-openai · rss-sakana · rss-weco · s2-citations。 Failed in the latest run: arxiv-adjacent · arxiv-harness · arxiv-rsi · s2-authors · s2-citations。 Daily list not ready: hf-daily。 [Source status](https://adongwanai.github.io/follow-rsi/feed/status.json).
+Sources with recorded successful runs: arxiv-adjacent · arxiv-harness · arxiv-rsi · github-releases · hf-daily · rss-deepmind · rss-metr · rss-openai · rss-sakana · rss-weco · s2-citations。 Failed in the latest run: arxiv-adjacent · arxiv-harness · arxiv-rsi · s2-authors · s2-citations。 [Source status](https://adongwanai.github.io/follow-rsi/feed/status.json).
 
 <!-- AUTO:SOURCES:END -->
 

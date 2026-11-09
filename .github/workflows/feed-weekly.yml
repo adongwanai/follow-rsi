@@ -5,6 +5,7 @@ on:
   workflow_dispatch:
 permissions:
   contents: write
+  pull-requests: write
   issues: write
   actions: write
 concurrency:
@@ -23,16 +24,24 @@ jobs:
           python-version: '3.11'
           cache: pip
       - run: python -m pip install -r requirements.txt
+      - name: Prepare weekly discovery branch
+        id: prepare
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          DISCOVERY_WEEK=$(python -c 'from scripts.feed.ci import default_picks_week; print(default_picks_week())')
+          echo "FOLLOW_RSI_DISCOVERY_WEEK=$DISCOVERY_WEEK" >> "$GITHUB_ENV"
+          python -m scripts.feed.ci prepare-discovery-branch --week "$DISCOVERY_WEEK"
       - name: Check arXiv versions and retractions
-        if: always()
+        if: always() && steps.prepare.outcome == 'success'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: python -m scripts.feed.cli versions --issues
       - name: Compare discovery with reference lists
-        if: always()
-        run: python -m scripts.feed.cli recall
-      - name: Persist weekly discovery and recall reports
-        if: always()
+        if: always() && steps.prepare.outcome == 'success'
+        run: python -m scripts.feed.cli recall --week "$FOLLOW_RSI_DISCOVERY_WEEK"
+      - name: Propose weekly discovery and recall reports
+        if: always() && steps.prepare.outcome == 'success'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: python -m scripts.feed.ci commit --message "Update Follow RSI weekly discovery" --deploy-pages --paths data/feed review site/feed/status.json badges/feed-updated.json site/badges/feed-updated.json
+        run: python -m scripts.feed.ci queue-discovery-pr --week "$FOLLOW_RSI_DISCOVERY_WEEK"
