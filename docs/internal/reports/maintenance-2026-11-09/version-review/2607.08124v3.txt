@@ -1,0 +1,591 @@
+1Introduction Skip to main content Report GitHub Issue × Title: Content selection saved. Describe the issue below: Description: Submit without GitHub Submit in GitHub Why HTML? Report Issue Back to Abstract Download PDF Contents Reading mode Colour theme Abstract 1 Introduction 2 Problem Setting Current-batch adaptation. Information available to adaptation. 3 Method 3.1 Overview 3.2 Harness as adaptation state 3.3 Execution Evidence 3.4 Evolution and Selection 4 Theoretical Analysis 4.1 Setup and Assumptions 4.2 Conditions for Improvement 4.3 Preservation and Feedback Limits 5 Experiments 5.1 Experimental Setup 5.2 Main Results 5.3 Ablation Studies Repeated sampling without evolution. Search budget. Batch size. Cross-batch accumulation. Backbone variation. 5.4 Further Analysis Cross-model harness transfer. Candidate availability and selection. What strategies emerge through evolution? 6 Limitations 7 Conclusion References A Task Construction BIRD. LiveCodeBench. SWE-bench Verified. DS-1000. Terminal-Bench 2.1. claw-eval. A.1 Model Access A.2 Dataset Licenses B Discovered Harness Policies C The claw-eval Agentic Tool-Use Domain C.1 Task, metric, and protocol C.2 Discovered policies D Related Work Prompt and workflow optimization. Executable harness evolution. Transfer and reliable adoption. Self-directed model adaptation. Test-time adaptation and reinforcement learning. Test-time memory and context evolution. Response refinement and execution feedback. E Cross-Database Transfer and Continued Adaptation Setup and protocol. Results and interpretation. F Proofs and Scope of the Conditional Analysis F.1 Probability Space and the Locality Condition Fixed construction history and fresh executions. Coupling and a prefix-preserving repair. Cached outcomes and adaptive selection. F.2 Proof of Proposition Equivalent error-detection-rate parameterization. Exact locality and sharpness of the uniform coefficient. F.3 Proof of Theorem F.4 Interpretation and Application Boundaries Failure soundness is one-sided. Repair precision and locality. Relation to the search procedure. Binary versus graded outcomes. G Full Algorithm H Repeated Main Results License: CC BY 4.0 arXiv:2607.08124v3 [cs.SE] 04 Nov 2026 TTHE: Test-Time Harness Evolution Jun Nie 1,2 ,
+Yonggang Zhang 3,* ,
+Jun Song 1 ,
+Qianshu Cai 2 ,
+Dahai Yu 4 , Yike Guo 3 ,
+Xinmei Tian 2 ,
+Bo Han 1,* 1 Hong Kong Baptist University 2 University of Science and Technology of China 3 Hong Kong Generative AI Research & Development Center, The Hong Kong University of Science and Technology 4 TCL Corporate Research (HK) Co., Ltd 1 1 footnotetext: Corresponding authors. Code: https://github.com/junnie00/TTHE Abstract The behavior of an LLM agent is determined not only by the underlying model, but also by its harness : the executable program that constructs context, invokes tools, verifies intermediate results, and recovers from failures. Existing approaches typically optimize harnesses on training or development data and freeze the resulting programs at test time, limiting adaptation to shifts in task distributions, failure modes, and tool interactions. We ask whether the harness can instead be optimized during evaluation using unlabeled execution traces. We introduce Test-Time Harness Evolution (TTHE), which treats the executable harness as the state of test-time adaptation. On each unlabeled test batch, TTHE iteratively evolves a population of candidate harnesses through agentic proposers that reason over execution traces and explore diverse edit directions. A judge selects a candidate using execution traces and execution-derived proxy signals. The selected harness determines the current batch’s outputs and initializes adaptation on the next. Crucially, the solver, proposers, and judge operate through different harnesses around the same frozen LLM, without weight updates, access to final-answer labels, or a separately trained adaptation model. Across six execution-grounded benchmarks spanning text-to-SQL, competitive programming, software engineering, data-science coding, terminal-based tasks, and agentic tool use, TTHE improves fixed ReAct-style baseline harnesses through persistent, inspectable program adaptation. These results recast test-time adaptation for LLM agents as evolution over executable control programs and identify execution-derived proxy reliability as a central challenge for robust unsupervised agent improvement. 1 Introduction Modern LLM agents are increasingly built as executable systems rather than single-call predictors.
+Their behavior depends not only on the model, but also on the executable harness around
+it—the control program that constructs context, invokes tools, verifies intermediate results,
+and implements recovery strategies. Following prior work on model and agent
+harnesses ( Lee et al., 2026 ; Zhang et al., 2026a ) , we focus on this program as the object
+of adaptation. Its context construction and control flow determine how the model’s capabilities
+are used. A common development workflow, however, is to inspect failures, adjust prompts and
+control flow, and tune tool-use logic before evaluating the resulting harness as a fixed artifact.
+Its operating procedure then remains unchanged even when the target workload exposes different
+requirements or failure modes. This convention treats evaluation as a scoring stage, even though execution itself produces rich
+operational evidence. Every attempted task leaves an execution trace: model calls, tool actions,
+intermediate outputs, database responses, test results, runtime errors, and recovery decisions.
+Such traces can reveal not only whether an execution satisfies available checks, but also how
+its operating procedure might be improved. A text-to-SQL agent may retrieve the correct table
+but apply an inconsistent value normalization; a coding agent may generate plausible patches
+without verifying them before submission; a data-science agent may compute an intermediate
+result but omit it from the final report. This is precisely the kind of evidence a human harness engineer would inspect when
+revising the scaffold. Crucially, this evidence is available during evaluation without
+access to gold labels. Using this evidence to revise the harness, however, is different from using it to
+refine individual responses. Self-debugging and reflection use feedback to revise
+candidate answers or retain textual experience for later
+attempts ( Chen et al., 2024 ; Shinn et al., 2023 ) . Automated prompt and workflow
+search targets the surrounding task-solving procedure, but typically optimizes it
+against a training or development objective before evaluating the resulting workflow
+as a fixed artifact ( Khattab et al., 2023 ; Hu et al., 2025 ; Zhang et al., 2025b ) . More recent
+work revises agent source code, harnesses, and configurations using execution feedback
+or task-level evaluation
+signals ( Cai et al., 2026a ; Lee et al., 2026 ; Zhang et al., 2026a ; He et al., 2025 ) .
+Building on these lines of work, we ask: can an LLM agent adapt its harness at test time using its own execution traces,
+without final correctness feedback? We propose Test-Time Harness Evolution (TTHE), which treats the executable harness as
+the state of test-time adaptation. Rather than searching for a harness on labeled development
+instances and freezing it for evaluation, TTHE moves harness optimization into the evaluation
+process itself. On each unlabeled test batch, TTHE executes a population of candidate harnesses
+and iteratively refines them through trace-guided proposers that explore diverse edit directions.
+A judge selects one candidate using the traces and execution-derived proxy signals; the selected
+harness determines the current batch’s outputs and initializes adaptation on the next.
+Final correctness feedback is used only for post-selection evaluation. The solver, proposers, and judge use the same frozen LLM in
+different roles, so adaptation changes the executable program rather than model weights and
+requires no separately trained adaptation model. This evaluation-time formulation offers two practical advantages. First, it adapts at the point
+where the relevant evidence appears: after the agent encounters the schemas, repositories,
+tests, tools, and runtime constraints of the target workload. It can therefore use task-specific
+execution evidence without requiring an additional labeled development set tailored to that
+workload. Second, updating an executable program requires no gradient access and permits
+explicit changes to context construction, multi-sample generation, tool-mediated grounding,
+deterministic contract checks, and conditional recovery branches. These changes alter the
+procedure used to solve tasks rather than only revising an individual response. A central challenge, however, is that execution evidence is not a correctness oracle. A query
+can execute successfully while answering the wrong question; code can pass visible tests while
+failing hidden ones. TTHE therefore presents proxy signals together with candidate code and
+the underlying execution traces, allowing proposers and the judge to interpret these signals
+in the context of how an outcome was produced rather than relying on a single surrogate score.
+Because an edit intended to repair a failure can also disrupt previously correct behavior,
+we complement this design with a conditional analysis of a class of trace-triggered harness
+edits, characterizing when corrective gains outweigh unintended regressions. We evaluate TTHE on six execution-grounded benchmarks, where it
+improves fixed ReAct-style baselines and yields inspectable grounding, verification, and recovery
+policies. On the evaluated BIRD dataset, TTHE achieves 48.7 % 48.7\% mean execution
+accuracy over three runs, compared with 12.7 % 12.7\% for the fixed baseline. A separate ten-run
+execution-result consistency-voting control achieves 16.0 % 16.0\% . Harnesses selected by DeepSeek for each BIRD batch
+also improve MiMo V2.5 and GPT-5.5 over their respective fixed-harness baselines on the
+corresponding batches, without further harness evolution. These results provide evidence of
+cross-model transfer of the evolved task-solving procedures. Search diagnostics reveal
+non-monotonic effects of search budget and distinguish candidate-availability limitations from
+selection errors. Together, these findings support executable harness adaptation as a practical
+path to test-time self-evolution in LLM agents. Contributions. • We introduce Test-Time Harness Evolution (TTHE) , a framework that
+recasts test-time adaptation as evolution over executable control programs.
+TTHE enables an LLM agent to transform its own execution experience into
+harness updates, without modifying model weights or accessing final
+correctness feedback. • We demonstrate gains on evaluated tasks across six execution-grounded benchmarks,
+compare TTHE with fixed-harness repeated sampling on BIRD, and show that batch-specific
+evolved harnesses can benefit other execution models on the corresponding tasks. • We present inspectable harness examples, provide a conditional analysis of corrective
+gains and unintended regressions for a class of trace-triggered edits, and use search
+diagnostics to distinguish candidate availability from selection errors. 2 Problem Setting Let M M be a frozen LLM and ℋ \mathcal{H} the space of executable harnesses.
+A harness H ∈ ℋ H\in\mathcal{H} orchestrates calls to M M and interactions with an
+allowed task environment E E . Executing H H on input x x produces an outcome o H ​ ( x ) o_{H}(x) and a trace τ H ​ ( x ) \tau_{H}(x) , with execution randomness suppressed in the
+notation. Outcomes include submitted artifacts and final environment states
+relevant to evaluation, not only the agent’s final message. Current-batch adaptation. At step t t , the agent receives an unlabeled batch X t = ( x t , 1 , … , x t , B t ) X_{t}=(x_{t,1},\ldots,x_{t,B_{t}}) and an incoming harness H t H_{t} .
+Starting from H t H_{t} , the adaptation procedure interacts with E E to construct,
+execute, and select a candidate harness: ( H ~ t , O ^ t ) = Adapt ⁡ ( M , H t , X t , E ) . (\widetilde{H}_{t},\widehat{O}_{t})=\operatorname{Adapt}(M,H_{t},X_{t},E). (1) Here O ^ t = ( o ^ t , 1 , … , o ^ t , B t ) \widehat{O}_{t}=(\widehat{o}_{t,1},\ldots,\widehat{o}_{t,B_{t}}) contains the
+selected candidate’s cached outcomes on X t X_{t} . After commitment, these outcomes
+are evaluated against the hidden targets Y t = ( y t , 1 , … , y t , B t ) Y_{t}=(y_{t,1},\ldots,y_{t,B_{t}}) ,
+without re-execution or reselection: J ^ t = 1 B t ​ ∑ i = 1 B t score ⁡ ( o ^ t , i , y t , i ) . \widehat{J}_{t}=\frac{1}{B_{t}}\sum_{i=1}^{B_{t}}\operatorname{score}(\widehat{o}_{t,i},y_{t,i}). (2) The task-specific function score \operatorname{score} takes values in [ 0 , 1 ] [0,1] .
+For binary tasks, it is 𝕀 [ o ^ t , i ≡ y t , i ] \mathbb{I}[\widehat{o}_{t,i}\equiv y_{t,i}] , where ≡ \equiv denotes task correctness, such as SQL result-set equality or passing
+all hidden tests; graded tasks use their evaluation rubric.
+TTHE sets H t + 1 = H ~ t H_{t+1}=\widetilde{H}_{t} to initialize adaptation on the next batch.
+Evaluation is transductive : the current batch supplies unlabeled
+adaptation evidence and is scored after adaptation, rather than using the
+incoming harness H t H_{t} before adaptation. Information available to adaptation. The adaptation loop may access task inputs, candidate source code, execution
+traces, and permitted environment responses. Public examples or repository
+tests provide partial checks when exposed by the task. Final-answer labels,
+reference solutions, hidden-test outcomes, and final evaluation scores remain
+inaccessible to all adaptation components and their traces; evaluation
+feedback is not passed to subsequent batches. No calibrated scalar
+correctness reward is assumed. Let ℱ t ⊆ ℋ \mathcal{F}_{t}\subseteq\mathcal{H} be the final candidate set eligible for
+selection, and let 𝒯 t ​ ( H ) \mathcal{T}_{t}(H) collect the execution traces and
+execution-derived signals for candidate H H on X t X_{t} . A label-free judge 𝒥 \mathcal{J} selects a single harness H ~ t ∈ ℱ t \widetilde{H}_{t}\in\mathcal{F}_{t} : H ~ t = 𝒥 ⁡ ( X t , { ( H , 𝒯 t ​ ( H ) ) : H ∈ ℱ t } ) . \widetilde{H}_{t}=\mathcal{J}\!\left(X_{t},\{(H,\mathcal{T}_{t}(H)):H\in\mathcal{F}_{t}\}\right). (3) The judge may acquire additional evidence through permitted probes in E E ,
+subject to the same information constraints. 3 Method 3.1 Overview TTHE adapts an agent’s executable harness using evidence generated during test-time execution.
+Two questions guide its design: (Q1) What evidence can support adaptation without final
+correctness feedback? (Q2) How can this evidence guide program revision and candidate
+selection? We address Q1 with execution traces and task-dependent partial checks, and Q2 with
+iterative evolution of multiple harness branches followed by batch-level selection.
+Starting from H t H_{t} , the loop evolves G G branches over R R rounds on the current batch X t X_{t} .
+Figure 1 illustrates one batch; Algorithm 1 in
+Appendix G gives the full procedure. Figure 1: Overview of TTHE.
+On each unlabeled batch X t X_{t} , proposers evolve G G harness branches from H t H_{t} over R R rounds, exploring diverse edits guided by execution traces.
+A judge selects one final-round candidate using traces and execution-derived proxy signals.
+The selected harness determines the current batch’s outputs and initializes adaptation
+on the next batch as H t + 1 H_{t+1} . Final correctness feedback is excluded from the loop. 3.2 Harness as adaptation state The adaptation state is the task harness’s source, including its prompts and executable control
+logic. TTHE revises how the harness constructs context, invokes tools, validates intermediate
+results, and recovers from failures, while keeping the model and the outer proposal-and-selection
+procedure fixed. The baseline H 0 H_{0} is a ReAct-style scaffold ( Yao et al., 2023 ) , fixed before
+evolution begins. A code edit can change a prompt, introduce a database probe before generation, add a deterministic
+output check, or create a conditional repair branch. It can also implement multiple-sample generation
+and aggregation ( Wang et al., 2023 ) or execution-based self-debugging ( Chen et al., 2024 ) .
+The search is therefore not confined to choosing among predeclared prompt templates or workflow settings.
+The distinction from response-level refinement is the object of the update: a revised query is an output,
+whereas a new rule for constructing and checking queries changes the procedure applied to the batch. 3.3 Execution Evidence Executing a candidate records its model prompts and completions, tool calls and responses, stdout/stderr,
+intermediate artifacts, runtime states, errors, and probe results; long fields are truncated. A trace
+exposes how a harness operates: which tools it calls, whether intermediate artifacts are consumed,
+when validation or recovery branches fire, and how the final output relates to the preceding computation.
+These details provide context for diagnosing a failure and proposing changes to the operating procedure.
+For an input x x and outcome o o , TTHE also exposes task-dependent proxy signals: • Execution health s ∈ { 0 , 1 } s\in\{0,1\} records whether the output executes and satisfies available
+format or shape checks, such as returning a scalar for a counting query. • Round-trip consistency b ∈ [ 0 , 1 ] b\in[0,1] compares the input to a description reconstructed from
+the output: x ~ = RT ⁡ ( o ) \widetilde{x}=\operatorname{RT}(o) and b = match ⁡ ( x , x ~ ) b=\operatorname{match}(x,\widetilde{x}) . A mismatch
+provides evidence of possible semantic drift without requiring a reference answer. • Public-test pass rate p ∈ [ 0 , 1 ] p\in[0,1] records the fraction of exposed examples or repository
+tests passed, where such tests are available. These signals provide complementary but incomplete evidence: successful execution does not establish
+semantic correctness, and different candidates may agree on an incorrect result. TTHE therefore
+presents the signals together with candidate code and the underlying execution traces, rather than
+aggregating them into a single scalar objective. Proposers use this evidence to diagnose weaknesses
+and propose program changes, while the judge uses it to compare the resulting candidates. 3.4 Evolution and Selection Let H r g H_{r}^{g} denote branch g g after round r r , with H 0 g = H t H_{0}^{g}=H_{t} for all g g .
+The loop uses three operators under the information constraints in Section 2 : Observe ( H , X t ) (H,X_{t}) executes harness H H on every input in X t X_{t} and records its
+execution traces, proxy signals, and cached outcomes. Propose ( 𝒜 , 𝒯 ) (\mathcal{A},\mathcal{T}) receives the active branches 𝒜 \mathcal{A} and their
+execution records 𝒯 \mathcal{T} . One coding-agent proposer per branch revises its own parent,
+using the active branches’ code and traces for context, and returns one child. Judge ( ℱ , 𝒯 , X t ) (\mathcal{F},\mathcal{T},X_{t}) inspects the eligible candidates’ code and signals. During selection, it may acquire additional evidence through probes or candidate
+re-execution, then commits one harness from ℱ \mathcal{F} . At the start of a batch, the incoming harness is observed once, and its cached execution record is
+shared across the initial branches. In each round, valid children replace their parents and are
+executed on X t X_{t} ; invalid or unloadable children leave their parents and cached records unchanged. Two design choices organize these updates. Lineage : a fixed parent–child sequence allows
+successive edits to build on the branch’s grounding, verification, and recovery routines. Diversity : conservative-repair, exploratory, and adversarial proposer roles encourage
+different edit directions. Branches can use one another’s execution evidence while retaining their
+own lineages. After R R rounds, the judge selects one harness from ℱ t = { H R g } g = 1 G \mathcal{F}_{t}=\{H_{R}^{g}\}_{g=1}^{G} based on the candidates’ code,
+execution traces, and proxy signals. The selected harness’s cached outcomes
+determine the current batch’s score in Eq. 2 , and the
+harness initializes adaptation on the next batch. The solver, proposers, and judge share the same frozen LLM. The solver runs within
+the evolving task harness, while the proposers and judge use a Claude Code scaffold
+for file access, code editing, execution, and probing, with all model calls routed
+to the same backbone. 4 Theoretical Analysis We analyze a class of trace-triggered harness edits on the current batch, rather than the outer
+proposal-and-selection process. As conditional analyses of test-time training relate an auxiliary update
+to the main-task objective ( Sun et al., 2020 ) , this analysis relates corrective edits to regressions. 4.1 Setup and Assumptions Fix a nonempty batch X = { x i } i = 1 B X=\{x_{i}\}_{i=1}^{B} , its hidden evaluation targets, and a realized label-free
+construction history z z , including the random choices used to construct H , H ′ H,H^{\prime} and a trigger rule.
+Hold these programs, the trigger rule, and any inherited state fixed. Draw I I uniformly from { 1 , … , B } \{1,\ldots,B\} and choose a fixed coupling κ \kappa of fresh execution records ( O , τ ) (O,\tau) and ( O ′ , τ ′ ) (O^{\prime},\tau^{\prime}) on x I x_{I} . Both joint output–trace marginals must match the corresponding fixed program’s
+execution law in the same prescribed initial environment. Outcomes include submitted artifacts and
+relevant final states. With y = y I y=y_{I} , define binary correctness and its gain by C = 𝕀 [ O ≡ y ] , C ′ = 𝕀 [ O ′ ≡ y ] , e = Pr ⁡ ( C = 0 ) , e ′ = Pr ⁡ ( C ′ = 0 ) , Δ X ​ ( H , H ′ ) = e − e ′ . \begin{gathered}\begin{aligned} C&=\mathbb{I}[O\equiv y],&C^{\prime}&=\mathbb{I}[O^{\prime}\equiv y],\\
+e&=\Pr(C=0),&e^{\prime}&=\Pr(C^{\prime}=0),\end{aligned}\\[2.0pt]
+\Delta_{X}(H,H^{\prime})=e-e^{\prime}.\end{gathered} (4) Probabilities average over I I and fresh execution randomness conditional on the fixed history;
+dependence on z z and κ \kappa is suppressed. Gold defines correctness for analysis only. Let D = 𝖽 ⁡ ( x I , τ ) ∈ { 0 , 1 } D=\mathsf{d}(x_{I},\tau)\in\{0,1\} , where the fixed, label-free rule 𝖽 \mathsf{d} identifies executions
+targeted by the edit. This execution-time trigger is distinct from the historical evidence that motivated
+the source-code revision. Define ε = Pr ⁡ ( D = 0 , O ′ ≠ O ) . \varepsilon=\Pr(D=0,\ O^{\prime}\neq O). (5) Exact locality means ε = 0 \varepsilon=0 : untriggered outcomes are preserved under κ \kappa .
+The value of ε \varepsilon depends on the execution coupling, not only on the source-code change.
+For example, a prefix-preserving repair can have the form O ′ = { O , D = 0 , Repair ⁡ ( x I , O , τ , ξ ) , D = 1 , O^{\prime}=\begin{cases}O,&D=0,\\
+\operatorname{Repair}(x_{I},O,\tau;\xi),&D=1,\end{cases} where the child retains the parent execution before the repair decision and ξ \xi supplies fresh
+repair randomness. Sharing that execution gives exact locality if the check leaves untriggered
+outcomes unchanged. This illustrates an editable program structure, not a constraint imposed by TTHE;
+a global prompt or grounding edit need not have this form. Locality is a behavioral condition, not a
+limit on edited source lines. Appendix F specifies the coupling and its assumptions. Separate how often a trigger fires from how informative it is and what the edit does: m \displaystyle m = Pr ⁡ ( D = 1 ) , \displaystyle=\Pr(D=1), (6) π \displaystyle\pi = Pr ⁡ ( C = 0 ∣ D = 1 ) , \displaystyle=\Pr(C=0\mid D=1), r \displaystyle r = Pr ⁡ ( C ′ = 1 ∣ C = 0 , D = 1 ) , \displaystyle=\Pr(C^{\prime}=1\mid C=0,D=1), u \displaystyle u = Pr ⁡ ( C ′ = 0 ∣ C = 1 , D = 1 ) . \displaystyle=\Pr(C^{\prime}=0\mid C=1,D=1). Here m m is trigger mass, π \pi is its precision as an error detector, r r is repair success, and u u is
+regression after falsely triggering on a correct outcome. Rates on zero-probability conditioning events
+are set to zero. The rates r , u r,u and the locality term ε \varepsilon refer to the specified coupling;
+these are analysis quantities, not correctness scores accessible to the loop. 4.2 Conditions for Improvement Proposition 1 (Corrective gains and unintended regressions) . Under the coupled execution model, | Δ X ​ ( H , H ′ ) − m ⁡ [ π ​ r − ( 1 − π ) ​ u ] | ≤ ε . \left|\Delta_{X}(H,H^{\prime})-m[\pi r-(1-\pi)u]\right|\leq\varepsilon. (7) Hence m ​ π ​ r > m ⁡ ( 1 − π ) ​ u + ε m\pi r>m(1-\pi)u+\varepsilon suffices for strict improvement. With exact locality, Δ X ​ ( H , H ′ ) = m ⁡ [ π ​ r − ( 1 − π ) ​ u ] \Delta_{X}(H,H^{\prime})=m[\pi r-(1-\pi)u] , so m ​ π ​ r > m ⁡ ( 1 − π ) ​ u m\pi r>m(1-\pi)u is necessary and sufficient. The balance separates successful repairs, false-trigger regressions, and off-trigger changes. The last
+term can help or harm; ε \varepsilon bounds its magnitude rather than measuring an unavoidable loss.
+The sufficient condition requires repairs to outweigh false-trigger regressions and worst-case
+off-trigger harm. Trigger precision alone does not establish repair success. 4.3 Preservation and Feedback Limits A trigger is sound for rejection when D = 1 D=1 implies C = 0 C=0 almost surely. Violating an authoritative
+output contract, or failing a public test that is a necessary condition for task correctness, can provide
+such evidence without identifying the correct answer. An empty SQL result, a recovered intermediate
+exception, or low semantic consistency does not in general have this property. Theorem 1 (Preservation and the limit of failure feedback) . If the trigger is sound for rejection and the edit is exactly local, then Δ X ​ ( H , H ′ ) = Pr ⁡ ( D = 1 , C ′ = 1 ) = m ​ r ≥ 0 . \Delta_{X}(H,H^{\prime})=\Pr(D=1,C^{\prime}=1)=mr\geq 0. (8) No independence or positive lower bound on repair success is required. If a label-free child check D ′ D^{\prime} is also sound for rejection and v = Pr ⁡ ( D = 1 , D ′ = 0 ) v=\Pr(D=1,D^{\prime}=0) is the mass of cleared failure flags, then 0 ≤ Δ X ​ ( H , H ′ ) ≤ v . 0\leq\Delta_{X}(H,H^{\prime})\leq v. (9) Both endpoints are attainable with the same distribution of ( D , D ′ ) (D,D^{\prime}) under sound but incomplete checks.
+Thus failure-flag clearance alone cannot certify a strictly positive correctness gain. Figure 2: TTHE versus fixed baseline harnesses across six benchmarks. Bars show mean task success rates (%) for the first five benchmarks and
+mean graded scores for claw-eval. Red annotations indicate
+absolute gains over the baseline. Individual runs and mean ± \pm standard
+deviation are provided in Appendix H . The preservation result confines modifications to outcomes already known to be wrong; strict progress
+still requires successful repair. With imperfect triggers, Proposition 1 gives e ′ ≤ e + m ⁡ ( 1 − π ) + ε e^{\prime}\leq e+m(1-\pi)+\varepsilon without a repair-quality assumption. Complete proofs, equivalent
+parameterizations, and sharpness constructions appear in Appendix F . 5 Experiments 5.1 Experimental Setup We evaluate TTHE on six execution-grounded benchmarks: BIRD ( Li et al., 2023 ) ,
+LiveCodeBench ( Jain et al., 2025 ) , SWE-bench Verified ( Jimenez et al., 2024 ) ,
+DS-1000 ( Lai et al., 2023 ) , Terminal-Bench 2.1, and claw-eval. These cover
+text-to-SQL, competitive programming, software engineering, data-science coding,
+terminal-based tasks, and agentic tool use. We use fixed evaluation sets, including
+hard task subsets selected before adaptation; their sizes and construction procedures
+are given in Appendix A . We compare each task’s fixed baseline harness with TTHE initialized from that
+harness, using deepseek-v4-flash as the frozen solver, proposer, and judge.
+Following Section 2 , TTHE adapts to each unlabeled batch; final
+correctness feedback is used only to evaluate committed outputs. Metrics are task
+success rates for the five binary benchmarks and mean graded scores for claw-eval.
+Both methods are run three times per evaluation set. Figure 2 shows
+the means; individual results and mean ± \pm sample standard deviation appear in
+Appendix H . 5.2 Main Results TTHE outperforms the fixed baseline on all six benchmarks in each of the three
+reported runs (Figure 2 ; Appendix H ). Mean
+success rates increase by 8.0 8.0 – 36.0 36.0 percentage points on the five binary
+benchmarks; claw-eval gains 20.5 20.5 points on its 0 0 – 100 100 graded-score scale. BIRD shows the largest gain, from 12.7 % 12.7\% to 48.7 % 48.7\% mean execution accuracy. Gains also occur on LiveCodeBench, SWE-bench Verified,
+and DS-1000, and extend to terminal-based tasks and multi-service tool use:
+Terminal-Bench 2.1 rises from 55.1 % 55.1\% to 67.8 % 67.8\% , and claw-eval from 48.9 % 48.9\% to 69.4 % 69.4\% . Across these settings, the same frozen backbone supports task execution,
+program revision, and candidate selection. The complete procedure thus obtains
+useful test-time harness updates without modifying model weights or introducing
+a separate repair model. 5.3 Ablation Studies We examine repeated sampling, search configuration, cross-batch initialization,
+and backbone variation on BIRD. Unless stated otherwise, the ablations and
+further analyses below use the main experiment’s BIRD subset and deepseek-v4-flash , reporting single-run accuracy separately from the
+three-run main results. The reference run achieves 12.0 % 12.0\% with the fixed
+baseline and 50.0 % 50.0\% with TTHE. Repeated sampling without evolution. We run the fixed baseline ten times per question and vote over execution-result
+groups rather than SQL strings. This matches TTHE’s nominal 1 + G ​ R = 10 1+GR=10 harness
+executions for G = 3 , R = 3 G=3,R=3 : one initial execution and up to nine candidate executions.
+Total computation also depends on harness-specific token and tool use, as well as
+TTHE’s proposal and judging overhead. Voting raises accuracy from 12.0 % 12.0\% to 16.0 % 16.0\% , versus TTHE’s 50.0 % 50.0\% (Table 1 ). The
+contrast is between obtaining more outputs from an unchanged procedure and adapting
+the procedure that produces and checks them. The tested voting strategy does not
+substitute for the complete harness-evolution process. Table 1: TTHE versus repeated sampling with a fixed harness. Method Accuracy (%) Baseline (one execution) 12.0 Baseline (10 executions + vote) 16.0 TTHE ( G = 3 , R = 3 G=3,R=3 ) 50.0 Search budget. Search breadth and depth interact (Table 2 ). Increasing G G from one to three does not improve accuracy at R = 1 R=1 ( 46.0 % 46.0\% versus 44.0 % 44.0\% ), but improves it at R = 3 R=3 ( 40.0 % 40.0\% versus 50.0 % 50.0\% ).
+Moreover, G = 3 , R = 1 G=3,R=1 and G = 1 , R = 3 G=1,R=3 allocate the same nominal number of proposals
+per batch but achieve 44.0 % 44.0\% and 40.0 % 40.0\% , respectively. These observations
+suggest that search organization matters beyond proposal count, with G = 3 , R = 3 G=3,R=3 the best tested setting. The branch configurations combine different search widths
+with branch-specific proposer roles. Table 2: Effects of search breadth and depth. Accuracy (%) G = 1 G=1 G = 3 G=3 R = 1 R=1 46.0 46.0 44.0 44.0 R = 3 R=3 40.0 40.0 50.0 \mathbf{50.0} Batch size. With G = 3 , R = 3 G=3,R=3 , accuracy peaks at B = 10 B=10 ( 50.0 % 50.0\% ) among the tested sizes,
+versus 44.0 % 44.0\% , 38.0 % 38.0\% , and 44.0 % 44.0\% at B = 5 B=5 , 25 25 , and 50 50 (Figure 3 ). Batch size controls adaptation granularity: larger
+batches provide more execution evidence, but one committed program must serve more
+inputs and there are fewer update opportunities over the stream. The non-monotonic
+results show that supplying more evidence per update is not uniformly beneficial
+under this batch-level commitment rule. Figure 3: Effect of batch size on harness adaptation. Cross-batch accumulation. Resetting to the baseline before each batch achieves 44.0 % 44.0\% accuracy,
+compared with 12.0 % 12.0\% for the fixed baseline. Carrying the selected harness
+forward further improves overall accuracy to 50.0 % 50.0\% (Table 3 ). These results indicate that current-batch
+adaptation yields substantial gains, while retaining evolved program
+structure provides a useful initialization for subsequent adaptation. Table 3: Effect of cross-batch harness accumulation. Accuracy (%) B1 B2 B3 B4 B5 Overall Accumulate 30 70 40 60 50 50.0 Reset each batch 30 40 40 50 60 44.0 Backbone variation. We repeat evolution on BIRD with MiMo V2.5 and Kimi K2.5, using the same backbone
+across solver, proposer, and judge within each run ( B = 10 , G = 3 , R = 3 B=10,G=3,R=3 ).
+Both improve over their own fixed-harness baselines: MiMo V2.5 increases from 32.0 % 32.0\% to 52.0 % 52.0\% , and Kimi K2.5 from 28.0 % 28.0\% to 48.0 % 48.0\% (Table 4 ). These within-model gains extend the evidence
+beyond the main backbone. Table 4: Harness evolution with different backbones. Backbone Base (%) TTHE (%) Gain DeepSeek V4 Flash 12.0 50.0 + 38.0 +38.0 MiMo V2.5 32.0 52.0 + 20.0 +20.0 Kimi K2.5 28.0 48.0 + 20.0 +20.0 5.4 Further Analysis Cross-model harness transfer. Executing DeepSeek’s selected harness on the corresponding BIRD batch, without
+further evolution, improves MiMo V2.5 from 32.0 % 32.0\% to 56.0 % 56.0\% and GPT-5.5
+from 36.0 % 36.0\% to 68.0 % 68.0\% (Table 5 ). Backbone variation
+tests whether other models can use the evolution procedure; this experiment instead
+tests whether they can use its resulting programs. The gains show that a
+batch-specific harness can benefit execution models other than the one that evolved
+it. Table 5: Cross-model transfer of evolved harnesses. Target model Baseline (%) Transferred (%) Gain MiMo V2.5 32.0 56.0 + 24.0 +24.0 GPT-5.5 36.0 68.0 + 32.0 +32.0 Candidate availability and selection. For the BIRD reference run, we compare the committed harnesses with two post-hoc
+batchwise oracles. Each oracle selects the eligible harness with the most correct
+outputs on each batch, using gold correctness for diagnosis only; neither mixes
+different harnesses’ outputs within a batch. The oracle over the final candidates
+available to the judge reaches 64.0 % 64.0\% ( 32 / 50 32/50 ), compared with the committed 50.0 % 50.0\% ( 25 / 50 25/50 ). The resulting 14 14 -point selection regret is a net deficit of
+seven solved tasks. Trace audits include selecting a 3 / 10 3/10 candidate over an
+available 4 / 10 4/10 , and a 6 / 10 6/10 candidate over a 7 / 10 7/10 . The audited errors include
+executable SQL that returns extra columns or an inappropriate granularity,
+illustrating the gap between execution success and task correctness. The oracle over all evaluated candidates, including earlier rounds,
+reaches 70.0 % 70.0\% , six points above the final-pool oracle. Both oracles
+use the candidate pools of the realized run. The fourteen-point gap
+between the judge and the final-pool oracle exceeds the six-point
+gain from admitting earlier candidates, highlighting selection among
+already generated programs as a major source of lost performance. What strategies emerge through evolution? Inspection of the evolved harnesses reveals concrete strategies for acquiring
+evidence, directing repairs, and coordinating tool use. On BIRD, an evolved
+harness probes database values before SQL generation, grounds filter values
+in their stored casing, and infers the required output shape from the question.
+Structural violations, execution errors, and output-shape mismatches are
+returned as targeted feedback for subsequent attempts
+(Figure 4 ). Generation is therefore coupled with
+explicit checks and failure-specific revision, rather than repeated without
+diagnosing the preceding attempt. On SWE-bench, an evolved harness adopts a reproduce-first workflow with
+root-cause localization, post-edit verification, and execution of existing
+tests, alongside an increased step budget. It also adds a recovery branch
+triggered when the initial rollout returns an empty patch. This branch
+supplies concrete starter commands and a reproduction template, turning
+the absence of a usable artifact into an explicit condition for changing
+the execution strategy (Figure 5 ). The harness thus
+addresses not only how to verify a patch, but also how to resume execution
+when the agent fails to produce one. On LiveCodeBench, an evolved policy
+uses a low-cost path by default and escalates to additional verification
+and repair after a public-test failure. In claw-eval, the evolved instructions address how information and actions
+are linked across services. They specify single-line tool payloads, service
+chaining through exact identifiers rather than display names, and a
+pre-delivery completeness check requiring citations of retrieved record
+identifiers. They also require reported actions to be supported by executed
+tool calls. Across these examples, evolution changes
+what evidence the agent obtains before acting, which observations trigger
+revision, and how execution proceeds after failure. Execution experience
+is incorporated into the rules governing task solving, rather than used
+only to correct an individual answer. 6 Limitations TTHE demonstrates the potential of harness self-evolution without final
+task-correctness supervision. However, the feedback guiding evolution
+remains limited by the informativeness of execution traces and partial
+checks. Successful execution or agreement among candidates can coexist
+with semantic errors, making it difficult to distinguish effective
+program improvements from changes that merely satisfy available proxies.
+Our diagnostics show that useful candidates can already exist in the
+search pool yet remain unselected. This highlights a central challenge:
+an agent must draw on its own experience both to identify promising
+changes and to assess whether those changes constitute genuine progress.
+Developing principled mechanisms for extracting more informative feedback,
+guiding program exploration, and selecting beneficial updates while
+preserving useful behavior remains an important direction for advancing
+reliable unsupervised agent self-evolution. 7 Conclusion TTHE turns test-time execution experience into updates to an agent’s executable
+harness, without changing model weights or accessing final correctness feedback
+during adaptation. Across six execution-grounded benchmarks, it improves over
+fixed baseline harnesses on the evaluated task sets and produces inspectable
+grounding, verification, and recovery policies. Transfer experiments further
+show that batch-specific evolved harnesses can benefit other execution models
+on the corresponding tasks. Our conditional analysis characterizes the balance
+between corrective gains and unintended regressions for trace-triggered edits,
+while search diagnostics show that generating useful candidates does not ensure
+that they are selected. Together, these findings support executable harness
+adaptation as a practical path to test-time self-evolution, with reliable
+selection under incomplete evidence remaining a central challenge. References Agrawal et al. (2026) L. A. Agrawal, S. Tan, D. Soylu, N. Ziems, R. Khare, K. Opsahl-Ong, A. Singhvi, H. Shandilya, M. J. Ryan, M. Jiang, et al. Gepa: reflective prompt evolution can outperform reinforcement learning . In International Conference on Learning Representations , Vol. 2026 , pp. 8479–8565 . Cited by: Appendix D . Cai et al. (2026a) Q. Cai, Y. Zhang, X. Jia, W. Xue, J. Song, X. Tian, and Y. Guo MOSS: self-evolution through source-level rewriting in autonomous agent systems . arXiv preprint arXiv:2605.22794 . Cited by: Appendix D , §1 . Cai et al. (2026b) Q. Cai, Y. Zhang, J. Nie, M. Ran, H. Zheng, J. Song, X. Tian, Y. Guo, and W. Xue Safe harness self-evolution: a theoretical analysis of feasibility and limits . arXiv preprint arXiv:2609.08175 . Cited by: Appendix D . Chen et al. (2022) B. Chen, F. Zhang, A. Nguyen, D. Zan, Z. Lin, J. Lou, and W. Chen CodeT: code generation with generated tests . arXiv preprint arXiv:2207.10397 . Cited by: Appendix D . Chen et al. (2026) T. Chen, S. Lu, K. Zhao, W. Meng, H. Teng, T. Li, C. Li, X. Liu, J. Liang, Z. Zhang, et al. Harnessx: a composable, adaptive, and evolvable agent harness foundry . arXiv preprint arXiv:2606.14249 . Cited by: Appendix D . Chen et al. (2024) X. Chen, M. Lin, N. Schärli, and D. Zhou Teaching large language models to self-debug . In International Conference on Learning Representations, ICLR , Cited by: Appendix D , §1 , §3.2 . Fernando et al. (2024) C. Fernando, D. Banarse, H. Michalewski, S. Osindero, and T. Rocktäschel Promptbreeder: self-referential self-improvement via prompt evolution . In International Conference on Machine Learning, ICML , Cited by: Appendix D . Gao et al. (2023) D. Gao, H. Wang, Y. Li, X. Sun, Y. Qian, B. Ding, and J. Zhou Text-to-SQL empowered by large language models: a benchmark evaluation . arXiv preprint arXiv:2308.15363 . Cited by: Appendix D . Guo et al. (2024) Q. Guo, R. Wang, J. Guo, B. Li, K. Song, X. Tan, G. Liu, J. Bian, and Y. Yang Connecting large language models with evolutionary algorithms yields powerful prompt optimizers . In International Conference on Learning Representations, ICLR , Cited by: Appendix D . He et al. (2025) Y. He, J. Liu, Y. Liu, Y. Li, T. Cao, Z. Hu, X. Xu, and B. Hooi EvoTest: evolutionary test-time learning for self-improving agentic systems . arXiv preprint arXiv:2510.13220 . Cited by: Appendix D , §1 . Hu et al. (2025) S. Hu, C. Lu, and J. Clune Automated design of agentic systems . In International Conference on Learning Representations, ICLR , Cited by: Appendix D , §1 . Huang et al. (2023) J. Huang, S. Gu, L. Hou, Y. Wu, X. Wang, H. Yu, and J. Han Large language models can self-improve . In Proceedings of the 2023 Conference on Empirical Methods in Natural
+Language Processing, EMNLP , Cited by: Appendix D . Hübotter et al. (2025) J. Hübotter, L. Diaz-Bone, I. Hakimi, A. Krause, and M. Hardt Learning on the job: test-time curricula for targeted reinforcement learning . arXiv preprint arXiv:2510.04786 . Cited by: Appendix D . Jain et al. (2025) N. Jain, K. Han, A. Gu, W. Li, F. Yan, T. Zhang, S. Wang, A. Solar-Lezama, K. Sen, and I. Stoica LiveCodeBench: holistic and contamination free evaluation of large language models for code . In International Conference on Learning Representations, ICLR , Cited by: §5.1 . Jimenez et al. (2024) C. E. Jimenez, J. Yang, A. Wettig, S. Yao, K. Pei, O. Press, and K. Narasimhan SWE-bench: can language models resolve real-world GitHub issues? . In International Conference on Learning Representations, ICLR , Cited by: §5.1 . Khattab et al. (2023) O. Khattab, A. Singhvi, P. Maheshwari, Z. Zhang, K. Santhanam, S. Vardhamanan, S. Haq, A. Sharma, T. T. Joshi, H. Moazam, et al. DSPy: compiling declarative language model calls into self-improving pipelines . arXiv preprint arXiv:2310.03714 . Cited by: Appendix D , §1 . Lai et al. (2023) Y. Lai, C. Li, Y. Wang, T. Zhang, R. Zhong, L. Zettlemoyer, W. Yih, D. Fried, S. Wang, and T. Yu DS-1000: a natural and reliable benchmark for data science code generation . In International Conference on Machine Learning, ICML , Cited by: §5.1 . Lee et al. (2026) Y. Lee, R. Nair, Q. Zhang, K. Lee, O. Khattab, and C. Finn Meta-harness: end-to-end optimization of model harnesses . arXiv preprint arXiv:2603.28052 . Cited by: Appendix D , §1 , §1 . Li et al. (2023) J. Li, B. Hui, G. Qu, J. Yang, B. Li, B. Li, B. Wang, B. Qin, R. Geng, N. Huo, et al. Can LLM already serve as a database interface? a big bench for large-scale database grounded text-to-SQLs . In Advances in Neural Information Processing Systems, NeurIPS , Cited by: Appendix E , §5.1 . Li et al. (2022) Y. Li, D. Choi, J. Chung, N. Kushman, J. Schrittwieser, R. Leblond, T. Eccles, J. Keeling, F. Gimeno, A. Dal Lago, et al. Competition-level code generation with AlphaCode . Science . Cited by: Appendix D . Lightman et al. (2024) H. Lightman, V. Kosaraju, Y. Burda, H. Edwards, B. Baker, T. Lee, J. Leike, J. Schulman, I. Sutskever, and K. Cobbe Let’s verify step by step . In International Conference on Learning Representations, ICLR , Cited by: Appendix D . Luo et al. (2026) H. Luo, Y. Huang, S. Luo, F. Liu, L. Li, Z. Hu, J. Feng, and Q. Liu Harness-aware self-evolving: co-evolving model weights, harness, and task solutions . arXiv preprint arXiv:2607.03935 . Cited by: Appendix D . Madaan et al. (2023) A. Madaan, N. Tandon, P. Gupta, S. Hallinan, L. Gao, S. Wiegreffe, U. Alon, N. Dziri, S. Prabhumoye, Y. Yang, et al. Self-Refine: iterative refinement with self-feedback . In Advances in Neural Information Processing Systems, NeurIPS , Cited by: Appendix D . Pourreza and Rafiei (2023) M. Pourreza and D. Rafiei DIN-SQL: decomposed in-context learning of text-to-SQL with self-correction . In Advances in Neural Information Processing Systems, NeurIPS , Cited by: Appendix D . Romera-Paredes et al. (2024) B. Romera-Paredes, M. Barekatain, A. Novikov, M. Balog, M. P. Kumar, E. Dupont, F. J. Ruiz, J. S. Ellenberg, P. Wang, O. Fawzi, et al. Mathematical discoveries from program search with large language models . Nature . Cited by: Appendix D . Shinn et al. (2023) N. Shinn, F. Cassano, A. Gopinath, K. Narasimhan, and S. Yao Reflexion: language agents with verbal reinforcement learning . In Advances in Neural Information Processing Systems, NeurIPS , Cited by: Appendix D , §1 . Sun et al. (2020) Y. Sun, X. Wang, Z. Liu, J. Miller, A. Efros, and M. Hardt Test-time training with self-supervision for generalization under distribution shifts . In International Conference on Machine Learning, ICML , Cited by: Appendix D , §4 . Suzgun et al. (2026) M. Suzgun, M. Yuksekgonul, F. Bianchi, D. Jurafsky, and J. Zou Dynamic cheatsheet: test-time learning with adaptive memory . In Proceedings of the 19th Conference of the European Chapter of the Association for Computational Linguistics (Volume 1: Long Papers) , pp. 7080–7106 . Cited by: Appendix D . Wang et al. (2021) D. Wang, E. Shelhamer, S. Liu, B. A. Olshausen, and T. Darrell Tent: fully test-time adaptation by entropy minimization . In International Conference on Learning Representations, ICLR , Cited by: Appendix D . Wang et al. (2024) G. Wang, Y. Xie, Y. Jiang, A. Mandlekar, C. Xiao, Y. Zhu, L. Fan, and A. Anandkumar Voyager: an open-ended embodied agent with large language models . Trans. Mach. Learn. Res. . Cited by: Appendix D . Wang et al. (2023) X. Wang, J. Wei, D. Schuurmans, Q. V. Le, E. H. Chi, S. Narang, A. Chowdhery, and D. Zhou Self-consistency improves chain of thought reasoning in language models . In International Conference on Learning Representations, ICLR , Cited by: Appendix D , §3.2 . Wei et al. (2022) J. Wei, X. Wang, D. Schuurmans, M. Bosma, F. Xia, E. Chi, Q. V. Le, D. Zhou, et al. Chain-of-thought prompting elicits reasoning in large language models . Advances in neural information processing systems 35 , pp. 24824–24837 . Cited by: Appendix D . Yang et al. (2024a) C. Yang, X. Wang, Y. Lu, H. Liu, Q. V. Le, D. Zhou, and X. Chen Large language models as optimizers . In International Conference on Learning Representations, ICLR , Cited by: Appendix D . Yang et al. (2024b) J. Yang, C. Jimenez, A. Wettig, K. Lieret, S. Yao, K. Narasimhan, and O. Press SWE-agent: agent-computer interfaces enable automated software engineering . In Advances in Neural Information Processing Systems, NeurIPS , Cited by: Appendix A . Yang et al. (2026) S. Yang, Q. Yang, Y. Wang, S. Pujar, and M. Hirzel One recipe, many harnesses: what self-evolution encodes across languages and models . arXiv preprint arXiv:2608.10178 . Cited by: Appendix D . Yao et al. (2023) S. Yao, J. Zhao, D. Yu, N. Du, I. Shafran, K. R. Narasimhan, and Y. Cao ReAct: synergizing reasoning and acting in language models . In International Conference on Learning Representations, ICLR , Cited by: Appendix D , §3.2 . Yuksekgonul et al. (2026) M. Yuksekgonul, D. Koceja, X. Li, F. Bianchi, J. McCaleb, X. Wang, J. Kautz, Y. Choi, J. Zou, C. Guestrin, et al. Learning to discover at test time . arXiv preprint arXiv:2601.16175 . Cited by: Appendix D . Zelikman et al. (2023) E. Zelikman, E. Lorch, L. Mackey, and A. T. Kalai Self-taught optimizer (STOP): recursively self-improving code generation . arXiv preprint arXiv:2310.02304 . Cited by: Appendix D . Zelikman et al. (2022) E. Zelikman, Y. Wu, J. Mu, and N. D. Goodman STaR: bootstrapping reasoning with reasoning . In Advances in neural information processing systems, NeurIPS , Cited by: Appendix D . Zhai et al. (2025) Y. Zhai, S. Tao, C. Chen, A. Zou, Z. Chen, Q. Fu, S. Mai, L. Yu, J. Deng, Z. Cao, et al. Agentevolver: towards efficient self-evolving agent system . arXiv preprint arXiv:2511.10395 . Cited by: Appendix D . Zhang et al. (2026a) H. Zhang, S. Zhang, K. Li, C. Zhang, Y. Chen, Y. Zhang, L. Bai, and S. Hu Self-harness: harnesses that improve themselves . arXiv preprint arXiv:2606.09498 . Cited by: Appendix D , §1 , §1 . Zhang et al. (2025a) J. Zhang, S. Hu, C. Lu, R. Lange, and J. Clune Darwin godel machine: open-ended evolution of self-improving agents . arXiv preprint arXiv:2505.22954 . Cited by: Appendix D . Zhang et al. (2025b) J. Zhang, J. Xiang, Z. Yu, F. Teng, X. Chen, J. Chen, M. Zhuge, X. Cheng, S. Hong, J. Wang, B. Zheng, B. Liu, Y. Luo, and C. Wu AFlow: automating agentic workflow generation . In International Conference on Learning Representations, ICLR , Cited by: Appendix D , §1 . Zhang et al. (2022) M. Zhang, S. Levine, and C. Finn MEMO: test time robustness via adaptation and augmentation . In Advances in Neural Information Processing Systems, NeurIPS , Cited by: Appendix D . Zhang et al. (2026b) Q. Zhang, C. Hu, S. Upasani, B. Ma, F. Hong, V. Kamanuru, J. Rainton, C. Wu, M. Ji, H. Li, et al. Agentic context engineering: evolving contexts for self-improving language models . In International Conference on Learning Representations , Vol. 2026 , pp. 86069–86100 . Cited by: Appendix D . Zheng et al. (2023) L. Zheng, W. Chiang, Y. Sheng, S. Zhuang, Z. Wu, Y. Zhuang, Z. Lin, Z. Li, D. Li, E. P. Xing, H. Zhang, J. E. Gonzalez, and I. Stoica Judging LLM-as-a-judge with MT-Bench and chatbot arena . In Advances in Neural Information Processing Systems, NeurIPS , Cited by: Appendix D . Zhou et al. (2023) Y. Zhou, A. I. Muresanu, Z. Han, K. Paster, S. Pitis, H. Chan, and J. Ba Large language models are human-level prompt engineers . In International Conference on Learning Representations, ICLR , Cited by: Appendix D . Zuo et al. (2026) Y. Zuo, K. Zhang, L. Sheng, S. Qu, G. Cui, X. Zhu, H. Li, X. Long, E. Hua, B. Qi, et al. Ttrl: test-time reinforcement learning . Advances in Neural Information Processing Systems 38 , pp. 131459–131483 . Cited by: Appendix D . Zweiger et al. (2026) A. Zweiger, J. Pari, H. Guo, Y. Kim, and P. Agrawal Self-adapting language models . Advances in Neural Information Processing Systems 38 , pp. 74084–74115 . Cited by: Appendix D . Appendix A Task Construction We use fixed evaluation sets that include selected hard task subsets. The four
+query and code subsets were fixed before running TTHE using the criteria below;
+no TTHE outcome was used to select or filter instances. Reference artifacts used
+for subset construction were not passed to the adaptation loop. Table 6: Evaluated task counts. The main results repeat each method three times
+on its evaluation set. Benchmark Tasks per run Metric BIRD 50 Execution accuracy LiveCodeBench 60 Task success rate SWE-bench Verified 40 Task success rate DS-1000 50 Task success rate Terminal-Bench 2.1 89 Task success rate claw-eval 30 Mean graded task score BIRD. The 50-question hard subset is drawn from BIRD Mini-Dev by auditing questions
+the baseline repeatedly missed and retaining unambiguous, substantively hard
+cases. It spans multiple databases. Accuracy uses result-set equality between the
+executed prediction and the reference query. Selection is conditioned on baseline
+failures; the scores describe this recovery-oriented subset, not full-benchmark
+performance or a controlled ranking of different backbones. LiveCodeBench. The 60-problem hard subset uses the contamination-controlled release window
+reported in the experiment, with problems published after the solver’s training
+cutoff. Task success requires passing all hidden tests; exposed examples remain
+available as partial checks during adaptation. SWE-bench Verified. The 40-instance hard subset is selected by gold-patch complexity, using multi-file
+or large changes. The baseline is the off-the-shelf mini-swe-agent scaffold,
+which TTHE subsequently evolves [ Yang et al., 2024b ] . Reference patches used
+for subset construction are not given to the adaptation loop. DS-1000. The 50-problem hard subset is selected by reference-solution length. Reference
+solutions and final evaluation tests are excluded from adaptation; reported
+success requires passing the hidden task tests. Terminal-Bench 2.1. The main experiment evaluates 89 tasks from Terminal-Bench 2.1. The benchmark
+repository is https://github.com/harbor-framework/terminal-bench-2-1 . claw-eval. The 30-task headroom subset consists of tasks served by local deterministic mock
+services and selected using baseline performance. Appendix C describes
+the subset construction, the OpenClaw harness, graded scoring, and the information
+boundary. The baseline and TTHE each have three complete-run results, listed in
+Appendix H . A.1 Model Access Table 7 lists the API base URLs for the models used in our experiments. Table 7: Model API endpoints. Model API base URL DeepSeek V4 Flash https://api.deepseek.com MiMo V2.5 https://api.xiaomimimo.com/v1 Kimi K2.5 https://api.moonshot.cn/v1 GPT-5.5 https://api.openlux.ai/v1 A.2 Dataset Licenses Table 8 summarizes the licensing information provided by
+upstream dataset cards and benchmark repositories. Third-party task content remains
+subject to its original license or terms of use. Table 8: Benchmark licenses and source terms. Benchmark License / terms Source BIRD Mini-Dev CC BY-SA 4.0 Dataset card LiveCodeBench Creative Commons ( cc in the dataset card; variant unspecified) Dataset card SWE-bench Verified Source-repository terms (task content); MIT (benchmark code) Dataset card ; code license DS-1000 CC BY-SA 4.0 Dataset card Terminal-Bench 2.1 Apache 2.0 Repository license claw-eval MIT Dataset card Appendix B Discovered Harness Policies The evolved programs are retained as source code rather than summarized only by aggregate scores.
+Recurring discovered policies include: • Text-to-SQL : value grounding through database probes, date-format repair, explicit
+output-shape checks, and removal of accidental limits on list queries. • LiveCodeBench : multiple candidate programs, execution-based ranking on public tests,
+targeted repair from expected-versus-observed outputs, and fresh-start recovery after repeated failure. • SWE-bench : reproduce-first debugging, root-cause localization before editing,
+post-edit verification, and an anti-paralysis failsafe for issues that would otherwise return an empty
+patch (Figure 5 ). • DS-1000 : insertion-only output contracts, deterministic self-checks, and guards against
+redefining supplied variables. • claw-eval : single-line tool payloads so write actions are recorded, per-record
+identifier citation with a pre-delivery completeness check, exact-identifier service chaining, and a
+prohibition on reporting unexecuted actions (see the claw-eval section below). These policies are examples of program-level adaptation: they modify the control procedure used across
+instances rather than appending a one-off answer correction. RULES = ("Hint is authoritative; use exact DB casing (SQLite"
+    " ’=’ is case-sensitive); return EXACTLY the asked"
+    " column(s); superlative -> ORDER BY .. LIMIT 1 with a"
+    " tiebreaker; no ROUND() unless asked; NULLIF safe div.")
+
+class EvolvedSQLHarness(SQLHarness):
+  def solve(self, question):
+    # (1) ground filter values vs the DB (exact casing)
+    grounding = self.ground_values(question)
+    # (2) infer expected output shape (#cols, 1 vs many)
+    shape = self.explain_shape(question)
+    # (3) generate -> validate -> run -> self-debug (<=6x)
+    err = ""
+    for _ in range(6):
+      sql = extract_sql(self.llm(
+          self.prompt(question, grounding, shape, err),
+          system=RULES))
+      if (msg := self.validate_structure(sql, question)):
+          err = msg; continue        # e.g. SELECT *
+      res = self.execute(sql)
+      if not res["ok"]:
+          err = "SQL error: " + res["error"]; continue
+      if not res["rows"]:
+          err = "0 rows -- recheck WHERE casing"; continue
+      if (msg := self.check_columns(question, res)):
+          err = msg; continue        # wrong / extra columns
+      return self.fix_shape(question, sql, res)
+    return sql Figure 4: Source of an evolved Text-to-SQL harness (excerpt, lightly abridged), discovered from label-free
+execution traces alone. It grounds filter values against the database for exact casing, infers the expected
+output shape from the question, and wraps generation in an execute-and-self-debug loop that returns each
+failure a targeted error message—structural check, execution error, empty result, wrong column
+count—before a final shape fix. The baseline is a standard ReAct harness (before any test-time evolution). # Evolved SWE-bench harness (excerpt, abridged). Its header records
+# what the proposer synthesized from 15 traces of earlier candidates:
+#  - reproduce-first works: 4/5 issues yield a patch once the
+#    agent starts running commands;
+#  - one issue yields EMPTY patches across ALL harnesses: the
+#    agent is "paralyzed" and emits no commands at all;
+#  - "previous attempt failed" messaging deepens the freeze;
+#  - the first 3-5 commands decide success.
+# Synthesized policy: reproduce-first + anti-paralysis failsafe.
+
+_SYSTEM = """
+You are a focused engineer fixing a bug from a PR description.
+## Mandatory workflow (IN ORDER, never skip)
+  1. REPRODUCE FIRST: run /tmp/repro.py BEFORE reading source;
+     you MUST see the wrong behaviour.
+  2. TRACE with grep/sed; never cat whole files.
+  3. DECLARE root cause BEFORE editing, citing the buggy lines.
+  4. FIX MINIMALLY: 1-10 lines in ONE source file (never tests/).
+  5. VERIFY: re-run /tmp/repro.py; the bug output MUST be gone.
+  6. TEST: run pytest once.   7. SUBMIT the diff.
+## Momentum is critical
+  If you go 5 steps without running a command you are STUCK: run
+  ANY command to break the logjam.
+"""
+# A separate anti-paralysis phase gives a 4-command starter
+# (ls -> check Python -> find models -> write repro) and a
+# copy-paste repro template, and never mentions prior failure. Figure 5: An evolved SWE-bench harness (excerpt, abridged), starting from the stock mini-swe-agent and
+discovered from label-free execution traces alone. The proposer’s own comments record the failure mode it
+found—some issues drive the agent into “empty-patch paralysis”—and the reproduce-first workflow and
+anti-paralysis failsafe it synthesized in response. None of this was supplied. Appendix C The claw-eval Agentic Tool-Use Domain C.1 Task, metric, and protocol claw-eval tasks are multi-service office workflows: the solver reads mail, searches a knowledge base,
+looks up contacts, inspects a CRM or helpdesk, schedules meetings, and updates tickets through tool calls.
+The score is a per-task graded rubric in [ 0 , 1 ] [0,1] , rather than binary execution accuracy.
+Each rubric combines completion, robustness, and communication criteria
+under a safety factor; a held-out model grader assesses the committed behavior. The 30 30 tasks come from 139 139 agentic tasks: we retain the 112 112 served entirely by
+local deterministic mock services, then select those on which the frozen baseline
+scores below 0.60 0.60 . The solver is deepseek-v4-flash inside the OpenClaw
+agent, and the proposer edits its system prompt and skills as source code.
+The run processes the tasks in six batches, evolving one general harness from the
+baseline. The grader is disabled during in-loop observation, so no task score or
+rubric target enters the proposer or judge; gold grading is applied only to the
+committed harness for measurement. The baseline and TTHE scores, 48.9 % 48.9\% and 69.4 % 69.4\% ,
+are each averaged over three runs (Appendix H ). The tasks are ordered by ascending baseline difficulty, so this evaluation does not
+isolate the effect of cross-batch accumulation. C.2 Discovered policies From label-free traces alone the
+accumulated harness adds four general rules to the baseline: single-line tool payloads for reliable
+action capture; citation of every retrieved record identifier under a completeness checklist before
+delivery; chaining services by exact identifier (email or ID) rather than display name; and grounding
+every reported action in an executed tool call. Appendix D Related Work Prompt and workflow optimization. Research on optimizing the system around a language model spans instructions,
+workflows, and executable programs. APE and OPRO search for
+instructions [ Zhou et al., 2023 , Yang et al., 2024a ] , while Promptbreeder and EvoPrompt
+use evolutionary prompt optimization [ Fernando et al., 2024 , Guo et al., 2024 ] .
+DSPy optimizes declarative language-model pipelines against a
+metric [ Khattab et al., 2023 ] ; ADAS and AFlow extend the search to agent designs
+and code-represented workflows [ Hu et al., 2025 , Zhang et al., 2025b ] . FunSearch
+illustrates the broader potential of executable program
+search [ Romera-Paredes et al., 2024 ] . More recently, GEPA uses natural-language
+reflection on reasoning and tool-use trajectories to propose prompt updates and
+combine complementary improvements from a Pareto frontier [ Agrawal et al., 2026 ] .
+Thus, interpreting execution traces is already an important optimization mechanism;
+TTHE studies its use for revising and selecting an executable harness on the
+current test batch without final task-correctness feedback. Executable harness evolution. A related line modifies agent source code or accumulates executable components.
+STOP and the Darwin Gödel Machine revise agent
+scaffolds [ Zelikman et al., 2023 , Zhang et al., 2025a ] , Voyager builds a reusable skill
+library [ Wang et al., 2024 ] , and MOSS studies source-level rewriting from
+failure trajectories [ Cai et al., 2026a ] . Among harness-level methods, Self-Harness
+validates edits through verifier-grounded evaluation and regression tests with a
+fixed model [ Zhang et al., 2026a ] ; Meta-Harness gives its proposer access
+to historical code, scores, and traces from a search set before held-out
+evaluation [ Lee et al., 2026 ] . HarnessX provides composable harness
+primitives and a trace-driven multi-agent evolution engine, with both
+harness-only adaptation and a harness–model co-evolution loop that reuses
+trajectories for model training [ Chen et al., 2026 ] . HASE unifies task-solution
+generation and harness editing in an agentic reinforcement-learning process,
+co-evolving model weights, harness components, and
+solutions [ Luo et al., 2026 ] . TTHE shares the executable-program optimization
+target but keeps the solver, proposers, and judge frozen, and excludes final
+correctness feedback from both current-batch program revision and commitment. Transfer and reliable adoption. Beyond aggregate performance, recent work examines what evolved harnesses retain
+and when their updates can be trusted. One Recipe, Many Harnesses analyzes
+artifacts produced by a common evolution recipe across languages and models,
+distinguishing transferable strategies from ecosystem-specific
+adaptations [ Yang et al., 2026 ] . A theory of reliable harness self-evolution
+studies adoption conditions that balance gains on failed tasks against preservation
+of successful behavior, together with the limits imposed by verification and
+evaluation costs [ Cai et al., 2026b ] . TTHE’s transfer experiments instead
+execute batch-specific evolved programs with other backbones. Its conditional
+analysis concerns a class of trace-triggered edits under a fixed execution coupling. Self-directed model adaptation. Self-improvement can also change the model itself. STaR bootstraps reasoning by
+fine-tuning on generated rationales that lead to correct
+answers [ Zelikman et al., 2022 ] ; related work fine-tunes on high-confidence
+solutions generated from unlabeled questions [ Huang et al., 2023 ] .
+SEAL learns to generate its own adaptation data and update directives, using
+post-update performance to train the self-editing policy [ Zweiger et al., 2026 ] .
+AgentEvolver combines self-generated tasks, experience-guided exploration, and
+trajectory-level credit assignment to improve agent reinforcement
+learning [ Zhai et al., 2025 ] . These approaches use experience to improve
+parameterized capabilities or the process that trains them. In TTHE, experience
+instead changes the executable procedure through which an unchanged model
+acquires context, uses tools, verifies results, and recovers from failures. Test-time adaptation and reinforcement learning. TTT, Tent, and MEMO adapt model parameters or normalization statistics using
+self-supervised, confidence-based, or augmentation-based objectives on unlabeled
+test inputs [ Sun et al., 2020 , Wang et al., 2021 , Zhang et al., 2022 ] . For language-model
+reasoning, TTRL performs reinforcement learning directly on unlabeled test data,
+estimating rewards from agreement with majority-voted model
+outputs [ Zuo et al., 2026 ] . It therefore shares the absence of ground-truth
+answers during adaptation, but uses the inferred rewards to update model weights.
+TTC-RL constructs test-time curricula from an available training pool for targeted
+reinforcement learning [ Hübotter et al., 2025 ] , while TTT-Discover trains on
+experience from a particular test problem, using continuous rewards to prioritize
+exceptional solutions [ Yuksekgonul et al., 2026 ] . These studies establish
+test-time learning as more than repeated inference. TTHE pursues a different
+adaptation state: the model remains fixed, while execution evidence informs
+program updates and candidate selection without being reduced to a scalar
+training objective. Test-time memory and context evolution. Parameter-free adaptation is also studied through persistent memory and evolving
+contexts. Dynamic Cheatsheet maintains a self-curated memory of strategies,
+code snippets, and reusable insights at inference time without explicit
+ground-truth labels [ Suzgun et al., 2026 ] . ACE treats contexts as
+evolving playbooks, using generation, reflection, and curation with incremental
+updates; it supports both offline context optimization and online adaptation
+from execution feedback [ Zhang et al., 2026b ] . EvoTest evolves prompts, memory,
+hyperparameters, and executable state-extraction logic across interactive
+episodes, using transcripts for updates and environment-score statistics for
+candidate selection [ He et al., 2025 ] . These methods already demonstrate
+experience accumulation beyond an isolated answer. TTHE focuses on revising the
+task’s control program and committing a single harness whose cached outcomes
+are scored on the same batch, with final evaluation feedback excluded from
+the adaptation loop. Response refinement and execution feedback. Chain-of-thought, self-consistency, and ReAct organize reasoning and tool use
+within an inference procedure [ Wei et al., 2022 , Wang et al., 2023 , Yao et al., 2023 ] .
+Self-debugging and Self-Refine revise candidate
+answers [ Chen et al., 2024 , Madaan et al., 2023 ] , and Reflexion retains
+textual experience for later attempts [ Shinn et al., 2023 ] . Domain-specific
+systems incorporate these ideas into fixed procedures: DIN-SQL and DAIL-SQL use
+structured prompting and execution-related processing for
+text-to-SQL [ Pourreza and Rafiei, 2023 , Gao et al., 2023 ] , while code-generation
+systems use tests to select candidate solutions [ Chen et al., 2022 , Li et al., 2022 ] .
+Learned verifiers and LLM judges provide further evaluation
+signals [ Lightman et al., 2024 , Zheng et al., 2023 ] . TTHE can express verification
+and repair within a harness, but adapts the program that specifies when and how
+these operations occur, rather than only revising a particular response. Appendix E Cross-Database Transfer and Continued Adaptation TTHE targets adaptation to the current unlabeled batch. As a complementary
+evaluation, we examine whether an evolved harness transfers to databases
+excluded from its adaptation stage, and whether continued adaptation yields
+further gains on the target batches. Setup and protocol. We partition the baseline-screened genuine_hard50 subset of BIRD
+Mini-Dev [ Li et al., 2023 ] by database, preserving the original question
+order within each split. The ID split contains 30 questions from card_games , formula_1 , and toxicology ;
+the OOD split contains 20 questions from california_schools , superhero , debit_card_specializing , and student_club . Here, OOD denotes database-disjoint transfer within
+the same screened benchmark subset. Starting from the bare text-to-SQL harness, TTHE evolves on the ID split.
+The final ID harness is frozen before exposure to any OOD questions or
+evaluation scores. We evaluate this fixed program on both splits without
+further evolution. Separately, we initialize TTHE with the frozen ID
+harness and continue adaptation on two OOD batches, scoring each batch
+with its corresponding committed harness. All runs use deepseek/deepseek-v4-flash with temperature 0 0 ,
+reasoning enabled, and two workers. TTHE uses batch size B = 10 B=10 , G = 3 G=3 branches, and at most R = 3 R=3 rounds. Solver and proposer timeouts
+are 180 180 and 2700 2700 seconds, respectively. Table 9: Cross-database transfer and continued harness adaptation. Evaluation split Harness setting Correct / Total Accuracy (%) ID Bare baseline 5 / 30 16.7 ID Frozen ID harness 10 / 30 33.3 OOD Bare baseline 2 / 20 10.0 OOD Frozen ID harness 10 / 20 50.0 OOD Continued TTHE from the ID harness 13 / 20 65.0 Results and interpretation. The frozen ID harness achieves 10 / 30 10/30 on the ID adaptation set,
+compared with 5 / 30 5/30 for the bare baseline
+(Table 9 ). More importantly, it achieves 10 / 20 10/20 on the held-out databases without further evolution, versus 2 / 20 2/20 for the baseline. This improvement provides evidence that the
+evolved task-solving procedure remains useful beyond the databases
+that supplied its adaptation traces. Continuing TTHE on the OOD split raises accuracy to 13 / 20 13/20 , with 8 / 10 8/10 and 5 / 10 5/10 on the two successive batches. The frozen-transfer
+result measures reuse without target-side harness evolution, whereas
+the continued-adaptation result measures the additional benefit of
+updating the procedure using target-batch execution evidence.
+Together, these results support both cross-database reuse of an
+evolved harness and its capacity for further test-time adaptation. Appendix F Proofs and Scope of the Conditional Analysis F.1 Probability Space and the Locality Condition Fixed construction history and fresh executions. Fix the batch, its hidden targets, and a realization z z of the label-free construction history and
+random choices defining H , H ′ H,H^{\prime} and the trigger rule 𝖽 \mathsf{d} . Program configurations and inherited
+state are held fixed. Execution randomness is drawn anew from each program’s prescribed law; it is not
+a replay or a conditional reweighting of the rollouts that produced z z . The uniform index I I averages
+over this same batch, so no i.i.d. assumption about a test stream is needed. For task i i , let E i E_{i} denote its prescribed initial environment and let P H z ( ⋅ ∣ x i , E i ) P_{H}^{z}(\cdot\mid x_{i},E_{i}) be the joint law of the output and trace from the fixed program H H , including any randomized checks
+recorded in that trace. Define P H ′ z P_{H^{\prime}}^{z} analogously. A specified coupling κ \kappa must satisfy ℒ κ ​ ( O , τ ∣ I = i ) \displaystyle\mathcal{L}_{\kappa}(O,\tau\mid I=i) = P H z ( ⋅ ∣ x i , E i ) , \displaystyle=P_{H}^{z}(\cdot\mid x_{i},E_{i}), ℒ κ ​ ( O ′ , τ ′ ∣ I = i ) \displaystyle\mathcal{L}_{\kappa}(O^{\prime},\tau^{\prime}\mid I=i) = P H ′ z ( ⋅ ∣ x i , E i ) . \displaystyle=P_{H^{\prime}}^{z}(\cdot\mid x_{i},E_{i}). The two executions start from the same prescribed task state, not from a state modified by the other
+execution. All probabilities below are for this fixed history and coupling. In particular, D = 𝖽 ⁡ ( x I , τ ) D=\mathsf{d}(x_{I},\tau) has its actual joint law with O O ; preserving the output marginal alone would
+not suffice. A child check, when used, is likewise a fixed function of x I x_{I} and τ ′ \tau^{\prime} , with any
+check randomness included in its record. Hidden targets enter only the correctness indicators.
+Complete outcomes include artifacts and final states that affect scoring, so O = O ′ O=O^{\prime} implies C = C ′ C=C^{\prime} . Coupling and a prefix-preserving repair. The error rates e , e ′ e,e^{\prime} and their difference depend only on the prescribed marginals, whereas r , u r,u and ε \varepsilon can depend on κ \kappa . For example, let H ′ = H H^{\prime}=H , set D = 0 D=0 , and suppose the program
+returns either of two outcomes with equal probability. Sharing its random draw gives ε = 0 \varepsilon=0 ;
+independent draws give ε = 1 / 2 \varepsilon=1/2 , although Δ X = 0 \Delta_{X}=0 in both comparisons. Thus ε \varepsilon is not an intrinsic distance between source programs. For the gated structure illustrated in the main text, couple the child and parent by sharing the
+unchanged parent execution, including its trace and random draws. The child returns its outcome when D = 0 D=0 and invokes repair with fresh randomness when D = 1 D=1 . This coupling has the required marginals
+only if the child actually implements that prefix-preserving behavior. The check must preserve all
+score-relevant untriggered outcomes. Probes and repairs must not change the target, interfere with other
+instances, or consume resources that alter untriggered behavior. Adding an if statement alone
+does not establish these properties. No independence between the two executions is required. Cached outcomes and adaptive selection. Construction may use the same batch, but the realized rollouts in z z are distinct from the fresh
+execution laws above. Conditioning on a program chosen using those rollouts need not preserve their
+original sampling law. One can also decompose correctness transitions in fixed cached outcomes by
+averaging over batch indices, but that is an empirical identity for those outcomes, not a guarantee
+for fresh executions or the adaptive selection process. The results here neither rank candidates from
+unlabeled evidence nor ensure that the proposer or judge returns a pair satisfying the stated conditions. F.2 Proof of Proposition 1 Proof. Split the correctness gain according to whether the trigger fires: Δ X ( H , H ′ ) = 𝔼 [ C ′ − C ] = 𝔼 [ ( C ′ − C ) 𝕀 [ D = 1 ] ] + 𝔼 [ ( C ′ − C ) 𝕀 [ D = 0 ] ] . \Delta_{X}(H,H^{\prime})=\mathbb{E}[C^{\prime}-C]=\mathbb{E}[(C^{\prime}-C)\mathbb{I}[D=1]]+\mathbb{E}[(C^{\prime}-C)\mathbb{I}[D=0]]. (10) On the triggered region, only incorrect-to-correct and correct-to-incorrect transitions contribute: 𝔼 [ ( C ′ − C ) 𝕀 [ D = 1 ] ] \displaystyle\mathbb{E}[(C^{\prime}-C)\mathbb{I}[D=1]] = Pr ⁡ ( C = 0 , D = 1 , C ′ = 1 ) − Pr ⁡ ( C = 1 , D = 1 , C ′ = 0 ) \displaystyle=\Pr(C=0,D=1,C^{\prime}=1)-\Pr(C=1,D=1,C^{\prime}=0) (11) = m ​ π ​ r − m ⁡ ( 1 − π ) ​ u . \displaystyle=m\pi r-m(1-\pi)u. (12) The products follow from the chain rule, without independence. If m = 0 m=0 , both triggered event masses
+vanish; otherwise the conditioning events partition D = 1 D=1 . The convention for zero-probability events
+therefore preserves the identity. Let Γ 0 = 𝔼 [ ( C ′ − C ) 𝕀 [ D = 0 ] ] \Gamma_{0}=\mathbb{E}[(C^{\prime}-C)\mathbb{I}[D=0]] . Since identical outcomes have the same correctness, | Γ 0 | ≤ 𝔼 [ | C ′ − C | 𝕀 [ D = 0 ] ] ≤ Pr ( D = 0 , O ′ ≠ O ) = ε . |\Gamma_{0}|\leq\mathbb{E}[|C^{\prime}-C|\mathbb{I}[D=0]]\leq\Pr(D=0,O^{\prime}\neq O)=\varepsilon. (13) Thus Δ X ​ ( H , H ′ ) = m ⁡ [ π ​ r − ( 1 − π ) ​ u ] + Γ 0 \Delta_{X}(H,H^{\prime})=m[\pi r-(1-\pi)u]+\Gamma_{0} , which proves Eq. 7 .
+If m ​ π ​ r > m ⁡ ( 1 − π ) ​ u + ε m\pi r>m(1-\pi)u+\varepsilon , its lower bound is positive. With ε = 0 \varepsilon=0 , the equality
+makes m ​ π ​ r > m ⁡ ( 1 − π ) ​ u m\pi r>m(1-\pi)u necessary and sufficient for strict improvement.
+∎ Equivalent error-detection-rate parameterization. Define d = Pr ⁡ ( D = 1 ∣ C = 0 ) d=\Pr(D=1\mid C=0) and f = Pr ⁡ ( D = 1 ∣ C = 1 ) f=\Pr(D=1\mid C=1) , with the same zero-event convention.
+Here d d is error detection and f f is false triggering. The joint event masses satisfy m ​ π = e ​ d , m ⁡ ( 1 − π ) = ( 1 − e ) ​ f . m\pi=ed,\qquad m(1-\pi)=(1-e)f. Consequently, Proposition 1 is equivalently | e ′ − [ e ⁡ ( 1 − d ​ r ) + ( 1 − e ) ​ f ​ u ] | ≤ ε . \left|e^{\prime}-\big[e(1-dr)+(1-e)fu\big]\right|\leq\varepsilon. (14) In particular, e ​ d ​ r > ( 1 − e ) ​ f ​ u + ε edr>(1-e)fu+\varepsilon suffices for improvement. This is the same probability balance,
+expressed in terms of error detection and false triggering rather than trigger mass and precision. Exact locality and sharpness of the uniform coefficient. For any e , d , f , r , u ∈ [ 0 , 1 ] e,d,f,r,u\in[0,1] , the following nonnegative masses sum to one: C C D D C ′ C^{\prime} Probability mass 0 0 1 1 1 1 e ​ d ​ r edr 0 0 1 1 0 0 e ​ d ​ ( 1 − r ) ed(1-r) 0 0 0 0 0 0 e ⁡ ( 1 − d ) e(1-d) 1 1 1 1 0 0 ( 1 − e ) ​ f ​ u (1-e)fu 1 1 1 1 1 1 ( 1 − e ) ​ f ​ ( 1 − u ) (1-e)f(1-u) 1 1 0 0 1 1 ( 1 − e ) ​ ( 1 − f ) (1-e)(1-f) Choose identical outcomes on the two D = 0 D=0 rows. Exact locality then holds, and the correctness gain is e ​ d ​ r − ( 1 − e ) ​ f ​ u = m ⁡ [ π ​ r − ( 1 − π ) ​ u ] edr-(1-e)fu=m[\pi r-(1-\pi)u] . Parameters attached to zero-mass conditioning events do not affect the
+distribution; their actual conditional rates are interpreted by the zero-event convention. This
+construction realizes the exact balance when ε = 0 \varepsilon=0 . The coefficient of the uniform symmetric ε \varepsilon -term cannot be reduced in general: take a
+parent correct everywhere, set D = 0 D=0 everywhere, and change the child to an incorrect outcome on a
+mass ε \varepsilon . Then Δ X = − ε \Delta_{X}=-\varepsilon , attaining the lower bound. Starting from an
+everywhere-incorrect parent and repairing a mass ε \varepsilon off-trigger attains the upper bound.
+This is a uniform coefficient claim, not a claim that the symmetric interval is pointwise sharp for
+every feasible parameter tuple; restrictions on the off-trigger error masses can give tighter bounds. F.3 Proof of Theorem 1 Proof. Sound rejection gives Pr ⁡ ( D = 1 , C = 1 ) = 0 \Pr(D=1,C=1)=0 , so the regression event in Eq. 12 vanishes.
+Exact locality gives Γ 0 = 0 \Gamma_{0}=0 . Therefore Δ X ​ ( H , H ′ ) = Pr ⁡ ( C = 0 , D = 1 , C ′ = 1 ) = Pr ⁡ ( D = 1 , C ′ = 1 ) = m ​ r . \Delta_{X}(H,H^{\prime})=\Pr(C=0,D=1,C^{\prime}=1)=\Pr(D=1,C^{\prime}=1)=mr. When m > 0 m>0 , soundness gives π = 1 \pi=1 ; when m = 0 m=0 , the expression is zero under the zero-event convention.
+This proves preservation without assuming a positive repair success rate or independent executions. If D ′ D^{\prime} is sound for rejection on the child, C ′ = 1 C^{\prime}=1 implies D ′ = 0 D^{\prime}=0 almost surely. Hence { D = 1 , C ′ = 1 } ⊆ { D = 1 , D ′ = 0 } \{D=1,C^{\prime}=1\}\subseteq\{D=1,D^{\prime}=0\} up to a null set. Taking probabilities yields 0 ≤ Δ X ​ ( H , H ′ ) ≤ v 0\leq\Delta_{X}(H,H^{\prime})\leq v . For sharpness, fix 0 ≤ v ≤ m ≤ 1 0\leq v\leq m\leq 1 and construct three disjoint events of masses 1 − m 1-m , m − v m-v , and v v . On the first, set D = D ′ = 0 D=D^{\prime}=0 , use identical outcomes, and set C = C ′ = 1 C=C^{\prime}=1 . On the second, set D = D ′ = 1 D=D^{\prime}=1 and C = C ′ = 0 C=C^{\prime}=0 . On the third, set D = 1 D=1 , D ′ = 0 D^{\prime}=0 , and C = 0 C=0 . For the lower endpoint set C ′ = 0 C^{\prime}=0 on this last event; for the upper endpoint set C ′ = 1 C^{\prime}=1 . Both constructions have the same ( D , D ′ ) (D,D^{\prime}) distribution, the same baseline error e = m e=m , exact locality, and sound rejection for both
+checks. Their correctness gains are zero and v v , respectively. Checks can realize this by rejecting a
+malformed outcome while accepting both a correct outcome and a well-formed but semantically wrong one.
+The indistinguishability concerns these checks’ outcomes, not all semantic information in a complete
+execution trace.
+∎ F.4 Interpretation and Application Boundaries Failure soundness is one-sided. A sound rejection flags a final outcome that cannot satisfy the task. Acceptance need not imply
+correctness. A runtime failure is sound rejection only when it invalidates the submitted outcome under
+the specified environment. Visible tests qualify only when they are authoritative necessary conditions;
+noisy, stale, unrelated, or flaky tests do not automatically qualify. A correct SQL query may return zero
+rows, and an intermediate exception may be recovered from before a correct outcome is submitted. Such
+signals require potentially imperfect precision π \pi , rather than being classified as sound by default. Repair precision and locality. The mass m ​ π m\pi identifies incorrectly behaving executions targeted by an edit; m ⁡ ( 1 − π ) m(1-\pi) identifies
+correct ones exposed to modification. A high trigger rate alone says nothing about their balance.
+Without a repair-quality assumption, r ≥ 0 r\geq 0 and u ≤ 1 u\leq 1 give e ′ ≤ e + m ⁡ ( 1 − π ) + ε = e + ( 1 − e ) ​ f + ε . e^{\prime}\leq e+m(1-\pi)+\varepsilon=e+(1-e)f+\varepsilon. Soundness removes falsely triggered correct outcomes, and exact locality removes possible off-trigger
+harm. Neither condition asserts r > 0 r>0 . Likewise, clearing a failure flag does not measure r r , because
+correct and incorrect outputs can both pass an incomplete check. Relation to the search procedure. TTHE can express local repair branches as well as global prompt and grounding edits. The preservation
+result applies to transitions satisfying the stated soundness and locality conditions; extending it to
+a sequence requires these conditions at each committed transition. The complete search procedure is
+evaluated empirically. Binary versus graded outcomes. The analysis uses binary correctness, as in exact SQL or hidden-test evaluation. For graded loss,
+merely detecting an outcome that is not fully correct does not make replacing it safe: a partly
+successful outcome can be made worse. An analogous preservation conclusion would require a stronger
+condition, such as the trigger certifying maximal loss. It is not claimed for claw-eval’s graded score,
+nor does the correctness analysis account for additional latency, tokens, or execution costs. Appendix G Full Algorithm Algorithm 1 Test-Time Harness Evolution (one stream) Input: solver M M ; stream x 1 : T x_{1:T} ; batch size B B ; branches G G ; rounds R R ; baseline H 0 H_{0} H ← H 0 H\leftarrow H_{0} // ReAct baseline harness for each unlabeled batch X X of size B B in x 1 : T x_{1:T} do ( 𝒯 ⁡ [ H ] , 𝒴 ⁡ [ H ] ) ← Observe ​ ( H , X ) (\mathcal{T}[H],\mathcal{Y}[H])\leftarrow\textsc{Observe}(H,X) // traces and cached outputs ( H 0 1 , … , H 0 G ) ← ( H , … , H ) (H_{0}^{1},\dots,H_{0}^{G})\leftarrow(H,\dots,H) // G G branches from H H , sharing its cached trace 𝒯 ⁡ [ H ] \mathcal{T}[H] for r = 1 r=1 to R R do 𝒜 ← { H r − 1 g } g = 1 G \mathcal{A}\leftarrow\{H_{r-1}^{g}\}_{g=1}^{G} // current active branches { H ~ r g } g = 1 G ← Propose ​ ( 𝒜 , 𝒯 ⁡ [ 𝒜 ] ) \{\tilde{H}_{r}^{g}\}_{g=1}^{G}\leftarrow\textsc{Propose}(\mathcal{A},\mathcal{T}[\mathcal{A}]) // branch g g edits its own parent H r − 1 g H_{r-1}^{g} H r g ← H ~ r g H_{r}^{g}\leftarrow\tilde{H}_{r}^{g} if valid, else H r − 1 g H_{r-1}^{g} // invalid child falls back to parent ( 𝒯 ⁡ [ H r g ] , 𝒴 ⁡ [ H r g ] ) ← Observe ​ ( H r g , X ) (\mathcal{T}[H_{r}^{g}],\mathcal{Y}[H_{r}^{g}])\leftarrow\textsc{Observe}(H_{r}^{g},X) for each newly generated child end for ℱ ← { H R g } g = 1 G \mathcal{F}\leftarrow\{H_{R}^{g}\}_{g=1}^{G} // final branches only H ← Judge ​ ( ℱ , 𝒯 ​ [ ℱ ] , X ) H\leftarrow\textsc{Judge}(\mathcal{F},\mathcal{T}[\mathcal{F}],X) // label-free selection Score ​ ( 𝒴 ​ [ H ] , Gold ​ ( X ) ) \textsc{Score}(\mathcal{Y}[H],\mathrm{Gold}(X)) // measurement only; no re-execution end for Appendix H Repeated Main Results Table 10 reports three runs per method with mean ± \pm sample
+standard deviation. Raw results are solved/total counts for the binary benchmarks
+and mean graded scores for claw-eval. Figure 2 uses the run means,
+with absolute gains computed before rounding. Ablations and selection diagnostics
+use the single-run reference described in Section 5.3 . Table 10: Run-level main results and mean ± \pm sample standard deviation. Benchmark Method Run 1 Run 2 Run 3 Mean ± \pm SD (%) BIRD Baseline 6/50 6/50 7/50 12.67 ± 1.15 12.67\pm 1.15 BIRD TTHE 25/50 24/50 24/50 48.67 ± 1.15 48.67\pm 1.15 LiveCodeBench Baseline 18/60 16/60 19/60 29.44 ± 2.55 29.44\pm 2.55 LiveCodeBench TTHE 23/60 24/60 21/60 37.78 ± 2.55 37.78\pm 2.55 SWE-bench Verified Baseline 8/40 9/40 9/40 21.67 ± 1.44 21.67\pm 1.44 SWE-bench Verified TTHE 14/40 13/40 14/40 34.17 ± 1.44 34.17\pm 1.44 DS-1000 Baseline 19/50 16/50 17/50 34.67 ± 3.06 34.67\pm 3.06 DS-1000 TTHE 22/50 21/50 21/50 42.67 ± 1.15 42.67\pm 1.15 Terminal-Bench 2.1 Baseline 49/89 46/89 52/89 55.06 ± 3.37 55.06\pm 3.37 Terminal-Bench 2.1 TTHE 60/89 63/89 58/89 67.79 ± 2.83 67.79\pm 2.83 claw-eval Baseline 42.78% 51.18% 52.70% 48.89 ± 5.34 48.89\pm 5.34 claw-eval TTHE 69.76% 65.21% 73.29% 69.42 ± 4.05 69.42\pm 4.05 Experimental support, please view the build logs for errors. Generated by L A T E xml . Instructions for reporting errors We are continuing to improve HTML versions of papers, and your feedback helps enhance accessibility and mobile
+      support. To report errors in the HTML that will help us improve conversion and rendering, choose any of the
+      methods listed below: Click the "Report Issue" ( ) button, located in the page header. Tip: You can select the relevant text first, to include it in your report. Our team has already identified the following issues . We appreciate your time reviewing and reporting rendering errors we
+      may not have found yet. Your efforts will help us improve the HTML versions for all readers, because disability
+      should not be a barrier to accessing research. Thank you for your continued support in championing open access for
+      all. Have a free development cycle? Help support accessibility at arXiv! Our collaborators at LaTeXML maintain a list of packages that need conversion , and welcome developer contributions . We gratefully acknowledge support from our major funders , member institutions , ,
+        and all contributors. About · Help · Contact · Subscribe · Copyright · Privacy · Accessibility · Operational Status (opens in new tab)

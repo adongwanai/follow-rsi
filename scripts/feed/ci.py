@@ -217,8 +217,17 @@ def queue_daily_pr(root=ROOT, review_date=None):
     from scripts.common import DataLoader
     require_ci(root)
     review_date = valid_date(review_date or datetime.now(timezone.utc).date().isoformat())
+    edition = Path(root) / 'site/daily' / f'{review_date}.json'
+    if edition.exists():
+        published = json.loads(edition.read_text(encoding='utf-8'))
+        if published.get('reviewed_only') and not published.get('demo'):
+            return {'date': review_date, 'status': 'already_published'}
     base, branch = default_branch(root), 'feed/review-' + review_date
     history = daily_pr_history(root)
+    merged = [pr for pr in history if pr['headRefName'] == branch and pr['state'] == 'MERGED']
+    if merged:
+        approved = max(merged, key=lambda pr: pr['mergedAt'])
+        return {'date': review_date, 'status': 'already_reviewed', 'url': approved['url']}
     previous = sorted([pr for pr in history if pr['state'] == 'OPEN'
                        and DAILY_BRANCH.fullmatch(pr['headRefName']).group(1) < review_date],
                       key=lambda pr: pr['headRefName'])
@@ -288,6 +297,40 @@ def queue_picks_pr(root=ROOT, week=None):
 
 def queue_pr(root=ROOT, week=None):
     return queue_picks_pr(root, week)
+
+
+def prepare_discovery_branch(root=ROOT, week=None):
+    require_ci(root)
+    week = valid_week(week or default_picks_week())
+    branch = 'feed/discovery-' + week.lower()
+    switch_review_branch(root, branch, default_branch(root))
+    return {'week': week, 'branch': branch}
+
+
+def queue_discovery_pr(root=ROOT, week=None):
+    require_ci(root)
+    week = valid_week(week or default_picks_week())
+    branch = 'feed/discovery-' + week.lower()
+    if run(['git', 'branch', '--show-current'], root).stdout.strip() != branch:
+        raise ValueError('Weekly discovery must be prepared on its review branch')
+    base = default_branch(root)
+    commit_paths(root, f'Queue Follow RSI weekly discovery {week}',
+                 [*STATE_PATHS, 'daily', 'digests', 'site'], push=False)
+    diff = run(['git', 'diff', '--quiet', f'origin/{base}...HEAD'], root, check=False)
+    if diff.returncode == 0:
+        return {'week': week, 'status': 'no_changes'}
+    if diff.returncode != 1:
+        raise RuntimeError(diff.stderr)
+    run(['git', 'push', '--set-upstream', 'origin', branch], root)
+    body = ('Weekly source observations and recall report. Version metadata remains in raw candidates; '
+            'existing reviewed source content is retained. Detected withdrawals are included for review.\n\n'
+            'This PR does not accept papers or publish an edition. Review the changes and run validation before merging.\n')
+    url = upsert_pr(root, branch, base, f'Discovery: Follow RSI {week}', body)
+    checks = []
+    for workflow in ('build.yml', 'validate.yml'):
+        gh(['workflow', 'run', workflow, '--repo', os.environ['GITHUB_REPOSITORY'], '--ref', branch], root)
+        checks.append({'workflow': workflow, 'ref': branch})
+    return {'week': week, 'status': 'queued', 'url': url, 'checks_dispatched': checks}
 
 
 def validate_request(root, request):
@@ -606,6 +649,8 @@ def main():
     daily.add_argument('--date')
     picks = commands.add_parser('queue-picks-pr')
     picks.add_argument('--week')
+    for name in ('prepare-discovery-branch', 'queue-discovery-pr'):
+        commands.add_parser(name).add_argument('--week')
     pr_check = commands.add_parser('check-pr')
     pr_check.add_argument('--pr-number', type=int, required=True)
     check = commands.add_parser('check-review-diff')
@@ -628,6 +673,10 @@ def main():
         result = queue_daily_pr(args.root, args.date)
     elif args.command == 'queue-picks-pr':
         result = queue_picks_pr(args.root, args.week)
+    elif args.command == 'prepare-discovery-branch':
+        result = prepare_discovery_branch(args.root, args.week)
+    elif args.command == 'queue-discovery-pr':
+        result = queue_discovery_pr(args.root, args.week)
     elif args.command == 'check-pr':
         result = check_pr(args.root, args.pr_number)
     elif args.command == 'check-review-diff':

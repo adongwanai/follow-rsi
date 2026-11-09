@@ -10,7 +10,7 @@
 
 | 日期 | 论文 | 核心机制 | 关键结果 | 证据 |
 | --- | --- | --- | --- | --- |
-| 2026-03 | [Hyperagents (DGM-H)](papers/hyperagents.md) | 任务 Agent 与元 Agent 合并成同一个可编辑程序，元层修改程序本身也可改。 | 在编码、论文评审、机器人奖励设计、奥赛数学批改上都超过 DGM；元层改进可跨领域迁移。最常引的元改进基线。 | ❔ ❔ ❔ ❔ |
+| 2026-03 | [Hyperagents (DGM-H)](papers/hyperagents.md) | 任务 Agent 与元 Agent 合并成同一个可编辑程序，元层修改程序本身也可改。 | 编码任务上的改进与 DGM 相近；在论文评审和机器人奖励设计上优于原始 DGM，元层改进可迁移至奥赛数学批改并跨运行积累。 | ❔ ❔ ❔ ❔ |
 | 2026-04 | [AHE: Agentic Harness Engineering](papers/ahe.md) | 三个「可观测性」支柱：组件文件化、轨迹分层蒸馏、每次编辑附带可证伪的预测，下一轮核验。 | Terminal-Bench 2 pass@1 十轮从 69.7% 到 77.0%，超过 Codex-CLI；跨模型家族迁移 +5.1–10.1pp。 | ❔ ❔ ✅ ❔ |
 | 2026-04 | [HARBOR](papers/harbor.md) | 不改代码，而是在固定组件的 Harness 配置空间上做成本感知的贝叶斯优化。 | 与 Meta-Harness 类「改代码」路线互补，可作为配置搜索基线。 | ❔ ❔ ❔ ✅ |
 | 2026-04 | [The Last Harness You'll Ever Build](papers/last-harness.md) **待细读 / Needs verification** | 两层框架：内层针对单任务优化工作 Agent；外层 Meta-Evolution Agent 优化评估器、演化策略、信息流等「演化循环本身」。 | 概念清晰，适合引为两层形式化的来源；定量结果待细读。 | ❔ ❔ ❔ ❔ |

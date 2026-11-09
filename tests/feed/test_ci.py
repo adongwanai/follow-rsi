@@ -218,6 +218,106 @@ def test_rollover_loads_owner_edits_from_remote_head_before_closing_pr(ci_enviro
     assert events == []
 
 
+def test_published_daily_review_is_not_regenerated(ci_environment, monkeypatch):
+    from scripts.feed import review
+    edition = ci_environment / 'site/daily/2026-11-08.json'
+    edition.parent.mkdir(parents=True)
+    edition.write_text(json.dumps({'reviewed_only': True, 'kind': 'daily_status'}))
+    path = ci_environment / 'review/daily/2026-11-08.yaml'
+    path.parent.mkdir(parents=True)
+    original = 'date: 2026-11-08\nitems: [{id: reviewed, decision: backlog}]\nlab_updates: []\n'
+    path.write_text(original)
+    queue, switch = Mock(), Mock()
+    monkeypatch.setattr(review, 'queue_daily_review', queue)
+    monkeypatch.setattr(ci, 'switch_review_branch', switch)
+    assert ci.queue_daily_pr(ci_environment, '2026-11-08')['status'] == 'already_published'
+    assert path.read_text() == original
+    queue.assert_not_called()
+    switch.assert_not_called()
+
+
+def test_merged_daily_review_waits_for_publication_without_regeneration(ci_environment, monkeypatch):
+    from scripts.feed import review
+    monkeypatch.setattr(ci, 'default_branch', lambda root: 'main')
+    monkeypatch.setattr(ci, 'daily_pr_history', lambda root: [{
+        'headRefName': 'feed/review-2026-11-08', 'state': 'MERGED',
+        'mergedAt': '2026-11-08T02:00:00Z', 'url': 'https://github.com/owner/follow-rsi/pull/58'}])
+    queue, switch = Mock(), Mock()
+    monkeypatch.setattr(review, 'queue_daily_review', queue)
+    monkeypatch.setattr(ci, 'switch_review_branch', switch)
+    result = ci.queue_daily_pr(ci_environment, '2026-11-08')
+    assert result['status'] == 'already_reviewed' and result['url'].endswith('/58')
+    queue.assert_not_called()
+    switch.assert_not_called()
+
+
+def test_weekly_discovery_prepares_review_branch(ci_environment, monkeypatch):
+    switch = Mock()
+    monkeypatch.setattr(ci, 'default_branch', lambda root: 'main')
+    monkeypatch.setattr(ci, 'switch_review_branch', switch)
+    result = ci.prepare_discovery_branch(ci_environment, '2026-W45')
+    assert result == {'week': '2026-W45', 'branch': 'feed/discovery-2026-w45'}
+    switch.assert_called_once_with(ci_environment, 'feed/discovery-2026-w45', 'main')
+
+
+@pytest.mark.parametrize('has_diff', [False, True])
+def test_weekly_discovery_proposes_changes_without_pushing_main_or_deploying(ci_environment, monkeypatch, has_diff):
+    commands = []
+    def run(args, root, check=True):
+        commands.append(args)
+        return SimpleNamespace(stdout='feed/discovery-2026-w45\n' if args[:2] == ['git', 'branch'] else '',
+                               returncode=int(has_diff) if args[:2] == ['git', 'diff'] else 0, stderr='')
+    monkeypatch.setattr(ci, 'run', run)
+    monkeypatch.setattr(ci, 'default_branch', lambda root: 'main')
+    commit, upsert, deploy = Mock(), Mock(return_value='https://github.com/owner/follow-rsi/pull/68'), Mock()
+    monkeypatch.setattr(ci, 'commit_paths', commit)
+    monkeypatch.setattr(ci, 'upsert_pr', upsert)
+    monkeypatch.setattr(ci, 'dispatch_pages', deploy)
+    dispatch = Mock()
+    monkeypatch.setattr(ci, 'gh', dispatch)
+    result = ci.queue_discovery_pr(ci_environment, '2026-W45')
+    assert commit.call_args.kwargs['push'] is False
+    assert {'data/feed', 'review', 'site', 'daily', 'digests'} <= set(commit.call_args.args[2])
+    if has_diff:
+        assert result['status'] == 'queued'
+        assert commands[-1] == ['git', 'push', '--set-upstream', 'origin', 'feed/discovery-2026-w45']
+        assert upsert.call_args.args[1:3] == ('feed/discovery-2026-w45', 'main')
+        assert [call.args[0] for call in dispatch.call_args_list] == [
+            ['workflow', 'run', workflow, '--repo', REPOSITORY, '--ref', 'feed/discovery-2026-w45']
+            for workflow in ('build.yml', 'validate.yml')]
+        assert result['checks_dispatched'] == [
+            {'workflow': workflow, 'ref': 'feed/discovery-2026-w45'}
+            for workflow in ('build.yml', 'validate.yml')]
+    else:
+        assert result['status'] == 'no_changes'
+        assert not any(args[:2] == ['git', 'push'] for args in commands)
+        upsert.assert_not_called()
+        dispatch.assert_not_called()
+    deploy.assert_not_called()
+
+
+def test_discovery_check_dispatch_failure_is_not_reported_as_success(ci_environment, monkeypatch):
+    monkeypatch.setattr(ci, 'run', Mock(return_value=SimpleNamespace(
+        stdout='feed/discovery-2026-w45\n', returncode=1, stderr='')))
+    monkeypatch.setattr(ci, 'default_branch', lambda root: 'main')
+    monkeypatch.setattr(ci, 'commit_paths', Mock())
+    monkeypatch.setattr(ci, 'upsert_pr', Mock(return_value='https://github.com/owner/follow-rsi/pull/68'))
+    dispatch = Mock(side_effect=RuntimeError('workflow dispatch failed'))
+    monkeypatch.setattr(ci, 'gh', dispatch)
+    with pytest.raises(RuntimeError, match='workflow dispatch failed'):
+        ci.queue_discovery_pr(ci_environment, '2026-W45')
+    dispatch.assert_called_once()
+
+
+def test_weekly_discovery_fails_before_commit_from_default_branch(ci_environment, monkeypatch):
+    monkeypatch.setattr(ci, 'run', Mock(return_value=SimpleNamespace(stdout='main\n')))
+    commit = Mock()
+    monkeypatch.setattr(ci, 'commit_paths', commit)
+    with pytest.raises(ValueError, match='prepared on its review branch'):
+        ci.queue_discovery_pr(ci_environment, '2026-W45')
+    commit.assert_not_called()
+
+
 def test_review_stall_counts_calendar_days_and_reuses_one_issue(ci_environment, monkeypatch):
     history = [{'createdAt': '2026-10-25T03:17:00Z', 'mergedAt': None}]
     assert ci.review_stall_days(history, '2026-10-26') == 2
@@ -495,7 +595,14 @@ def test_scheduled_workflows_share_write_lock_and_manual_dispatch():
         for job in workflows[name]['jobs'].values():
             checkout = next(step for step in job['steps'] if step.get('uses') == 'actions/checkout@v4')
             assert checkout['with']['ref'] == '${{ github.event.repository.default_branch }}'
-    for name in ['daily', 'weekly']:
-        commit = workflows[name]['jobs']['discover']['steps'][-1]['run']
-        assert 'site/badges/feed-updated.json' in commit and '--deploy-pages' in commit
-        assert workflows[name]['permissions']['actions'] == 'write'
+    commit = workflows['daily']['jobs']['discover']['steps'][-1]['run']
+    assert 'site/badges/feed-updated.json' in commit and '--deploy-pages' in commit
+    assert workflows['daily']['permissions']['actions'] == 'write'
+    weekly_steps = workflows['weekly']['jobs']['discover']['steps']
+    assert 'prepare-discovery-branch' in next(step['run'] for step in weekly_steps if step.get('id') == 'prepare')
+    assert 'queue-discovery-pr' in weekly_steps[-1]['run']
+    assert '--deploy-pages' not in weekly_steps[-1]['run']
+    assert workflows['weekly']['permissions']['pull-requests'] == 'write'
+    assert workflows['weekly']['permissions']['actions'] == 'write'
+    for name in ('build', 'validate'):
+        assert 'workflow_dispatch' in read_yaml(ROOT / '.github/workflows' / f'{name}.yml')['on']
