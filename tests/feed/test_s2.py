@@ -39,6 +39,8 @@ def fake_clock(monkeypatch):
 def source_repo(tmp_path):
     (tmp_path / 'data').mkdir()
     (tmp_path / 'data/papers.yaml').write_text('papers:\n- id: dgm\n  arxiv: "2505.22954"\n  section: evolve_main\n  must_read: true\n')
+    (tmp_path / 'feed').mkdir()
+    (tmp_path / 'feed/sources.yaml').write_text('sources:\n- id: s2-citations\n  kind: s2_citations\n  enabled: true\n  schedule: weekly\n')
     return tmp_path
 
 
@@ -171,8 +173,6 @@ def test_anonymous_author_discovery_keeps_shared_spacing(source_repo, monkeypatc
 
 def test_dispatcher_reports_anonymous_429_and_health_keeps_mode(source_repo, monkeypatch, fake_clock):
     monkeypatch.delenv('S2_API_KEY', raising=False)
-    (source_repo / 'feed').mkdir()
-    (source_repo / 'feed/sources.yaml').write_text('sources:\n- id: s2-citations\n  kind: s2_citations\n  enabled: true\n  schedule: weekly\n')
     network = Mock(return_value=response(429))
     monkeypatch.setattr(fetch_s2.requests, 'get', network)
     result = fetch_arxiv.fetch_sources(source_repo, schedule='weekly', now=NOW)
@@ -180,6 +180,6 @@ def test_dispatcher_reports_anonymous_429_and_health_keeps_mode(source_repo, mon
     assert result['records'] == []
     outcome = result['outcomes'][0]
     assert outcome['ok'] is False and '429' in outcome['error']
-    health = update_health(source_repo, result['outcomes'], NOW)
+    health = load_state(source_repo)
     assert health['sources']['s2-citations']['auth_mode'] == 'anonymous'
     assert health['sources']['s2-citations']['consecutive_errors'] == 1

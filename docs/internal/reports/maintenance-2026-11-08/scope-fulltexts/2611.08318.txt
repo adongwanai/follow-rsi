@@ -1,0 +1,393 @@
+Learning the Task or Learning the Verifier?Rethinking Criteria Exposure in Embodied Self-Improvement Skip to main content Report GitHub Issue × Title: Content selection saved. Describe the issue below: Description: Submit without GitHub Submit in GitHub Why HTML? Report Issue Back to Abstract Download PDF Contents Reading mode Colour theme Abstract 1 Introduction 2 Related Work 3 Preliminaries and Study Design 3.1 Self-Improvement Loop and Criteria Exposure 3.2 Criteria-limited Tasks 3.3 Instruction-faithful Criteria 3.4 Experiment Settings and Evaluation Protocol 4 Experiments and Analysis 4.1 Exposure under the Original Criteria 4.1.1 Success-only versus Exposed Self-Improvement Setup. Results. 4.1.2 Synthesis 4.2 Changing the Criteria: Task or Verifier? 4.2.1 Re-judging with Instruction-faithful Criteria Setup. Results. 4.2.2 Swapping the Criteria that Are Read Setup. Results. 4.2.3 Synthesis and Implications 4.3 Reusing the Library: What Carries Over 4.3.1 Across Tasks within RoboDojo Setup. Results. 4.3.2 Across Benchmarks Setup. Results. 4.3.3 Synthesis and Implications 5 Limitations and Future Work 6 Conclusion References A Implementation Details A.1 Experimental protocol A.2 Implementation and settings A.3 Evaluation details A.4 Tasks B Comparing Criteria with Instructions in RoboDojo Criteria mechanism. Method. Types. Counts. Published rules. C Instruction-faithful Criteria Rules. Validation. Decisions of our own. License: CC BY 4.0 arXiv:2611.08318v1 [cs.AI] 05 Nov 2026 1]Peking University
+2]National University of Singapore \contribution [*] Corresponding author \checkdata [ Project Page] https://dagroup-pku.github.io/PyRUA-Lean/RSIJudge \checkdata [ Corresponding Author] Daquan Zhou Learning the Task or Learning the Verifier? Rethinking Criteria Exposure in Embodied Self-Improvement Wenbo Huang 1 Jianxin Bi 1,2 Shunyu Yang 1 Ruiyang Si 1 Rui Ni 1 Qiang Wang 1 Shulong Jiang 1 Yintianrun Zhang 1 Feixiang Ruan 1 Kewei Zhang 1 Ye Huang 1 Shukai Gong 1 Daquan Zhou 1,∗ Affiliation: [ Affiliation: [ Abstract Self-improving embodied agents are increasingly being developed and compared on robot simulation benchmarks. Several
+recent works expose the benchmark’s success criteria to the learning agent, a practice we call Criteria Exposure (CE).
+These criteria, originally written to verify policies trained by imitation learning, often demand more than the
+corresponding language instructions, so a score from such a verifier may not faithfully reflect whether the instructed
+task was completed, especially for robot-control programs written by an agent.
+As embodied coding agents report ever higher benchmark scores, a natural question arises: when a coding agent is
+exposed to the benchmark’s criteria, does it generate code that better performs the instructed task, or code that
+simply overfits to the verification criteria?
+We conduct controlled experiments with a self-improving agent with and without CE, and find that with CE the agent
+quickly produces code with a higher success rate under the given criteria, but this advantage disappears when the
+criteria are changed slightly without departing from the original instructions. More importantly, the skills the agent
+develops under CE transfer poorly across tasks.
+We further propose instruction-faithful criteria and show that they better reflect the performance of agent-generated
+programs. Keywords: embodied agent, self-improvement, robot policy evaluation Figure 1 : Learning the task or the verifier? (a) : in press_by_number, the criteria C orig C^{\text{orig}} verify a button protocol that the instruction does not state (highlighted). Without Criteria Exposure (w/o CE) the
+learner sees only whether each episode succeeded; with it (w/ CE) it also reads the criteria code, score and
+stages. Right of each setting: the test successes of its library on 20 layouts, judged by C orig C^{\text{orig}} and by the
+instruction-faithful criteria C faith C^{\text{faith}} . (b) : libraries learned under C orig C^{\text{orig}} on the 16 criteria-limited
+tasks, 320 test episodes each, with every episode judged by both criteria ( section 4.2.1 ). The lead of
+w/ CE under C orig C^{\text{orig}} , 51.6% against 27.8%, is gone under C faith C^{\text{faith}} (45.0% against 47.2%). 1 Introduction Agents that write code to control robots with multimodal language models complete many manipulation tasks
+zero-shot [ 19 , 15 , 12 , 29 ] , but preserve nothing from one
+episode to the next, which makes self-improvement across episodes a natural next
+step [ 28 , 31 , 36 ] . Such agents are developed and compared on embodied
+simulation benchmarks [ 9 , 20 , 22 ] originally built to evaluate
+end-to-end policies trained by imitating demonstrations, such as vision-language-action (VLA)
+models [ 6 , 17 , 4 , 25 ] and world action models
+(WAMs) [ 26 ] . The actual success criteria of these benchmarks often ask for more than the
+instruction; in the press_by_number task of RoboDojo, for instance, the criteria require the blue button to be
+pressed exactly twice, between two groups of red presses, which the instruction never states ( figure 1 a). For
+policies trained by imitation, this gap is harmless, since their demonstrations already contain every detail the
+criteria verify: order, counts, end states, and the return of both arms. An agent that receives only the instruction,
+however, lacks this information. Existing self-improving methods therefore expose the criteria to the agent to different degrees, from rule
+descriptions [ 10 ] and published scoring tables [ 18 , 13 ] to numeric
+thresholds [ 14 ] , formal goal predicates [ 32 ] , and the source code of the
+verifier [ 3 ] . A robot in the real world, by contrast, receives only its instruction and, at most, a success judged by a
+human or a VLM. Our research question is: when a self-improving embodied agent is exposed to the
+success criteria, does the code it iteratively produces better perform the instructed task, or simply overfit to the
+verification criteria? Studies of benchmark validity and of specification gaming show that criteria can demand more than the instruction states and
+that agents exploit a verifier they can
+inspect [ 16 , 40 , 37 ] , but we are
+not aware of work that measures how much of a reported gain in embodied self-improvement comes from reading the
+criteria, or whether it survives when the criteria change. We therefore compare two settings of one fixed self-improvement loop, in which a frozen coding
+agent acts and a learner agent turns its episodes into a library of skills and memory: with Criteria Exposure
+(w/ CE), the learner reads the criteria; without it (w/o CE), the learner sees only whether each episode succeeded. We
+ask three questions: on which tasks exposure raises the score; whether its lead survives a change of criteria, both of
+the criteria that judge the episodes and of the criteria the learner reads; and whether what it adds carries over to
+new tasks and to two further benchmarks, LIBERO-PRO and RoboCasa365. To change the criteria, we rewrite them for the RoboDojo tasks whose criteria ask for more
+than the instruction, so that they verify only what the instruction asks. On these tasks every episode is judged by
+both versions, and in a separate run the learner reads the rewritten criteria instead of the original ones. Our experiments reveal three findings. First, under the original criteria, exposure helps only on tasks whose criteria
+ask for more than the instruction; when criteria and instruction agree, learning from success alone does just as well. Second, the score of exposure follows the criteria
+it read: when the same episodes are judged by instruction-faithful criteria, its advantage disappears, as the exposed
+libraries lose successes while the success-only libraries gain them ( figure 1 b); conversely, a library learned from
+the rewritten criteria scores far lower when judged by the original ones. Third, the lead of exposure does not reappear on new RoboDojo tasks, and across benchmarks neither the exposed nor the
+success-only library gives a clear gain over the empty library; only experience gathered within the target benchmark
+does. Taken together, these results suggest a practical principle for evaluating embodied self-improvement: the learner
+should receive only the feedback a robot would receive in the real world, and the benchmark’s criteria should verify what the
+instruction says. A gain that holds when the criteria are changed but still agree with the instruction reflects what
+the agent has learned about the task. Seen
+this way, whether the learner reads the criteria is not an implementation detail of a self-improving agent but a
+choice about measurement, and it determines what a reported gain means. 2 Related Work Code-writing embodied agents and their benchmarks. Language models plan and act for robots by selecting skills [ 1 ] , writing policy
+code [ 19 ] , or composing value maps [ 15 ] ; recent agents close the loop with code
+replanning and thin tool layers [ 12 , 29 , 13 ] , and frontier models now control
+robots zero-shot. These agents are evaluated on benchmarks built for vision-language-action
+policies trained on demonstrations [ 6 , 17 , 4 , 25 ] :
+RoboDojo [ 9 ] ,
+LIBERO and LIBERO-PRO [ 20 , 38 ] , RoboCasa365 [ 22 ] , and
+RoboTwin 2.0 [ 8 ] . These works score agents with criteria written for demonstration-trained
+policies; whether the criteria verify only what the instruction asks is rarely examined on its own, and we measure how this gap
+enters the score of a self-improving agent. Self-improving agents and the feedback their learners see. In digital domains, programs are evolved against automatic
+evaluators [ 23 , 34 ] , agents reflect on textual
+feedback [ 28 , 36 ] , skills are verified in a game
+world [ 31 ] , and code is revised against tests [ 33 ] . Embodied systems differ in
+how much of the success criteria their learners or agents see. Some give only success or keep
+the grader isolated [ 27 , 21 ] ; others add rule descriptions with coarse
+feedback [ 10 ] , published scoring tables and partial numeric
+thresholds [ 18 , 13 , 14 ] , formal goal predicates [ 32 ] ,
+or the source code of the verifier [ 3 ] . In RATs, the verifier reads goal
+predicates and ground truth while the policy writer’s side is filtered [ 35 ] . In these systems the
+amount of criteria information is mostly fixed by design rather than varied as an experimental factor. The closest comparison is an
+ablation of EmbodiedEvo between task descriptions alone and descriptions with the wiki, but both arms are judged by the
+original criteria [ 18 ] . We treat exposure as the variable and test what it gains under a second set
+of criteria. Specification gaming and benchmark validity. Optimizing a proxy diverges from the intended objective [ 2 , 30 ] , with measurable
+effects of reward misspecification [ 24 ] . Language agents exploit tests and evaluators they can
+inspect [ 37 , 5 ] , and agentic benchmarks need checks of their own
+validity [ 16 , 40 ] . Where rule-based criteria are missing, success is judged by
+VLMs [ 11 ] or by autonomous real-world evaluation [ 39 ] . Building
+on these studies, we further show that on embodied benchmarks the act of reading the criteria turns the gap between
+criteria and instruction into score, and we measure this share with counterfactual criteria that score the same
+instructions. 3 Preliminaries and Study Design This section describes the controlled study we use to analyze what a self-improving embodied agent learns from the
+success criteria. The study compares two settings of one loop, w/ CE and w/o CE, and answers three questions: where
+exposure raises the score under the original criteria, whether the advantage holds when the criteria change, and
+whether the library carries over to new tasks and benchmarks. We describe in turn the loop and its two settings,
+criteria-limited tasks, instruction-faithful criteria, and the evaluation protocol. 3.1 Self-Improvement Loop and Criteria Exposure Figure 2 : Overview of the self-improvement loop. Left, learning: the actor (GPT-6 Astra, high reasoning
+effort) writes and executes Python cells that call the robot’s primitives on five development layouts, and sees the
+result of each cell. Between batches the learner (Claude Code with Opus 5.5, high reasoning effort) turns the evidence into
+one revision of the library ℒ k \mathcal{L}_{k} , whose skills are callable code that reports what it did and whose
+memory entries say when to apply what, with the evidence for it; a revision is usually tried first in verification
+rollouts, and the loop rolls back to the best revision so far when a batch falls clearly below it. Whether the
+learner also sees the success criteria is the one switch between the two settings, w/ CE and w/o CE (the switch
+under the learner). Right, evaluation: the final library ℒ K \mathcal{L}_{K} is frozen and read-only, and the same actor runs alone
+on layouts the loop never saw. A task τ = ( I τ , D τ , C τ ) \tau=(I_{\tau},D_{\tau},C_{\tau}) has an instruction I τ I_{\tau} , a distribution of layouts D τ D_{\tau} and success
+criteria C τ C_{\tau} that judge each trajectory; some benchmarks also report a score and stages. The success the
+instruction asks for, S τ S_{\tau} , is defined by I τ I_{\tau} and cannot be computed directly. A frozen actor π \pi , GPT-6
+Astra with high reasoning effort, acts through the primitives of PyRUA-Lean [ 29 ] .
+In each round a learner U U , Claude Code with Opus 5.5 and high reasoning effort, makes one revision of the library ℒ \mathcal{L} , a set of
+callable skills and memory entries, from the evidence E v ​ ( B ) E_{v}(B) of the last batch, and the revision is rolled back if the
+batch clearly regresses. Each task has its own library, learned over five rounds on five development layouts.
+Algorithm 1 and figure 2 summarize the loop for one task. The loop runs in two settings. Without Criteria Exposure (w/o CE), the learner sees only whether
+each episode succeeded; the criteria code, the score and the stages are withheld. A robot in
+the real world has no criteria code and receives success from a human or a VLM, so this is the setting in simulation
+closest to the real world. With Criteria Exposure (w/ CE), the learner also reads the criteria code of the task and the
+score and stages of each episode, as systems that give the learner the source of the verifier do; the actor never reads them. The actor, the primitives, perception and benchmark scoring are frozen
+and only the library changes; the two settings share the loop and differ in what the learner reads, so
+differences between them reflect exposure rather than the loop itself. Algorithm 1 Self-improvement loop 1: actor π \pi ; dev layouts D dev D_{\text{dev}} ; rounds K K ; setting v ∈ { w/ CE , w/o CE } v\in\{\text{w/\penalty\ CE },\text{w/o\penalty\ CE }\} ; margin θ = 2 \theta=2 2: ℒ 0 ← ( S 0 , M 0 ) = ( ∅ , ∅ ) \mathcal{L}_{0}\leftarrow(S_{0},M_{0})=(\varnothing,\varnothing) ⊳ \triangleright skills and memory 3: ℒ ⋆ ← ℒ 0 \mathcal{L}^{\star}\leftarrow\mathcal{L}_{0} ; H ← [ ] H\leftarrow[\,] ; B 0 ← Run ​ ( π , ℒ 0 , D dev ) B_{0}\leftarrow\textsc{Run}(\pi,\mathcal{L}_{0},D_{\text{dev}}) ⊳ \triangleright zero-shot batch 4: for k = 1 , … , K k=1,\dots,K do 5: E ← Evidence ​ ( B k − 1 , v ) E\leftarrow\textsc{Evidence}(B_{k-1},v) ⊳ \triangleright trajectories; criteria, score and stages only under w/ CE 6: ( Δ S , Δ M , h ) ← Improve ​ ( E , H , ℒ k − 1 ) (\Delta_{S},\Delta_{M},h)\leftarrow\textsc{Improve}(E,H,\mathcal{L}_{k-1}) ⊳ \triangleright edit skills, memory or both; verify by rollouts 7: ℒ k ← Freeze ​ ( S k − 1 ⊕ Δ S , M k − 1 ⊕ Δ M ) \mathcal{L}_{k}\leftarrow\textsc{Freeze}(S_{k-1}\oplus\Delta_{S},\,M_{k-1}\oplus\Delta_{M}) ⊳ \triangleright structural checks only, not success 8: B k ← Run ​ ( π , ℒ k , D dev ) B_{k}\leftarrow\textsc{Run}(\pi,\mathcal{L}_{k},D_{\text{dev}}) 9: if B k B_{k} has ≥ θ \geq\theta fewer successes than the batch of ℒ ⋆ \mathcal{L}^{\star} then 10: ℒ k ← ℒ ⋆ \mathcal{L}_{k}\leftarrow\mathcal{L}^{\star} ⊳ \triangleright rollback 11: else if B k B_{k} is the best batch so far then 12: ℒ ⋆ ← ℒ k \mathcal{L}^{\star}\leftarrow\mathcal{L}_{k} 13: append ( Δ S , Δ M , B k , h ) (\Delta_{S},\Delta_{M},B_{k},h) to H H ⊳ \triangleright change, result, hypothesis 14: return ℒ K \mathcal{L}_{K} ⊳ \triangleright the active library after round K K 3.2 Criteria-limited Tasks We call a task criteria-limited if C τ C_{\tau} disagrees with S τ S_{\tau} on some trajectories, either by rejecting a
+trajectory S τ S_{\tau} accepts or by accepting one S τ S_{\tau} rejects (criteria looser than the instruction); all other
+tasks are faithful . Such tasks appear in every benchmark we examined, RoboDojo, LIBERO [ 20 ] (whose instructions and goals LIBERO-PRO keeps), RoboCasa365 and RoboTwin 2.0 [ 8 ] , and their
+disagreements fall into a few kinds. The criteria may ask for more than the instruction states, such as an order, a
+count or an end state: in RoboDojo, press_by_number requires a button protocol its instruction never gives.
+They may be stricter than the instruction needs, such as an unstated tolerance for an object resting on another in
+LIBERO. They may contradict the instruction, as in a LIBERO task that asks to stack a bowl on the front bowl while its
+criteria require the back one. Or they may verify less than the instruction asks: in RoboTwin 2.0,
+shake_bottle_horizontally succeeds once the bottle is lifted. We rewrite criteria and re-judge episodes on RoboDojo only. Its criteria report a score and stages
+besides success, so an exposed learner reads the most complete information there, and we compared the criteria of all
+of its tasks with their instructions; rewriting the criteria of other benchmarks and repeating these experiments on
+them is left to future work. We distinguish seven types: hidden
+rules, hard thresholds, timing and irreversible events, criteria defects, extra end states, loose criteria,
+and contradictions. In RoboDojo, after a manual review of every task, the 20 criteria-limited tasks have
+26 variants, and hidden rules and hard thresholds are the most common types. Criteria-limited is defined with respect to the
+instruction the agent receives at reset; the RoboDojo website publishes part of these rules in its task descriptions and
+scoring tables. 3.3 Instruction-faithful Criteria For each criteria-limited task we rewrite only the criteria code, never the instruction, and leave the original
+repository untouched: hidden rules are removed or relaxed, defects fixed, hard thresholds relaxed to what still clearly
+satisfies the instruction, loose criteria tightened where the simulator state can detect the difference, and the
+return of both arms kept. The two criteria judged the same episodes independently, and every episode
+whose verdict flipped was checked by hand without finding a misjudgment by the new criteria.
+Each evaluation episode is then judged by both criteria, giving SR orig \text{SR}^{\text{orig}} and SR faith \text{SR}^{\text{faith}} . Since both criteria score the same
+instruction on the same episode, any difference between the two success rates comes from what the criteria verify, not
+from behavior. C faith C^{\text{faith}} is ours and serves as a proxy for S τ S_{\tau} ; we discuss this in section 5 . 3.4 Experiment Settings and Evaluation Protocol To isolate the effect of exposure, the two settings of each comparison use the same actor, primitives, round budget
+and development layouts. The 25 learned tasks comprise 16 criteria-limited and 9
+faithful tasks, grouped in advance by whether their criteria were rewritten; Appendix A.4 lists the tasks. Development uses layouts 0–4 of seed 1 and
+testing layouts 0–19 of seed 0. We report the success rate (SR) and compare
+settings layout by layout. All experiments use the same actor and learner.
+To reuse libraries, we distill the libraries of ten source tasks into one shared library and apply it to
+disjoint target tasks, in RoboDojo and on two further benchmarks with aligned primitives. We use three simulated benchmarks with different roles. RoboDojo is the main benchmark: its rule-based criteria
+report a score and stages, and all three questions are answered on it. LIBERO-PRO is a single-arm tabletop
+benchmark where zero-shot success is already near the ceiling; it tests whether transfer still has room at high scores. RoboCasa365 has household kitchen scenes and the lowest zero-shot scores; it tests cross-benchmark experience
+and also hosts in-benchmark learning. 4 Experiments and Analysis We test three hypotheses: • H1. Exposure raises the score only on tasks whose criteria ask for more than the instruction
+( section 4.1 ). • H2. If exposure teaches the verifier rather than the task, its lead shrinks or reverses when the same
+episodes are judged by instruction-faithful criteria ( section 4.2.1 ), and each exposed library scores best
+under whichever criteria its learner read ( section 4.2.2 ). • H3. What exposure adds does not carry over to new tasks or benchmarks ( section 4.3 ). 4.1 Exposure under the Original Criteria We first judge the benchmark’s way, by the original criteria, which are also the criteria the exposed learner reads. 4.1.1 Success-only versus Exposed Self-Improvement Setup. We learn one library per task and setting on the 25 learned tasks (16
+criteria-limited, 9 faithful), over five rounds on five development layouts, and test each library on
+layouts 0–19 of seed 0 against the empty library. The two groups were fixed before any result was seen. Table 1 : Test success under the original criteria (SR, %, layouts 0–19 of seed 0). Parentheses: difference
+from the empty library in points. The criteria-limited tasks count the episodes of section 4.2.1 , judged
+by C orig C^{\text{orig}} . Tasks Empty library ℒ ∅ \mathcal{L}_{\varnothing} w/o CE w/ CE All (25) 24.6 47.8 (+23.2) 62.0 (+37.4) Criteria-limited (16) 8.4 27.8 (+19.4) 51.6 (+43.2) Faithful (9) 53.3 83.3 (+30.0) 80.6 (+27.3) Figure 3 : Development success by round , on the 16 criteria-limited and the 9
+faithful tasks. Dashed: w/ CE; solid: w/o CE; round 0 is the empty library. On criteria-limited tasks both
+settings start at 6% and part in round 1 (40% against 28%); after that the success-only learner barely
+moves and ends at 31%, against 55% with exposure. On faithful tasks the success-only learner is ahead
+through round 4 and both end above 90% (91% and 95%); its lead, at most 16 points, is close to the
+14-point gap of round 0 (66% against 52%), where both run the same empty library. Results. Table 1 and figure 3 show three patterns. First, learning from success
+alone doubles success, from 24.6% to 47.8%, and reading the criteria adds another 14.2 points
+(62.0%). Second, this extra gain comes from the criteria-limited tasks: on faithful tasks the two settings are
+level (83.3% and 80.6%), while on criteria-limited tasks exposure leads, 51.6% against
+27.8%. Third, among criteria-limited tasks the lead depends on whether an unstated rule shows in failed
+episodes: in build_tower the leftover blocks reveal it and both settings reach 20/20, whereas the button protocol of
+press_by_number, blue pressed twice and between the two red groups, never shows, and the success-only
+learner never finds it. 4.1.2 Synthesis • Exposure pays off only where the criteria ask for more than the instruction. Richer feedback is often
+assumed to make self-improvement better. Our results show a condition: when the criteria verify what the instruction
+says, success alone tells the learner what the task requires, and what remains, a reliable procedure, is learned
+equally well in both settings. Exposure helps only with rules that the instruction omits and that failures do not
+reveal. • The advantage of exposure measures the benchmark as much as the agent. Because it comes from what the
+instruction leaves out, the gain of exposure grows with the gap between a benchmark’s instructions and its criteria.
+Some of what the criteria reveal is legitimate task knowledge, but it belongs in the instruction: benchmarks that
+state in the instruction what their criteria verify (counts, order, end states, the reset of the arms) and release
+versioned criteria with a comparison against the instructions would let self-improvement be compared on
+the task alone. 4.2 Changing the Criteria: Task or Verifier? Section 4.1 judged with the criteria the exposed learner read. Changing them separates two explanations. If
+exposure teaches the task, its lead should survive under C faith C^{\text{faith}} ; if it teaches the verifier, the lead should shrink or
+reverse, and each library should score best under whichever criteria its learner read. We change the criteria used
+for judging and the criteria that are read. 4.2.1 Re-judging with Instruction-faithful Criteria Setup. We run the libraries of section 4.1.1 on the 16 learned criteria-limited tasks, all of
+which have rewritten criteria, 20 layouts each, and judge every episode by both criteria. Figure 4 : The same episodes judged by the original and the instruction-faithful criteria. Libraries
+learned under C orig C^{\text{orig}} on the 16 criteria-limited tasks, 320 episodes per library. Light bars: judged by C orig C^{\text{orig}} ;
+solid bars: the same episodes judged by C faith C^{\text{faith}} ; arrows give the change in points. Figure 5 : Each exposed library judged by the criteria it read and by the other. Both on the ten tasks
+of ℒ CE faith \mathcal{L}_{\text{CE}}^{\text{faith}} , seed-0 test, 200 episodes per library. ℒ CE orig \mathcal{L}_{\text{CE}}^{\text{orig}} : their episodes in figure 5 . ℒ CE faith \mathcal{L}_{\text{CE}}^{\text{faith}} : its
+final library on the same layouts. Light bars: judged by the criteria the learner read; solid bars: the same episodes judged by the other
+criteria; arrows give the change in points. Results. Figure 5 shows the lead of exposure disappear. Under C orig C^{\text{orig}} the exposed library
+leads, 51.6% against 27.8%: paired by task and layout, it alone succeeds on
+93 layouts and the success-only library alone on 17. Judged by C faith C^{\text{faith}} , the same episodes give 45.0% for the exposed library and
+47.2% for the success-only one, a difference within noise (47 against
+54 layouts); the gap shrinks by 25.9 points (95% bootstrap interval over
+tasks 4.7–54.4). The success-only library loses almost nothing: C faith C^{\text{faith}} accepts all but 2 of its 89 successes under C orig C^{\text{orig}} , and it gains where the original criteria demand an
+unstated protocol, as in press_by_number, swap_blocks and make_kong. The exposed library loses
+where it had learned that protocol, and on tasks whose criteria changes mostly fix defects or relax thresholds the two
+criteria give nearly the same scores. 4.2.2 Swapping the Criteria that Are Read Setup. We then let the learner read C faith C^{\text{faith}} instead (ten tasks, five rounds)
+and compare the resulting library ℒ CE faith \mathcal{L}_{\text{CE}}^{\text{faith}} with ℒ CE orig \mathcal{L}_{\text{CE}}^{\text{orig}} on the same ten tasks, each judged by the criteria its learner
+read and by the other. Results. Figure 5 shows that each exposed library does well only under the criteria it read: ℒ CE orig \mathcal{L}_{\text{CE}}^{\text{orig}} falls from 57.0% to 45.0% under C faith C^{\text{faith}} , and ℒ CE faith \mathcal{L}_{\text{CE}}^{\text{faith}} from 65.0% to
+13.5% under C orig C^{\text{orig}} . The fall is steeper for ℒ CE faith \mathcal{L}_{\text{CE}}^{\text{faith}} because the
+two directions differ: C faith C^{\text{faith}} mostly removes or relaxes the hidden rules and thresholds of C orig C^{\text{orig}} , so moving ℒ CE orig \mathcal{L}_{\text{CE}}^{\text{orig}} to C faith C^{\text{faith}} loosens the verification, whereas moving ℒ CE faith \mathcal{L}_{\text{CE}}^{\text{faith}} to C orig C^{\text{orig}} adds back every rule the library never saw. The score
+follows the criteria that were read even where they are looser: having read C faith C^{\text{faith}} , the library no longer sets the
+bottle upright in pour_by_language, which C orig C^{\text{orig}} requires, and solves 19 of its 20 test layouts under C faith C^{\text{faith}} but none under C orig C^{\text{orig}} . This does not tell which criteria are right, which section 4.2.1 addresses, but it shows that the score of exposure does not carry between two criteria that
+score the same instruction. 4.2.3 Synthesis and Implications • Exposure makes self-improvement fit the criteria rather than learn the instructed task. A higher
+score from reading the criteria is commonly taken as faster learning of the task. A learner that reads the
+criteria, however, revises the library until it passes the verifier it reads, so the library learns the task only as
+far as the criteria agree with the instruction. Under instruction-faithful criteria the exposed library loses
+successes that the success-only library gains, and each exposed library scores best only under the criteria it read:
+on press_by_number it solves all 20 layouts under C orig C^{\text{orig}} and none under C faith C^{\text{faith}} , and the library that read C faith C^{\text{faith}} solves 65.0% of its test episodes under C faith C^{\text{faith}} but 13.5% under C orig C^{\text{orig}} .
+Self-improvement should therefore be measured without exposure by default, with the success rate under
+instruction-faithful criteria reported alongside: a robot in the real world has no criteria code, so the part of a
+gain that survives a change of criteria is the part to expect there. • Exposure changes what the learner writes down. A learner that reads the criteria can explain a
+failure by the condition it violated, so its experience is phrased in the terms of one verifier; a learner that sees
+only success has to find a physical cause, and its rules are closer to regularities of the robot. About a third of
+the exposed memory entries cite the criteria code, and none of the success-only ones do. 4.3 Reusing the Library: What Carries Over Finally, we carry the libraries to new tasks in RoboDojo and to two further benchmarks. 4.3.1 Across Tasks within RoboDojo Setup. We distill the libraries of ten learned tasks into one library per setting and
+apply it to ten target tasks that none of the source tasks covers,
+paired with the empty library on the same layouts. Table 2 : Reusing libraries on new tasks and benchmarks (successes, each benchmark’s own criteria). The
+RoboDojo libraries are distilled from ten learned tasks and carried over to LIBERO-PRO and RoboCasa365; the
+last row uses libraries distilled from other RoboCasa365 tasks. Every row is paired with the empty library on the
+same layouts; parentheses give the change in successes against it. Target Library source ℒ ∅ \mathcal{L}_{\varnothing} w/o CE w/ CE RoboDojo, 10 target tasks × \times 20 layouts RoboDojo 65/200 80/200 (+15) 71/200 (+6) LIBERO-PRO, 6 tasks × \times 10 seeds RoboDojo 45/60 48/60 (+3) 46/60 (+1) RoboCasa365, 10 target tasks × \times 10 seeds RoboDojo 22/100 24/100 (+2) 24/100 (+2) RoboCasa365, 10 target tasks × \times 10 seeds RoboCasa365 22/100 33/100 (+11) 29/100 (+7) Results. Both settings help on the target tasks (first row of table 2 ): the empty library
+solves 65 of 200 episodes, the success-only library 80 and the exposed one 71. The 14.2-point lead of exposure on
+its own tasks does not reappear. 4.3.2 Across Benchmarks Setup. We apply the same libraries, translated to each target’s prompt and primitives, on LIBERO-PRO and
+RoboCasa365, whose primitives we aligned with RoboDojo’s. On LIBERO-PRO the empty library
+already solves 34 of the 40 tasks on all five seeds, so we use the 6 others, with ten
+seeds each. On RoboCasa365 we also distill one library per setting from other RoboCasa365 tasks, as an in-benchmark
+reference. Results. The libraries from RoboDojo add little on either benchmark ( table 2 ): 48 and 46 of 60
+episodes against 45 on LIBERO-PRO, and 24 and 24 of 100 against 22 on RoboCasa365. The libraries distilled within
+RoboCasa365 do better, 33 (w/o CE) and 29 (w/ CE) of 100. 4.3.3 Synthesis and Implications • What exposure adds is specific to the task it was learned on. One might expect the setting that scores
+higher on its own tasks to transfer better. It does not: the lead of exposure disappears on target tasks. Exposed experience carries the conditions and precision needed
+to pass one task’s criteria, which become noise or overhead elsewhere, whereas rules about the gripper hold across
+tasks. • Experience transfers where the bottleneck is shared. Within a benchmark the robot, the scenes and
+perception stay the same, and learned rules carry over. Across benchmarks the general part of the experience is
+already covered by the target’s prompt, while what the target lacks has no counterpart in the source, so the
+transferred skills go unused; experience gathered on the target benchmark, even on other tasks, addresses its own
+bottleneck and helps. 5 Limitations and Future Work The instruction-faithful criteria are ours, and the feedback is simulated. C faith C^{\text{faith}} serves as our proxy for
+the success the instruction asks for, S τ S_{\tau} . Neither setting’s libraries saw the rewritten criteria when they were
+written; rules and types were fixed in advance; a second seed was judged independently and every flipped episode
+checked. Still, only RoboDojo’s criteria were rewritten,
+and success-only feedback in simulation is cleaner than the success a human or a VLM reports for a robot in the real
+world, which has no criteria code. Next steps are an independent review, released criteria code, rewritten criteria for a second
+benchmark, and VLM success detection in place of the simulator’s success [ 11 ] . Exposure is studied at two levels, as current systems implement it. Most existing systems sit at intermediate
+levels (rule descriptions, published scoring tables, partial thresholds), which we did not study separately. A next step
+is to expose these levels one at a time and measure how the gain under C orig C^{\text{orig}} , and its loss under C faith C^{\text{faith}} , grow
+with what the learner reads. Samples are small and the mechanisms are inferred. Each task has 20 test layouts, so quantitative claims use
+pooled results and single tasks are described only qualitatively; and distillation variance was not estimated. The accounts of what exposure writes into the library, of what carries over and of how the actor uses transferred libraries rest on entry text, skill calls and
+action statistics, not on ablations. Next steps are repeated distillations and ablations that remove or swap individual
+entries, such as the re-measuring entries of the distilled w/ CE library or the memory entries of a
+translated library. 6 Conclusion In this paper, we studied what a self-improving embodied agent learns when it reads the success criteria, by comparing
+one self-improvement loop with and without Criteria Exposure, under the benchmark’s own and instruction-faithful
+criteria, and on new tasks and benchmarks. Our results show that self-improvement from success alone is real and
+survives a change of criteria, whereas the score that Criteria Exposure adds comes mainly from satisfying the criteria
+that were read: it appears only where the criteria and the instruction disagree, disappears under instruction-faithful
+criteria, and across benchmarks neither the exposed nor the success-only library gives a clear gain, while only
+in-benchmark experience helps. These findings
+provide a more careful reading of reported self-improvement gains on embodied benchmarks and practical guidance for
+measuring them: use the feedback a robot receives in the real world, and judge by criteria that verify what the instruction says.
+A robot in the real world never sees its verifier; the agent we measure should not either. References [1] Michael Ahn, Anthony Brohan, Noah Brown, Yevgen Chebotar, Omar Cortes, Byron
+David, Chelsea Finn, Chuyuan Fu, et al. Do as I can, not as I say: Grounding language in robotic
+affordances. In Conference on Robot Learning (CoRL) , 2022. [2] Dario Amodei, Chris Olah, Jacob Steinhardt, Paul Christiano, John Schulman, and
+Dan Mané. Concrete problems in AI safety. arXiv preprint arXiv:1606.06565 , 2016. [3] Jingwen Bai, Guochao Bai, Canbo Zhang, Shuangqi Li, Minchao Hu, Weichun Huang,
+and Shuang Liu. Compile Once, Run Cheap: Frozen, Portable Skills for Embodied
+Agents, and What Recursive Self-Improvement Adds. arXiv preprint arXiv:2610.25114 , 2026. [4] Kevin Black, Noah Brown, Danny Driess, Adnan Esmail, Michael Equi, Chelsea
+Finn, Niccolo Fusai, Lachy Groom, et al. π 0 \pi_{0} : A vision-language-action flow model for general robot
+control. In Robotics: Science and Systems (RSS) , 2025. [5] Alexander Bondarenko, Denis Volk, Dmitrii Volkov, and Jeffrey Ladish. Demonstrating specification gaming in reasoning models. arXiv preprint arXiv:2502.13295 , 2025. [6] Anthony Brohan, Noah Brown, Justice Carbajal, Yevgen Chebotar, Xi Chen,
+Krzysztof Choromanski, Tianli Ding, Danny Driess, et al. RT-2: Vision-language-action models transfer web knowledge to
+robotic control. In Conference on Robot Learning (CoRL) , 2023. [7] Nicolas Carion, Laura Gustafson, Yuan-Ting Hu, Shoubhik Debnath, Ronghang Hu,
+Didac Suris, Chaitanya Ryali, Kalyan Vasudev Alwala, et al. SAM 3: Segment anything with concepts. arXiv preprint arXiv:2511.16719 , 2025. [8] Tianxing Chen, Zanxin Chen, Baijun Chen, Zijian Cai, Yibin Liu, Zixuan Li,
+Qiwei Liang, Xianliang Lin, et al. RoboTwin 2.0: A scalable data generator and benchmark with strong
+domain randomization for robust bimanual robotic manipulation. arXiv preprint arXiv:2506.18088 , 2025. [9] Tianxing Chen, Yue Chen, Zixuan Li, Junyuan Tang, Kailun Su, Haoran Lu, Weijie
+Wan, Baijun Chen, Songling Liu, Haowen Yan, et al. Robodojo: A unified sim-and-real benchmark for comprehensive
+evaluation of generalist robot manipulation policies. arXiv preprint arXiv:2607.04434 , 2026a. [10] Yitong Chen, Zezheng Huai, Sixian Li, Yubang Wang, Haozhe Zhang, Yifei Zhang,
+Hechang Chen, Jingjing Gong, Yu-Gang Jiang, and Xipeng Qiu. ETA: A New Agentic Paradigm for Embodied Tasks. arXiv preprint arXiv:2608.03924 , 2026b. [11] Yuqing Du, Ksenia Konyushkova, Misha Denil, Akhil Raju, Jessica Landon, Felix
+Hill, Nando de Freitas, and Serkan Cabi. Vision-Language Models as Success Detectors. arXiv preprint arXiv:2303.07280 , 2023. [12] Letian Fu, Justin Yu, Karim El-Refai, Ethan Kou, Haoru Xue, Huang Huang, Wenli
+Xiao, et al. CaP-X: A framework for benchmarking and improving coding agents for
+robot manipulation. In International Conference on Machine Learning (ICML) , 2026. [13] Hongcheng Gao, Alex Zhou, Jay Zhu, Zelin Zheng, Shijia Ge, Xiping Li, Di Wu,
+Yazhe Wang, Jianshu Zeng, Xuan Shangguan, Yongli Wang, Yexing Wan, Lingyu He,
+Zhiqi Jia, Sihang Wu, and Xiao He. HexaShell: A Thin Harness for Exploring the Limits of VLM Agents as
+Robot Coding Agents. arXiv preprint arXiv:2610.23479 , 2026. [14] Runhan Huang, Xiangcheng Zhang, Haoyu Chen, Yitong Li, Yen-Jen Wang, Bohan Lyu,
+Haotian Ye, Chuye Hong, Yixuan Wang, Chloe Su, Haoyu Xiong, Yangzhen Wu, Enze
+Xie, Travis Manderson, Stefano Ermon, Pieter Abbeel, Antonio Torralba, Dawn
+Song, Weirui Ye, and Yilun Du. Scaling online exploration for robot agents. arXiv preprint arXiv:2610.22496 , 2026. URL https://arxiv.org/abs/2610.22496 . [15] Wenlong Huang, Chen Wang, Ruohan Zhang, Yunzhu Li, Jiajun Wu, and Li Fei-Fei. VoxPoser: Composable 3D value maps for robotic manipulation with
+language models. In Conference on Robot Learning (CoRL) , 2023. [16] Sayash Kapoor, Benedikt Stroebl, Zachary S. Siegel, Nitya Nadgir, and Arvind
+Narayanan. AI agents that matter. arXiv preprint arXiv:2407.01502 , 2024. [17] Moo Jin Kim, Karl Pertsch, Siddharth Karamcheti, Ted Xiao, Ashwin Balakrishna,
+Suraj Nair, Rafael Rafailov, Ethan Foster, et al. OpenVLA: An open-source vision-language-action model. In Conference on Robot Learning (CoRL) , 2024. [18] Wenyi Li, Yizhe Chi, Youjie Zheng, Chunyu Liu, Xiaoqiu Wang, Mingju Gao, Zheng
+Jiang, Deyao Hong, Calvin Xiao, Kaisen Yang, and Qinhuai Na. EmbodiedEvo: Self-evolving coding agent for physical intelligence. arXiv preprint arXiv:2610.18867 , 2026. URL https://arxiv.org/abs/2610.18867 . [19] Jacky Liang, Wenlong Huang, Fei Xia, Peng Xu, Karol Hausman, Brian Ichter, Pete
+Florence, and Andy Zeng. Code as policies: Language model programs for embodied control. In IEEE International Conference on Robotics and Automation
+(ICRA) , 2023. [20] Bo Liu, Yifeng Zhu, Chongkai Gao, Yihao Feng, Qiang Liu, Yuke Zhu, and Peter
+Stone. LIBERO: Benchmarking knowledge transfer for lifelong robot
+learning. In Advances in Neural Information Processing Systems (NeurIPS),
+Datasets and Benchmarks Track , 2023. [21] Runyu Lu, Yubo Wu, Ethan Kou, Letian Fu, Wenli Xiao, Ajay Mandlekar, Yinzhen
+Xu, Guanya Shi, et al. ASPIRE: Agentic /skills discovery for robotics. arXiv preprint arXiv:2607.00272 , 2026. [22] Soroush Nasiriany, Sepehr Nasiriany, Abhiram Maddukuri, and Yuke Zhu. RoboCasa365: A large-scale simulation framework for training and
+benchmarking generalist robots. In International Conference on Learning Representations
+(ICLR) , 2026. [23] Alexander Novikov, Ngân Vũ, Marvin Eisenberger, Emilien Dupont, Po-Sen Huang,
+Adam Zsolt Wagner, Sergey Shirobokov, Borislav Kozlovskii, Francisco J. R.
+Ruiz, Abbas Mehrabian, M. Pawan Kumar, Abigail See, Swarat Chaudhuri, George
+Holland, Alex Davies, Sebastian Nowozin, Pushmeet Kohli, and Matej Balog. AlphaEvolve: A coding agent for scientific and algorithmic
+discovery. arXiv preprint arXiv:2506.13131 , 2025. URL https://arxiv.org/abs/2506.13131 . [24] Alexander Pan, Kush Bhatia, and Jacob Steinhardt. The Effects of Reward Misspecification: Mapping and Mitigating
+Misaligned Models. arXiv preprint arXiv:2201.03544 , 2022. [25] Physical Intelligence, Kevin Black, Noah Brown, James Darpinian, Karan
+Dhabalia, Danny Driess, Adnan Esmail, Michael Equi, et al. π 0.5 \pi_{0.5} : a vision-language-action model with open-world
+generalization. arXiv preprint arXiv:2504.16054 , 2025. [26] Qiuhong Shen, Shihua Zhang, Yue Liao, Qi Li, Zhenxiong Tan, Shizun Wang,
+Shuicheng Yan, and Xinchao Wang. World Action Models: A Survey. arXiv preprint arXiv:2606.20781 , 2026a. [27] Zeyu Shen, Haoxiang You, Yilang Liu, Zhicheng Zheng, Lihan Zha, Kashu Yamazaki,
+Mingtong Zhang, Suning Huang, Jiankai Sun, Qianzhong Chen, Lucy He, Kaiyuan
+Liu, Haoran Chang, Katerina Fragkiadaki, Dhruv Shah, Mac Schwager, Peter
+Henderson, Ian Abraham, and Canwen Xu. EmbodiedSWE: Coding Agents for Long Horizon Dexterous Robotics. arXiv preprint arXiv:2609.27308 , 2026b. [28] Noah Shinn, Federico Cassano, Edward Berman, Ashwin Gopinath, Karthik
+Narasimhan, and Shunyu Yao. Reflexion: Language agents with verbal reinforcement learning. arXiv preprint arXiv:2303.11366 , 2023. [29] Ruiyang Si, Jianxin Bi, Shunyu Yang, Rui Ni, Wenbo Huang, Qiang Wang, Shulong
+Jiang, Yintianrun Zhang, Feixiang Ruan, Kewei Zhang, Duomin Wang, Xiuyu Li,
+Haiwen Feng, Zhen Dong, and Daquan Zhou. Fewer tokens, better action: GPT-6 Astra robot agents with 14%
+higher success rate but 65% fewer tokens. arXiv preprint arXiv:2610.01939 , 2026. [30] Joar Skalse, Nikolaus H. R. Howe, Dmitrii Krasheninnikov, and David Krueger. Defining and characterizing reward hacking. arXiv preprint arXiv:2209.13085 , 2022. [31] Guanzhi Wang, Yuqi Xie, Yunfan Jiang, Ajay Mandlekar, Chaowei Xiao, Yuke Zhu,
+Linxi Fan, and Anima Anandkumar. Voyager: An open-ended embodied agent with large language models. arXiv preprint arXiv:2305.16291 , 2023. [32] Xin Wang, Wenhao Wu, Menghao Zhang, Zhi Wang, Kun Shao, Jian Luan, Yang Li,
+Qing Li, Shangding Gu, Huichi Zhou, Shuqing Shi, Fei Ni, Shuo Lu, Weicheng
+Meng, Kang Li, Jin Wu, Kang Zhao, Shangmin Guo, Gen Li, Yongqiang Tang,
+Zhizhong Zhang, Yuan Xie, and Heng Qu. HarnessPAI: An Evolving Harness for Physical AI. arXiv preprint arXiv:2609.29166 , 2026. [33] John Yang, Carlos E. Jimenez, Alexander Wettig, Kilian Lieret, Shunyu Yao,
+Karthik Narasimhan, and Ofir Press. SWE-agent: Agent-computer interfaces enable automated software
+engineering. In Advances in Neural Information Processing Systems
+(NeurIPS) , 2024. [34] Jenny Zhang, Shengran Hu, Cong Lu, Robert Lange, and Jeff Clune. Darwin Gödel machine: Open-ended evolution of self-improving
+agents. arXiv preprint arXiv:2505.22954 , 2025. [35] Junyi Zhang, Jiaxin Ge, Hanjun Yoo, Letian Fu, Zihan Yang, Yaowei Liu, Raj
+Saravanan, Shaofeng Yin, Justin Yu, Dantong Niu, Zirui Wang, Roei Herzig, Ken
+Goldberg, Yutong Bai, David M. Chan, Ion Stoica, Angjoo Kanazawa, Jiahui Lei,
+Haiwen Feng, and Trevor Darrell. Playful Agentic Robot Learning. arXiv preprint arXiv:2606.19419 , 2026. [36] Andrew Zhao, Daniel Huang, Quentin Xu, Matthieu Lin, Yong-Jin Liu, and Gao
+Huang. ExpeL: LLM agents are experiential learners. In AAAI Conference on Artificial Intelligence (AAAI) , 2024. [37] Ziqian Zhong, Aditi Raghunathan, and Nicholas Carlini. ImpossibleBench: Measuring LLMs’ Propensity of Exploiting Test
+Cases. arXiv preprint arXiv:2510.20270 , 2025. [38] Xueyang Zhou, Yangming Xu, Guiyao Tie, Yongchao Chen, Guowen Zhang, Duanfeng
+Chu, Pan Zhou, and Lichao Sun. LIBERO-PRO: Towards robust and fair evaluation of
+vision-language-action models beyond memorization. arXiv preprint arXiv:2510.03827 , 2025a. [39] Zhiyuan Zhou, Pranav Atreya, You Liang Tan, Karl Pertsch, and Sergey Levine. AutoEval: Autonomous Evaluation of Generalist Robot Manipulation
+Policies in the Real World. arXiv preprint arXiv:2503.24278 , 2025b. [40] Yuxuan Zhu, Tengjun Jin, Yada Pruksachatkun, Andy Zhang, Shu Liu, Sasha Cui,
+Sayash Kapoor, Shayne Longpre, Kevin Meng, Rebecca Weiss, Fazl Barez, Rahul
+Gupta, Jwala Dhamala, Jacob Merizian, Mario Giulianelli, Harry Coppock,
+Cozmin Ududec, Jasjeet Sekhon, Jacob Steinhardt, Antony Kellermann, Sarah
+Schwettmann, Matei Zaharia, Ion Stoica, Percy Liang, and Daniel Kang. Establishing Best Practices for Building Rigorous Agentic
+Benchmarks. arXiv preprint arXiv:2507.02825 , 2025. Learning the Task or Learning the Verifier? Rethinking Criteria Exposure in Embodied Self-Improvement Appendix Appendix A Implementation Details A.1 Experimental protocol Benchmark. RoboDojo’s simulation track uses a dual-arm ARX-X5 with RGB observations only; its 42 tasks span
+five capability dimensions. The 20 tasks on which the zero-shot actor solves fewer than half of the
+episodes of the official evaluation seed, with five stronger ones, make the 25 compared tasks
+( table 4 ). Every run
+uses one version of RoboDojo (Table 3 ); task source, criteria, leaderboard script and evaluation
+layouts are identical file by file across the checkouts we compare. Conditions. The actor’s model, primitives and prompt are the same in every condition. The learner with
+Criteria Exposure reads the criteria code, each episode’s score and its passed stages; the one without sees full
+trajectories and success only. All conditions are compared over five rounds of improvement (rounds 0–5). The groups
+(Appendix B ) rest on reading the code, the learners’
+diagnoses and the failed rollouts. Layouts. Development reruns layouts 0–4 of official evaluation seed 1 every round; the test layouts are
+layouts 0–19 of seed 0 (500 episodes per condition), which no learner sees. Statistics. Development batches are noisy: rerunning one library on one layout changes the verdict in
+4% of cases, and the two round-0 batches of the same empty library differ in at least
+13% of episodes. We therefore draw conclusions from the test layouts and pooled curves, and read
+single-task development curves only qualitatively. A.2 Implementation and settings Actor. GPT-6 Astra writes one code cell per MLLM call against PyRUA-Lean’s frozen robo
+API [ 29 ] : RGB perception (SAM 3 [ 7 ] and multi-view measurement) and motion
+primitives, with no VLA policy, depth or simulator state. The library is installed as a package library/:
+cells import its skills, and its live memory entries are appended to the prompt. Library. A skill is a function of robo that imports only standard modules, numpy and other
+library modules, does no I/O and returns {"ok": …, "why": …, …}. A memory entry is
+## {task}-<stage>-<nnn> followed by stage, symptom, applies, do, status and evidence. A task’s library
+holds at most 40,000 characters, all of which the actor reads. Learner. Claude Code reads the session, the task’s dev runs, the API source and, with Criteria Exposure,
+the task’s criteria; it writes only the candidate library, its verification rollouts and its notes. Without Criteria
+Exposure, criteria, scores and stages are removed from the evidence. Acceptance and rollback. A candidate may change only the task’s own directory, must keep every memory entry
+identifier, must cite a judged rollout or dev batch for each entry newly marked dev_verified, and must pass
+the static skill rules and the size limit; none of this looks at success, and no candidate was refused. The active
+revision rolls back to the best earlier complete batch when a complete batch has two or more fewer successes; ties go
+to the batch that passed more stages, and a batch with an episode lost to infrastructure neither triggers a rollback
+nor becomes the best. Table 3 : Settings (the same in every run). Benchmark Code RoboDojo commit cb2a37d58dbb (2026-10-08), XPolicyLab 53c5da5a01bc Assets HF dataset RoboDojo-Benchmark/RoboDojo, revision 35efbc7dedfd (2026-09-28) Simulator Isaac Sim 5.1.0, Isaac Lab 0.54.3; suite ARX-X5, RGB only Actor Model GPT-6 Astra, reasoning effort high, at most 8,192 output tokens per request Interface PyRUA-Lean cells, RGB perception, no VLA, ARX-X5 suite Per episode at most 100 cells, 200 MLLM requests, 20 nudges, 90 minutes of policy time; the task’s own
+native-action limit Learner Agent Claude Code, Claude Opus 5.5, effort high Per session up to 2 attempts of 120 minutes; at most 8 rollouts, 3 per dev layout Library task-local skills and memory, at most 40,000 characters per task Campaign Splits dev: seed 1, layouts 0–4; test: seed 0, layouts 0–19 Rounds 6 including round 0 (five rounds of improvement) Rollback to the best complete earlier batch, if a complete batch has ≥ 2 \geq 2 fewer successes A.3 Evaluation details The 25 learned tasks are grouped by whether their criteria were rewritten. Layouts that the benchmark marks unstable are replaced by
+the next layout in the official order. Under dual judging an episode ends early only when both criteria have reached a
+verdict, so neither verdict is truncated. A.4 Tasks Table 4 : Tasks. RoboDojo (25) align_blocks, build_tower, deposit_coin, fill_egg_holder, fill_pen_holder, hang_mugs_random, insert_key, insert_tubes, make_kong, make_toast_random, match_and_pick_from_conveyor, organize_table, pack_objects_into_box, pick_from_conveyor_by_image, play_Xylophone, play_stacking_toy, plug_in_charger, pour_by_language, pour_liquid_into_cup, press_by_number, stack_bowls_random, store_laptop_and_headphones, store_tools_in_toolbox, swap_blocks, sweep_blocks_random LIBERO-PRO (6) libero_10_swap tasks 5, 6, 9; libero_goal_swap tasks 1, 5, 9 RoboCasa365 (10) OpenCabinet, PickPlaceDrawerToCounter, TurnOffStove, HeatKebabSandwich, LoadDishwasher, MakeIceLemonade, SeparateFreezerRack, SteamInMicrowave, StirVegetables, WaffleReheat RoboCasa365 sources (10) CloseBlenderLid, CloseToasterOvenDoor, CoffeeSetupMug, OpenStandMixerHead, TurnOnSinkFaucet, ArrangeBreadBasket, GatherTableware, PackIdenticalLunches, SearingMeat, StoreLeftoversInBowl Appendix B Comparing Criteria with Instructions in RoboDojo Criteria mechanism. RoboDojo criteria are sequences of stages: check stages in order,
+final_check at termination, and trigger_check, evaluated only at the step its condition becomes true;
+query requires exact counts and fails the episode for good once a count is exceeded; conditions nest with
+alternating AND and OR. Of the 42 tasks, 33 require both arms to return within 15 cm and
+20° of home, while only 5 instructions ask for a reset. Method. For each task we compare gen_instruction, run_reward, get_score and the
+configuration, grade the severity as high, medium or low, and confirm by hand; the review is mainly a static reading of the
+code. Types. The type names are ours. • Hidden rule : the criteria verify conditions the instruction does not state (order, counts, relative
+position), e.g. the button protocol of press_by_number or the tile to draw in make_kong. • Hard threshold : the tolerance is stricter than clearly satisfying the instruction requires, e.g. 97% of
+the liquid in pour_liquid_into_cup. • Timing, event triggers and irreversibility : verification at one step only, or permanent failure once an event
+happens, e.g. pouring judged only when the bottle returns upright; a third press in press_by_number. • Criteria defect : the criteria code or an asset annotation is wrong, e.g. mug 14 in
+hang_mugs_random, the bug in solve_equation. • Extra end state : an end state the instruction does not mention, e.g. in make_toast the two
+remaining slices must stay on the bread shelf. • Loose criteria : trajectories that skip the action the instruction asks for are accepted, e.g. sweep_blocks accepts blocks picked up without the broom. • Contradiction : the criteria require the opposite of the instruction, e.g. in
+classify_objects_by_language the categories are named after asset folders, so a chocolate bunny counts
+as a wooden toy. Counts. 23 tasks are consistent and 19 inconsistent (hidden rule 9, hidden rule and hard threshold 5, hard
+threshold 3, contradiction 1, defect 1); with solve_equation, whose criteria have a bug, 20 tasks
+and 26 variants are criteria-limited. By type, at medium or high severity: hidden rule
+13, hard threshold 13, timing and events 10, defect 9, extra end
+state 5, loose criteria 4, contradiction
+3. Other typical cases are make_kong (a tile must be drawn) and build_tower (only one
+configuration is accepted). Published rules. The task descriptions and scoring tables on the RoboDojo website publish part of these
+rules, for example the button order of press_by_number; the recipes of EmbodiedEvo and HexaShell come from
+there [ 18 , 13 ] . Table 5 gives the tasks by type. A task is
+criteria-limited only if the manual review confirms that its criteria and its instruction disagree; the table also
+lists the findings for tasks that the review kept as faithful. Table 5 : Tasks by type. ⚫: high severity; ❍: medium; blank: low or none. The last
+column marks the 33 tasks whose criteria require both arms to return home (not counted as a type). Total: tasks at
+medium or high severity (high in parentheses). r : reviewed together with its _random variant. Task Hidden rule Hard threshold Timing/ irrev. Criteria defect Extra end state Loose criteria Contra- diction Arms home align_blocks ❍ ❍ ✓ arrange_largest_number r ✓ build_tower ⚫ ❍ ❍ ✓ classify_objects ✓ classify_objects_by_language ❍ ✓ cover_blocks ❍ ❍ ✓ deposit_coin ❍ ✓ fasten_screws ❍ ❍ ❍ ✓ fill_egg_holder ✓ fill_pen_holder ❍ ✓ fold_clothes r ❍ ❍ ✓ general_pickup hang_mugs r ⚫ ✓ imitate_sorting_sequence ❍ ✓ insert_key ❍ insert_tubes ✓ make_kong ⚫ ❍ ❍ make_toast r ❍ ❍ ✓ match_and_pick_from_conveyor ❍ organize_table ❍ ❍ ✓ pack_objects_into_box r ❍ ❍ ✓ pick_from_conveyor_by_image play_stacking_toy ❍ ❍ ✓ play_tic_tac_toe ❍ ❍ ❍ play_Xylophone ❍ plug_in_charger ✓ pour_balls_into_vase ❍ ❍ ✓ pour_by_language ❍ ❍ ❍ pour_liquid_into_cup r ❍ ❍ ❍ press_by_number ❍ ⚫ ⚫ ⚫ ✓ push_T r ❍ ✓ put_bottles_into_dustbin ✓ solve_equation ❍ ✓ sort_nesting_dolls_by_size r ❍ ✓ stack_blocks r ✓ stack_blocks_by_language ✓ stack_bowls r ✓ store_laptop_and_headphones r ❍ ✓ store_tools_in_toolbox ❍ ✓ swap_blocks ❍ ⚫ ✓ swap_T ❍ ⚫ ✓ sweep_blocks r ❍ ❍ ✓ Total 13 (2) 13 (1) 10 (1) 9 (3) 5 (0) 4 (0) 3 (1) 33 Appendix C Instruction-faithful Criteria Rules. (1) Change only run_reward and get_score, never the instruction. (2) Keep the
+return of both arms. (3) Remove or relax hidden rules. (4) Fix defects. (5) Tighten loose criteria where the simulator
+state detects the difference reliably. (6) Relax hard thresholds to what still clearly satisfies the instruction, listing
+old and new values. (7) Correct asset annotations in memory only. (8) Leave the original repository untouched. New
+criteria primitives check distance and orientation on the same feature, containment in an elliptic cylinder, and
+connected towers. Validation. Offline unit tests; shadow judging and reruns on seed 0; on seed 2 both criteria judge the same
+episodes independently (an episode ends only when both have a verdict), and every flipped episode was checked by hand. Decisions of our own. “Tighten” in fasten_screws means a nut sinking at least 35 mm. We also decided what counts as a tower in
+build_tower and which edges of the laptop may face down in store_laptop_and_headphones. Appendix C lists every change. Changes from C orig C^{\text{orig}} to C faith C^{\text{faith}} . Type: D, defect fixed; H, hidden rule removed; R, hard
+threshold relaxed; T, loose criterion tightened. A _random variant receives the same change unless marked.
+Conditions not listed, including the return of both arms, are unchanged. Asset annotations are corrected in memory
+only. Liquid thresholds are shares of the poured liquid in the target and left in the bottle. Task Type C orig C^{\text{orig}} C faith C^{\text{faith}} Experimental support, please view the build logs for errors. Generated by L A T E xml . Instructions for reporting errors We are continuing to improve HTML versions of papers, and your feedback helps enhance accessibility and mobile
+      support. To report errors in the HTML that will help us improve conversion and rendering, choose any of the
+      methods listed below: Click the "Report Issue" ( ) button, located in the page header. Tip: You can select the relevant text first, to include it in your report. Our team has already identified the following issues . We appreciate your time reviewing and reporting rendering errors we
+      may not have found yet. Your efforts will help us improve the HTML versions for all readers, because disability
+      should not be a barrier to accessing research. Thank you for your continued support in championing open access for
+      all. Have a free development cycle? Help support accessibility at arXiv! Our collaborators at LaTeXML maintain a list of packages that need conversion , and welcome developer contributions . We gratefully acknowledge support from our major funders , member institutions , ,
+        and all contributors. About · Help · Contact · Subscribe · Copyright · Privacy · Accessibility · Operational Status (opens in new tab)

@@ -8,28 +8,41 @@
 
 
 
-| 证据字段 / Evidence field | 值 / Value |
+| 证据字段 | 记录 |
 | --- | --- |
-| `held_out` | unknown |
-| `matched_budget_baseline` | unknown |
-| `cross_model_transfer` | unknown |
-| `cost_reported` | yes |
-| `disjoint_evolution_set` | unknown |
-| `reliability_metric` | unknown |
-| `code_released` | unknown |
-| `evolved_harness_released` | unknown |
-| `who_edits` | unknown |
-| `feedback` | self_generated_tests |
-| `timing` | unknown |
-| `topology` | unknown |
+| 留出集 | ❔ 未审 |
+| 同预算对照 | ❔ 未审 |
+| 跨模型迁移 | ❔ 未审 |
+| 报告成本 | ✅ 有 |
+| 不相交演化集 | ❔ 未审 |
+| 可靠性指标 | ❔ 未审 |
+| 开源代码 | ❔ 未审 |
+| 公开演化出的 Harness | ❔ 未审 |
+| 谁来改 | ❔ 未审 |
+| 反馈来源 |  自生成测试 |
+| 改进时机 | ❔ 未审 |
+| 演化结构 | ❔ 未审 |
 
 **一句话**：无标签：用模型生成的测试评价候选，不访问标准答案或官方测试；按性能与成本的不同偏好产出 lite、medium、heavy 三档。
 
 **关键结果**：GPT-5.5 + Codex 配置下，heavy 相对 RHO 平均通过率 +2.0pp，单任务成本降 26.1%。
 
-<details><summary>English · machine translation</summary>
+<details><summary>English</summary>
 
-
+| Evidence field | Record |
+| --- | --- |
+| Held-out evaluation | ❔ not yet reviewed |
+| Matched-budget baseline | ❔ not yet reviewed |
+| Cross-model transfer | ❔ not yet reviewed |
+| Cost reported | ✅ yes |
+| Disjoint evolution set | ❔ not yet reviewed |
+| Reliability metric | ❔ not yet reviewed |
+| Code released | ❔ not yet reviewed |
+| Evolved harness released | ❔ not yet reviewed |
+| Who edits | ❔ not yet reviewed |
+| Feedback |  self_generated_tests |
+| Timing | ❔ not yet reviewed |
+| Topology | ❔ not yet reviewed |
 
 **Summary**: Label-free: evaluates candidates with model-generated tests, without accessing standard answers or official tests; produces lite, medium, and heavy tiers for different performance–cost preferences.
 
@@ -39,18 +52,58 @@
 
 <!-- AUTO:CARD:END -->
 
-## 精读笔记
+<!-- AUTO:NOTES:START -->
 
-<!-- TODO -->
+# HarnessPro：v2 数字复核与成本口径
 
-## 视频
+复核日期：2026-11-02。依据 arXiv [v1](https://arxiv.org/html/2610.26770v1) 与 [v2](https://arxiv.org/html/2610.26770v2) 正文和 PDF。v1 首发于 **2026-10-19 17:27:38 UTC**，v2 修订于 **2026-10-20 06:00:54 UTC**，可在[版本历史](https://arxiv.org/abs/2610.26770)核对。
 
-<!-- TODO -->
+**v2 没有改变证据卡引用的 +2.0 pp 与 26.1%。** 两版摘要和四张表的提取内容一致；现有论文原发表日期与结果数字均保留。11 月 2 日的检查时间不代表论文在这一天有新版本。
 
-## 可延伸的 idea
+## +2.0 pp 与 26.1% 怎么来的
 
-<!-- TODO -->
+比较配置是 **GPT-5.5 × Codex，HarnessPro-Heavy 相对 RHO**。下表来自 [v1 表 2](https://arxiv.org/html/2610.26770v1#S5.T2) 与 [v2 表 2](https://arxiv.org/html/2610.26770v2#S5.T2)，两个 PDF 均为第 8 页（[v1 PDF](https://arxiv.org/pdf/2610.26770v1)、[v2 PDF](https://arxiv.org/pdf/2610.26770v2)）。
+
+| 基准 | RHO P | heavy P | P 差值（pp） | RHO 均次成本 | heavy 均次成本 | 相对成本降幅 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Terminal-Bench 2 | 76.3 | 80.8 | +4.5 | $1.09 | $0.72 | 33.9450% |
+| SWE-Bench Pro | 80.0 | 80.7 | +0.7 | $2.68 | $1.97 | 26.4925% |
+| ProgramBench | 68.8 | 69.6 | +0.8 | $3.59 | $2.95 | 17.8273% |
+
+通过率指标差值等权平均为 `(4.5 + 0.7 + 0.8) / 3 = 2.0 pp`。
+
+成本按每个基准分别计算 `(RHO − heavy) / RHO`，再对三个相对降幅等权平均：
+
+```text
+[(1.09−0.72)/1.09 + (2.68−1.97)/2.68 + (3.59−2.95)/3.59] / 3 × 100
+= 26.088263…%
+≈ 26.1%
+```
+
+这里使用论文表格展示的均值复算。**26.1% 是三个基准相对降幅的等权平均**，不能直接解释成汇总全部任务费用后得到的节省比例。
+
+## 阅读证据卡时需要注意
+
+**三个 P 指标并不完全同义。** [§5.1 指标定义](https://arxiv.org/html/2610.26770v2#S5.SS1.SSS0.Px3.p1)（PDF 第 7 页）和表 2 脚注说明，Terminal-Bench 2 与 SWE-Bench Pro 要求单题所有官方测试通过；ProgramBench 的 P 是每题通过测试比例的宏平均。因此卡片沿用作者的“平均通过率”表述时，要连同这一差异阅读。
+
+**费用口径是测试任务执行的 token 成本。** [§3 成本定义](https://arxiv.org/html/2610.26770v2#S3.SS0.SSS0.Px2.p1)（PDF 第 3 页）汇总各次模型调用的未缓存输入、缓存输入和输出 token，按附录[表 4](https://arxiv.org/html/2610.26770v2#A1.T4)（PDF 第 14 页）价格计算，再求测试任务的均值。这不足以推出演化与部署全过程的费用也下降 26.1%。
+
+**“无标签”指候选演化与选择过程。** [§4.1](https://arxiv.org/html/2610.26770v2#S4.SS1.p2)说明，候选由模型生成测试评估，完成迭代后固定 harness，再在留出测试集上评估。最终测试仍按基准官方评估协议执行。
+
+论文对 HarnessPro 报告的是多次运行均值与样本标准差：Terminal-Bench 2、SWE-Bench Pro 各 3 次，ProgramBench 2 次（§5.1，PDF 第 7 页）。本页完成的是**原文与表格口径核对**，没有重新运行作者实验，也没有核验原始账单。
+
+<!-- AUTO:NOTES:END -->
+
+<!-- AUTO:RELATED:START -->
 
 ## 相关论文
 
-<!-- TODO -->
+- [MaD-RSI: Model-as-Data for Recursive Self-Improvement of Agent Harnesses](mad-rsi.md)
+- [Bad Genius: Counterfactual-Guided Harness Evolution Beyond Task-Specific Shortcuts (CHASE)](chase.md)
+- [HarnessEvolve: Learning from Reference Trajectories for Reliable Agent Self-Evolution](harnessevolve.md)
+- [RRSI: Regularized Recursive Harness Self-Improvement](rrsi.md)
+- [TTHE: Test-Time Harness Evolution](tthe.md)
+- [Harness²: Recursive Agent Harnessing for an Open World](harness2.md)
+- [Evolving Agent Interfaces (Agent S4)](agent-s4.md)
+
+<!-- AUTO:RELATED:END -->

@@ -8,28 +8,41 @@
 
 **必读 / MUST READ**
 
-| 证据字段 / Evidence field | 值 / Value |
+| 证据字段 | 记录 |
 | --- | --- |
-| `held_out` | yes |
-| `matched_budget_baseline` | unknown |
-| `cross_model_transfer` | unknown |
-| `cost_reported` | yes |
-| `disjoint_evolution_set` | unknown |
-| `reliability_metric` | unknown |
-| `code_released` | unknown |
-| `evolved_harness_released` | unknown |
-| `who_edits` | unknown |
-| `feedback` | unknown |
-| `timing` | unknown |
-| `topology` | unknown |
+| 留出集 | ✅ 有 |
+| 同预算对照 | ❔ 未审 |
+| 跨模型迁移 | ❔ 未审 |
+| 报告成本 | ✅ 有 |
+| 不相交演化集 | ❔ 未审 |
+| 可靠性指标 | ❔ 未审 |
+| 开源代码 | ❔ 未审 |
+| 公开演化出的 Harness | ❔ 未审 |
+| 谁来改 | ❔ 未审 |
+| 反馈来源 | ❔ 未审 |
+| 改进时机 | ❔ 未审 |
+| 演化结构 | ❔ 未审 |
 
 **一句话**：退火编辑预算 + critic 筛掉 benchmark 特化提案 + pruner 删掉无效改动。
 
 **关键结果**：五个分布外基准上迁移优于 Meta-Harness、AHE、TTHE、HarnessX，最高 +4.7；单任务 token 2.42M（无正则演化为 3.80M）。
 
-<details><summary>English · machine translation</summary>
+<details><summary>English</summary>
 
-
+| Evidence field | Record |
+| --- | --- |
+| Held-out evaluation | ✅ yes |
+| Matched-budget baseline | ❔ not yet reviewed |
+| Cross-model transfer | ❔ not yet reviewed |
+| Cost reported | ✅ yes |
+| Disjoint evolution set | ❔ not yet reviewed |
+| Reliability metric | ❔ not yet reviewed |
+| Code released | ❔ not yet reviewed |
+| Evolved harness released | ❔ not yet reviewed |
+| Who edits | ❔ not yet reviewed |
+| Feedback | ❔ not yet reviewed |
+| Timing | ❔ not yet reviewed |
+| Topology | ❔ not yet reviewed |
 
 **Summary**: Anneals the editing budget, uses a critic to filter benchmark-specific proposals, and a pruner to remove ineffective edits.
 
@@ -39,18 +52,17 @@
 
 <!-- AUTO:CARD:END -->
 
-## 精读笔记
-
-<!-- TODO -->
-
-## 视频
-
-<!-- TODO -->
-
-## 可延伸的 idea
-
-<!-- TODO -->
+<!-- AUTO:RELATED:START -->
 
 ## 相关论文
 
-<!-- TODO -->
+- [Bad Genius: Counterfactual-Guided Harness Evolution Beyond Task-Specific Shortcuts (CHASE)](chase.md)
+- [HarnessEvolve: Learning from Reference Trajectories for Reliable Agent Self-Evolution](harnessevolve.md)
+- [SoL-Pi: Recursively Scaling Auto-Research Loops for Efficient Agent Harness](sol-pi.md)
+- [HarnessCompass: Guiding Automatic Harness Evolution toward Generalizable and Effective Agent Harnesses](harnesscompass.md)
+- [AHE: Agentic Harness Engineering](ahe.md)
+- [Self-Harness: Harnesses That Improve Themselves](self-harness.md)
+- [DarwinX: Evolving Agent Harnesses Through Natural Selection](darwinx.md)
+- [ModularRSI: Modular and Generalizable Recursive Harness Self-Improvement](modularrsi.md)
+
+<!-- AUTO:RELATED:END -->
