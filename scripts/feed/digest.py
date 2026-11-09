@@ -89,8 +89,8 @@ def _paper_dates(item, lang):
     published = item["published"][:10]
     parts = [f"原始发表：{published}", f"HF 推荐：{hf}"] if lang == "zh" else [
         f"Original publication: {published}", f"HF recommendations: {hf}"]
-    if item.get("updated") and item["updated"] != item["published"]:
-        parts.append(("版本更新：" if lang == "zh" else "Version update: ") + item["updated"][:10])
+    version_date = item["updated"][:10] if item.get("updated") else ("未核实" if lang == "zh" else "Not verified")
+    parts.append(("版本日期：" if lang == "zh" else "Version date: ") + version_date)
     return " · ".join(parts)
 
 
