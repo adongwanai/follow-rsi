@@ -25,7 +25,7 @@
 
 **一句话**：任务 Agent 与元 Agent 合并成同一个可编辑程序，元层修改程序本身也可改。
 
-**关键结果**：在编码、论文评审、机器人奖励设计、奥赛数学批改上都超过 DGM；元层改进可跨领域迁移。最常引的元改进基线。
+**关键结果**：编码任务上的改进与 DGM 相近；在论文评审和机器人奖励设计上优于原始 DGM，元层改进可迁移至奥赛数学批改并跨运行积累。
 
 <details><summary>English</summary>
 
@@ -46,7 +46,7 @@
 
 **Summary**: Merges the task agent and meta agent into a single editable program; the program that makes meta-level edits can itself be modified.
 
-**Key result**: Exceeds DGM in coding, paper reviewing, robot reward design, and Olympiad mathematics grading; meta-level improvements transfer across domains. The most frequently cited meta-improvement baseline.
+**Key result**: Coding improvements are comparable to DGM; DGM-H outperforms the original DGM in paper review and robotics reward design, while meta-level improvements transfer to Olympiad mathematics grading and accumulate across runs.
 
 </details>
 

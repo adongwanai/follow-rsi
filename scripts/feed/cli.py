@@ -238,16 +238,35 @@ def check_versions(root, issues=False):
     from scripts.feed.dedupe import dedupe_items
     from scripts.feed.health import version_alerts
     from scripts.feed.digest import remove_retracted
+    from scripts.feed.storage import save_raw
     papers = read_yaml(Path(root)/'data/papers.yaml')['papers']
     existing = load_items(root)
     ids = [p['arxiv'] for p in papers if p.get('arxiv')]
     ids += [p['arxiv_id'] for p in existing if p.get('arxiv_id')]
+    ids = list(dict.fromkeys(ids))
     fresh = fetch_ids(ids)
+    checked_at = datetime.now(timezone.utc).isoformat()
+    snapshot = save_raw(root, 'arxiv-version-check', checked_at[:10], {
+        'format': 'version-candidates', 'checked_at': checked_at,
+        'requested_ids': ids, 'records': fresh,
+    })
+    returned = [item['arxiv_id'] for item in fresh]
+    if len(returned) != len(set(returned)) or set(returned) != set(ids):
+        raise ValueError(f'arXiv version-check identity mismatch: requested {ids}, returned {returned}')
     merged = dedupe_items(fresh,existing,papers)
-    save_items(root,merged)
+    previous = {item['id']: item for item in existing}
+    candidates = [item for item in merged if item != previous.get(item['id'])]
+    # Version metadata is a review proposal, not a replacement for reviewed
+    # source content. A detected withdrawal still removes public material.
+    retracted = [{**previous[item['id']], 'retracted': True} for item in merged
+                 if item['id'] in previous and item.get('retracted')
+                 and not previous[item['id']].get('retracted')]
+    if retracted:
+        save_items(root, retracted)
     alerts = version_alerts(root,merged,issue_client=issue_client(issues))
     remove_retracted(root)
-    return {'checked':len(fresh),'alerts':alerts}
+    return {'checked':len(fresh), 'candidates': len(candidates), 'retracted': len(retracted),
+            'snapshot': str(snapshot), 'alerts':alerts}
 
 
 def main():

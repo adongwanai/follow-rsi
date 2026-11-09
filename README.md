@@ -27,6 +27,14 @@ RSI 论文每天都在冒，但不是每个「变强了」都经得起检验。F
 
 <!-- AUTO:TODAY:START -->
 
+**更新进度（尚未发刊） · 2026-11-09**
+
+北京时间12:39–12:43实际尝试12路信源。HF 11/09完整榜8篇：7个新身份及已发布的Beneath；复查11/08、11/07为空榜，11/06仍32篇且无晚到新增。S2另发现1篇，共8个新候选，经官方版本正文三轮审查建议1纳入、6排除、1待补；HEELO仅纳入Harness原语开发与入库分支，原发表日11/05。五路RSS返回51条窗口记录，13个GitHub仓库无窗口release。arXiv三路查询429；S2引用50页成功后部分限流，作者来源未取得论文页，覆盖未完成。IAPO因神经策略与显式控制计划边界保留待补；没有把较早来源改期为今日论文。此为当时观察快照。
+
+[查看逐日进度 →](https://adongwanai.github.io/follow-rsi/daily/index.html#publication-status)
+
+**最近已发布**
+
 **[2026-11-08](https://adongwanai.github.io/follow-rsi/daily/2026-11-08.html)** · 采集与审核简报
 
 采集与审核简报已发布，本期未收录新论文。发布前采集与审核记录：北京时间08:04–08:13已尝试12路信源。HF今日榜未就绪，最新可用的11/06完整榜为32篇，晚到成员Coca-Cola已排除。新识别19项：5篇通过逐篇复核，按11/04或11/05原来源日期补刊；13项排除，Evolver待补。历史积压另完成443条复核：15项历史补录、419项排除、9项范围边界。连同来源重试，本次审核单共467项：434排除、15历史补录、18待补。五路RSS取得59条窗口记录，13个GitHub仓库无窗口内release；arXiv三路查询超时或429，S2匿名限流使覆盖未完成。没有把旧论文改期为今日新增；这是当时的采集快照，不能据此断言之后没有更新。
@@ -135,7 +143,7 @@ RSI 论文每天都在冒，但不是每个「变强了」都经得起检验。F
 
 <!-- AUTO:SOURCES:START -->
 
-已实际运行成功：arxiv-adjacent · arxiv-harness · arxiv-rsi · github-releases · hf-daily · rss-deepmind · rss-metr · rss-openai · rss-sakana · rss-weco · s2-citations。 本次失败：arxiv-adjacent · arxiv-harness · arxiv-rsi · s2-authors · s2-citations。 榜单未就绪：hf-daily。 [信源状态](https://adongwanai.github.io/follow-rsi/feed/status.json).
+已实际运行成功：arxiv-adjacent · arxiv-harness · arxiv-rsi · github-releases · hf-daily · rss-deepmind · rss-metr · rss-openai · rss-sakana · rss-weco · s2-citations。 本次失败：arxiv-adjacent · arxiv-harness · arxiv-rsi · s2-authors · s2-citations。 [信源状态](https://adongwanai.github.io/follow-rsi/feed/status.json).
 
 <!-- AUTO:SOURCES:END -->
 
