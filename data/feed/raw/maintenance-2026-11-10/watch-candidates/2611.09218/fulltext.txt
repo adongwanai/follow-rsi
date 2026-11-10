@@ -1,0 +1,763 @@
+Content selection saved. Describe the issue below:
+
+BoxBox : Recursive Harness Self-Improvement for Long-Running Performance Optimization
+
+Automated harness optimization improves agents by learning from trajectories and task feedback. Existing offline methods use reference answers to optimize harnesses for reuse on held-out tasks. However, many real-world tasks are open-ended, while long runs expose new difficulties that offline-optimized harnesses may not address. To study harness optimization in these settings, we introduce PerfRace , a benchmark for long-running performance optimization of software projects, and investigate whether agents can use task-specific experience to recursively improve their harnesses during an ongoing task. To this end, we introduce BoxBox , which enables agent-triggered harness revision and kernel-managed hot reloading while preserving execution context. We evaluate BoxBox on PerfRace under matched test-time budgets, comparing it with Frozen Harness, offline Harness Evolution, and Harness Scaling. BoxBox achieves higher speedup with more efficient use of task time and model cost, reaching a Speedup ​ @ ​ 4 ​ h \mathrm{Speedup@}4\mathrm{h} of 1.70 × 1.70\times , compared with 1.54 × 1.54\times for the strongest baseline.
+
+(a) Task performance (b) Cost efficiency Figure 1: Performance of BoxBox and baselines on 50 PerfRace test tasks,
+with three runs per method and task.
+Curves show aggregate best-so-far correct speedup against
+task time 1(a) and mean cumulative
+model cost per run 1(b) ,
+sampled at matching task times, with shaded bands indicating
+95% fixed-task run-resampling intervals. BoxBox achieves higher speedup with greater time and cost efficiency than the baselines.
+
+1 Introduction
+
+Large language model (LLM) agents interact with their environment through harness that determines both the available actions and the observations they receive ( Yang et al., 2024 ; Merrill et al., 2026 ; Lin et al., 2026 ) .
+Recent studies have shown that harness design can substantially affect agent performance and behavior, even when the underlying model is fixed ( Lin et al., 2026 ; Wang et al., 2026b ) .
+These findings have motivated automatic optimization of agent harness, in which an
+optimizer analyzes agent trajectories and evaluation feedback, proposes modifications
+to the harness, and evaluates the resulting agent on benchmark tasks.
+
+Existing offline harness optimization methods ( Park et al., 2026 ; Zhang et al., 2026b ; Lin et al., 2026 ; Wang et al., 2026b ) often use reference answers or task-completion feedback to diagnose failures, and revise harnesses to improve performance on held-out tasks. This setup aligns with existing agent benchmarks that evaluate whether an agent completes a specified task ( Jimenez et al., 2024 ; Merrill et al., 2026 ; Froger et al., 2026 ) .
+
+However, many real-world tasks are open-ended and long-running, making end-state evaluations alone insufficient to capture how agents progress throughout these runs.
+Moreover, this setting poses two challenges for offline harness optimization. First, open-ended tasks make it difficult to identify useful harness revisions, as they may lack clear criteria for diagnosing what needs improvement. Prior evaluations show that harness evolution does not reliably improve performance without unit-test feedback ( Wang et al., 2026b ) . Second, continued execution exposes new task-specific difficulties that may limit the generalization of harness revisions learned from other tasks ( Nie et al., 2026 ; Wang et al., 2026b ) .
+
+To study harness optimization in these settings, we introduce PerfRace , a benchmark for optimizing performance of real-world software projects. Our experiments show that offline Harness Evolution ( HE ) underperforms Frozen Harness on PerfRace (Figure 1 ), with no consistent improvement during training or validation (Appendix A.2 ), consistent with prior findings of unreliable gains and limited generalization ( Wang et al., 2026b ) .
+
+Nevertheless, the current task’s trajectory can reveal difficulties encountered during execution and provide task-specific evidence for harness revision ( Nie et al., 2026 ) . We therefore investigate whether an agent can use this experience to improve its own harness during the ongoing task, making harness optimization an online, task-specific process.
+Existing methods allocate budget between task execution and harness optimization through an outer loop, with harness updates scheduled by predefined triggers or a separate meta-agent ( Wang et al., 2026b ; Liu et al., 2026 ; Zhang et al., 2026c ) . However, external control limits the task-solving agent’s ability to respond to emerging difficulties. First, despite observing task progress, the agent cannot decide whether to spend its remaining budget on task execution or harness revision. Second, updates occur between task attempts or execution segments, delaying their use in the ongoing task.
+
+To address these limitations, we introduce BoxBox 1 1 1 Named after the F1 radio call “box, box,” requesting a pit stop for repairs and adjustments during the race. to support agent-triggered revision of the full executable harness through kernel-managed hot reloading.
+When requested, the kernel pauses task execution and launches an agent review session to diagnose difficulties from the trajectory and revise the harness.
+After validation, it resumes the task with preserved execution context under the revised harness, which governs both subsequent execution and future reviews, enabling recursive harness improvement.
+We evaluate BoxBox on PerfRace against Frozen Harness, offline Harness Evolution and externally controlled Harness Scaling under matched task budgets, comparing best-so-far correct speedup and model cost. BoxBox achieves a Speedup ​ @ ​ 4 ​ h \mathrm{Speedup@}4\mathrm{h} of 1.70 × 1.70\times , compared with 1.44 × 1.44\times for Frozen Harness, 1.28 × 1.28\times for Harness Evolution, and 1.54 × 1.54\times for Harness Scaling.
+
+Our main contributions are summarized as follows:
+
+• We introduce PerfRace , a benchmark for evaluating agents on open-ended performance optimization tasks, tracking correctness-preserving improvements to real-world software throughout task execution.
+
+We introduce PerfRace , a benchmark for evaluating agents on open-ended performance optimization tasks, tracking correctness-preserving improvements to real-world software throughout task execution.
+
+• We present BoxBox , which combines agent-triggered, full-harness revision from task-specific experience with kernel-managed hot reloading of the runtime while preserving execution context.
+
+We present BoxBox , which combines agent-triggered, full-harness revision from task-specific experience with kernel-managed hot reloading of the runtime while preserving execution context.
+
+• Our experiments show that BoxBox achieves higher best-so-far correct speedup with greater time and cost efficiency than the evaluated baselines, supporting harness optimization as part of an agent’s own capabilities.
+
+Our experiments show that BoxBox achieves higher best-so-far correct speedup with greater time and cost efficiency than the evaluated baselines, supporting harness optimization as part of an agent’s own capabilities.
+
+2 Related Work
+
+Automated harness optimization. Prior work has extensively studied the automated optimization of prompts for LLM-based systems ( Zhou et al., 2023 ; Pryzant et al., 2023 ; Yuksekgonul et al., 2025 ; Khattab et al., 2024 ; Agrawal et al., 2025 ) . Subsequent work extends automated optimization to agents, using execution trajectories and task feedback to improve their memory, skills, and workflows ( Zhao et al., 2024 ; Zhang et al., 2025 ; Ni et al., 2026 ; Hu et al., 2024 ; Zhang et al., 2024 ) . Meta-Harness and AHE further extend automated optimization to executable harness code, using trajectories and evaluation feedback to guide iterative revisions ( Lee et al., 2026 ; Lin et al., 2026 ) .
+
+Building on this setting, offline methods revise harnesses using reference answers or task-completion feedback from training tasks, aiming to improve held-out performance ( Park et al., 2026 ; Zhang et al., 2026b ; Lin et al., 2026 ) . However, an evaluation finds unreliable gains without unit-test feedback and limited transfer from reusable harnesses, but reports gains from Harness Scaling, which alternates task attempts and harness revisions at test time ( Wang et al., 2026b ) .
+
+Following this task-specific direction, JIT-Agent synthesizes a tailored harness for each task before execution begins ( Zhang et al., 2026a ) . TTHE further explores harness optimization without reference answers, using trajectories and execution-derived feedback to revise executable harnesses on unlabeled test batches ( Nie et al., 2026 ) . Continual Harness moves harness optimization into ongoing task execution through an outer loop that periodically invokes a refiner while preserving the task state ( Karten et al., 2026 ) . In BoxBox , the task-solving agent decides when to allocate its remaining budget to full-harness revision, while a separate kernel manages runtime hot reloading and preserves execution context.
+
+Long-Horizon and Open-Ended Agent Evaluation. Existing agent benchmarks cover diverse capabilities but commonly evaluate tasks with explicit end states, reporting task success, pass rates, or final artifact quality ( Mialon et al., 2023 ; Liu et al., 2024b ; Jimenez et al., 2024 ; Xie et al., 2024 ; Merrill et al., 2026 ; Sun et al., 2026 ) . Recent iterative optimization benchmarks evaluate solution quality but still use reference implementations, human performance, or reference outputs for task construction or scoring ( Chan et al., 2025 ; Lyu et al., 2026 ; Imajuku et al., 2025 ; Xu et al., 2026 ; Mang et al., 2025 ; Zhu et al., 2026 ) . Closer to our setting, Frontier-Eng and FrontierSWE support iterative optimization of engineering designs and software projects, with tasks curated from established problems and expert contributions ( Chi et al., 2026 ; Chu et al., 2026 ) .
+
+In contrast, PerfRace constructs long-running performance optimization tasks from real-world software projects and workloads without requiring reference optimizations. Its construction pipeline provides a scalable way to continually source new tasks from public software projects.
+
+Benchmarks for Performance Optimization. Shypula et al. (2024) introduce PIE for evaluating LLMs’ ability to make performance-improving edits to single-file competitive programming solutions while preserving functional correctness. Subsequent benchmarks broaden the optimization domains to GPU kernels, general-purpose numerical programs, and algorithmic redesign, while retaining function- or file-level optimization tasks ( Du et al., 2024 ; Huang et al., 2024 ; Liu et al., 2024a ; Waghjale et al., 2024 ; Ouyang et al., 2025 ; Press et al., 2025 ) .
+
+GSO and SWE-Perf extend evaluation to repository-level performance optimization, deriving tasks and human reference optimizations from GitHub commits and pull requests ( Shetty et al., 2025 ; He et al., 2026 ) . SWE-fficiency and FormulaCode further incorporate a targeted workload per task and multiple community-maintained workloads, respectively ( Ma et al., 2026 ; Sehgal et al., 2026 ) .
+
+These repository-level benchmarks construct tasks around a targeted performance test, whereas real performance engineering starts from an end-to-end workload and discovers bottlenecks through profiling. PerfRace adopts this workload-first formulation, leaving agents to identify and implement correctness-preserving improvements without a known target patch.
+
+3 PerfRace
+
+PerfRace benchmarks real-world software performance optimization with three design principles: (1) Live : projects are continually sourced from public GitHub repositories; (2) Open-ended : tasks use project workloads without reference optimizations or known target patches; and (3) Long horizon : agents iteratively optimize code and choose when to submit for feedback within a fixed budget.
+
+3.1 Task Formulation
+
+Each PerfRace task provides the agent with an editable project workspace,
+a fixed workload that the agent can run locally, and access to an external Judge.
+For official evaluation, the Judge uses a separate copy of this workload
+and additional held-out correctness cases.
+
+During the evaluation loop, the agent iteratively modifies the project and submits changes to the Judge for feedback. Let t i t_{i} denote the evaluation start time of submission i i and s i s_{i} its score, with s i = 0 s_{i}=0 for incorrect submissions. Scores are attributed retrospectively to evaluation start times; verification time also counts toward the task budget. We include the unmodified project as a baseline submission with t 0 = 0 t_{0}=0 and s 0 = 1 s_{0}=1 . We define the best-so-far correct speedup as S ( t ) = max i : t i ≤ t s i S(t)=\max_{i:t_{i}\leq t}s_{i} , which the agent aims to maximize within a fixed task budget B B .
+
+Figure 2: Overview of PerfRace .
+(a) Construction discovers projects from GitHub coding-agent activity, applies
+a two-stage Filter comprising a deterministic precheck and source-based
+assessment, and uses Agent–Human Pair Verification to produce a PerfRace task.
+(b) Task format separates the agent workspace from hidden evaluation files.
+(c) The evaluation loop repeatedly submits workspace snapshots to the
+Judge and tracks best-so-far correct speedup.
+
+3.2 Construction
+
+We construct PerfRace by identifying real projects with optimization potential
+and building reliable tasks around realistic workloads (Figure 2 (a)).
+Each PerfRace task adopts the Harbor Task Format ( Merrill et al., 2026 ) , as illustrated in Figure 2 (b).
+
+Discovery. To identify less-explored optimization opportunities beyond mature, heavily maintained repositories, we search GitHub coding-agent activity for candidate projects. Specifically, we identified 103,475 candidate projects from public GitHub pull requests and branch pushes made by known coding agents between May and August 2026 (Appendix B.3 ).
+
+Filter. We filter candidate projects in two stages. First, deterministic prechecks verify repository and source-revision accessibility, license redistributability, and repository size and popularity, retaining 7,257 candidates. We then use GPT-5.6-Luna to assess each candidate’s setup process, evaluable workload, runtime feasibility, and optimization potential from its source code. Of these candidates, 239 pass this assessment and proceed to Pair Verification (Appendix B.3 ).
+
+Pair Verification. We use agent–human Pair Verification to construct runnable tasks and assess their quality against three criteria (Appendix B.4 ):
+
+• Realism. The workload and metric represent meaningful project use.
+
+Realism. The workload and metric represent meaningful project use.
+
+• Reliability. Repeated equivalent runs support the same correctness and
+performance conclusions.
+
+Reliability. Repeated equivalent runs support the same correctness and
+performance conclusions.
+
+• Integrity. The score reflects genuine task completion rather than an
+invalid or shortcut solution.
+
+Integrity. The score reflects genuine task completion rather than an
+invalid or shortcut solution.
+
+Specifically, we first let the agent derive workload inputs and scale from real project use and propose correctness checks, measurement boundaries, and performance metrics for human review.
+Second, the agent configures warmup and runs repeated tests to detect flakiness and distinguish genuine speedups from noise; the reviewer uses these results to approve or revise the measurement protocol.
+Finally, the agent conducts red-team tests against reward hacking using invalid, incomplete, hard-coded, and work-skipping solutions; the reviewer requests verifier fixes as needed before approving the task for packaging and release.
+Eventually, we curated 100 tasks, each requiring an average of 9.1 hours of
+curation, 12 agent–human interactions, and $11.35 in agent cost; detailed
+statistics are provided in Appendix B.3 .
+
+3.3 Benchmark Composition
+
+The resulting benchmark contains 100 tasks across seven domains (Figure 3 ): developer tools (30 tasks) compiles, builds and validates software; data systems (25 tasks) ingests, indexes and queries data; scientific computing (15 tasks) runs simulations and numerical solvers; media processing (9 tasks) renders graphics and audio; geometry (8 tasks) processes maps and 3D models; machine learning (7 tasks) trains models and runs inference; and security (6 tasks) encrypts data and analyzes attack logs.
+Each task pairs a real project with a fixed workload; for example, one task optimizes CCC while it compiles SQLite. Appendix B.2 provides a detailed characterization of the tasks.
+
+Figure 3: Composition of PerfRace : seven workload domains (inner ring), 100 tasks (outer ring), and representative project–workload pairs (right).
+
+3.4 Evaluation
+
+In the evaluation loop, the agent chooses when to submit snapshots for correctness and performance feedback from the Judge (Figure 2 (c)). The score s i s_{i} is the speedup over the unmodified project for correct submissions and zero otherwise. Runs without a correctness-preserving improvement receive a score of 1 × 1\times . During the final five minutes, the agent is prompted to end optimization and leave the project in a coherent state for the Judge’s final evaluation.
+
+Prior studies show that agents can inflate scores by tampering with evaluation code or accessing reference outputs ( Wang et al., 2026a ; Von Arx et al., 2025 ) . We therefore use shadow verification , evaluating project snapshots in separate containers while keeping verifier code and held-out test data out of the agent’s workspace.
+Time spent in shadow verification counts toward B B .
+Appendix B.5 provides further details on shadow verification.
+
+4 BoxBox
+
+We now present BoxBox for agent-triggered harness revision during long-running tasks. The following subsections present the problem formulation, explain the kernel-managed harness update mechanism, and describe a simple self-review strategy for diagnosis and revision.
+
+4.1 Problem Formulation
+
+Consider a fixed language model ℳ \mathcal{M} and an executable harness that may change during a task. Let H k H_{k} , e k e_{k} , and τ k \tau_{k} denote the active harness, environment state, and accumulated trajectory at interaction step k k , respectively ( Yao et al., 2023 ) . Task execution follows
+
+a k \displaystyle a_{k} ∼ p ℳ , H k ( ⋅ ∣ τ k ) , a k ∈ 𝒜 ( H k ) , \displaystyle\sim p_{\mathcal{M},H_{k}}(\cdot\mid\tau_{k}),\qquad a_{k}\in\mathcal{A}(H_{k}), (1) ( e k + 1 , o k + 1 ) \displaystyle(e_{k+1},o_{k+1}) ← Execute H k ⁡ ( e k , a k ) , \displaystyle\leftarrow\operatorname{Execute}_{H_{k}}(e_{k},a_{k}), τ k + 1 \displaystyle\tau_{k+1} = τ k ⊕ ( a k , o k + 1 ) , \displaystyle=\tau_{k}\oplus(a_{k},o_{k+1}), H k + 1 \displaystyle H_{k+1} = { H k ′ , if a revision is activated , H k , otherwise . \displaystyle=\begin{cases}H^{\prime}_{k},&\text{if a revision is activated},\\
+H_{k},&\text{otherwise}.\end{cases}
+
+Here, a k a_{k} is a tool call from the action space 𝒜 ⁡ ( H k ) \mathcal{A}(H_{k}) exposed by the active harness, and p ℳ , H k p_{\mathcal{M},H_{k}} is its distribution induced by H k H_{k} constructing model inputs from τ k \tau_{k} and invoking ℳ \mathcal{M} . Execute H k \operatorname{Execute}_{H_{k}} resolves and executes a k a_{k} through the harness’s tool implementation, updates the environment state, and processes the resulting feedback into o k + 1 o_{k+1} ; ⊕ \oplus appends the action–observation pair to the history.
+
+When a revision is attempted, the agent revises H k H_{k} based on the interaction history τ k + 1 \tau_{k+1} , producing a candidate H k ′ H^{\prime}_{k} . If activated, it becomes the active harness for the next interaction; otherwise, execution continues under H k H_{k} . Subsequent action selection and execution therefore use H k + 1 H_{k+1} .
+
+4.2 Kernel-Managed Harness Updates
+
+BoxBox treats the harness as a task-specific implementation, allowing a revision to be tailored to the requirements of the ongoing task. To support such adaptations, BoxBox exposes the full executable harness, allowing the agent to translate task-specific needs into direct changes to tools, control flow, and state management. Let ℋ \mathcal{H} denote the set of harness implementations compatible with the execution interface. Methods with predefined editable components restrict candidate revisions to a subset ℋ bounded ⊆ ℋ \mathcal{H}_{\mathrm{bounded}}\subseteq\mathcal{H} ( Zhang et al., 2026b ; Lin et al., 2026 ; Park et al., 2026 ) , whereas BoxBox allows revisions H k ′ ∈ ℋ H^{\prime}_{k}\in\mathcal{H} .
+
+In BoxBox , the harness is the editable agent implementation, while the runtime is its running version that controls the agent’s execution and maintains its state. These revisions change the agent’s execution code, so a faulty update can interrupt the task and make it difficult for the agent to recover on its own. BoxBox therefore introduces a separate kernel that manages runtime hot reloading and can safely retain or restore the previous runtime if an update fails validation or activation.
+
+Specifically, we register boxbox() as a tool that yields control to the kernel, with boxbox() ∈ 𝒜 ⁡ ( H k ) \texttt{boxbox()}\in\mathcal{A}(H_{k}) . When the agent invokes boxbox() , the kernel suspends task execution and preserves the agent’s execution context, including the accumulated trajectory, terminal session, and workspace state. It then launches a review session for the agent to examine the trajectory, revise the harness as needed, and commit any changes. After the review session concludes, the kernel validates any new commits, loads the revised runtime on success, and otherwise retains the current runtime. During activation, the kernel transfers the preserved execution context to the new runtime and reattaches the existing terminal session. On successful activation, H k + 1 = H k ′ H_{k+1}=H^{\prime}_{k} , and subsequent interactions follow Eqn. 1 . Finally, the kernel returns control to the agent, allowing it to resume the ongoing task.
+
+Beyond agent-initiated updates, runtime faults also trigger kernel-managed recovery and review based on the recorded fault evidence. Appendix C provides further implementation details.
+
+Figure 4: BoxBox mechanism. The agent requests a review on demand, triggering a trap that transfers control to the kernel. The kernel then launches the review, validates revisions, and hot-reloads the runtime with preserved execution context and rollback if activation fails.
+
+4.3 Agent-Controlled Harness Optimization
+
+Based on this mechanism, BoxBox lets the task-solving agent decide when to request a harness review, so it can adapt its harness in response to difficulties encountered during task execution. Unlike prior methods that use an outer loop ( Lee et al., 2026 ; Karten et al., 2026 ; Liu et al., 2026 ) , the agent itself allocates the shared budget B B between project-code optimization and harness revision to maximize S ⁡ ( B ) S(B) .
+
+Within the review session, we provide a default skill (Appendix D.3 ) that guides the agent through a simple self-review strategy based on diagnosis and harness revision:
+
+• Diagnosis. The agent examines the trajectory for execution failures, repeated work, and successful patterns that could be automated or reused. It uses these observations to identify limitations of the current harness, such as missing capabilities or costly tool interactions.
+
+Diagnosis. The agent examines the trajectory for execution failures, repeated work, and successful patterns that could be automated or reused. It uses these observations to identify limitations of the current harness, such as missing capabilities or costly tool interactions.
+
+• Revision. The agent selects harness revisions based on their expected benefit within the remaining budget, such as adding guidance, improving tools, or changing execution logic. For example, repeated tool calls can be combined into a reusable tool.
+
+Revision. The agent selects harness revisions based on their expected benefit within the remaining budget, such as adding guidance, improving tools, or changing execution logic. For example, repeated tool calls can be combined into a reusable tool.
+
+We track harness revisions as Git commits so the agent can inspect prior changes alongside execution records in subsequent reviews, assess their effects, and decide whether further revisions are needed.
+
+5 Experiments
+
+5.1 Experimental Setup
+
+Baselines. We compare BoxBox with three baselines: Frozen Harness ( Frozen ) retains the initial harness throughout task execution. Harness Evolution ( HE ) optimizes the harness offline on training tasks and selects it by validation performance, then holds it fixed during test-task execution. Harness Scaling ( HS ) uses an external controller to revise the harness between attempts on the same task, using feedback from each completed attempt. Both HE and HS are adapted from Wang et al. (2026b) . Following Meta-Harness ( Lee et al., 2026 ) , all methods start from the same initial harness H 0 H_{0} , Terminus-KIRA ( KRAFTON AI and Ludo Robotics, 2026 ) , a simple terminal-based harness that executes shell commands and returns their outputs to the model.
+
+Evaluation protocol. We split the 100 PerfRace tasks into 40 training and 10 validation tasks for HE , and 50 held-out test tasks for evaluating all methods. Both task execution and harness optimization are performed using GPT-5.6 Luna with high reasoning effort. Each method is evaluated with three independent runs per test task, each sharing a four-hour budget ( B = 4 ​ h B=4\mathrm{h} ) across task execution, harness optimization, and evaluation. Detailed configurations are provided in Appendix A .
+
+Metrics. To account for randomness, we summarize task i i ’s best-so-far correct
+speedup across R = 3 R=3 runs as S ¯ i = ( ∏ r = 1 R S i ( r ) ​ ( B ) ) 1 / R \bar{S}_{i}=\left(\prod_{r=1}^{R}S_{i}^{(r)}(B)\right)^{1/R} .
+Let Cost ¯ i \overline{\mathrm{Cost}}_{i} be its mean model cost in US dollars,
+including harness optimization.
+Across N = 50 N=50 tasks, we use harmonic mean speedup to limit the influence of
+extreme values ( Shetty et al., 2025 ) and arithmetic mean task-level speedup per dollar:
+
+Speedup @ 4 h = N ∑ i = 1 N S ¯ i − 1 , Speedup / $ = 1 N ∑ i = 1 N S ¯ i Cost ¯ i . \mathrm{Speedup@}4\mathrm{h}=\frac{N}{\sum_{i=1}^{N}\bar{S}_{i}^{-1}},\qquad\mathrm{Speedup/\$}=\frac{1}{N}\sum_{i=1}^{N}\frac{\bar{S}_{i}}{\overline{\mathrm{Cost}}_{i}}. (2)
+
+Reported mean model cost averages Cost ¯ i \overline{\mathrm{Cost}}_{i} across tasks.
+Cost accounting and statistical details appear in Appendix A .
+
+5.2 Main Results
+
+We report performance and model cost in Table 1 and plot speedup against task time and cumulative model cost in Figure 1 . Appendix A.5 provides optimization trajectories for all test tasks.
+
+Table 1: Results on 50 test tasks with three four-hour runs per task, reporting Speedup ​ @ ​ 4 ​ h \mathrm{Speedup@}4\mathrm{h} , mean model cost per run, and mean task-level speedup per dollar. Method Speedup ​ @ ​ 4 ​ h \mathrm{Speedup@}4\mathrm{h} Mean model cost Speedup/$ ↑ \uparrow Frozen 1.442 $23.22 0.2142 HE 1.281 $24.56 0.1243 HS 1.539 $12.98 0.2872 BoxBox 1.702 $16.43 0.4886
+
+Offline harness optimization does not reliably improve performance. HE reaches 1.281 × 1.281\times at four hours, below Frozen (Table 1 ). HE struggles to identify consistently effective harness revisions during training, while the revisions selected through validation show limited generalization to long-running test tasks. Appendix A.2 provides detailed results and failure analysis. HE costs an average of $24.56 per test run. Including offline training and validation costs, shared across the 150 test runs, brings this average to at least $33.73. This additional offline expenditure does not translate into better test performance or greater cost efficiency than Frozen .
+
+Task-specific harness optimization supports continued improvement. Both HS and BoxBox improve over Frozen , reaching 1.539 × 1.539\times and 1.702 × 1.702\times at four hours, respectively, compared with 1.442 × 1.442\times for Frozen (Table 1 ). Both also reduce mean model cost, to $12.98 and $16.43 per run, respectively, compared with $23.22 for Frozen . Figure 1 shows the corresponding speedup trajectories against elapsed task time and mean cumulative model cost. Over the second half of the four-hour budget, the Frozen curve largely levels off, increasing from 1.410 × 1.410\times to 1.442 × 1.442\times , while HS improves from 1.431 × 1.431\times to 1.539 × 1.539\times and BoxBox from 1.530 × 1.530\times to 1.702 × 1.702\times . These trends show that task-specific harness optimization supports further progress as execution continues.
+
+Agent-controlled harness optimization improves performance and efficiency. Figure 1(a) shows that BoxBox achieves higher speedups than HS at matched elapsed task time. This result compares HS ’s attempt-level external control with BoxBox ’s finer-grained, agent-triggered revision during task execution. Whereas HS relies on an external controller to initiate revisions, BoxBox lets the agent decide when to allocate budget to adapting its harness to the needs of the ongoing task. This allows the agent to address harness limitations as they arise and apply useful revisions directly to the ongoing task. Figure 1(b) further shows higher speedups for BoxBox at matched cumulative model costs. Although HS has a lower total model cost, BoxBox achieves greater speedup per dollar under our task-level metric. Appendix A.3 provides further analysis.
+
+5.3 Ablation Studies and Analysis
+
+We further conduct ablation studies on 14 randomly sampled test tasks to isolate the contributions of key design choices to the effectiveness and efficiency of harness optimization, then analyze how agents perform harness optimization during task execution.
+
+Ablation Studies.
+
+Table 2: Ablation study of BoxBox .
+We examine agent-controlled triggering and full-harness editing
+in terms of task performance ( Speedup ​ @ ​ 4 ​ h \mathrm{Speedup@}4\mathrm{h} ), model cost,
+and cost efficiency (Speedup/$). Method Speedup ​ @ ​ 4 ​ h \mathrm{Speedup@}4\mathrm{h} Mean model cost Speedup/$ w/o Agent Triggering 1.508 $21.58 0.1338 w/o Full Editing 1.349 $16.07 0.1132 Full BoxBox 1.584 $15.07 0.3452
+
+Agent-controlled triggering. Following the scheduled refinement in Continual Harness ( Karten et al., 2026 ) , the w/o Agent Triggering variant schedules reviews every 30 minutes with full-harness editing. It achieves lower speedup at higher model cost than agent-triggered BoxBox (Table 2 ). Scheduled reviews can interrupt the process of proposing, implementing, and evaluating code changes. They also consume model calls even when they conclude that no harness revision is needed. In contrast, BoxBox lets the agent decide when to allocate budget to harness optimization based on the needs of the ongoing task.
+
+Full-harness editing. Following Self-Harness ( Zhang et al., 2026b ) , the w/o Full Editing variant retains agent-controlled triggering but restricts each review to a predefined scope. It achieves lower speedup than BoxBox (Table 2 ). Predefined editing boundaries can constrain task-specific adaptations that require changes across components or beyond the permitted scope. Full-harness editing lets the agent decide what to modify and how extensively based on the needs of the ongoing task.
+
+Harness Optimization Analysis.
+
+Review frequency. BoxBox invokes a median of five reviews per run, with 92% of runs containing three to six (Figure 5(a) ). These results show that boxbox() provides an effective entry point for harness optimization during task execution, allowing agents to review their harnesses based on accumulated trajectories.
+
+Budget allocation. Agents allocate most of their time budget to task execution. Harness reviews account for a median of 2.1% of the time budget and 13.8% of model cost per run (Figure 5(b) ). Together with BoxBox ’s higher speedup and lower model cost than Frozen , these results suggest that agents can effectively balance task execution and harness optimization within a shared budget.
+
+Modification scope. Harness modifications span prompt rules, skills, tools, execution logic, and fault handling (Figure 5(c) ). These changes show that agents use full-harness editing to adapt both their capabilities and execution process. Cases in Appendix A.4 illustrate how these modifications add capabilities, automate waiting, and revise context management.
+
+(a) Review frequency (b) Budget allocation (c) Modification types Figure 5: Harness optimization analysis. 5(a) Number of reviews per run across 150 test runs, including agent-triggered and fault-recovery reviews. 5(b) Per-run review time as a share of the four-hour task budget and review cost as a share of total model cost within that budget; dots represent runs, and boxes show the median and interquartile range. 5(c) Modification types across a collection of 620 applied, nonempty harness updates from BoxBox runs.
+
+The ablations show that agent-controlled triggering and full-harness editing improve performance and cost efficiency, while the analysis shows that agents adapt their capabilities and execution process while allocating most of their time to task execution. Together, these findings support harness optimization as part of the task-solving agent’s own capabilities.
+
+6 Conclusion
+
+In this work, we introduced PerfRace , a benchmark for long-running performance optimization of real-world software, and BoxBox , which combines agent-triggered, full-harness revision from task-specific experience with kernel-managed hot reloading that preserves execution context. On PerfRace , offline Harness Evolution yields inconsistent gains, whereas BoxBox achieves higher best-so-far correct speedup and greater time and cost efficiency than the evaluated baselines. It achieves a Speedup ​ @ ​ 4 ​ h \mathrm{Speedup@}4\mathrm{h} of 1.70 × 1.70\times , compared with 1.54 × 1.54\times for the strongest baseline, and reduces mean model cost by 29.3 % 29.3\% relative to Frozen Harness. These results support harness optimization as an agent capability for improving how it solves a task while continuing its execution.
+
+Security and Responsible AI Limitations
+
+BoxBox allows an agent to modify executable harness code during an ongoing task, which introduces security and Responsible AI risks beyond those of a fixed harness. In particular, the agent executes and modifies code that may originate from untrusted repositories, and harness revisions may introduce security regressions, weaken existing safeguards, or create unintended execution behavior. More generally, self-modifying agent mechanisms could be misused to alter controls or expand capabilities in ways not intended by system operators. Our evaluation is conducted in isolated research environments with kernel-managed validation and rollback for harness updates and separate shadow verification for task evaluation. These mechanisms reduce experimental risk but do not constitute a complete security boundary or guarantee safe behavior under adversarial conditions. BoxBox should therefore be viewed as a research prototype rather than a production-ready self-modifying agent framework. Any production deployment would require additional sandboxing, access control, security review, monitoring, and human oversight of agent-generated harness changes before they are activated.
+
+References
+
+Appendix A Experimental Details
+
+We describe the experimental environment and evaluation details in Appendix A.1 , followed by the experiments for Harness Evolution and Harness Scaling in Appendices A.2 and A.3 . Appendix A.4 examines how BoxBox harness revisions support task execution, and Appendix A.5 provides additional per-task optimization trajectories.
+
+A.1 Experimental Setup
+
+Experimental environment. To facilitate replication of our experimental environment, we conduct
+experiments on an Azure Standard_D96ads_v5 virtual machine ( Microsoft, 2026 ) with 96 vCPUs backed by an AMD EPYC 7763 processor and 384 GiB of system memory,
+running Ubuntu 24.04 with Docker.
+
+Initial harness. All methods start from Terminus-KIRA ( KRAFTON AI and Ludo Robotics, 2026 ) , a terminal-based harness that executes
+shell commands and returns their outputs to the model. Frozen retains
+this harness throughout task execution while the agent iteratively optimizes
+the project code.
+
+Time and cost accounting. Figure 1 and Table 1 use the same 600 test runs: 50 tasks, four methods, and three runs per
+method and task.
+For all methods, elapsed task time sums recorded agent-execution and verification phases.
+Agent execution includes harness review; environment setup is excluded.
+Only evaluations started within the four-hour budget contribute to Speedup ​ @ ​ 4 ​ h \mathrm{Speedup@}4\mathrm{h} .
+We calculate model cost from recorded token usage using the rates in
+Table 3 .
+Reported mean model costs per test run include all recorded model calls; cost and token
+curves report cumulative usage at each task-budget time point.
+
+Table 3: Model token rates used for cost calculation (USD per million tokens). Model Uncached input Cached input Output GPT-5.6-Luna $1.00 $0.10 $6.00 GPT-5.6-Terra $2.50 $0.25 $15.00
+
+Statistical analysis. The bands in Figure 1 show the 2.5th and 97.5th
+percentiles of 5,000 resampled benchmark runs over the fixed 50-task set.
+Each sample independently selects one of the three observed runs per task
+and aggregates the selected scores using the harmonic mean.
+The central curves instead use all three runs per task, with the
+geometric-then-harmonic aggregation defined in
+Equation 2 .
+In the cost panel, speedup intervals are plotted at the mean cumulative
+cost for each task-time point; they do not represent uncertainty in cost.
+
+A.2 Harness Evolution
+
+Our HE baseline adapts the implementation of Wang et al. (2026b) to PerfRace , retaining its core diagnosis-and-revision workflow. We detail the offline optimization procedure and examine training progress and the generalization of the selected harness to held-out tasks.
+
+Setup. We adapt task execution, evaluation, and experiment orchestration to PerfRace , replacing the task-success objective with best-so-far correct speedup under a fixed time budget and tailoring the diagnostic and revision prompts to guide harness improvements that increase speedup and reduce costs.
+
+The reference HE experiments use full-batch training on Terminal-Bench 2.1 ( Wang et al., 2026b ) . Publicly released mini-swe-agent trajectories generated with DeepSeek-V4-Flash on this benchmark ( Kwok et al., 2026 ) average 50 agent steps and 12.2 minutes per run, compared with 965 steps for our Frozen runs under a four-hour budget on PerfRace . We therefore limit each training run to 45 minutes and partition the 40 training tasks into mini-batches of five to keep the volume of trajectory evidence manageable for diagnosis. Across three reshuffled epochs (24 iterations), we evaluate h i − 1 h_{i-1} on one mini-batch at iteration i i and use the resulting trajectories and evaluation outcomes to produce h i h_{i} . For validation, we compare h 8 h_{8} , h 16 h_{16} , and h 24 h_{24} using fresh baseline measurements. Table 4 summarizes the HE pipeline and its recorded model costs.
+
+Table 4: HE configuration and recorded model costs. Training and validation costs include retries and reruns and are lower bounds where usage records are missing. Stage Tasks Evaluated runs Budget per run Cost ($) Training 40 24 iterations × \times 5 tasks 45 min 200.34 Validation 10 3 harnesses × \times 3 runs/task 2 h 1,176.12 Test 50 h24, 3 runs/task 4 h 3,683.34
+
+(a) Training progress (b) Validation performance Figure 6: HE training and validation performance. 6(a) Mini-batch training speedup, with aggregate scores for each epoch. 6(b) Validation speedup of harness checkpoints h 8 h_{8} , h 16 h_{16} , and h 24 h_{24} . Speedups are aggregated as in Equation 2 .
+
+Training, validation, and test results. Training performance does not improve consistently across epochs (Figure 6(a) ). Aggregate speedup decreases from 1.086 × 1.086\times in epoch 1 to 1.062 × 1.062\times in epoch 2 and recovers to 1.069 × 1.069\times in epoch 3, remaining below its initial level. Validation performance does not improve consistently across iterations (Figure 6(b) ), with h 24 h_{24} achieving the highest score among the evaluated checkpoints. We therefore use h 24 h_{24} for testing, where it achieves 1.281 × 1.281\times , below Frozen Harness at 1.442 × 1.442\times (Table 1 ). These results show that additional offline revisions do not reliably improve training performance or yield a test-time advantage, consistent with prior findings of limited transfer ( Wang et al., 2026b ) . Including the recorded offline cost raises mean cost to at least $33.73 per test run.
+
+Failure analysis. To understand HE ’s failure modes, we examine how a revision introduced during training affected execution on a test task. At iteration 5, diagnostic reports identified two patterns: (1) measurements showed faster execution of the baseline code, which had either remained unchanged or been restored after edits were discarded; and (2) records of faster execution did not specify which code version had been measured. These patterns made it difficult to determine whether measured gains reflected actual code improvements or measurement noise. HE therefore added a check to the harness to prevent agents from submitting code without evidence of an actual performance improvement.
+
+Specifically, the agent had to record the current and baseline commits, at least three timing measurements for each version, and correctness evidence in .autoresearch/promotion.json . The harness checked that the record matched the current commit, the worktree was clean, the code differed from the baseline, and the measured improvement exceeded a noise threshold. If these requirements were not met, it blocked submission and returned feedback directing the agent to repair. The check read this record and inspected Git state in the working directory selected by the harness (Figure 7 ).
+
+Check the repository and read local evidence. ⬇ + workdir = environment . task_env_config . workdir ... + head = await environment . exec (" git rev - parse HEAD ", cwd = workdir , timeout_sec =30) + if head . return_code != 0: + errors . append ( f " cannot resolve candidate HEAD : { head . stderr . strip ()}") + return errors ... + record = await environment . exec ( + " cat -- . autoresearch / promotion . json ", + cwd = workdir , + timeout_sec =30, + ) Check the measured improvement. ⬇ + threshold = max (0.05 * baseline_median , 2 * baseline_noise ) + improvement = baseline_median - candidate_median ... + if improvement < threshold : + errors . append ( f "{ PROMOTION_MARGIN_ERROR_PREFIX }: need at least { threshold } seconds ") Block submission when checks fail. ⬇ + if phase_outcome . action is not PhaseAction . CONTINUE : + gate_errors = await self . _promotion_gate_errors ( self . _session ) + if gate_errors : + phase_outcome = PhaseOutcome () + promotion_gate_feedback = ( + " WARNINGS : PROMOTION GATE BLOCKED ; no verification was requested .\ n " + + "\ n ". join ( f "- { error }" for error in gate_errors ) + + "\ nCreate or repair . autoresearch / promotion . json , then retry completion ." + ) + feedback = "\ n ". join ( filter ( None , ( feedback , promotion_gate_feedback ))) Figure 7: Selected additions to HE ’s harness at iteration 5. The harness checks the repository and performance evidence before submission, blocking submission and returning repair instructions when a check fails.
+
+The check enforced fixed requirements based on failures observed during training. However, its assumptions about repository location did not hold for some test tasks, causing it to block submissions before assessing the performance evidence. To examine this failure pattern, we selected mirage--kubernetes-triage for detailed trajectory analysis.
+
+In the selected run, the agent prepared Git commits and performance evidence inside the editable repository, while the harness ran its submission checks in the parent workspace. The check therefore failed to resolve the candidate commit and returned cannot resolve candidate HEAD , blocking submission before assessing the performance evidence. Repeated attempts to repair the evidence in the repository did not change the directory used by the harness. The trajectory records 473 blocked submission requests spanning approximately 3 hours and 46 minutes.
+
+This case illustrates both challenges in Section 1 . Difficulty in attributing measured gains motivated stricter submission requirements, but did not establish that these requirements would help the agent find better optimizations. On the selected test task, the check’s repository-location assumptions instead led to repeated repair attempts and blocked submissions, illustrating how a revision intended to address training failures can hinder execution under new task-specific conditions.
+
+A.3 Harness Scaling
+
+Our HS baseline adapts the implementation of Wang et al. (2026b) to PerfRace . We describe the execution procedure, analyze model costs, and examine a failure case.
+
+Setup. We adapt task execution and evaluation to PerfRace , using best-so-far correct speedup under a fixed time budget as the optimization objective. Each run shares a four-hour budget across task execution, harness optimization, and evaluation. An external controller revises the harness using feedback from each completed attempt and starts a new agent session, preserving project-code progress and resetting the execution context.
+
+We record 2,132 HS attempts, with a median of 12 per run. Across 1,983 boundaries, the median interval between one attempt ending and the next beginning is 3.37 minutes, including harness optimization and runtime transition.
+
+Model costs. HS ’s session resets can lower input-token costs by reducing the accumulated conversation history. Although project-code progress is retained, subsequent attempts may need to reconstruct earlier decisions or repeat experiments whose outcomes are no longer available in the execution context. BoxBox preserves this context across harness updates, allowing subsequent optimization to build directly on earlier findings. This trade-off helps explain why HS ’s lower total model cost does not necessarily translate into greater optimization progress per dollar.
+
+Failure analysis. To examine HS ’s optimization process, we trace one kitops--minilm-pack run (Figure 8 ). During one harness optimization step, HS ’s controller reported that the agent repeatedly rebuilt the project, ran tests, and reran the workload on the same code version. It therefore added a repetition check to warn after three consecutive matching command batches.
+
+Figure 8: HS optimization trajectory on kitops--minilm-pack . Annotations show selected harness revisions and an agent session containing 113 consecutive checks that produced no new performance measurements.
+
+However, the new repetition check did not stop the agent from performing the same checks using different command forms. The agent ran 113 consecutive commands repeating the same checks, without modifying code or collecting new performance measurements. The check only looked for consecutive repetitions of the same commands, so it could miss repeated checks written in different ways. The run reached its best correct speedup of 1.649 × 1.649\times at checkpoint 5, with no further improvement in subsequent recorded checkpoints. The repeated checks revealed a need for further harness revision during execution, yet HS performs harness optimization only between agent sessions, leaving the current session to continue under the existing harness.
+
+This case illustrates how session-level external control can delay harness revisions needed during ongoing task execution. The revised check missed repeated validation expressed through different commands, and the agent continued spending task time without making code changes or collecting new performance measurements. Allowing the agent to initiate further harness revision when these limitations become apparent would provide an earlier opportunity to address them.
+
+A.4 Case Study
+
+To analyze how BoxBox supports effective task execution, we examine two complementary aspects of harness optimization. Appendix A.4.1 traces how agent-triggered reviews address difficulties encountered during ongoing tasks. Appendix A.4.2 examines how full-harness editing can support task performance and reduce model costs through changes to agent guidance, tools, and execution behavior.
+
+A.4.1 Harness Optimization Trajectories
+
+We examine two four-hour runs, tracing the difficulties encountered during task execution, the resulting harness revisions, and their use in subsequent optimization.
+
+CCC. To reduce CCC’s compilation time on SQLite, the agent profiles compiler stages and tests code changes through repeated compilation runs (Figure 9 ). During the first review, the agent identified repeated manual processing of timing output and added a helper for repeated runs, result recording, and candidate comparisons. Using this helper, the agent established a baseline and evaluated compiler changes, but still had to extract and compare individual stage timings manually. To automate this step, the agent added stage-timing summaries to the helper in the second review, then used them to investigate optimization passes and code generation.
+
+Later, a change to CCC’s source code appeared to reduce compilation time by 9.4% in separately measured batches. Yet when the agent alternated runs of the modified and unchanged compiler versions, their median compilation times were nearly identical, suggesting that the apparent gain came from measurement variation between batches rather than the code change. The agent therefore incorporated this comparison procedure into the helper during the third review to improve measurement reliability, then used it to reject several compiler changes that showed no consistent speedup. Continuing with this helper, the agent developed mnemonic-parsing and operand-splitting changes that reduced official running time from 6.321 6.321 to 6.095 6.095 and then 5.792 5.792 seconds.
+
+Figure 9: BoxBox optimization trajectory on ccc--compile-speed . Points show correct evaluation results and the line shows best-so-far speedup. Annotations mark harness review outcomes and task-code changes; numerical gains are absolute and relative increases over the preceding best-so-far speedup.
+
+FluidSynth. To optimize FluidSynth’s MIDI-to-WAV rendering performance, the agent tests code changes through repeated workload execution and output checks. Figure 10 traces harness revisions during this process. The first review noted that long-running commands required extra model calls to continue waiting, but retained the harness because a proposed waiting tool would duplicate existing functionality. As this pattern recurred, the second review extended waiting inside the existing command runner. During subsequent audio-write batching experiments, a single tool call completed a build, five renders, and output checks, allowing the agent to assess the candidate without an additional waiting call.
+
+Comparing batch sizes still required repeated setup of builds, timing loops, and output checks. The third review therefore added benchmark_matrix , reusing the updated command runner to execute labeled experiments and report timings and exit status. The agent then used it for six repeated renders with output-hash checks and subsequent configuration comparisons. Rendering performance improved further after the agent disabled OpenMP in the build configuration. The fourth review retained the harness, judging its existing capabilities sufficient after the agent resolved a build-state issue through a clean rebuild. The run reached a best-so-far speedup of 1.183 × 1.183\times .
+
+Figure 10: BoxBox optimization trajectory on fluidsynth--bagatelles , using the plotting conventions of Figure 9 . Reviews extend command waiting and add batch benchmarking.
+
+Together, these cases illustrate how harness optimization can improve task performance and reduce model costs by improving the agent’s performance optimization workflow, even though the reviews do not directly modify project code.
+
+A.4.2 Representative Harness Modifications
+
+We examine five representative harness updates that change agent guidance, tools, or execution behavior. While Figure 5(c) reports the prevalence of modification categories, Table 5 summarizes the concrete changes analyzed below.
+
+Table 5: Representative harness updates grouped by modification type. Case numbers refer to the detailed analyses below; task IDs follow the catalog in Table 7 . Case Category Task ID Modification A.4.2 Review feedback n8n-mcp--tool-batch-speed Redirect the next experiment toward SQLJS conversion and statement overhead. A.4.2 Prompt rules and skills sum--text-attest Require alternating A/B measurements when apparent gains are close to noise. A.4.2 Tool functionality rust-clippy--cargo-package-lint Extend internal command polling to reduce model-directed waiting turns. A.4.2 Execution logic trixi-framework-trixi-jl--self-gravitating-sedov-amr Add a message-count-based context-compaction path. A.4.2 Fault fix rust-clippy--cargo-package-lint Replace an exception on shell exit with a session-recovery call.
+
+The following cases proceed from changes in agent guidance to changes in executable behavior. Cases A.4.2 – A.4.2 examine review feedback and prompt-based guidance for experiment selection and evaluation. Case A.4.2 examines internal command polling to reduce model-directed waiting. Cases A.4.2 – A.4.2 turn to context management and terminal recovery within the agent loop. Together, they illustrate how full-harness editing can affect both the direction of the search and the process used to carry it out.
+
+Case 1. Review feedback: redirecting an experiment
+
+Task: n8n-mcp--tool-batch-speed
+
+Background. The task is to reduce the end-to-end running time of the n8n-mcp server on a fixed batch of workflow-building tool calls while preserving response correctness. The agent attempted to reduce logging overhead, but local measurements showed no improvement. The review therefore used profiling evidence to identify a different direction for the next experiment.
+
+Review feedback. The feedback directs the agent to stop revisiting logging and investigate SQLJS data-conversion and statement-management overhead. It also specifies an experimental workflow, asking the agent to preserve the current project-code version and test modifications on a separate branch through paired repeated workload measurements and response-hash comparisons. Modifications should be rejected if their measured gains fall within measurement noise or their responses differ.
+
+Discussion. This case illustrates how review feedback can support performance optimization by guiding both experiment selection and evaluation. Redirecting effort away from an unsuccessful direction can reduce repeated exploration, while paired measurements and response checks help the agent distinguish useful code changes from measurement noise or incorrect behavior.
+
+Case 2. Prompt rules and skills: comparing noisy measurements
+
+Task: sum--text-attest
+
+Background. The task is to reduce the running time of SUM’s batch text-attestation workflow while preserving its outputs. Across successive experiments, the agent encountered apparent gains that did not hold under more controlled measurements. Earlier reviews had already warned against drawing conclusions from warmup effects and uncontrolled measurement order, yet a later code change again appeared promising based on a single fast run. To address this recurring problem, the review incorporated the measurement guidance into the main prompt for use across subsequent experiments.
+
+Harness update. The prompt rule instructs the agent to keep an unchanged reference version and test modified code on a separate branch. It requires the same warmup procedure for both versions, followed by alternating fresh-process workload runs with identical output checks. The agent should compare median running times and their spread before accepting or rejecting the modification, with the measurement procedure aligned with the official workload.
+
+Discussion. This case illustrates how prompt revisions can provide consistent guidance for evaluating code changes across successive experiments. More reliable comparisons can help the agent distinguish genuine improvements from measurement noise, reducing the risk of retaining ineffective changes or discarding useful ones based on unstable timing evidence.
+
+Case 3. Tool functionality: reducing model calls for command polling
+
+Task: rust-clippy--cargo-package-lint
+
+Background. During performance optimization on Rust Clippy, the agent builds the project and runs benchmarks to evaluate code changes. The command tool could return before these operations finished, requiring additional model calls simply to continue waiting. The review therefore extended the tool’s internal waiting behavior to reduce these repeated interactions.
+
+Harness update. The update extends internal waiting to 180 seconds for ordinary commands, subject to the existing block timeout. The tool continues checking for the completion marker and returns as soon as it appears, or provides a progress snapshot when the waiting window expires.
+
+The tool description is updated alongside the implementation, instructing the agent to request an additional wait only when the command outlasts the new window.
+
+Discussion. This case illustrates how full-harness editing allows agents to adjust tool behavior adaptively to reduce model calls spent solely on waiting. When an unfinished command returns control to the agent, another model call processes the conversation context and generates a continuation request, incurring input- and output-token costs. Internal polling checks command status without invoking the model, allowing commands that finish within the extended window to return their results without these additional calls. Fewer waiting turns also add fewer messages to subsequent context. The potential cost reduction therefore comes from reducing model interaction during command execution, while commands exceeding the window may still require further calls.
+
+Case 4. Execution logic: context compaction
+
+Task: trixi-framework-trixi-jl--self-gravitating-sedov-amr
+
+Background. During performance optimization on Trixi, the agent accumulated a long interaction history through profiling and repeated experiments. The review reported that late model requests contained approximately 145,000 input tokens, making repeated processing of the accumulated history a substantial source of model cost. The existing summarization mechanism had not sufficiently limited this growth, motivating a revision to the agent loop’s context-management logic.
+
+Harness update. The update adds a message-count trigger before the existing optional summarization check. When the original task instruction is available, the loop attempts compaction if the history contains at least 64 messages and its message count is at least 24 higher than the count recorded at the last attempt. It records the current count before invoking the existing summarizer through a helper with a timeout. Successful results supply the continuation prompt and subagent references; if summarization fails, execution continues with the existing history.
+
+Discussion. This case illustrates how full-harness editing allows agents to adapt context-management logic during ongoing tasks. By summarizing accumulated interaction history, the revised loop can reduce the amount of context processed in subsequent model calls and the associated input-token costs.
+
+Case 5. Fault fix: terminal recovery
+
+Task: rust-clippy--cargo-package-lint
+
+Background. While the agent was waiting for a long Rust Clippy build, the persistent terminal shell exited. At the next agent-loop entry, the harness raised an exception before its existing session-recovery helper could run. This failure prompted a review of how the harness handles terminal loss during ongoing execution.
+
+Harness update. The update replaces the exception with a call to the existing session-recovery helper, which preserves a live terminal or starts a replacement if the shell has exited. This prepares a usable terminal for the next model turn without automatically replaying commands whose completion is uncertain. Such commands may already have modified project files, so replaying them could duplicate their effects.
+
+Discussion. This case illustrates how full-harness editing allows agents to revise error-handling logic when runtime faults interrupt ongoing tasks. By restoring terminal access, the revised harness can enable the agent to inspect the current task state and resume performance optimization after a shell failure.
+
+Together, these cases illustrate how full-harness editing lets agents adapt guidance, tools, and execution logic to the needs of ongoing tasks. Changes to experiment selection and measurement can support task performance by focusing effort on promising hypotheses and improving the reliability of candidate evaluation. Changes to tool execution and context management can reduce model costs by avoiding unnecessary waiting calls and repeated transmission of long histories, while fault-handling revisions support continued execution.
+
+A.5 Per-Task Optimization Trajectories
+
+Figures 11 – 15 show optimization trajectories for all 50 test tasks.
+Each curve geometrically averages three runs, following the scoring and
+time-accounting conventions of Figure 1 .
+The vertical scale varies by task.
+
+Figure 11: Per-task optimization trajectories (1/5).
+
+Figure 12: Per-task optimization trajectories (2/5).
+
+Figure 13: Per-task optimization trajectories (3/5).
+
+Figure 14: Per-task optimization trajectories (4/5).
+
+Figure 15: Per-task optimization trajectories (5/5).
+
+Appendix B PerfRace : Benchmark Details
+
+The PerfRace appendix is organized as follows: Section B.1 compares PerfRace with related benchmarks; Section B.2 characterizes its 100 tasks; Section B.3 reports construction and curation statistics; Section B.4 describes the Pair Verification protocol and quality control; and Section B.5 details the evaluation protocol and analyzes gains from longer optimization budgets.
+
+B.1 Benchmark Curation and Evaluation
+
+Table 6 compares PerfRace with
+representative ultra-long-horizon agent benchmarks and code-optimization
+benchmarks along task type, task construction, and evaluation procedure.
+Existing ultra-long-horizon benchmarks largely assemble fixed suites of
+hand-crafted or expert-curated tasks. In contrast, PerfRace combines live
+GitHub discovery with agent–human Pair Verification to continually construct
+validated optimization tasks from real-world projects and workloads.
+Compared with existing code-optimization benchmarks, it does not derive tasks
+from known performance patches and evaluates progress repeatedly rather than
+only at task completion.
+
+A workload specifies the inputs and operations used to exercise a project.
+A microbenchmark measures a narrowly scoped part of that work, such as a
+selected API call or operation. For example, SWE-fficiency includes a
+performance workload that repeatedly times a NumPy einsum call ( Ma et al., 2026 ) .
+An end-to-end workload instead measures a complete project-use workflow. PerfRace adopts this broader measurement boundary, leaving agents to
+profile the workflow and identify which components to optimize.
+The distinction is therefore the scope of the measured computation:
+targeted operations versus an end-to-end workflow, rather than whether
+the benchmark supplies a workload.
+
+Table 6: Comparison with related benchmarks. Microbenchmarks measure targeted
+operations (for example, selected API calls), whereas end-to-end workloads
+measure complete project-use workflows. Benchmark Task type Task construction Evaluation PerfRace Repository optimization on end-to-end workloads Live GitHub discovery followed by agent–human Pair Verification Iterative correctness and performance feedback from an external Judge AutoLab ( Xu et al., 2026 ) Diverse metric-driven optimization tasks Expert-curated optimization tasks Local evaluation during the task; held-out final evaluation EdgeBench ( Zhu et al., 2026 ) Cross-domain iterative problem-solving tasks Expert-curated day-scale tasks Local inner loop; repeated submission-gated Judge feedback FrontierSWE ( Chu et al., 2026 ) Ultra-long-horizon software engineering and research tasks Real-world problems curated with academic and industry experts Final graded submission after up to 20 hours Terminal-Bench ( Merrill et al., 2026 ) General terminal tasks Crowdsourced tasks with multi-stage human review Final-only test-based evaluation GSO ( Shetty et al., 2025 ) Microbenchmark-based repository optimization Repository commit histories and generated performance tests Final-only microbenchmark-based evaluation SWE-Perf ( He et al., 2026 ) Microbenchmark-based repository optimization Historical performance PRs and selected repository tests Final-only microbenchmark-based evaluation SWE-fficiency ( Ma et al., 2026 ) Microbenchmark-based repository optimization Performance PRs and manually reconstructed workloads Final-only microbenchmark-based evaluation FormulaCode ( Sehgal et al., 2026 ) Microbenchmark-based repository optimization Continuously ingested performance PRs and ASV workloads Final-only microbenchmark-based evaluation
+
+B.2 Detailed Benchmark Composition
+
+We characterize the 100 PerfRace tasks by project purpose, primary programming language, license, packaged source size, file count, and fixed workload.
+
+Projects. The projects represented in PerfRace span 16 primary programming languages:
+Rust (25 tasks), Python (18), TypeScript (15), C++ (11), C (6), C# (6), Julia
+(5), Go (4), Java (3), Scala (1), Lua (1), OpenSCAD (1), Solidity (1), MATLAB
+(1), JavaScript (1), and Zig (1).
+The packaged project sources range from 42 to 15,869 files and from 471.49 KiB
+to 689.08 MiB, with medians of 886 files and 14.56 MiB.
+
+Figure 16: Distribution of primary programming languages, packaged source sizes, and packaged source file counts across PerfRace projects.
+
+Task catalog. Table 7 lists each task’s project, purpose,
+license, and fixed workload.
+
+Table 7: Complete catalog of the 100 PerfRace tasks. Task Project and purpose License Fixed workload aiidateam-aiida-core--battery-archive-import aiidateam/aiida-core Scientific workflow and provenance platform MIT AiiDA import of a public battery-cycling provenance archive anyrender--openmoji DioxusLabs/anyrender Rust 2D drawing abstraction Apache-2.0 AnyRender batch rasterization of the OpenMoji SVG corpus apalache--zcash-sync apalache-mc/apalache Symbolic model checker for TLA+ and Quint Apache-2.0 Apalache’s bounded safety check for the Zcash v2 block-download scheduler arrow-rs--variant-wikidata apache/arrow-rs Rust implementation of Apache Arrow Apache-2.0 apache/arrow-rs while encoding Wikidata entities as a Variant column bevy-voxel-world--terrain-streaming splashdust/bevy_voxel_world Voxel-world plugin for Bevy Apache-2.0 splashdust/bevy_voxel_world terrain generation and chunk meshing bm25s--trec-covid-index xhluca/bm25s BM25 search library MIT bm25s indexing and persistence for the TREC-COVID research collection boyter-scc--linux-v6-19-json-scan boyter/scc Source-code counting and complexity tool MIT SCC whole-repository JSON scan time on Linux v6.19 calldiff--pi-review tanishqkancharla/calldiff Function call-stack diff tool MIT Calldiff JSON call-stack diffs for a real Pi coding-agent review cbcoutinho-nextcloud-mcp-server--ohr-pdf-ingest cbcoutinho/nextcloud-mcp-server MCP server for Nextcloud AGPL-3.0 Nextcloud MCP Server’s born-digital PDF ingest and page-aware chunking throughput ccc--compile-speed anthropics/claudes-c-compiler Dependency-free C compiler CC0-1.0 CCC compile-to-object latency on the SQLite 3.46.0 amalgamation chaste--ttp06-sheet Chaste/Chaste Biomedical simulation framework BSD-3-Clause Chaste cardiac simulation for a TTP06 ventricular sheet propagation cmtraceopen--hadoop-logs adamgell/cmtraceopen Cross-platform Windows log viewer MIT CMTrace Open while loading a real Hadoop/YARN log session cocoon--oci-import cocoonstack/cocoon MicroVM engine MIT local import of a supported Cocoon Ubuntu VM OCI image codediff--neovim-release esmuellert/codediff.nvim Neovim code-review and diff plugin MIT CodeDiff C diff latency for a real Neovim release review commitizen--check commitizen-tools/commitizen Commit and changelog automation tool MIT Commitizen changelog generation for Angular’s complete Git history core--blob-upload calimero-network/core Peer-to-peer application platform Apache-2.0 Calimero content-addressed blob ingestion for a real OpenStreetMap file upload cpp2rust--woff2-compress Cpp2Rust/cpp2rust C++-to-safe-Rust translator MIT Cpp2Rust’s safe Rust output for public-font WOFF2 compression deepinv--kohler-kernels deepinv/deepinv Deep-learning inverse-problems library BSD-3-Clause DeepInverse spatially varying blur-kernel estimation on a real Kohler camera-motion-blurred image dftd4--lysozyme-gradient dftd4/dftd4 Atomic-charge-dependent dispersion correction LGPL-3.0 DFT-D4 energy, analytic gradient, and virial evaluation for a real lysozyme structure dither-guy--photo-batch manoelpiovesan/dither-guy Image dithering application GPL-3.0 Dither Guy’s full-resolution photo batch export doc-detective--redpanda-transforms doc-detective/doc-detective Documentation testing framework AGPL-3.0 Doc Detective dry-run planning for Redpanda transform documentation drasi-core--gtfs-delay-replay drasi-project/drasi-core Continuous-query engine Apache-2.0 Drasi Core’s continuous Cypher evaluation for replayed GTFS-Realtime vehicle geofence updates duckdb--taxi-ingest Giorgi/DuckDB.NET .NET bindings for DuckDB MIT DuckDB.NET ingestion of NYC Yellow Taxi trip records dusty--fpindex-ingest lalinsky/dusty Zig HTTP client/server library MIT Dusty’s HTTP batch-ingestion path for real AcoustID fpindex updates embree--chess-render RenderKit/embree Ray-tracing kernels Apache-2.0 Embree triangle traversal for a public chess-scene visibility render endee--esci endee-io/endee Vector database AGPL-3.0 Endee HTTP dense search for a replay of Amazon Shopping Queries product searches enzyme--mnist EnzymeAD/Enzyme.jl Julia automatic-differentiation library MIT Enzyme.jl for Flux’s CPU LeNet MNIST training epoch eole--gpt2-wikitext-generate eole-nlp/eole Language-modeling toolkit MIT EOLE CPU GPT-2 batch text generation on WikiText-103 prompts eucalypt--config-render-speed curvelogic/eucalypt Configuration language and interpreter MIT OR Apache-2.0 the eucalypt interpreter on a config-generation workload eucalypt--eval-speed curvelogic/eucalypt Configuration language and interpreter MIT OR Apache-2.0 the eucalypt interpreter on an Advent of Code workload facet--venta-guild Tim-Maes/Facet .NET DTO and mapping source generator MIT Facet package and source-generator compilation time for venta’s Guild service flexmeasures--smard-price-import FlexMeasures/flexmeasures Energy-management platform Apache-2.0 FlexMeasures import of a full year of public SMARD day-ahead prices fluidsynth-fluidsynth--bagatelles-midi-render FluidSynth/fluidsynth SoundFont software synthesizer LGPL-2.1 FluidSynth offline rendering of a complete CC0 MIDI performance to WAV geoparquet-io--hilbert-sort geoparquet/geoparquet-io GeoParquet tooling Apache-2.0 GeoParquet Hilbert ordering of an Overture Buildings shard gridflock--drawer-stl yawkat/GridFlock Gridfinity baseplate generator MIT / CC-BY-4.0 GridFlock’s segmented Gridfinity drawer-baseplate STL export ifcopenshell--gni-bimproject-obj-export IfcOpenShell/IfcOpenShell IFC library and geometry engine LGPL-3.0 IfcOpenShell IfcConvert OBJ export for a lighter GNI BIM Project architectural IFC delivery intro-skipper--credits intro-skipper/intro-skipper Jellyfin intro and credits detector GPL-3.0 Intro Skipper’s movie credits black-frame evidence extraction jagua--nesting JeroenGar/jagua-rs 2D collision engine for nesting MPL-2.0 jagua-rs collision collection replayed from a downstream nesting solver javaevolved--site-build javaevolved/javaevolved.github.io Java developer documentation site MIT the full localized GitHub Pages build for java.evolved jsonnet--kubernetes-mixin-speed google/jsonnet Data templating language Apache-2.0 the Jsonnet C++ interpreter on a Kubernetes monitoring configuration workload juliaio-zarr-jl--oceananigans-timeseries-output JuliaIO/Zarr.jl Julia implementation of Zarr array storage MIT Zarr.jl directory-store output for a real Oceananigans tracer time series julialang-julia--trixi-jeans-instability JuliaLang/julia Julia programming language MIT Julia runtime execution for a published Trixi Jeans gravitational-instability simulation kitops--minilm-pack kitops-ml/kitops OCI packaging tool for ML artifacts Apache-2.0 KitOps local ModelKit packaging for a complete all-MiniLM-L6-v2 release snapshot kiwifs--kubernetes-reindex kiwifs/kiwifs Markdown filesystem for agents and teams BUSL-1.1 KiwiFS SQLite FTS5 reindex for Kubernetes documentation kms--batch-encrypt Cosmian/kms Key-management system BUSL-1.1 Eviden KMS KMIP BulkData AES-GCM encryption for concurrent application-record batches kubb--esi kubb-labs/kubb OpenAPI code-generation framework MIT Kubb regeneration of JitaSpace’s EVE Online ESI client latexsnipper--formula-batch SakuraMathcraft/LaTeXSnipper Formula OCR and editing tool GPL-3.0 resident CPU formula OCR for a public OpenStax textbook screenshot batch libcachesim--twitter-lru 1a1a11a/libCacheSim Cache simulation library Apache-2.0 Four-capacity LRU cache-size sweep over a production Twitter request trace lsp-tree-sitter--termux-check neomutt/lsp-tree-sitter Tree-sitter language-server library GPL-3.0 Tree-sitter validation of a real Termux package-recipe corpus mai-gen-videob50--score-images Nick-bit233/mai-gen-videob50 Maimai score-video generation tool MIT batch maimai score-image rendering for a real 50-record archive meshmonitor--coverage-grid Yeraze/meshmonitor Mesh-node monitoring web tool BSD-3-Clause MeshMonitor’s SQLite coverage-grid batch metamorpho--reallocate morpho-org/metamorpho Tokenized lending-vault protocol GPL-2.0 Gas use for a historical MetaMorpho market reallocation mini-qr--library-batch lyqht/mini-qr QR-code generator and scanner GPL-3.0 Mini QR’s batch SVG export for a public library directory mirage--kubernetes-triage strukto-ai/mirage Virtual terminal for coding agents Apache-2.0 Mirage recursive source search for Kubernetes dual-stack readiness-probe triage modflow6--neversink MODFLOW-ORG/modflow6 Groundwater-flow simulator CC0-1.0 Complete steady-state simulation of the USGS Neversink–Rondout groundwater model monorepo--crypto-build commonwarexyz/monorepo Distributed-systems primitives Apache-2.0 the release build latency of commonware-cryptography mrst--norne-import SINTEF-AppliedCompSci/MRST Reservoir-simulation toolbox GPL-3.0 MRST Norne field-model import and geometry construction msdialworkbench--lcms-alignment systemsomicslab/MsdialWorkbench Mass-spectrometry analysis workbench LGPL-3.0 MS-DIAL Console LC-MS peak processing and alignment for a real negative-ion DDA batch mssql-extension--taxi-copy hugr-lab/mssql-extension DuckDB extension for Microsoft SQL Server MIT BCP bulk import of NYC taxi records through the DuckDB MSSQL extension n8n-mcp--tool-batch-speed czlonkowski/n8n-mcp MCP server for n8n workflow construction MIT n8n-mcp on a fixed MCP tool-call batch nerdbank-messagepack--earthquake-fanout AArnott/Nerdbank.MessagePack .NET MessagePack library MIT SignalR MessagePack earthquake snapshot fan-out ojp--taxi-export Open-J-Proxy/ojp Database proxy and JDBC driver Apache-2.0 OJP JDBC export of public NYC TLC taxi records omnigraph--metabolic-trials-refresh ModernRelay/omnigraph Lakehouse-native graph engine MIT OmniGraph’s paginated metabolic clinical-trial refresh and lifecycle dashboard onnxscript--bert-optimize microsoft/onnxscript ONNX model authoring and optimization library MIT Graph optimization of a BERT-SQuAD FP32 and INT8 model bundle oxidize-pdf--rag-chunking bzsanti/oxidizePdf Rust PDF library for RAG MIT oxidize-pdf RAG chunking over a real CC-BY PDF corpus pdal--dtm PDAL/PDAL Point-cloud processing library BSD-3-Clause Ground classification and 1 m terrain-model generation from USGS 3DEP LiDAR petsc--ocean-age-solve JuliaParallel/PETSc.jl Julia wrappers for PETSc MIT PETSc.jl GMRES+ILU for a public OCCA ocean-age transport solve physical-ai-toolchain--action-smoothness microsoft/physical-ai-toolchain Physical-AI dataset analysis toolkit MIT multi-dataset LeRobot action-smoothness analysis for real ALOHA manipulation recordings plonky3--ethereum-calldata-keccak-proof Plonky3/Plonky3 Polynomial IOP toolkit Apache-2.0 Plonky3 Ethereum calldata Keccak trace generation and STARK proving polkadot-api--descriptor-generation polkadot-api/polkadot-api Modular Polkadot API libraries MIT PAPI’s multi-chain TypeScript descriptor generation pytrendy--dow-index RussellSB/pytrendy Trend-detection library MIT PyTrendy trend detection for a real daily Dow Jones Industrial Average price series qrisp--modmul-compile eclipse-qrisp/Qrisp Quantum-algorithm development framework EPL-2.0 Qrisp compilation of controlled modular multiplication react-native-code-push--mattermost-release Soomgo-Mobile/react-native-code-push React Native OTA update client MIT CodePush Android OTA releases for Mattermost Mobile reactant--fashion-mnist-train EnzymeAD/Reactant.jl MLIR/XLA compiler for Julia MIT Reactant CPU execution of a real Lux Fashion-MNIST training epoch rspress--react-native-paper web-infra-dev/rspress Static-site generator MIT Rspress production builds of the React Native Paper documentation site rust-clippy--cargo-package-lint rust-lang/rust-clippy Rust linter Apache-2.0 Clippy lint time for Cargo’s main production package s3s--kubernetes-sync s3s-project/s3s S3 service adapter Apache-2.0 s3s-fs recursive S3 synchronization of Kubernetes pkg source senpi--image-batch code-yeongyu/senpi Coding-agent runtime MIT Senpi image attachment preprocessing for a real screenshot batch snarkos--cdn-replay ProvableHQ/snarkOS Decentralized operating system for ZK applications Apache-2.0 snarkOS CDN block bundle replay over 150 fixed Aleo Mainnet blocks snarkvm--mainnet-execution-verify ProvableHQ/snarkVM Zero-knowledge virtual machine Apache-2.0 snarkVM verification of a batch of accepted Aleo mainnet executions solvespace-solvespace--printer-assembly-mesh-export solvespace/solvespace Parametric 2D/3D CAD GPL-3.0 SolveSpace CLI mesh export for a complete Cartesian 3D-printer assembly spectral--api-lint stoplightio/spectral OpenAPI, JSON, and YAML linter Apache-2.0 Spectral linting of a production OpenAPI batch sqruff--glam-etl quarylabs/sqruff SQL formatter and linter Apache-2.0 Sqruff directory linting for Mozilla GLAM ETL SQL strawberry-graphql-strawberry--graphique-tlc-weekly-columns strawberry-graphql/strawberry Python GraphQL library MIT Strawberry GraphQL execution for Graphique’s real TLC weekly Parquet column query suitesparse--livejournal-pagerank DrTimothyAldenDavis/SuiteSparse Sparse-matrix and graph computation suite Apache-2.0 / BSD-2-Clause (used components) Complete PageRank computation on the LiveJournal social graph using GraphBLAS and LAGraph sum--text-attest OtotaO/SUM Cross-runtime text-attestation library Apache-2.0 SUM while batch-attesting a corpus of real Wikipedia prose sundials--cantera-ignition llnl/sundials Nonlinear and differential-equation solver suite BSD-3-Clause SUNDIALS CVODES for a downstream Cantera methane ignition parameter sweep svf-tools-svf--nginx-andersen-wpa SVF-tools/SVF Static value-flow analysis framework AGPL-3.0-or-later SVF Andersen whole-program pointer analysis on NGINX reverse-proxy bitcode synalinks--kubernetes-tasks SynaLinks/synalinks Neuro-symbolic language-model framework Apache-2.0 Synalinks Markdown knowledge-base ingestion for Kubernetes task documentation tfhe-rs--erc7984-transfer zama-ai/tfhe-rs Fully homomorphic encryption library BSD-3-Clause-Clear TFHE-rs CPU execution for confidential ERC-7984 token transfers tileserver-gl--country-atlas maptiler/tileserver-gl Vector and raster map-tile server BSD-2-Clause TileServer GL static PNG rendering for a full Natural Earth country atlas trixi-framework-trixi-jl--self-gravitating-sedov-amr trixi-framework/Trixi.jl Adaptive numerical-simulation framework MIT a published self-gravitating Sedov blast-wave simulation with adaptive mesh refinement typst--napkin Myriad-Dreamin/typst.ts Typst runtime for JavaScript Apache-2.0 Typst.ts rendering in the Napkin Community production static-site build vmecpp--precise-qh proximafusion/vmecpp Magnetohydrodynamic equilibrium solver MIT VMEC++ fixed-boundary precise-QH equilibrium solves wiredtiger--pageviews wiredtiger/wiredtiger Embedded storage engine GPL-2.0 OR GPL-3.0 WiredTiger’s durable import of a real Wikimedia pageview hour xet-core--bert-download huggingface/xet-core Content-addressed transfer and reconstruction engine Apache-2.0 local Xet reconstruction of a production BERT model artifact yamato-security-hayabusa--external-attack-evtx-timeline Yamato-Security/hayabusa Windows event-log forensics tool AGPL-3.0 Hayabusa bulk external attack-EVTX JSONL timeline generation youtrackdb--osm-roads JetBrains/youtrackdb Object-oriented graph database Apache-2.0 embedded YouTrackDB import of a real OpenStreetMap road network zenbu--release-source zenbu-labs/zenbu.js JavaScript application framework MIT Zenbu.js staging of the Zenbu desktop application’s release source zio--zrk-typecheck lalinsky/zio Zig asynchronous-I/O framework MIT ZIO’s downstream zrk ReleaseFast type-check latency
+
+B.3 Construction and Curation Statistics
+
+This section describes the implementation of Discovery and Filter and reports the candidate counts and curation effort at each construction stage.
+
+Discovery implementation. We query the ClickHouse github_events table for opened pull requests and branch pushes by a configured list of coding-agent accounts, then group matching events by repository.
+For each repository, we retain the latest matching pull-request or branch URL and use the GitHub GraphQL API to record its canonical identity, default-branch revision, stars, primary language, license, disk usage, and repository status.
+
+The resulting records are deduplicated by GitHub repository, and projects are excluded when their repository, default branch, or recorded source revision cannot be retrieved.
+Each step writes its results incrementally, allowing interrupted collection and metadata retrieval to resume without repeating completed work.
+
+From GitHub activity recorded between May and August 2026, we identified 118,517 repositories, retrieved metadata for 104,428, and retained 103,475 project candidates after these checks.
+
+Table 8: GitHub activity signals used for Discovery. Signal Repositories Branch push by a coding-agent account 112,127 Pull request opened by a coding-agent account 6,390
+
+Filter implementation. We first apply deterministic checks to repository metadata and the recorded Git tree.
+These checks require an accessible source revision, a license permitting modification and redistribution, 10–4,999 GitHub stars, and a tracked Git tree of at most 500 MiB and 25,000 entries.
+
+Projects that pass these checks are collected at the recorded revision with their README, setup documentation, package manifests, license files, and representative source paths.
+We then use GPT-5.6-Luna to assess the project’s setup path, evaluable process, runtime fit, and optimization potential from this source snapshot using a structured response schema.
+The prompt is provided in Appendix D.1 .
+
+We require each structured response to address the following criteria.
+
+□ \square Setup path. Repository files support concrete commands for installing dependencies and building or running the project.
+
+Setup path. Repository files support concrete commands for installing dependencies and building or running the project.
+
+□ \square Evaluable process. The project supports a finite process with a fixed input, observable output, performance metric, and correctness check.
+
+Evaluable process. The project supports a finite process with a fixed input, observable output, performance metric, and correctness check.
+
+□ \square Runtime fit. The process can run in a Linux x86-64 container on commodity CPUs without mandatory special hardware.
+
+Runtime fit. The process can run in a Linux x86-64 container on commodity CPUs without mandatory special hardware.
+
+□ \square Optimization potential. The project supports a substantial local computation whose cost is expected to increase with input size or repeated execution.
+
+Optimization potential. The project supports a substantial local computation whose cost is expected to increase with input size or repeated execution.
+
+Using these assessments, we selected 239 high-potential project candidates for Pair Verification.
+Table 9 reports the first check that excludes each project from the final Pair Verification selection.
+
+Table 9: First failed check during Filter and the final selection result. Result Projects Fewer than 10 GitHub stars 93,992 Accessibility 1,134 Setup path 212 Runtime fit 359 Optimization potential 4,462 Evaluable process 3,066 Assessment error 11 Selected for Pair Verification 239
+
+Curation effort. To quantify the effort required to turn selected projects into accepted tasks, Figure 17 reports the agent cost, curation time, and number of agent–human interactions for the 100 accepted tasks.
+The median task required 4.5 hours, $8.83 in agent cost, and eight agent–human interactions, compared with averages of 9.1 hours, $11.35, and 12 interactions.
+
+Figure 17: Distribution of curation time, agent cost, and agent–human interactions across the 100 accepted tasks.
+
+B.4 Pair Verification
+
+PerfRace uses Pair Verification to ensure that each task represents meaningful project use, produces reproducible measurements, and rejects shortcut solutions; this section describes the agent–human protocol and analyzes the resulting curation trajectories.
+
+B.4.1 Protocol
+
+Pair Verification combines agent-led task construction with human review to turn each project candidate into an executable task and assess its realism, reliability, and integrity.
+The construction skill is provided in Appendix D.2 .
+The agent develops the task in stages and pauses for a reviewer decision after completing the evidence required for each quality criterion.
+
+Figure 18: Pair Verification alternates between agent-led task construction and human review at the Realism, Reliability, and Integrity gates.
+
+Explore and Design. The agent first studies the project’s documentation, examples, code paths, and public usage evidence to understand its purpose, users, and performance-relevant operations.
+The agent searches public release pages for source code, models, and assets, scientific or government data portals, downstream repositories, production archives, and real user exports to identify candidate workload inputs.
+For each input, the agent records its download location, version, and applicable terms, and accepts it only when an explicit license, public-domain designation, or written authorization permits redistribution with the benchmark.
+
+It uses these materials to identify candidate operations, but grounds the workload and scale in a real user or downstream application rather than repository-native tests, benchmarks, examples, or fixtures.
+The agent compares plausible workload candidates, then traces the selected operation from its user-facing entry point through the relevant project code and demonstrates a small input-to-output execution on the unmodified revision.
+During this run, it records dependency installation, project build, input preparation, and operation time to check that setup does not dominate the measurement and to estimate whether complete verification can finish within the 1,200-second budget.
+The agent repeats the operation on identical inputs to detect run-to-run flakiness, including sporadic failures or inconsistent correctness-relevant outputs, and to identify any dependence of runtime on random state, network access, or external services.
+A candidate is revised or rejected if its stochastic execution remains too variable for reproducible performance measurement after fixing available random seeds and aggregating repeated runs.
+
+It then specifies the exact operation, workload and scale available to the agent, held-out correctness cases, observable correctness utility, performance metric, and measurement boundary.
+Before requesting Realism review, the agent summarizes the project’s purpose and users, the selected execution path, the basis for the input and scale, and the alternatives it considered and rejected.
+The reviewer approves Realism only when the operation, input, and scale represent meaningful project use, the metric measures the stated utility, and the workload inputs can be redistributed as part of the benchmark.
+
+Build and Calibrate. After Realism approval, the agent derives the installation, build, and run commands from upstream documentation, CI configuration, and package manifests, and verifies them on the pinned source revision.
+The agent implements the verifier, the task’s test program that measures the performance metric on a separate copy of the workload and checks additional held-out cases for correctness.
+It then constructs the Harbor task files with instruction.md , task.toml , an environment/ directory containing the editable project and workload, and a separate tests/ directory containing the verifier code, workload copy, held-out cases, and expected outputs.
+The agent pins the project revision, base image, language toolchain, dependencies, workload assets, and expected outputs so that the image can be rebuilt and the task rerun without downloading project source or workload inputs.
+The task instruction tells the agent how to build and run the project, what it may edit, which behavior it must preserve, and which performance metric to improve.
+
+The agent then builds a fresh image and runs the verifier on the unmodified project before calibrating performance measurements.
+The agent selects the smallest resource profile that completes the workload without CPU, memory, or storage pressure and sets the verifier timeout within 1,200 seconds.
+The agent uses pilot and repeated runs to choose the workload scale, warmups, repetitions, and aggregation, requiring the final measurements to have a coefficient of variation below 10% while keeping build and setup outside the timed operation.
+The agent checks that the timing boundary covers the complete operation requested in the task while excluding one-time environment setup and verifier preparation that are unrelated to the optimization objective.
+
+For the n n timed measurements retained after warmup, x 1 , … , x n x_{1},\ldots,x_{n} , we compute
+
+CV = s x ¯ , x ¯ = 1 n ​ ∑ i = 1 n x i , s = 1 n − 1 ​ ∑ i = 1 n ( x i − x ¯ ) 2 . \mathrm{CV}=\frac{s}{\bar{x}},\qquad\bar{x}=\frac{1}{n}\sum_{i=1}^{n}x_{i},\qquad s=\sqrt{\frac{1}{n-1}\sum_{i=1}^{n}(x_{i}-\bar{x})^{2}}.
+
+After fixing the workload, correctness checks, resources, and measurement protocol, the agent builds the final image and evaluates the unmodified baseline and one optimization candidate under the same conditions.
+The reviewer examines the fresh-build correctness results, repeated measurements and CVs, verification time, resource allocation, and candidate trajectory.
+The reviewer approves Reliability only when fresh builds and repeated runs return the same correctness verdict and stable performance measurements with the chosen warmups, repetitions, aggregation, and measurement boundary.
+
+Validate Integrity. To identify reward-hacking paths that could receive a valid score without completing the task, the agent tests deliberately incorrect, partial, hard-coded, and work-skipping solutions and checks that workload inputs, expected outputs, and verifier-owned data cannot be replaced by agent-controlled files.
+The agent inspects the evaluation image for leaked expected outputs, verifier code, or construction notes that could reveal the hidden checks.
+For example, in rust-clippy--cargo-package-lint , removing Cargo dependency tracking made later runs reuse a cached lint result, which the verifier detects by touching clippy-driver , running the workload twice against the same warm target, and requiring each Cargo JSON trace to report a non-fresh compiler artifact for cargo .
+
+The reviewer approves Integrity only when every requirement in the task instruction is checked, every verifier check follows from the declared task, and none of the tested shortcut solutions can receive a valid score.
+
+Finalize. After all three reviews, the reviewer chooses accept , revise , or reject ; accepted tasks pass final compatibility checks before publication as a task package comprising an immutable Docker image and task artifact.
+
+B.4.2 Quality Control
+
+We analyze the recorded agent–human Pair Verification trajectories for evidence of the Realism, Reliability, and Integrity of the resulting tasks.
+Of the 239 candidates, 132 were rejected during Explore and Design, six during Build and Calibrate, none during Validate Integrity, and one during Finalize, leaving 100 accepted tasks.
+
+Figure 19: Candidates rejected at each Pair Verification stage, with candidates lacking a recorded transition into Build & Calibrate assigned to Explore & Design.
+
+Realism. Realism checks cover the workload operation and scale, the source and redistribution terms of its inputs, and the alignment between the declared utility and performance metric.
+Table 10 groups the workload inputs into released source code, models, or assets (26 tasks), public scientific or government datasets (21), real downstream applications (21), production traces or archives (16), real user exports (6), and other independently grounded inputs (10).
+
+Table 10: Sources of workload inputs across the 100 accepted tasks. Input source Examples Tasks Released source code, model, or asset Linux source tree, OpenMoji assets, released ML models 26 Public scientific or government dataset TREC-COVID, NYC taxi records, LC-MS data 21 Real downstream application React Native Paper, Headlamp, Mattermost Mobile 21 Production trace or archive Hadoop logs, GTFS delay feeds, GitHub events 16 Real user export MIDI collection, BIM project, printer assembly CAD 6 Other independently grounded input Wikidata variants, Dow index, OSM roads 10
+
+Reliability. All 99 wall-clock tasks have a final unmodified-project CV below 10%; the remaining task, metamorpho--reallocate , measures transaction gas, the deterministic execution cost assigned by the Ethereum Virtual Machine to a fixed smart-contract transaction, and returns exactly 874,508 gas in three fresh containers.
+Table 11 (a) shows that 84 of the 99 wall-clock tasks have a final CV below 6%.
+
+Integrity. We validate Integrity across six attack classes: empty or no-op solutions, skipped work, hard-coded outputs, precomputed or cached outputs, modification of protected inputs or tests, and access to verifier-only data.
+All 100 accepted tasks completed an explicit red-team pass before Integrity approval.
+Table 11 (b) shows that 40 tasks were tested against at least two red-team cases, including two tasks with seven or eight cases.
+For example, SCC is a source-code statistics tool whose task scans the Linux v6.19 tree and emits JSON statistics; during red-team testing, the agent replaced the scanner with a program that returned the precomputed Linux result instead of scanning the source tree, which passed the workload available to the agent but failed when the verifier asked it to scan a separate pinned checkout of SCC’s own source code.
+
+(a) Final measurement CVs CV range Tasks 0 % ≤ CV < 2 % 0\%\leq\mathrm{CV}<2\% 20 2 % ≤ CV < 6 % 2\%\leq\mathrm{CV}<6\% 64 6 % ≤ CV < 7 % 6\%\leq\mathrm{CV}<7\% 8 7 % ≤ CV < 8 % 7\%\leq\mathrm{CV}<8\% 3 8 % ≤ CV < 9 % 8\%\leq\mathrm{CV}<9\% 4 9 % ≤ CV < 10 % 9\%\leq\mathrm{CV}<10\% 0 (b) Red-team tests Tests per task Tasks 1 60 2 20 3 12 4 6 7 1 8 1 Table 11: Reliability and integrity evidence: final CVs for the 99 wall-clock tasks and red-team tests for all 100 tasks, with one test assigned conservatively when an exact count cannot be recovered.
+
+B.5 Evaluation Protocol
+
+For each submission, the Judge snapshots the agent’s current container and starts a temporary shadow container from that snapshot.
+The Judge creates the snapshot with docker compose commit , launches the shadow container under a separate Compose project, and removes its container, local image, and volumes after verification.
+The agent container remains paused during verification and resumes from the same workspace state after the shadow container is removed.
+
+Inside the shadow container, the verifier runs through tests/test.sh and emits the correctness verdict and performance metric as JSON.
+The verifier code, workload copy, held-out cases, and expected outputs are absent from the agent container and available only inside the shadow container.
+Each task declares its warmups, repetition count, aggregation rule, and required correctness pass rate in task.toml , and its verifier returns a performance metric only when that pass rate is met.
+
+The task clock continues while the shadow is created, executed, and removed, so every submission trades part of budget B B for additional correctness and performance feedback.
+After verification, the Judge returns the correctness verdict and performance metric to the agent as feedback for subsequent optimization.
+For a correct submission, the Judge computes the speedup score by dividing the unmodified baseline metric by the submission metric.
+Submissions that fail correctness, exceed the verifier timeout, or do not produce a valid performance metric cannot update the best-so-far trajectory S ⁡ ( t ) S(t) .
+
+Five minutes before the deadline, the agent receives a final delivery prompt asking it to leave the project in a coherent state before the Judge performs one final shadow verification of the current workspace.
+Figure 20 characterizes the time required for one complete Judge evaluation, showing that baseline Judge evaluation remains within the 20-minute limit for all 100 final tasks.
+
+Figure 20: Distribution of complete baseline Judge evaluation time across the 100 final task packages, with a mean of 6.1 minutes, a median of 4.9 minutes, and a 20-minute evaluation limit.
+
+Longer optimization budgets. To measure the benefit of additional optimization time, we run Terminus-KIRA with GPT-5.6-Luna at high reasoning effort three times on each of the 88 evaluated tasks, maintaining one persistent agent session across Judge submissions during every four-hour run.
+
+The aggregate best-so-far correct speedup rises from 1.314 × 1.314\times after one hour to 1.377 × 1.377\times , 1.396 × 1.396\times , and 1.435 × 1.435\times after two, three, and four hours, respectively.
+Across the resulting 264 trajectories, Figure 21 shows that extending
+Terminus-KIRA’s budget from two to four hours improves the overall score by
+4.2%, and the fourth hour alone adds 2.8%.
+
+The four-hour score is at least 5% higher on 24 tasks than at two hours and on
+12 tasks than at three hours, showing that agents continue to find meaningful
+improvements late in the task.
+Among the 228 runs that improve over baseline, the best result is first reached at a median of 88.1% of the four-hour budget, and 51 of the 264 runs produce a new improvement of at least 5% during the final hour.
+
+Figure 21: Performance improvements from additional optimization time, based on
+three four-hour runs for each of 88 PerfRace tasks. Left: increase in the overall
+score at four hours relative to two and three hours; horizontal lines show
+95% bootstrap intervals. Right: number of tasks in each improvement range.
+
+Appendix C BoxBox : Method Details
+
+Figure 22 summarizes the task and review loops.
+The following explains how harness revisions affect subsequent interactions
+and how review, hot reloading, and recovery preserve task continuity.
+
+BoxBox State: harness H H , runtime R R , task environment e e , task trajectory τ \tau . Review state: environment e r e_{r} and separate trajectory τ r \tau_{r} . Budget: shared task budget B B . 1 while budget B B remains do 2 a ∼ p ℳ , H ( ⋅ ∣ τ ) a\sim p_{\mathcal{M},H}(\cdot\mid\tau) 3 if a = boxbox() a=\texttt{boxbox()} then 4 Yield control to the kernel; suspend task execution and preserve context 5 Prepare ( e r , τ r ) (e_{r},\tau_{r}) for independent review under H H , with access to τ \tau 6 while true do 7 a r ∼ p ℳ , H ( ⋅ ∣ τ r ) a_{r}\sim p_{\mathcal{M},H}(\cdot\mid\tau_{r}) 8 if a r = commit ​ ( H ′ ) a_{r}=\texttt{commit}(H^{\prime}) then break 9 ( e r , o r ) ← Execute H ⁡ ( e r , a r ) (e_{r},o_{r})\leftarrow\operatorname{Execute}_{H}(e_{r},a_{r}) 10 τ r ← τ r ⊕ ( a r , o r ) \tau_{r}\leftarrow\tau_{r}\oplus(a_{r},o_{r}) 11 end while 12 if H ′ ≠ H H^{\prime}\neq H then 13 The kernel validates H ′ H^{\prime} and attempts activation of its runtime R ′ R^{\prime} 14 if successful then select ( H , R ) ← ( H ′ , R ′ ) (H,R)\leftarrow(H^{\prime},R^{\prime}) 15 else retain or restore the previous harness and runtime 16 end if 17 Restore continuation context and return control to the selected runtime 18 else 19 ( e , o ) ← Execute H ⁡ ( e , a ) (e,o)\leftarrow\operatorname{Execute}_{H}(e,a) 20 τ ← τ ⊕ ( a , o ) \tau\leftarrow\tau\oplus(a,o) 21 end if 22 end while Figure 22: BoxBox pseudocode. Task execution and independent harness review form nested interaction loops, with kernel-managed hot reloading connecting them.
+
+C.1 Effects on Subsequent Interactions
+
+Equation 1 describes two ways a harness revision
+can affect subsequent execution while the language model ℳ \mathcal{M} remains
+fixed. Changes to how the harness constructs model inputs can alter p ℳ , H k p_{\mathcal{M},H_{k}} , influencing the agent’s next action. Changes to Execute H k \operatorname{Execute}_{H_{k}} can alter how that action is carried out and how
+its result is returned as an observation. A revision can affect either or
+both, so its influence extends to the trajectory generated after activation.
+
+The current harness also governs the review loop. Once a revision is
+activated, subsequent reviews use the updated implementation and can examine
+the experience accumulated under it. Harness changes can therefore affect
+both task execution and the process used to produce later revisions.
+Appendix A.4 illustrates concrete changes to guidance,
+measurement, command polling, and context handling.
+
+C.2 Review
+
+The task-solving agent requests review through boxbox() without
+having to propose a patch. The initial harness requires intervening task
+activity and a 30-minute cooldown after each completed review; once eligible,
+the agent decides whether and when to request another review.
+The kernel preserves the task conversation and launches a separate agent
+review session under the current harness. The reviewer can inspect task
+trajectories and Git history, but edits only the harness, treating project
+code as read-only. It may retain the current harness, add guidance, or modify
+executable behavior, committing any changes before ending review.
+The default review skill is provided in Appendix D.3 .
+
+C.3 Execution Context
+
+Execution context includes both runtime-owned state and the existing task
+environment. The former includes the task conversation, review history, and
+records of which trajectory entries have already been reviewed. These are
+exported as a state snapshot. The terminal session and project workspace
+remain in place: shell state, ongoing processes, and project files are
+preserved through the existing environment connection.
+
+When the agent calls boxbox() , the runtime yields control to the
+kernel, suspending the task interaction loop while review proceeds separately.
+This pauses the agent’s task decisions, not the entire container or its
+processes. Before importing state into a candidate runtime, the kernel makes
+a separate copy, preserving the original snapshot for recovery if the
+candidate fails. This separates changing the agent implementation from
+restarting its task environment.
+
+C.4 Hot Reloading
+
+Harness revisions are tracked as Git commits, while the kernel remains
+separate from the editable harness. Before switching, the kernel checks the
+committed candidate, loads its runtime, and verifies that it supports task
+execution and context transfer. The current runtime keeps its terminal
+connection until the candidate successfully imports the copied state.
+The kernel then transfers the same terminal session to the candidate and
+returns control to it, resuming task interaction from the preserved
+conversation in the same workspace. If activation fails, the kernel retains
+or restores the previous runtime and context.
+For agent-requested reviews, the reviewer can leave concise guidance on using
+new capabilities and continuing the task. This guidance is preserved across
+the update, and the resumed agent is prompted to read it before continuing.
+Task execution and review share the same budget and cost accounting.
+Table 12 summarizes how execution continues under
+each outcome.
+
+Table 12: Task continuation across review and runtime-update outcomes. Outcome Continuation No harness change Resume the current runtime with the preserved task context. Successful update Continue under the revised harness with transferred context, the existing
+terminal session, and the same project workspace. Update fails Retain or restore the previous runtime and its preserved context. Runtime fault Enter recovery and review using the retained execution records; restart
+the terminal while preserving project files.
+
+C.5 Recovery
+
+The kernel retains a recovery point across harness updates. A newly activated
+runtime remains provisional until it reaches the next agent-requested review
+without a runtime fault. If it fails before that boundary, the kernel restores
+the previous confirmed harness and state and initiates a review using the
+fault evidence. Faults in a confirmed runtime also trigger review.
+Runtime-fault recovery starts a fresh terminal, so shell-local state is lost,
+but project files, harness history, and execution records remain available.
+The retained records let subsequent reviews examine failed revisions and help
+the task-solving agent determine how to continue interrupted work.
+
+Appendix D Prompts and Skills
+
+This appendix presents the Filter prompt and Pair Verification skill used in
+benchmark construction, followed by the default BoxBox self-review skill.
+
+D.1 Filter Prompt
+
+The Filter assesses repository snapshots before Pair Verification.
+
+D.2 Pair Verification Skill
+
+The skill guides agent-led construction through human reviews of Realism,
+Reliability, and Integrity, followed by task publication.
+
+D.3 Self-Review Skill
+
+The following listing presents the default review skill with performance-optimization-specific guidance omitted. “Target Agent” denotes the task-solving agent.
+
+Instructions for reporting errors
+
+We are continuing to improve HTML versions of papers, and your feedback helps enhance accessibility and mobile
+      support. To report errors in the HTML that will help us improve conversion and rendering, choose any of the
+      methods listed below:
+
+Tip: You can select the relevant text first, to include it in your report.
+
+Our team has already identified the following issues . We appreciate your time reviewing and reporting rendering errors we
+      may not have found yet. Your efforts will help us improve the HTML versions for all readers, because disability
+      should not be a barrier to accessing research. Thank you for your continued support in championing open access for
+      all.
+
+Have a free development cycle? Help support accessibility at arXiv! Our collaborators at LaTeXML maintain a list of packages that need conversion , and welcome developer contributions .

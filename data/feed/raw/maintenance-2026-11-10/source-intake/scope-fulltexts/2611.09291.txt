@@ -1,0 +1,235 @@
+AutoRefine: Auto-Calibrating Code Judgesfrom Workflow Outcomes Skip to main content Report GitHub Issue × Title: Content selection saved. Describe the issue below: Description: Submit without GitHub Submit in GitHub Why HTML? Report Issue Back to Abstract Download PDF Contents Reading mode Colour theme Abstract I Introduction II Method II-A Setting II-B Calibration loop II-C The abstaining, explaining informed teacher III Calibration Under Trustworthy Labels III-A Setup: benchmark and splits III-B Result: calibration catches failures beyond threshold tuning III-C Result: without the reference, failures are invisible IV Reducing Label Noise by Abstention, and a Calibrated Judge IV-A Result: abstention reduces injected label noise IV-B Result: the teacher abstains where abandonment is not in the code IV-C Result: recalibration raises the judge’s recall V Related Work VI Lessons, Threats to Validity and Conclusion References License: arXiv.org perpetual non-exclusive license arXiv:2611.09291v1 [cs.AI] 06 Nov 2026 AutoRefine: Auto-Calibrating Code Judges from Workflow Outcomes Thanks: * These authors contributed equally to this work Shervin Shahidi * Affiliation: Meta Platforms shervin@meta.com James Poon * Affiliation: Meta Platforms jypoon@meta.com Hang Xie Affiliation: Meta Platforms hangxie@meta.com Kenneth O. Xu Affiliation: Meta Platforms kennethoxu@meta.com Robin Håkanson Affiliation: Meta Platforms matshakanson@meta.com Vikram Nair Affiliation: Meta Platforms vikramnair@meta.com Jens Pillgram-Larsen Affiliation: Meta Platforms jenspl@meta.com Nachiappan Nagappan Affiliation: Meta Platforms nnachi@meta.com Affiliation: Abstract LLM judges increasingly serve as quality gates for code changes that have no test oracle, but a judge prompt must be
+calibrated for its task and recalibrated as the system it judges evolves, while hand labels for the calibration are resource intensive and go stale. Development workflows emit outcome labels for free (tests pass or fail, changes land or are abandoned), but
+these labels are noisy. We present AutoRefine, a loop that rewrites a deployable judge’s prompt to reproduce outcome
+labels, with an informed teacher that sees the judge’s input plus the outcome, explains each label it keeps, and
+abstains when the outcome cannot be explained from what the judge sees. On a held-out dataset with an execution
+oracle, calibration raised chance-corrected agreement (Scott’s π \pi ) from 0.36 to 0.60.
+On a deployed agent’s outcome labels, with 25% flipped at random to introduce noise, the teacher set aside flipped fail labels at more than
+twice the rate of genuine ones, cutting overall label noise from 25% to 20%.
+Recalibrating that agent’s judge using AutoRefine raised its agreement with merge/abandon outcomes on 17 independently
+held-out diffs from the current workflow ( π \pi 0.16 to 0.51); on 16 diffs from older workflows, the previous judge
+stayed ahead, illustrating the need for recalibration as the agent evolves. By abstaining, the teacher not only removes noisy labels but also flags changes whose outcome the
+judge’s input cannot explain, telling a team when a judge needs better inputs rather than a better prompt. I Introduction Coding agents now author code changes (diffs) at scale, and most of what they produce is not verifiable by a test:
+refactors, performance optimizations, cleanups and open-ended fixes. In an agent’s pipeline, an LLM
+judge [ 1 ] is an increasingly common quality-assurance step for such changes: it helps decide which
+diffs reach human reviewers. A judge, however, is only as good as its calibration (fitting the prompt to labels) for the task at hand: even
+strong judges are unreliable on objective correctness [ 2 ] , and agreement with humans varies so
+much across evaluation tasks that no judge is a drop-in replacement [ 3 ] . Calibrating against manually labeled datasets is resource intensive, and the labels go stale whenever the agent, the model or the code distribution moves, so in
+practice many judge prompts are never validated at all. Keeping a judge trustworthy is therefore a life-cycle task:
+calibration must run unattended and be rerun whenever the agent it judges evolves. The development workflow already emits labels continuously: tests pass or fail, and changes land or are abandoned.
+We expect merge and abandon outcomes to be most informative when the judge evaluates an automated system that
+produces changes, and our use case is consistent with this (Sec. IV-B ). Outcome labels can still mislead a judge
+in two ways. The outcome may be decided by information the judge never sees, such as a hidden test, or by something
+other than the code, such as scope, process or a broken pipeline. A judge fitted to these labels learns to
+predict noise. We present AutoRefine, a loop that rewrites a deployable judge’s prompt to reproduce outcome labels, together with
+an informed teacher that curates those labels before the loop sees them. The teacher reads exactly what the
+judge will read plus the outcome. It explains each label it keeps, and when the outcome cannot be explained from
+the judge’s view it abstains, removing the sample instead of inventing a label. Its abstention rate doubles as a
+monitoring signal: when the teacher abstains on many samples, the judge needs better inputs, not a better prompt.
+We contribute: • The loop and the abstaining, explaining teacher (Sec. II ), used as a
+quality-assurance component on an internal agent-evaluation platform. • Calibration under trustworthy labels (Sec. III ): on an execution oracle,
+calibration significantly improves a rubric judge beyond what threshold tuning achieves. • Reducing label noise by abstention, and keeping a workflow’s judge current (Sec. IV ):
+in a controlled noise test and on a performance-optimization agent’s merge/abandon labels, plus the recalibration of that agent’s
+judge after the agent evolved. II Method II-A Setting We call a reviewable unit of code change a diff . A deployable judge sees a fixed view x x of a diff: its
+title, summary and code changes, plus a reference patch (Sec. III-B ) or a test plan
+(Sec. IV ). Each diff
+carries a label y ∈ { pass , fail } y\in\{\textsc{pass},\textsc{fail}\} from the workflow, such as an execution oracle or the diff’s terminal
+review status; the label source is pluggable, so manually curated labels work the same way. The goal is a judge
+prompt whose verdicts on x x reproduce y y on diffs it has not seen. The loop needs only the judge’s view of an
+output and an accept or reject outcome, so it applies to any agent whose outputs receive such outcomes. II-B Calibration loop The loop (Fig. 1 ) is an iterative optimizer over the judge’s prompt. The prompt plays the role of the parameters, agreement
+with the labels on the training split is the objective, disagreement analysis supplies the update direction, and a
+validation split decides when to stop. Each iteration runs the current prompt on the training split and scores its
+verdicts with Scott’s π \pi [ 4 ] , which corrects raw agreement for the agreement expected by chance
+from the pooled verdict and label distribution, so a judge that always predicts the majority class scores at or
+below zero ( − 0.08 -0.08 on our oracle test split). For every disagreement, an LLM (Claude Opus 4.7 in our runs) reads the judge’s verdict and reasoning next to the
+label and any teacher justification and proposes edits. The edits must be balanced, so every new reason to fail is
+paired with a reason to pass, which keeps the judge from drifting toward rejecting everything. A second call applies
+the edits under a length cap. For rubric judges, which emit a weighted score, the decision threshold is chosen on the
+training split. A separate validation split, never curated, selects the final prompt; the loop stops at a target
+agreement, when no disagreements remain, or at a maximum number of iterations (five in our runs, on training splits
+of 125 to 127 diffs). The agent’s
+patches are recorded once and replayed, so calibration never reruns the agent under test. Training split view x x , outcome label y y Informed teacher sees x x and y y Kept labels with justifications Deployable judge prompt p t p_{t} , sees x x Scott’s π \pi vs. kept labels Disagreement analysis Balanced rewrite p t → p t + 1 p_{t}\rightarrow p_{t+1} Validation split (never curated): selects prompt, stops skip : sample dropped kept x x verdicts justifications Fig. 1: The AutoRefine loop (orange: LLM calls; gray: data). The informed teacher curates the training labels once:
+it keeps a label with a justification grounded in the judge’s view, or abstains ( skip ) and drops the sample. Each
+iteration runs the deployable judge on the kept samples and scores it against their labels; disagreement analysis
+contrasts the judge’s reasoning with the teacher’s justification and proposes balanced prompt edits. An uncurated
+validation split selects the final prompt. II-C The abstaining, explaining informed teacher Before calibration, the teacher reviews each training sample. In this paper it sees exactly the judge’s view x x plus the label y y . It has three jobs. It explains the label, writing a justification grounded in x x ; this
+is what the disagreement analysis uses to tell the rewriter why the judge was wrong. It may correct the label
+in either direction when x x clearly contradicts it, though in our runs it rarely did (2 of 512 merge/abandon diffs). And it abstains , returning skip when y y cannot be
+explained from x x ; abstained samples are dropped from calibration and from disagreement analysis. By design the
+teacher prefers abstaining to a low-confidence flip, so it never invents a label it cannot support. The teacher
+thus performs outcome-aware filtering and explanation, loosely analogous to distillation with privileged
+information [ 5 , 6 ] ; reviewer comments, which our dataset builder already
+collects, would add genuine side information by showing why a diff was abandoned. A label cannot be explained from the judge’s view when it is wrong, or when the view lacks the evidence for it. In
+the main oracle setting (Sec. III-B ), both are less likely: execution outcomes make the labels
+reliable, and the judge also sees the reference patch, which helps explain why a patch fails. There, we calibrate on
+the labels directly. III Calibration Under Trustworthy Labels We first ask whether the loop works when the labels can be trusted, using execution outcomes as labels. This experiment serves two purposes: ground-truth labels let us validate the method before trusting
+it on noisier labels, and, because test coverage is uneven, a judge calibrated on the diffs that have tests can score
+similar diffs that have none. III-A Setup: benchmark and splits The benchmark is built from landed diffs in an industrial monorepo, each with fail-to-pass tests. One agent (Claude
+Opus 4.6) attempted 579 tasks; after dropping empty patches (trivial failures with no signal for a judge) we keep 417 records (353 pass , 64 fail ). They are
+split by task into training (127, rebalanced to about 70/30 so the loop sees enough failures), validation (85) and
+test (85, with 13 failures); the last two keep the natural ratio of about 85/15. The other 120 records are surplus
+passes left out by the rebalancing. We calibrate two agentic judges
+(Claude Opus 4.8) that compare the agent’s patch with the production reference patch: a rubric judge that scores
+five weighted checks, and a pass/fail judge that returns a verdict. Tests are stripped from both patches, so neither
+judge sees the oracle. We use these labels directly, without the teacher (Sec. II-C ). III-B Result: calibration catches failures beyond threshold tuning TABLE I: Held-out test results (85 tasks, 13 failures), before and after calibration. Each replay rescores the same
+recorded patches; values are means over three replays, excluding tasks whose judge timed out or errored (about 5% of
+tasks per replay). † One replay. Judge fail rec. fail prec. pass rec. π \pi Rubric, uncal. (default thr.) 0.50 0.42 0.89 0.36 Rubric, uncal. (train thr.) 0.69 0.35 0.80 0.33 Rubric, calibrated 0.64 0.68 0.95 0.60 Pass/fail, uncalibrated 0.38 0.80 0.99 0.46 Pass/fail, calibrated † 0.73 0.53 0.90 0.54 Calibration raised the rubric judge from π = 0.36 \pi=0.36 to 0.60 0.60 (Table I ), and the threshold does not
+explain the gain. At the threshold chosen on the training split, the uncalibrated prompt reaches similar failure
+recall only by flagging four times as many good patches ( pass recall 0.80 vs. 0.95), for π = 0.33 \pi=0.33 ; even the
+best threshold picked on the test set itself gives only 0.42. Against the train-threshold baseline the paired gain is + 0.27 +0.27 to + 0.30 +0.30 in π \pi , with the 95% bootstrap interval above zero and McNemar p ≤ 0.013 p\leq 0.013 in every replay; we
+report paired intervals rather than single point estimates, in the spirit of uncertainty-aware evaluation of AI
+products [ 7 ] . The uncalibrated pass/fail judge rarely failed a patch;
+calibration nearly doubled its failure recall (0.38 to 0.73) at the cost of precision (0.80 to 0.53), for π \pi 0.46 to 0.54. Paired by task against each uncalibrated replay, the calibrated judge’s single replay caught 3 to 4
+failures that the uncalibrated judge missed, and missed none that it caught. Rubric replays are stable
+( π \pi standard deviation 0.018). III-C Result: without the reference, failures are invisible Without the reference patch, the judge’s view holds less evidence, so the teacher curates the training labels. The same loop then reached only π = 0.35 \pi=0.35 on the 85-task validation split (from − 0.08 -0.08 for the
+uncalibrated starting prompt, which passed everything), catching 5 of its 13 failures; because the teacher also set
+aside most training failures, the loop had few failures to learn from. To check whether the failures were visible
+at all, we ran the teacher retrospectively on the validation split, which calibration never
+curates. It abstained on 12 of the 13
+failures and on none of the 72 passes, each time with the same reason: the patch reads as correct, and the failure
+lives only in the hidden tests. Abstention thus flagged the labels the judge’s view cannot explain, without the
+teacher seeing the tests itself. To test whether people can see these failures, engineers reviewed 56 teacher-curated tasks blind to the outcome and to
+the teacher (25 abstained failures, 11 kept failures, 20 kept passes, drawn from the training and validation splits; two
+independent rating teams, about five minutes per task). Seeing only the title, summary and patch, they judged each patch correct, incorrect or undecidable. Both
+teams missed nearly all failures, whether the teacher had abstained on them (23 and 22 of 25 not called incorrect) or
+kept them (10 of 11 each); across both teams, 54% of failure ratings called the patch correct and 36% undecidable.
+They did better on passes, calling 12 and 9 of 20 correct. The judge’s inputs are thus not enough to see these
+failures, which is the condition the teacher’s abstention flags. Sec. IV-B shows that the teacher
+also separates visible failures from invisible ones. For the kept failures, the teacher, reading with the outcome in hand, cited
+specific defects, and 4 of 5 mechanically checkable claims held up. The two teams agreed on which outcomes they missed on 79% of tasks
+( κ = 0.43 \kappa=0.43 ). IV Reducing Label Noise by Abstention, and a Calibrated Judge IV-A Result: abstention reduces injected label noise To measure noise reduction directly, we flipped 25% of the labels at random (fixed seed) in two settings and ran the
+teacher (Claude Opus 4.8) unchanged: the performance-optimization agent’s 185-diff calibration set (Sec. IV-B ),
+where defects are often visible in the diff, and the 127-task training split of the reference-free oracle study
+(Sec. III-C ), where failures are invisible from the patch. On the calibration set, the teacher set
+aside 13 of the 24 landed diffs relabeled abandoned but only 16 of the 73 genuinely abandoned ones (Fisher p = 0.004 p=0.004 ). Label noise fell from 24.9% to 20.4%; dropping the same number of labels at random within each label
+leaves 24.9% ( p < 0.001 p<0.001 ). On the oracle split, noise fell from 25.2% to 14.0%, but the teacher set aside genuine
+failures nearly as often as flipped ones (20 of 27 vs. 19 of 21), so its gain matches a rule that drops every fail label. In both settings it abstained rather than relabeled (1 relabel in 185 labels, none in 127).
+It was also asymmetric: it kept most failing diffs labeled pass (19 of 22 and 10 of 11). Errors that look like
+success to a reader of the diff pass through. This preference is by design, set by the teacher’s prompt, to prioritize
+recall over precision of good diffs and can be tuned to the use case. IV-B Result: the teacher abstains where abandonment is not in the code We next apply the teacher to the labels it was designed for. The performance-optimization agent in our case study submits diffs
+for review; the label is the diff’s terminal status (landed = = pass , abandoned = = fail ). What “abandoned”
+means depends on the pipeline: many diffs are abandoned while still drafts, largely after internal triage by the team
+operating the agent and before they are published for code review, while others are abandoned after a code reviewer
+has seen them. Review metadata fetched from the code-review system shows
+that most abandoned diffs were never published (Fig. 2 ). Calibration set: 185 diffs Four-month pull: 414 diffs train 125 selection 27 test: 33 17 cur., 16 leg. 327 new 87 already in calibration set Teacher study: 512 diffs = = 185 calibration + + 327 new landed 128 abandoned after review: 77 abandoned as draft 299 abandoned, status unknown: 8 Fig. 2: Where the performance-optimization agent’s diffs come from. The class-balanced calibration set supplies the splits of
+Sec. IV-C ; adding the 327 new diffs of an uncurated four-month pull gives the 512 diffs of
+Sec. IV-B . We ran the teacher on the 512 terminal diffs of Fig. 2 . The teacher sees the title,
+summary, diff and test plan plus the outcome. It abstained on 60% of diffs abandoned after review, 32% of drafts and
+5.5% of landed diffs (Fisher p = 10 − 5 p=10^{-5} for after-review vs. drafts; Fig. 3 ). The pattern
+holds in the 327 new, uncurated diffs (60% vs. 37.5%, p = 0.002 p=0.002 ) and in the class-balanced calibration set (58% vs. 16%, p = 0.003 p=0.003 ), and a fresh teacher run agrees with the decisions logged during the original calibration on 112 of 125
+diffs ( κ = 0.83 \kappa=0.83 ). The gap points the same way before the judge became part of the internal triage workflow (39% vs. 23% on 200
+abandoned diffs, p = 0.10 p=0.10 , not significant) and after
+(71% vs. 45%, p = 0.002 p=0.002 ). The teacher’s stated reasons show why. Abstained review-abandoned diffs read as “a clean, behavior-preserving
+code-motion optimization” with no defect visible in the diff; kept abandoned diffs cite visible problems, such as
+work relocated rather than removed, noise-level gains, or a summary that contradicts its own measurements. The teacher
+withholds labels where the reason for abandonment is not in the code, the same behavior as on the hidden-test failures
+of Sec. III-C . Reviewer comments support this reading. Among the diffs abandoned after review whose comments state a reason,
+the comments cite a problem visible in the diff for 13 of the 19 the teacher kept but only 14 of the 38 it abstained on
+(Fisher p = 0.048 p=0.048 ); the others cite duplicates, superseded work or a cleanup bot closing stale diffs. Fig. 3: Where the teacher abstains. On the oracle benchmark’s validation split, it abstains on 12 of the 13
+hidden-test failures and on none of the 72 passes; with injected noise on merge/abandon labels, it sets aside landed
+diffs relabeled abandoned more than twice as often as genuinely abandoned ones; and it abstains most on diffs
+abandoned after review. Labels on bars give abstentions out of n n . IV-C Result: recalibration raises the judge’s recall The agent’s initial judge ( v 1 v_{1} ) had been tuned on diffs from an earlier version of the agent’s workflow. We
+recalibrated it with AutoRefine ( v 2 v_{2} , rubric judge, Claude Opus 4.8) on 125 training diffs from the calibration
+set, of which the teacher set aside 19, and selected the best iteration’s prompt on the 27 selection diffs
+(Fig. 2 ); v 2 v_{2} then replaced v 1 v_{1} in that internal workflow. The judge first ran in shadow mode to help the team
+triaging the agent’s diffs publish fewer bad diffs without losing good ones, so recall on landed diffs is the
+deployment metric, and a teacher that keeps pass labels (Sec. IV-A ) protects it.
+Table II reports the held-out slices. On 43 diffs from the then-current distribution that were not used
+for training (26 of the 27 selection diffs, one lost to a v 1 v_{1} infrastructure failure, plus 17 test diffs), π \pi rose by a paired + 0.31 +0.31 (95% CI [ 0.03 , 0.61 ] [0.03,0.61] ) and recall on landed diffs rose from 12/20 to 18/20, the deployment
+target of 0.90; recall on abandoned diffs barely moved (11/23 to 12/23). The 17 test diffs, never used for training or
+selection, form the independent test: there π \pi rose from 0.16 to 0.51 ( + 0.35 +0.35 , CI [ 0.00 , 0.74 ] [0.00,0.74] ) and landed recall
+from 6/8 to 8/8, a small sample whose gain matches the 43-diff one. On 16 older test diffs, v 1 v_{1} stays ahead; because the test split mixes
+two distributions, we report its current and legacy slices separately. We checked that these older diffs come from an earlier version
+of the agent’s pipeline: 12 of the 16 were produced by three optimization workflows that account for only 3 of the 17
+current diffs.
+We also checked whether v 1 v_{1} ’s verdict, once visible to the triaging team, could have biased draft
+abandonment: 36 of the 43 evaluation diffs (and all 16 older legacy diffs) predate v 1 v_{1} ’s verdict becoming part of the workflow and carry no v 1 v_{1} annotation, so v 1 v_{1} cannot have
+shaped their labels. On these 36 the gain is larger than on all 43 ( + 0.39 +0.39 , CI [ 0.10 , 0.70 ] [0.10,0.70] ; landed recall 9/15 to 14/15). TABLE II: Judge performance before ( v 1 v_{1} ) and after ( v 2 v_{2} ) recalibration, on held-out diffs. Each cell gives v 1 → v 2 v_{1}\rightarrow v_{2} . Landed (abandoned) recall: landed
+diffs judged pass (abandoned diffs judged fail ); landed recall is the deployment metric (target 0.90). Only the test slices were never used for selection. ⋄ Older diffs from the earlier pipeline v 1 v_{1} was tuned on, assigned to the test split in advance; v 2 v_{2} ’s drop here is consistent with
+distribution shift, and is why we recalibrate as the agent evolves. Slice n n π \pi Landed Abandoned Current (sel.+test) 43 0.07 → 0.38 0.07\rightarrow\mathbf{0.38} 12 / 20 → 𝟏𝟖 / 𝟐𝟎 12/20\rightarrow\mathbf{18/20} 11 / 23 → 𝟏𝟐 / 𝟐𝟑 11/23\rightarrow\mathbf{12/23} indep. test 17 0.16 → 0.51 0.16\rightarrow\mathbf{0.51} 6 / 8 → 𝟖 / 𝟖 6/8\rightarrow\mathbf{8/8} 4 / 9 → 𝟓 / 𝟗 4/9\rightarrow\mathbf{5/9} before v 1 v_{1} 36 0.05 → 0.44 0.05\rightarrow\mathbf{0.44} 9 / 15 → 𝟏𝟒 / 𝟏𝟓 9/15\rightarrow\mathbf{14/15} 10 / 21 → 𝟏𝟐 / 𝟐𝟏 10/21\rightarrow\mathbf{12/21} Legacy test ⋄ 16 0.50 → − 0.02 \mathbf{0.50}\rightarrow-0.02 𝟔 / 𝟖 → 5 / 8 \mathbf{6/8}\rightarrow 5/8 𝟔 / 𝟖 → 3 / 8 \mathbf{6/8}\rightarrow 3/8 V Related Work LLM judges. LLM-as-a-judge was validated against human preferences by Zheng et al. [ 1 ] ;
+later work documents biases [ 8 ] , weak performance on objective
+correctness [ 2 ] , task-dependent agreement with humans [ 3 ] , and
+pitfalls in how judges are validated [ 9 ] . Prompt and judge optimization. Prompts can be optimized without weight
+updates [ 10 , 11 , 12 ] . Closest to our work,
+AutoCalibrate [ 13 ] refines an LLM evaluator’s criteria and EvalGen [ 14 ] aligns evaluators with user grades, both against human labels. AutoRefine instead takes supervision from workflow
+outcomes and adds a teacher that explains or withholds each label; the optimizer itself is interchangeable. Expert validation and uncertainty in AI engineering. Prior work motivates domain-expert
+oversight [ 15 ] and uncertainty-aware evaluation from stratified samples [ 7 ] ; an independent,
+representative audit of production labels remains future work. Weak supervision. Denoising labels from noisy sources is the core of weak
+supervision [ 16 ] , which combines many noisy labeling sources rather than
+one teacher. Oracles and SE for ML. For changes without tests, the judge acts as the oracle in the broad sense of the oracle
+problem [ 17 ] , and keeping such ML components correct as data and systems change is a core concern of
+software engineering for ML [ 18 ] . Outcomes in software engineering. Pull-request acceptance and merged vs. abandoned changes have long been
+prediction targets [ 19 , 20 , 21 ] . There, the outcome is the
+target, and acceptance reflects many factors besides technical quality; here the outcome is a noisy label for
+calibrating a judge. VI Lessons, Threats to Validity and Conclusion Lessons for practitioners. (i) Recalibrate whenever the agent or its workflow changes: v 2 v_{2} wins on current
+diffs, while v 1 v_{1} still wins on the older diffs it was tuned on (Sec. IV-C ). (ii) Use
+merge/abandon labels for judges of agent-written diffs, and check what a label means at each pipeline stage (a
+discarded draft is not a reviewer’s rejection); for human-written diffs, abandonment more often reflects scope
+or process, which the teacher can only set aside. (iii) Ask reviewers to say why they abandon a diff: a comment cannot
+make the diff judgeable from what the judge sees, but it would sharpen the teacher’s justification, which the disagreement
+analysis turns into new rules for the judge’s prompt. Threats to validity. Construct: workflow outcomes stand in for code quality, and abstention can also
+drop useful samples, such as genuine failures that look clean. Internal: judge and teacher share a model family,
+which risks self-preference [ 8 ] ; in our runs the teacher caught correct patches labeled fail but not
+failing patches labeled pass , and use cases that need the opposite should tune its prompt. External: all
+studies come from one source, and the merge/abandon study from one agent in use. Conclusion validity: samples
+are small, each calibration loop ran once per setting, and the human review covers 56 tasks with moderate agreement
+between the two rating teams. Conclusion. AutoRefine calibrates a code judge from labels the workflow already produces, with a
+teacher that explains the labels it keeps and abstains on the ones it cannot explain. Under trustworthy labels,
+calibration raised a rubric judge’s π \pi from 0.36 to 0.60, beyond what threshold tuning achieves. On a performance-optimization agent, recalibration raised the judge’s π \pi from 0.16 to 0.51 on an
+independent held-out test. The teacher
+keeps labels it cannot explain out of calibration. References [1] L. Zheng et al. , “Judging LLM-as-a-judge with MT-Bench and Chatbot
+Arena,” in Advances in Neural Information Processing Systems ,
+vol. 36, 2023, pp. 46 595–46 623. [2] S. Tan et al. , “JudgeBench: A benchmark for evaluating LLM-based
+judges,” in International Conference on Learning Representations
+(ICLR) , 2025, pp. 63 277–63 303. [3] A. Bavaresco et al. , “LLMs instead of human judges? A large-scale
+empirical study across 20 NLP evaluation tasks,” in Annual Meeting
+of the Association for Computational Linguistics (ACL), Short Papers , 2025,
+DOI:10.18653/v1/2025.acl-short.20. [4] W. A. Scott, “Reliability of content analysis: The case of nominal scale
+coding,” Public Opinion Quarterly , vol. 19, no. 3, pp. 321–325,
+1955, DOI:10.1086/266577. [5] D. Lopez-Paz, L. Bottou, B. Schölkopf, and V. Vapnik, “Unifying
+distillation and privileged information,” in International Conference
+on Learning Representations (ICLR) , 2016, arXiv:1511.03643. [6] G. Hinton, O. Vinyals, and J. Dean, “Distilling the knowledge in a neural
+network,” in NIPS Deep Learning and Representation Learning Workshop ,
+2015, arXiv:1503.02531. [7] W. Albertini, M. C. Araújo, J. C. Araújo, A. P. S. Alves, and
+M. Kalinowski, “Statistical confidence in functional correctness: An
+approach for AI product functional correctness evaluation,” in Proceedings of the IEEE/ACM 5th International Conference on AI
+Engineering – Software Engineering for AI , ser. CAIN ’26. ACM, 2026, pp. 121–131,
+DOI:10.1145/3793653.3793770. [8] J. Ye et al. , “Justice or prejudice? Quantifying biases in
+LLM-as-a-judge,” in International Conference on Learning
+Representations (ICLR) , 2025, pp. 102 351–102 390. [9] L. Guerdan, S. Barocas, K. Holstein, H. Wallach, S. Wu, and A. Chouldechova,
+“Validating LLM-as-a-judge systems under rating indeterminacy,” in Advances in Neural Information Processing Systems , vol. 38, 2025, pp.
+112 282–112 350, DOI:10.52202/085713-3751. [10] C. Yang et al. , “Large language models as optimizers,” in International Conference on Learning Representations (ICLR) , 2024, pp.
+12 028–12 068. [11] O. Khattab et al. , “DSPy: Compiling declarative language model calls
+into self-improving pipelines,” 2023, arXiv:2310.03714. [12] M. Yuksekgonul et al. , “Optimizing generative AI by backpropagating
+language model feedback,” Nature , vol. 639, pp. 609–616, 2025,
+DOI:10.1038/s41586-025-08661-4. [13] Y. Liu et al. , “Calibrating LLM-based evaluator,” in Joint
+International Conference on Computational Linguistics, Language Resources and
+Evaluation (LREC-COLING) , 2024, pp. 2638–2656, DOI:10.63317/3posqwchnb6g. [14] S. Shankar, J. D. Zamfirescu-Pereira, B. Hartmann, A. Parameswaran, and
+I. Arawjo, “Who validates the validators? Aligning LLM-assisted
+evaluation of LLM outputs with human preferences,” in Proceedings of
+the 37th Annual ACM Symposium on User Interface Software and Technology ,
+ser. UIST ’24. ACM, 2024, Art. no.
+131, DOI:10.1145/3654777.3676450. [15] L. Gren and F. Dobslaw, “The expert validation framework (EVF): Enabling
+domain expert control in AI engineering,” in Proceedings of the
+IEEE/ACM 5th International Conference on AI Engineering – Software
+Engineering for AI , ser. CAIN ’26. ACM, 2026, pp. 304–308, DOI:10.1145/3793653.3793796. [16] A. Ratner, S. H. Bach, H. Ehrenberg, J. Fries, S. Wu, and C. Ré, “Snorkel:
+Rapid training data creation with weak supervision,” Proceedings of
+the VLDB Endowment , vol. 11, no. 3, pp. 269–282, 2017. [17] E. T. Barr, M. Harman, P. McMinn, M. Shahbaz, and S. Yoo, “The oracle problem
+in software testing: A survey,” IEEE Transactions on Software
+Engineering , vol. 41, no. 5, pp. 507–525, 2015,
+DOI:10.1109/TSE.2014.2372785. [18] S. Amershi et al. , “Software engineering for machine learning: A case
+study,” in International Conference on Software Engineering: Software
+Engineering in Practice (ICSE-SEIP) , 2019, pp. 291–300,
+DOI:10.1109/ICSE-SEIP.2019.00042. [19] G. Gousios, M. Pinzger, and A. van Deursen, “An exploratory study of the
+pull-based software development model,” in International Conference on
+Software Engineering (ICSE) , 2014, DOI:10.1145/2568225.2568260. [20] D. M. Soares, M. L. de Lima Júnior, L. G. P. Murta, and A. Plastino,
+“Acceptance factors of pull requests in open-source projects,” in ACM
+Symposium on Applied Computing (SAC) , 2015, DOI:10.1145/2695664.2695856. [21] M. K. Islam, T. Ahmed, R. Shahriyar, A. Iqbal, and G. Uddin, “Early prediction
+for merged vs abandoned code changes in modern code reviews,” Information and Software Technology , vol. 142, 2022, Art. no.
+106756, DOI:10.1016/j.infsof.2021.106756. Experimental support, please view the build logs for errors. Generated by L A T E xml . Instructions for reporting errors We are continuing to improve HTML versions of papers, and your feedback helps enhance accessibility and mobile
+      support. To report errors in the HTML that will help us improve conversion and rendering, choose any of the
+      methods listed below: Click the "Report Issue" ( ) button, located in the page header. Tip: You can select the relevant text first, to include it in your report. Our team has already identified the following issues . We appreciate your time reviewing and reporting rendering errors we
+      may not have found yet. Your efforts will help us improve the HTML versions for all readers, because disability
+      should not be a barrier to accessing research. Thank you for your continued support in championing open access for
+      all. Have a free development cycle? Help support accessibility at arXiv! Our collaborators at LaTeXML maintain a list of packages that need conversion , and welcome developer contributions . We gratefully acknowledge support from our major funders , member institutions , ,
+        and all contributors. About · Help · Contact · Subscribe · Copyright · Privacy · Accessibility · Operational Status (opens in new tab)
