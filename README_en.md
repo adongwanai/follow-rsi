@@ -27,19 +27,11 @@ RSI papers appear every day, but every claim of improvement needs scrutiny. Foll
 
 <!-- AUTO:TODAY:START -->
 
-**Update status (not a published edition) · 2026-11-10**
+**[2026-11-10](https://adongwanai.github.io/follow-rsi/daily/2026-11-10.html)** · Collection and review brief
 
-All 12 sources were attempted at 08:06–08:15 Asia/Shanghai. Today’s HF board was not ready. Its API reported availability through Nov 8, but an explicit Nov 9 request succeeded with 31 papers, including 23 late additions; the full board was reconciled rather than relying on the stale availability hint. Forty-two new stable identities (38 source discoveries and four existing issue-only records) received source, scope and independent cross-review: eight support narrowly defined Harness scope, 33 are excluded, and one needs more evidence. CPU-ARC belongs in the Nov 9 supplement under its observed HF recommendation date; the other qualifying records have older source dates and remain labeled historical backlog. Eight older cases were also processed: six passed scope and qualitative-summary review, Evolver was excluded from Harness, and Cache Engineering still lacks specific evolution-version artifacts. The resulting 13 historical backlog decisions are recorded for this week, not counted as new papers today. Three arXiv searches succeeded with no window results; five RSS feeds returned 50 window records, and 13 GitHub repositories had no window releases. S2 citations returned 311 window records (278 unique identities); anonymous throttling and the 180-second source traversal window left parts of citation and author coverage uncollected. Uncollected coverage remains unknown. Sixteen free retries of eight older source blockers did not recover the required bodies. New paid generation requests: zero. This is a collection and review snapshot bulletin, not a new-paper edition or a claim that no later updates exist.
+Collection and review bulletin published; no new papers were included. Collection and review record before publication: All 12 sources were attempted at 08:06–08:15 Asia/Shanghai. Today’s HF board was not ready. Its API reported availability through Nov 8, but an explicit Nov 9 request succeeded with 31 papers, including 23 late additions; the full board was reconciled rather than relying on the stale availability hint. Forty-two new stable identities (38 source discoveries and four existing issue-only records) received source, scope and independent cross-review: eight support narrowly defined Harness scope, 33 are excluded, and one needs more evidence. CPU-ARC belongs in the Nov 9 supplement under its observed HF recommendation date; the other qualifying records have older source dates and remain labeled historical backlog. Eight older cases were also processed: six passed scope and qualitative-summary review, Evolver was excluded from Harness, and Cache Engineering still lacks specific evolution-version artifacts. The resulting 13 historical backlog decisions are recorded for this week, not counted as new papers today. Three arXiv searches succeeded with no window results; five RSS feeds returned 50 window records, and 13 GitHub repositories had no window releases. S2 citations returned 311 window records (278 unique identities); anonymous throttling and the 180-second source traversal window left parts of citation and author coverage uncollected. Uncollected coverage remains unknown. Sixteen free retries of eight older source blockers did not recover the required bodies. New paid generation requests: zero. This is a collection and review snapshot bulletin, not a new-paper edition or a claim that no later updates exist.
 
-[View daily progress →](https://adongwanai.github.io/follow-rsi/daily/index.html#publication-status)
-
-**Latest published edition**
-
-**[2026-11-09](https://adongwanai.github.io/follow-rsi/daily/2026-11-09.html)** · 1 papers, reviewed and approved.
-
-- [The Last Mile to the Real World](https://arxiv.org/abs/2611.07461) · 3. Component-level evolution (skills, memory, context, interfaces) · A development agent revises Harness control primitives from failure traces and retains validated primitives after tests and development-set checks for reuse on separate tasks; only the Harness-primitives branch is included.
-
-[Read this edition →](https://adongwanai.github.io/follow-rsi/daily/2026-11-09.html)
+[Read this edition →](https://adongwanai.github.io/follow-rsi/daily/2026-11-10.html)
 
 <!-- AUTO:TODAY:END -->
 
