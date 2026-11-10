@@ -1,0 +1,865 @@
+Content selection saved. Describe the issue below:
+
+Adapting the Process of Adaptation: Darwinian, Lamarckian, and Agent-Directed Evolution in AI Thanks: The views expressed in this article are those of the authors alone and do not necessarily reflect the views of any institution or agency with which they are affiliated. AI was used in the preparation of this manuscript (see Appendix A).
+
+Abstract
+
+Evolution has shaped intelligence for billions of years. Artificial intelligence (AI) now raises a striking possibility: intelligence may begin to direct its own evolution. As AI agents become capable of modifying and evaluating their own behavior, how quickly could they improve, and how can that improvement remain safe? We develop a theoretical framework comparing Darwinian, Lamarckian, and agent-directed evolution following environmental change. Darwinian evolution relies on natural selection, Lamarckian evolution adds inherited learning, and agent-directed evolution allows agents to generate and evaluate behavioral variants and choose how extensively to search. When learning is sufficiently effective, these mechanisms exhibit progressively faster adaptation. Generating more variants accelerates adaptation, while optimal search effort depends on learning ability, problem difficulty, and experimentation costs. However, an agent’s ability to direct its improvement does not ensure that improvements are evaluated against the intended objective. When the evaluation target is misspecified, additional search accelerates convergence toward the wrong behavior, even as measured performance improves. In recursive self-improvement, such errors may persist across generations, posing challenges for AI safety. Independent evaluation and oversight must keep pace with autonomous AI development. The central challenge is not simply to accelerate the evolution of intelligence, but to preserve humanity’s ability to guide its direction, limit its speed, and intervene when necessary.
+
+JEL Codes: C73, D81, D83, O33. Keywords: Artificial Intelligence (AI), Darwinian evolution, Lamarckian evolution, agent-directed evolution, recursive self-improvement, adaptive search, AI safety.
+
+1 Introduction
+
+On 8 September 2026, OpenAI announced that a coordinated system of artificial intelligence (AI) agents had produced a proposed resolution of the Navier–Stokes Millennium Prize problem, showing that a finite-time singularity forms under smooth external forcing ( OpenAI, 2026 ) . According to OpenAI, roughly 10,000 concurrent agents explored different formulations and approaches, shared intermediate findings, and built on promising results. They reached the proposed solution in about 88 hours and then spent 17 hours formalizing and verifying it in Lean ( de Moura and Ullrich, 2021 ) .
+
+This search resembles evolution: variants are generated, promising ones are retained, and useful information is passed on to later attempts. FunSearch ( Romera-Paredes et al., 2024 ) , AlphaEvolve ( Novikov et al., 2025 ) , and the Darwin Gödel Machine ( Zhang et al., 2025 ) follow the same principle: AI systems propose modifications to programs or agents, evaluate them, and build on the successful ones.
+
+These ideas come together in an emerging research direction, recursive self-improvement (RSI), in which an AI system improves itself and uses the improved version to make further improvements. In the Darwin Gödel Machine, AI agents modify their own code, evaluate the resulting variants, and keep the successful changes for later generations ( Zhang et al., 2025 ) . More recently, Srikanth et al. (2026) developed AIDE 2 , an AI research agent that recursively modifies its own code and evaluates the results. These studies suggest that AI systems are increasingly able not only to perform complex tasks but also to improve the processes through which they perform them.
+
+These developments point to a more fundamental possibility: AI systems may increasingly take control of their own evolution. Instead of improving within a process designed by humans, a system may decide how it searches for improvements, how extensively it experiments, and how it carries improvements forward to later generations. Because improved systems can produce further improvements, this could greatly accelerate AI development and make its capabilities harder for humans to anticipate and oversee. We call this shift agent-directed evolution . It holds great potential for scientific discovery and technological progress, but it also raises safety concerns as AI systems gain greater control over their own development.
+
+This possibility motivates several questions. How much faster can a system adapt through learning and self-directed search than through natural selection alone? What determines the speed of adaptation, and how should an agent weigh the benefits of more search against its costs? More importantly, does faster adaptation necessarily lead to better outcomes, or can it also accelerate the development of behaviors that humans did not intend?
+
+To address these questions, we build on the evolutionary framework of Brennan and Lo (2011) ; Brennan and Lo (2012) , in which individuals inherit different behaviors and natural selection favors the behaviors that lead to faster population growth. When the environment changes, previously successful behaviors may no longer be optimal, and the population must adapt. In Section 3 , we show that the growth lost to suboptimal behavior equals the Kullback–Leibler (KL) divergence between the environmental and behavioral distributions ( Propositions 2 and 3 ). We call this loss growth regret and use it to compare how quickly Darwinian, Lamarckian, and agent-directed evolution adapt.
+
+The three mechanisms start from the same population. Under Darwinian evolution , inherited behaviors are fixed, and the population adapts as natural selection makes better-adapted individuals more prevalent ( Section 4 ). Under Lamarckian evolution , individuals can also learn from their environment and pass their acquired improvements to later generations ( Section 5 ). Under agent-directed evolution , individuals further generate multiple variants of themselves, evaluate them, and retain the best for further learning ( Section 6 ). More importantly, the agent decides how extensively to search, which we use as a simple model of how an intelligent system can influence its own evolution. We measure speed by the adaptation time , the number of generations needed to reduce growth regret to a given threshold, and the adaptation rate , the long-run exponential rate at which growth regret declines.
+
+Our first set of results characterizes the adaptation speeds of the three mechanisms. Darwinian adaptation relies on natural selection to spread individuals who already have the optimal behavior, so it can take arbitrarily long when they are initially rare ( Theorem 1 ). Lamarckian evolution removes this dependence, because individuals improve their inherited behavior directly through learning ( Theorem 2 ). Agent-directed evolution adapts even faster by searching among alternative improvements ( Theorem 3 ). In Section 7 , we show that, when learning is sufficiently effective, agent-directed evolution has the highest long-run adaptation rate, followed by Lamarckian and then Darwinian evolution; the same ranking holds for expected adaptation times ( Theorem 4 ).
+
+Our second set of results, in Section 6 , concerns how search accelerates adaptation and how an agent should allocate its search effort. Generating more variants always increases the adaptation rate, by an amount that depends on the difficulty of the problem ( Proposition 4 ). For easier problems, the gain can be substantial: in the most favorable case, it grows approximately as 2 ​ log ⁡ N 2\log N , where N N is the number of variants. For harder problems, the gain is smaller and approaches a finite ceiling, although more variants still speed up adaptation. When search is costly, the optimal number of variants increases as learning becomes less effective, the problem becomes easier, or search becomes cheaper ( Proposition 5 ). An intelligent system can thus adjust its search effort according to its learning ability, problem difficulty, and available resources.
+
+Our third set of results concerns AI safety: faster adaptation does not necessarily move a system toward the objectives its developers intend. In Section 8 , we extend the agent-directed mechanism so that search and learning are guided by an incorrectly specified evaluation target. The agent then keeps improving rapidly according to its evaluator, but its true growth regret does not vanish, and more variants only accelerate convergence toward the incorrect target ( Theorem 5 ). Natural selection, acting on realized outcomes, can eventually correct the population’s behavior, but this correction may be slow. Independent evaluation and oversight therefore become increasingly important.
+
+Our analysis brings together ideas from evolutionary biology, economics, and AI: drawing on the biological mechanisms of selection and inheritance, we use a growth-based framework to study how learning and search affect the speed and cost of adaptation in AI systems. Appendix B summarizes how the main elements of our model correspond to their counterparts in evolutionary biology and modern AI systems.
+
+The remainder of this paper proceeds as follows. Section 2 reviews the related literature, and Section 3 introduces the Brennan–Lo framework. Sections 4 , 5 and 6 analyze Darwinian, Lamarckian, and agent-directed evolution, respectively, and Section 7 compares their adaptation speeds. Section 8 examines adaptation toward an incorrectly specified target and its implications for AI safety. Section 9 concludes.
+
+2 Related Literature
+
+We review six areas of research in evolutionary biology, information theory, economics, and AI that bear on the speed and direction of adaptation.
+
+We build on the evolutionary model of Brennan and Lo (2011) , in which natural selection favors inherited behaviors that lead to higher population growth. Later studies extend this framework to bounded rationality and intelligence ( Brennan and Lo, 2012 ) , behavioral diversification ( Brennan et al., 2018 ) , and learning under limited information and memory ( Lo and Zhang, 2021 ; Lo et al., 2025 ) . In evolutionary biology, bet hedging describes how organisms diversify their offspring’s behaviors to cope with environmental uncertainty ( Cohen, 1966 ; Bull, 1987 ; Seger and Brockmann, 1987 ) . Building on this literature, we study how quickly a population adapts after an environmental change.
+
+Information and growth have long been linked. In the framework of Kelly (1956) , the growth lost by using incorrect probabilities can be expressed in terms of the KL divergence ( Cover and Thomas, 2006 , Chapter 6) , and evolutionary biology studies the fitness value of information about the environment ( Kussell and Leibler, 2005 ; Donaldson-Matasci et al., 2010 ; Rivoire and Leibler, 2011 ) . We establish an analogous relationship between population growth and KL divergence, which lets us measure the loss from suboptimal behavior and compare how quickly different evolutionary mechanisms eliminate it.
+
+Previous research distinguishes learning that affects an individual’s performance from learning whose improvements are inherited. In the Baldwin effect, individual learning can facilitate evolution even without the inheritance of acquired traits ( Hinton and Nowlan, 1987 ; Ackley and Littman, 1992 ) , whereas Lamarckian evolutionary algorithms pass improvements acquired through learning to offspring ( Whitley et al., 1994 ) . Related ideas appear in population-based training ( Jaderberg et al., 2017 ) and in methods that transfer learned knowledge across generations of neural networks ( Feng et al., 2025 ) . Our Lamarckian mechanism isolates the inheritance of acquired improvements and examines how this channel changes the speed of adaptation under natural selection.
+
+Evolutionary computation has long studied how to adjust search parameters, such as mutation rates and the distribution of candidate solutions, to improve performance ( Eiben et al., 1999 ; Hansen and Ostermeier, 2001 ; Bedau and Packard, 2003 ; Ollivier et al., 2017 ) ; autoconstructive evolution goes further and lets the mechanisms of reproduction and variation evolve within the individuals themselves ( Spector, 2001 ) . Economic models examine how agents adjust their learning rules to changing environments or forecasting performance ( Evans and Honkapohja, 2001 ; Marcet and Nicolini, 2003 ) . More recent research on inference-time computation studies how the benefit of generating more candidates depends on problem difficulty and computational resources ( Brown et al., 2024 ; Snell et al., 2024 ) . Our agent-directed mechanism poses a related decision in an evolutionary setting, how many variants to generate, and we characterize how search raises the rate of adaptation and how the optimal number of variants depends on problem difficulty, learning ability, and search costs.
+
+The possibility that intelligent machines could improve their own capabilities has been discussed since Good (1965) ; an early formal approach is the Gödel machine of Schmidhuber (2007) . FunSearch and AlphaEvolve use AI to generate, evaluate, and retain improved solutions ( Romera-Paredes et al., 2024 ; Novikov et al., 2025 ) , and the Darwin Gödel Machine ( Zhang et al., 2025 ) , AIDE 2 ( Srikanth et al., 2026 ) , and multi-agent RSI ( Lee et al., 2026 ) extend this process to AI agents themselves. These developments have prompted discussion of whether AI evolution will remain directed by humans or become increasingly autonomous ( Boudry, 2026 ; Müller et al., 2026 ; Zong et al., 2026 ) . Our analysis offers a theoretical perspective by studying how an agent’s control over its own search effort affects the speed and cost of adaptation.
+
+The effectiveness of search depends on how candidate improvements are evaluated. Evolutionary algorithms can exploit evaluation criteria in unintended ways ( Lehman et al., 2020 ) , and stronger optimization against learned reward models can widen the gap between measured reward and true quality ( Gao et al., 2023 ) . We examine how an incorrectly specified evaluation target affects evolutionary adaptation and show that more search can accelerate adaptation toward the evaluator’s target without correcting the error.
+
+3 The Framework
+
+To compare different mechanisms of adaptation, we need a framework that identifies both the optimal behavior and the cost of deviating from it. We adopt the evolutionary model of Brennan and Lo (2011) , in which natural selection favors behaviors that maximize long-run population growth. Section 3.1 studies the growth of a lineage, Section 3.2 extends the analysis to a population with multiple lineages, and Section 3.3 introduces the three evolutionary mechanisms, establishes a common setting for comparing them, and defines the adaptation time and rate.
+
+3.1 Growth of a lineage
+
+Consider a large lineage of asexually reproducing individuals.
+In generation t t , all individuals inherit the same behavior f t ∈ ( 0 , 1 ) f_{t}\in(0,1) , choosing action a a with probability f t f_{t} and action b b with probability 1 − f t 1-f_{t} . The three evolutionary mechanisms considered in this study differ in whether and how f t f_{t} changes across generations. Individuals in generation t t reproduce to form generation t + 1 t+1 , and their reproductive success depends on the chosen action and the environmental state X t + 1 ∈ { α , β } X_{t+1}\in\{\alpha,\beta\} , which is shared by all individuals. Let x a x_{a} and x b x_{b} denote the numbers of offspring produced by an individual choosing a a and b b , respectively. Then
+
+( x a , x b ) = { ( m , 0 ) , X t + 1 = α , with probability ​ p , ( 0 , m ) , X t + 1 = β , with probability ​ 1 − p , (x_{a},x_{b})=\left\{\begin{array}[]{lll}(m,0),&X_{t+1}=\alpha,&\text{with probability }p,\\[2.0pt]
+(0,m),&X_{t+1}=\beta,&\text{with probability }1-p,\end{array}\right.
+
+where m > 0 m>0 is the number of offspring produced by an individual choosing the successful action: action a a succeeds in state α \alpha , and action b b succeeds in state β \beta . Individuals choosing the other action produce no offspring. The probability of state α \alpha is p ∈ ( 0 , 1 ) p\in(0,1) , and the environmental states X 1 , X 2 , … X_{1},X_{2},\ldots are independent across generations.
+
+Let n t n_{t} denote the size of the lineage in generation t t . Because the lineage is large, a fraction f t f_{t} of its individuals chooses action a a , while the remaining fraction 1 − f t 1-f_{t} chooses action b b . If X t + 1 = α X_{t+1}=\alpha , only those choosing a a reproduce, each producing m m offspring, so the lineage grows by the factor n t + 1 / n t = m ​ f t n_{t+1}/n_{t}=mf_{t} . Similarly, if X t + 1 = β X_{t+1}=\beta , the lineage grows by the factor n t + 1 / n t = m ⁡ ( 1 − f t ) n_{t+1}/n_{t}=m(1-f_{t}) . Taking the expected logarithm of these growth factors gives
+
+I p ​ ( f t ) ≡ 𝔼 ⁡ [ log ⁡ n t + 1 n t | f t ] \displaystyle I_{p}(f_{t})\equiv\mathbb{E}\Big[\log\frac{n_{t+1}}{n_{t}}\,\Big|\,f_{t}\Big] = p ​ log ⁡ ( m ​ f t ) + ( 1 − p ) ​ log ⁡ ( m ⁡ ( 1 − f t ) ) \displaystyle=p\log(mf_{t})+(1-p)\log\big(m(1-f_{t})\big) (1) = log ⁡ m + p ​ log ⁡ f t + ( 1 − p ) ​ log ⁡ ( 1 − f t ) . \displaystyle=\log m+p\log f_{t}+(1-p)\log(1-f_{t}).
+
+We refer to I p ​ ( f ) I_{p}(f) as the growth rate associated with behavior f f .
+
+Given the growth rate in Equation ( 1 ), we can now identify the inherited behavior that maximizes population growth.
+
+For p ∈ ( 0 , 1 ) p\in(0,1) , I p I_{p} is strictly concave on ( 0 , 1 ) (0,1) , and
+
+arg ⁡ max f ∈ ( 0 , 1 ) ​ I p ​ ( f ) = p . \arg\max_{f\in(0,1)}I_{p}(f)=p.
+
+The proposition shows that a lineage maximizes its expected log growth in every generation by matching the fraction of individuals choosing each action to the probability that the action succeeds. The intuition is that diversification is essential when all individuals face the same environmental risk. A lineage that always chooses one action will eventually become extinct when the other action succeeds, whereas a lineage that divides its individuals between the two actions can reproduce in either environmental state. This is the probability-matching result of Brennan and Lo (2011) .
+
+To compare how different evolutionary mechanisms adapt to a changing environment, we need a measure of how much growth a lineage loses when its behavior deviates from the optimum. The following proposition defines this loss and establishes its connection to information theory.
+
+For p , f ∈ ( 0 , 1 ) p,f\in(0,1) , the growth regret of behavior f f is
+
+ℛ p ( f ) ≡ I p ( p ) − I p ( f ) = p log p f + ( 1 − p ) log 1 − p 1 − f = D KL ( Bern ( p ) ∥ Bern ( f ) ) ≥ 0 , \mathcal{R}_{p}(f)\equiv I_{p}(p)-I_{p}(f)=p\log\frac{p}{f}+(1-p)\log\frac{1-p}{1-f}=D_{\mathrm{KL}}\!\left(\mathrm{Bern}(p)\,\|\,\mathrm{Bern}(f)\right)\geq 0, (2)
+
+where Bern ⁡ ( θ ) \mathrm{Bern}(\theta) denotes the Bernoulli distribution with success probability θ \theta , and D KL D_{\mathrm{KL}} denotes the KL divergence. Equality holds if and only if f = p f=p .
+
+The proposition shows that growth regret can be expressed exactly as the KL divergence between the environmental distribution and the inherited behavioral distribution. This result is closely related to the Kelly criterion ( Kelly, 1956 ) , which characterizes the cost of betting according to incorrect probabilities. For a lineage with the behavior f t f_{t} in generation t t , ℛ p ​ ( f t ) \mathcal{R}_{p}(f_{t}) is the expected log growth that it loses from generation t t to generation t + 1 t+1 relative to a lineage with the optimal behavior p p . Growth regret thus provides a natural measure of maladaptation, allowing us to compare the three evolutionary mechanisms in terms of how quickly they recover the growth lost after an environmental change.
+
+To understand the magnitude of growth regret and how it varies with behavior f f , consider its Taylor expansion around the optimal behavior f = p f=p :
+
+ℛ p ​ ( f ) = ( f − p ) 2 2 ​ p ​ ( 1 − p ) + O ⁡ ( ( f − p ) 3 ) , f → p . \mathcal{R}_{p}(f)=\frac{(f-p)^{2}}{2p(1-p)}+O\big((f-p)^{3}\big),\qquad f\to p. (3)
+
+The expansion shows that, for small deviations, growth regret increases approximately with the square of the distance from the optimum. Doubling the deviation therefore approximately quadruples the loss in growth.
+
+3.2 Growth of a population
+
+So far, we have considered a single lineage whose individuals share the same behavior within each generation. We now extend the analysis to a population consisting of several lineages, each with its own behavior. For simplicity, we focus on two lineages, although the results extend to more. In generation t t , let f 1 , t f_{1,t} and f 2 , t f_{2,t} denote their behaviors, q t q_{t} and 1 − q t 1-q_{t} their population shares, and n t n_{t} the size of the entire population. The two lineages therefore contain q t ​ n t q_{t}n_{t} and ( 1 − q t ) ​ n t (1-q_{t})n_{t} individuals, respectively.
+
+To determine the growth of the entire population, we first consider the offspring produced by each lineage. If X t + 1 = α X_{t+1}=\alpha , only individuals choosing action a a reproduce. The first lineage therefore grows by the factor m ​ f 1 , t mf_{1,t} , contributing m ​ f 1 , t ​ q t ​ n t mf_{1,t}q_{t}n_{t} individuals to the next generation. Similarly, the second lineage contributes m ​ f 2 , t ​ ( 1 − q t ) ​ n t mf_{2,t}(1-q_{t})n_{t} individuals. Adding the two contributions, the population has m ​ f 1 , t ​ q t ​ n t + m ​ f 2 , t ​ ( 1 − q t ) ​ n t = m ​ f ¯ t ​ n t mf_{1,t}q_{t}n_{t}+mf_{2,t}(1-q_{t})n_{t}=m\bar{f}_{t}n_{t} individuals in generation t + 1 t+1 , where
+
+f ¯ t ≡ q t ​ f 1 , t + ( 1 − q t ) ​ f 2 , t \bar{f}_{t}\equiv q_{t}f_{1,t}+(1-q_{t})f_{2,t} (4)
+
+is the average behavior of the population. If X t + 1 = β X_{t+1}=\beta , only individuals choosing action b b reproduce. The two lineages then contribute m ⁡ ( 1 − f 1 , t ) ​ q t ​ n t m(1-f_{1,t})q_{t}n_{t} and m ⁡ ( 1 − f 2 , t ) ​ ( 1 − q t ) ​ n t m(1-f_{2,t})(1-q_{t})n_{t} individuals, respectively, giving a total population of m ⁡ ( 1 − f ¯ t ) ​ n t m(1-\bar{f}_{t})n_{t} in generation t + 1 t+1 .
+
+We can also use these results to determine how the relative shares of the two lineages evolve through natural selection. The share of the first lineage in generation t + 1 t+1 is its number of offspring divided by the total population size:
+
+q t + 1 = { m ​ f 1 , t ​ q t ​ n t m ​ f ¯ t ​ n t = q t ​ f 1 , t f ¯ t , X t + 1 = α , m ⁡ ( 1 − f 1 , t ) ​ q t ​ n t m ⁡ ( 1 − f ¯ t ) ​ n t = q t ​ ( 1 − f 1 , t ) 1 − f ¯ t , X t + 1 = β . q_{t+1}=\begin{cases}\displaystyle\frac{mf_{1,t}q_{t}n_{t}}{m\bar{f}_{t}n_{t}}=\frac{q_{t}f_{1,t}}{\bar{f}_{t}},&X_{t+1}=\alpha,\\[8.0pt]
+\displaystyle\frac{m(1-f_{1,t})q_{t}n_{t}}{m(1-\bar{f}_{t})n_{t}}=\frac{q_{t}(1-f_{1,t})}{1-\bar{f}_{t}},&X_{t+1}=\beta.\end{cases} (5)
+
+Equation ( 5 ) describes how natural selection changes the relative shares of the two lineages from one generation to the next.
+
+We now consider the growth of the population as a whole. When X t + 1 = α X_{t+1}=\alpha , its size increases from n t n_{t} to m ​ f ¯ t ​ n t m\bar{f}_{t}n_{t} , whereas when X t + 1 = β X_{t+1}=\beta , it increases to m ⁡ ( 1 − f ¯ t ) ​ n t m(1-\bar{f}_{t})n_{t} . Taking the expected logarithm of the population growth ratio n t + 1 / n t n_{t+1}/n_{t} gives
+
+I p ( q t , f 1 , t , f 2 , t ) ≡ 𝔼 [ log n t + 1 n t | q t , f 1 , t , f 2 , t ] = p log ( m f ¯ t ) + ( 1 − p ) log ( m ( 1 − f ¯ t ) ) = I p ( f ¯ t ) , I_{p}(q_{t},f_{1,t},f_{2,t})\equiv\mathbb{E}\Big[\log\frac{n_{t+1}}{n_{t}}\,\Big|\,q_{t},f_{1,t},f_{2,t}\Big]=p\log(m\bar{f}_{t})+(1-p)\log\big(m(1-\bar{f}_{t})\big)=I_{p}(\bar{f}_{t}), (6)
+
+where the last equality follows from Equation ( 1 ) with f ¯ t \bar{f}_{t} in place of f t f_{t} . Equation ( 6 ) shows that the population’s expected log growth depends on the behaviors of the two lineages only through their average f ¯ t \bar{f}_{t} . This is because reproductive success depends on the chosen action and the environmental state, rather than on which lineage an individual belongs to.
+
+We can therefore measure the growth regret of the entire population in the same way as for a single lineage, by comparing its expected log growth with the optimal growth rate I p ​ ( p ) I_{p}(p) . Combining Equation ( 6 ) with Proposition 2 gives the following result.
+
+For p , f 1 , t , f 2 , t ∈ ( 0 , 1 ) p,f_{1,t},f_{2,t}\in(0,1) and q t ∈ [ 0 , 1 ] q_{t}\in[0,1] ,
+
+I p ​ ( p ) − I p ​ ( q t , f 1 , t , f 2 , t ) = ℛ p ​ ( f ¯ t ) . I_{p}(p)-I_{p}(q_{t},f_{1,t},f_{2,t})=\mathcal{R}_{p}(\bar{f}_{t}).
+
+The population’s growth regret is therefore determined by its average behavior f ¯ t \bar{f}_{t} .
+
+3.3 Mechanisms and measures of adaptation
+
+The preceding analysis shows that a population’s growth regret depends on its average behavior, which can change through two channels: natural selection changes the relative shares of lineages, while learning or search can change their inherited behaviors. We consider three evolutionary mechanisms that differ in which of these channels are available. Under Darwinian evolution, inherited behaviors remain fixed, and adaptation occurs through natural selection alone. Lamarckian evolution additionally allows individuals to learn and pass their acquired improvements to their descendants. Agent-directed evolution further allows individuals to search among variants of their behavior. Natural selection operates under all three mechanisms.
+
+To compare these mechanisms, we consider a common environmental change. Suppose that at time 0 0 , the probability of state α \alpha changes permanently from p old p_{\mathrm{old}} to p new ≠ p old p_{\mathrm{new}}\neq p_{\mathrm{old}} . By Proposition 1 , the growth-optimal behavior changes from p old p_{\mathrm{old}} to p new p_{\mathrm{new}} . We study how quickly each mechanism allows the population to adapt to the new environment.
+
+We assume that all three mechanisms start from the same population. At time 0 0 , a fraction q 0 ∈ ( 0 , 1 ) q_{0}\in(0,1) of individuals already follows the new optimal behavior p new p_{\mathrm{new}} , while the remaining fraction 1 − q 0 1-q_{0} follows the previously optimal behavior p old p_{\mathrm{old}} . We refer to their descendants as the adapted lineage and the maladapted lineage , respectively. These names describe their initial behaviors, since the maladapted lineage may become better adapted over time. The adapted lineage retains behavior p new p_{\mathrm{new}} throughout, while the behavior of the maladapted lineage evolves according to the mechanism under consideration.
+
+We denote the three mechanisms by D \mathrm{D} , L \mathrm{L} , and A \mathrm{A} , respectively. For each mechanism M ∈ { D , L , A } \mathrm{M}\in\{\mathrm{D},\mathrm{L},\mathrm{A}\} , let q t M q_{t}^{\mathrm{M}} denote the population share of the adapted lineage and f t M f_{t}^{\mathrm{M}} the behavior of the maladapted lineage in generation t t . By Equation ( 4 ), the population’s average behavior is
+
+f ¯ t M = q t M ​ p new + ( 1 − q t M ) ​ f t M . \bar{f}_{t}^{\mathrm{M}}=q_{t}^{\mathrm{M}}p_{\mathrm{new}}+(1-q_{t}^{\mathrm{M}})f_{t}^{\mathrm{M}}.
+
+Under all three mechanisms, natural selection changes the population share q t M q_{t}^{\mathrm{M}} according to Equation ( 5 ), with f 1 , t = p new f_{1,t}=p_{\mathrm{new}} and f 2 , t = f t M f_{2,t}=f_{t}^{\mathrm{M}} . The mechanisms differ in how the behavior f t M f_{t}^{\mathrm{M}} evolves across generations. By Proposition 3 , the population’s growth regret in generation t t is ℛ p new ​ ( f ¯ t M ) \mathcal{R}_{p_{\mathrm{new}}}(\bar{f}_{t}^{\mathrm{M}}) , which we use to measure maladaptation throughout. Since all three mechanisms share the initial conditions q 0 M = q 0 q_{0}^{\mathrm{M}}=q_{0} and f 0 M = p old f_{0}^{\mathrm{M}}=p_{\mathrm{old}} , they also have the same initial growth regret. We can therefore compare how quickly the three mechanisms reduce growth regret from a common starting point.
+
+There are two natural ways to measure the speed of adaptation. We can ask how many generations are needed to reduce regret by a specified fraction, or how rapidly regret declines over the long run. These lead to two complementary measures, adaptation time and adaptation rate, which we define for all three evolutionary mechanisms.
+
+For ε ∈ ( 0 , 1 ) \varepsilon\in(0,1) and q 0 ∈ [ 0 , 1 ) q_{0}\in[0,1) , the adaptation time of Mechanism M \mathrm{M} is
+
+τ M ​ ( ε , q 0 ) ≡ min ⁡ { t ≥ 0 : ℛ p new ​ ( f ¯ t M ) ≤ ε ​ ℛ p new ​ ( f ¯ 0 M ) } , \tau^{\mathrm{M}}(\varepsilon,q_{0})\equiv\min\left\{t\geq 0:\ \mathcal{R}_{p_{\mathrm{new}}}(\bar{f}^{\mathrm{M}}_{t})\leq\varepsilon\,\mathcal{R}_{p_{\mathrm{new}}}(\bar{f}^{\mathrm{M}}_{0})\right\},
+
+with the convention that min ⁡ ∅ = ∞ \min\varnothing=\infty .
+
+The adaptation rate of Mechanism M \mathrm{M} is
+
+κ M ≡ − lim t → ∞ 1 t log ℛ p new ( f ¯ t M ) , \kappa^{\mathrm{M}}\equiv-\lim_{t\to\infty}\frac{1}{t}\log\mathcal{R}_{p_{\mathrm{new}}}(\bar{f}^{\mathrm{M}}_{t}),
+
+whenever the limit exists with probability one.
+
+The adaptation time is the first generation in which growth regret falls to at most a fraction ε \varepsilon of its initial value. It depends on the mechanism M \mathrm{M} , the threshold ε \varepsilon , and the initial share q 0 q_{0} of the adapted lineage. The adaptation rate measures the long-run exponential decay of growth regret, with a larger rate indicating faster convergence.
+
+4 Darwinian Evolution
+
+We begin with Darwinian evolution, in which the two lineages retain their respective behaviors p new p_{\mathrm{new}} and p old p_{\mathrm{old}} across generations. Since their behaviors remain fixed, the population can adapt only through changes in their relative shares under natural selection. This mechanism provides a benchmark for the other two. Section 4.1 introduces the Darwinian mechanism, and Section 4.2 analyzes its adaptation time and rate.
+
+4.1 The model
+
+The defining feature of Darwinian evolution is that adaptation occurs through natural selection rather than changes in inherited behavior. The two lineages retain their respective behaviors p new p_{\mathrm{new}} and p old p_{\mathrm{old}} , while differences in reproductive success change their relative population shares. Following Equation ( 5 ), Mechanism 4.1 describes this process from one generation to the next.
+
+Mechanism D: Darwinian evolution Start. Generation 0 0 has q 0 D = q 0 q^{\mathrm{D}}_{0}=q_{0} and f 0 D = p old f^{\mathrm{D}}_{0}=p_{\mathrm{old}} , and each generation t ≥ 1 t\geq 1 is formed from generation t − 1 t-1 in the steps below; throughout, f ¯ t D ≡ q t D ​ p new + ( 1 − q t D ) ​ f t D \bar{f}^{\mathrm{D}}_{t}\equiv q^{\mathrm{D}}_{t}p_{\mathrm{new}}+(1-q^{\mathrm{D}}_{t})f^{\mathrm{D}}_{t} . Inheritance. f t D = f t − 1 D = p old f^{\mathrm{D}}_{t}=f^{\mathrm{D}}_{t-1}=p_{\mathrm{old}} . Selection. Once the state X t X_{t} is realized, q t D = { q t − 1 D ​ p new / f ¯ t − 1 D , X t = α , q t − 1 D ​ ( 1 − p new ) / ( 1 − f ¯ t − 1 D ) , X t = β . q^{\mathrm{D}}_{t}=\begin{cases}q^{\mathrm{D}}_{t-1}\,p_{\mathrm{new}}/\bar{f}^{\mathrm{D}}_{t-1},&X_{t}=\alpha,\\[2.0pt]
+q^{\mathrm{D}}_{t-1}\,(1-p_{\mathrm{new}})/(1-\bar{f}^{\mathrm{D}}_{t-1}),&X_{t}=\beta.\end{cases}
+
+By Proposition 3 , the whole population grows in each generation as a single type- f ¯ t D \bar{f}^{\mathrm{D}}_{t} lineage would, and its growth regret in generation t t is ℛ p new ​ ( f ¯ t D ) \mathcal{R}_{p_{\mathrm{new}}}(\bar{f}^{\mathrm{D}}_{t}) . Although the behaviors of the two lineages remain fixed, natural selection changes their relative shares and hence the population’s average behavior.
+
+4.2 Adaptation time and rate
+
+The following theorem characterizes the adaptation time τ D ​ ( ε , q 0 ) \tau^{\mathrm{D}}(\varepsilon,q_{0}) and rate κ D \kappa^{\mathrm{D}} of Mechanism 4.1 , as defined in Definitions 1 and 2 .
+
+Under Mechanism 4.1 :
+
+(i) for every q 0 ∈ ( 0 , 1 ) q_{0}\in(0,1) , κ D = 2 ​ Δ \kappa^{\mathrm{D}}=2\Delta with probability one;
+
+for every q 0 ∈ ( 0 , 1 ) q_{0}\in(0,1) , κ D = 2 ​ Δ \kappa^{\mathrm{D}}=2\Delta with probability one;
+
+(ii) lim ε → 0 𝔼 ​ τ D ​ ( ε , q 0 ) log ⁡ ( 1 / ε ) = 1 κ D \displaystyle\lim_{\varepsilon\to 0}\frac{\mathbb{E}\,\tau^{\mathrm{D}}(\varepsilon,q_{0})}{\log(1/\varepsilon)}=\frac{1}{\kappa^{\mathrm{D}}} for every ​ q 0 ∈ ( 0 , 1 ) , \displaystyle\text{for every }q_{0}\in(0,1), (7) lim q 0 → 0 𝔼 ​ τ D ​ ( ε , q 0 ) log ⁡ ( 1 / q 0 ) = 1 Δ \displaystyle\lim_{q_{0}\to 0}\frac{\mathbb{E}\,\tau^{\mathrm{D}}(\varepsilon,q_{0})}{\log(1/q_{0})}=\frac{1}{\Delta} for every ​ ε ∈ ( 0 , 1 ) . \displaystyle\text{for every }\varepsilon\in(0,1).
+
+lim ε → 0 𝔼 ​ τ D ​ ( ε , q 0 ) log ⁡ ( 1 / ε ) = 1 κ D \displaystyle\lim_{\varepsilon\to 0}\frac{\mathbb{E}\,\tau^{\mathrm{D}}(\varepsilon,q_{0})}{\log(1/\varepsilon)}=\frac{1}{\kappa^{\mathrm{D}}} for every ​ q 0 ∈ ( 0 , 1 ) , \displaystyle\text{for every }q_{0}\in(0,1), (7) lim q 0 → 0 𝔼 ​ τ D ​ ( ε , q 0 ) log ⁡ ( 1 / q 0 ) = 1 Δ \displaystyle\lim_{q_{0}\to 0}\frac{\mathbb{E}\,\tau^{\mathrm{D}}(\varepsilon,q_{0})}{\log(1/q_{0})}=\frac{1}{\Delta} for every ​ ε ∈ ( 0 , 1 ) . \displaystyle\text{for every }\varepsilon\in(0,1).
+
+Here,
+
+Δ ≡ p new ​ log ⁡ p new p old + ( 1 − p new ) ​ log ⁡ 1 − p new 1 − p old = ℛ p new ​ ( p old ) > 0 . \Delta\equiv p_{\mathrm{new}}\log\frac{p_{\mathrm{new}}}{p_{\mathrm{old}}}+(1-p_{\mathrm{new}})\log\frac{1-p_{\mathrm{new}}}{1-p_{\mathrm{old}}}=\mathcal{R}_{p_{\mathrm{new}}}(p_{\mathrm{old}})>0. (8)
+
+Part (i) of Theorem 1 shows that the long-run adaptation rate under Darwinian evolution is κ D = 2 ​ Δ \kappa^{\mathrm{D}}=2\Delta . The quantity Δ \Delta is the adapted lineage’s advantage in expected log growth per generation. The larger the growth advantage Δ \Delta of the adapted lineage, the faster it spreads through the population and the faster growth regret declines. The factor of two arises because growth regret is approximately quadratic near the optimum (Equation ( 3 )). Importantly, the adaptation rate does not depend on the initial share q 0 q_{0} of the adapted lineage: regardless of how rare it is initially, the population eventually adapts at the same long-run rate.
+
+Part (ii) of Theorem 1 explains how the expected adaptation time depends on the threshold ε \varepsilon and the initial share q 0 q_{0} . First, for any fixed q 0 > 0 q_{0}>0 , the expected adaptation time grows like log ⁡ ( 1 / ε ) / κ D \log(1/\varepsilon)/\kappa^{\mathrm{D}} as ε \varepsilon approaches zero. Second, for any fixed threshold ε \varepsilon , the expected adaptation time grows like log ⁡ ( 1 / q 0 ) / Δ \log(1/q_{0})/\Delta as q 0 q_{0} approaches zero. The intuition is that when the adapted lineage is initially rare, it must first grow to a sufficiently large share before it can substantially improve the population’s average behavior. We call this additional delay the seed penalty . It can become arbitrarily large even though the long-run adaptation rate remains unchanged. At q 0 = 0 q_{0}=0 , adaptation is impossible: without any individuals carrying the adapted behavior, natural selection has no way to introduce it. 1 1 1 Mutation could introduce new behaviors and thereby make adaptation possible, but we do not consider mutation in this paper.
+
+Darwinian adaptation operates entirely through natural selection among fixed inherited behaviors. We next consider Lamarckian evolution, in which learning can also change the behavior passed on to future generations.
+
+5 Lamarckian Evolution
+
+We now consider Lamarckian evolution, which adds the inheritance of acquired improvements to the Darwinian framework: natural selection still determines the relative shares of the two lineages, but the maladapted lineage can also learn from the new environment and pass its improved behavior to its descendants. Section 5.1 introduces the Lamarckian mechanism and examines how learning interacts with selection, and Section 5.2 analyzes its adaptation time and rate.
+
+5.1 The model
+
+Under Lamarckian evolution, individuals can acquire better behavior during their lifetimes and pass it on to their descendants, so the initially maladapted lineage can improve its inherited behavior over successive generations instead of relying entirely on natural selection to increase the share of the already adapted lineage.
+
+How much can learning improve inherited behavior in each generation? If individuals could fully adopt the new optimal behavior p new p_{\mathrm{new}} and transmit it to their descendants, they could reach the optimum in a single generation. However, individuals may be able to change their behavior only partly within a lifetime, and acquired improvements may not be fully transmitted.
+We capture these limitations by assuming that, in each generation, learning and transmission move the maladapted lineage’s behavior a fixed fraction of the way toward the new optimum:
+
+f t + 1 L = f t L + λ ⁡ ( p new − f t L ) , λ ∈ ( 0 , 1 ) , f^{\mathrm{L}}_{t+1}=f^{\mathrm{L}}_{t}+\lambda\,(p_{\mathrm{new}}-f^{\mathrm{L}}_{t}),\qquad\lambda\in(0,1), (9)
+
+with f 0 L = p old f^{\mathrm{L}}_{0}=p_{\mathrm{old}} .
+
+The parameter λ \lambda measures the effectiveness of inherited learning: it combines how much individuals can change their behavior within a generation with how faithfully these changes are passed on. A larger λ \lambda closes more of the remaining gap in each generation, and in the limiting case λ = 1 \lambda=1 , the lineage would reach the new optimum in a single generation.
+
+Equation ( 9 ) specifies the direction and speed of learning rather than how individuals learn. Behavior moves toward the optimum of the new environment, much as training moves an AI system toward the behavior that its objective rewards. This adjustment rule is closely related to partial-adjustment and adaptive-expectations models in economics ( Cagan, 1956 ; Nerlove, 1958 ) .
+
+Combining learning with the selection rule in Equation ( 5 ) gives Mechanism 5.1 .
+
+Mechanism L: Lamarckian evolution Start. Generation 0 0 has q 0 L = q 0 q^{\mathrm{L}}_{0}=q_{0} and f 0 L = p old f^{\mathrm{L}}_{0}=p_{\mathrm{old}} , and each generation t ≥ 1 t\geq 1 is formed from generation t − 1 t-1 in the steps below; throughout, f ¯ t L ≡ q t L ​ p new + ( 1 − q t L ) ​ f t L \bar{f}^{\mathrm{L}}_{t}\equiv q^{\mathrm{L}}_{t}p_{\mathrm{new}}+(1-q^{\mathrm{L}}_{t})f^{\mathrm{L}}_{t} . Learning. f t L = f t − 1 L + λ ⁡ ( p new − f t − 1 L ) f^{\mathrm{L}}_{t}=f^{\mathrm{L}}_{t-1}+\lambda\,(p_{\mathrm{new}}-f^{\mathrm{L}}_{t-1}) . Selection. Once the state X t X_{t} is realized, q t L = { q t − 1 L ​ p new / f ¯ t − 1 L , X t = α , q t − 1 L ​ ( 1 − p new ) / ( 1 − f ¯ t − 1 L ) , X t = β . q^{\mathrm{L}}_{t}=\begin{cases}q^{\mathrm{L}}_{t-1}\,p_{\mathrm{new}}/\bar{f}^{\mathrm{L}}_{t-1},&X_{t}=\alpha,\\[2.0pt]
+q^{\mathrm{L}}_{t-1}\,(1-p_{\mathrm{new}})/(1-\bar{f}^{\mathrm{L}}_{t-1}),&X_{t}=\beta.\end{cases}
+
+Mechanism 5.1 shows the two channels of adaptation directly: f ¯ t L − p new = ( 1 − q t L ) ​ ( f t L − p new ) \bar{f}^{\mathrm{L}}_{t}-p_{\mathrm{new}}=(1-q^{\mathrm{L}}_{t})(f^{\mathrm{L}}_{t}-p_{\mathrm{new}}) . Natural selection changes the population share 1 − q t L 1-q^{\mathrm{L}}_{t} of the maladapted lineage, while learning eliminates a fraction λ \lambda of its remaining behavioral gap f t L − p new f^{\mathrm{L}}_{t}-p_{\mathrm{new}} in each generation. The population can thus approach the new optimum even without the adapted lineage taking over.
+
+5.2 Adaptation time and rate
+
+The following theorem characterizes the adaptation time τ L ​ ( ε , q 0 ) \tau^{\mathrm{L}}(\varepsilon,q_{0}) and rate κ L \kappa^{\mathrm{L}} of Mechanism 5.1 , as defined in Definitions 1 and 2 .
+
+Under Mechanism 5.1 :
+
+(i) for every q 0 ∈ [ 0 , 1 ) q_{0}\in[0,1) , κ L = − 2 ​ log ⁡ ( 1 − λ ) \kappa^{\mathrm{L}}=-2\log(1-\lambda) along every history;
+
+for every q 0 ∈ [ 0 , 1 ) q_{0}\in[0,1) , κ L = − 2 ​ log ⁡ ( 1 − λ ) \kappa^{\mathrm{L}}=-2\log(1-\lambda) along every history;
+
+(ii) lim ε → 0 𝔼 ​ τ L ​ ( ε , q 0 ) log ⁡ ( 1 / ε ) = 1 κ L \displaystyle\lim_{\varepsilon\to 0}\frac{\mathbb{E}\,\tau^{\mathrm{L}}(\varepsilon,q_{0})}{\log(1/\varepsilon)}=\frac{1}{\kappa^{\mathrm{L}}} for every ​ q 0 ∈ [ 0 , 1 ) , \displaystyle\text{for every }q_{0}\in[0,1), sup q 0 ∈ [ 0 , 1 ) 𝔼 ​ τ L ​ ( ε , q 0 ) < ∞ \displaystyle\sup_{q_{0}\in[0,1)}\mathbb{E}\,\tau^{\mathrm{L}}(\varepsilon,q_{0})<\infty for every ​ ε ∈ ( 0 , 1 ) . \displaystyle\text{for every }\varepsilon\in(0,1).
+
+lim ε → 0 𝔼 ​ τ L ​ ( ε , q 0 ) log ⁡ ( 1 / ε ) = 1 κ L \displaystyle\lim_{\varepsilon\to 0}\frac{\mathbb{E}\,\tau^{\mathrm{L}}(\varepsilon,q_{0})}{\log(1/\varepsilon)}=\frac{1}{\kappa^{\mathrm{L}}} for every ​ q 0 ∈ [ 0 , 1 ) , \displaystyle\text{for every }q_{0}\in[0,1), sup q 0 ∈ [ 0 , 1 ) 𝔼 ​ τ L ​ ( ε , q 0 ) < ∞ \displaystyle\sup_{q_{0}\in[0,1)}\mathbb{E}\,\tau^{\mathrm{L}}(\varepsilon,q_{0})<\infty for every ​ ε ∈ ( 0 , 1 ) . \displaystyle\text{for every }\varepsilon\in(0,1).
+
+Part (i) of Theorem 2 shows that the long-run adaptation rate under Lamarckian evolution is κ L = − 2 ​ log ⁡ ( 1 − λ ) \kappa^{\mathrm{L}}=-2\log(1-\lambda) : the larger the learning parameter λ \lambda , the faster the maladapted lineage moves toward the new optimum. Unlike under Darwinian evolution, the rate is determined by the speed of learning rather than by the growth advantage Δ \Delta of the adapted lineage. Under Darwinian evolution, the two lineages retain their original behaviors, so the adapted lineage keeps a constant growth advantage. Under Lamarckian evolution, learning gradually eliminates this advantage by improving the maladapted lineage, and natural selection weakens as the two lineages become more similar. Although selection continues to operate, long-run adaptation is therefore driven by learning rather than by changes in population shares.
+
+Part (ii) of Theorem 2 characterizes the expected adaptation time. For any fixed q 0 ∈ [ 0 , 1 ) q_{0}\in[0,1) , it grows like log ⁡ ( 1 / ε ) / κ L \log(1/\varepsilon)/\kappa^{\mathrm{L}} as ε \varepsilon approaches zero. More importantly, it remains uniformly bounded across all initial shares q 0 ∈ [ 0 , 1 ) q_{0}\in[0,1) . This is a fundamental difference from Darwinian evolution, where an initially rare adapted lineage can lead to an arbitrarily large seed penalty ( Theorem 1 ). Under Lamarckian evolution, the maladapted lineage can improve its own behavior rather than wait to be replaced, so even when q 0 = 0 q_{0}=0 , with no individual initially possessing the optimal behavior, learning can still bring the population toward the new optimum.
+
+Under Mechanism 5.1 , however, the learning process is fixed: λ \lambda determines the fraction of the remaining gap eliminated in each generation, and the system does not decide how to search for improvements. We next consider agent-directed evolution, in which the system can generate and evaluate multiple variants of itself and choose how many to explore, so that the process of adaptation itself becomes a decision.
+
+6 Agent-Directed Evolution
+
+We now turn to agent-directed evolution, which adds the ability to search for improvements to the Lamarckian framework: in addition to learning, the maladapted lineage can generate multiple variants of its behavior, evaluate them, and retain the best one for further learning. More importantly, the agent can decide how many variants to explore, which lets it influence the process by which it adapts. Section 6.1 introduces the agent-directed mechanism, Section 6.2 analyzes its adaptation time and rate and the gain from search, and Section 6.3 examines how many variants the agent chooses when it maximizes the speed of adaptation and when it minimizes its cost.
+
+6.1 The model
+
+In Mechanism 5.1 , the maladapted lineage improves its inherited behavior through a fixed learning rule. An intelligent agent may also be able to experiment with different ways of improving its behavior before passing it on: it can generate several candidate modifications of its current behavior, evaluate them, and retain the best one for further learning. We call these candidates variants and let N ≥ 1 N\geq 1 denote the number of variants the agent chooses to generate in each generation.
+
+How much improvement can these variants achieve? The outcome of any attempt is uncertain, with some variants producing substantial improvements and others very little, and the difficulty of the problem may limit how much progress even the best attempt can make. We capture both features by letting each variant move toward the new optimum by a random fraction of the remaining behavioral gap: in generation t t , the agent generates N N variants with behaviors
+
+x t , j = f t − 1 A + ρ U t , j ( p new − f t − 1 A ) , j = 1 , … , N , x_{t,j}=f^{\mathrm{A}}_{t-1}+\rho\,U_{t,j}\,(p_{\mathrm{new}}-f^{\mathrm{A}}_{t-1}),\qquad j=1,\ldots,N, (10)
+
+where the random variables U t , j U_{t,j} are independent, uniformly distributed on ( 0 , 1 ) (0,1) , and independent of the environment.
+
+The parameter ρ ∈ ( 0 , 1 ] \rho\in(0,1] represents the difficulty of the problem: it is the maximum fraction of the remaining gap that a single variant can eliminate. A smaller ρ \rho corresponds to a harder problem, in which even a successful attempt makes only limited progress, and when ρ = 1 \rho=1 , a single variant can move arbitrarily close to the optimum. The agent can choose how many variants to generate, but it controls neither their random outcomes nor ρ \rho . As with the Lamarckian learning rule, Equation ( 10 ) is a reduced-form assumption: the agent need not know p new p_{\mathrm{new}} , but its attempts are assumed to move in the correct direction, with uncertain magnitudes.
+
+We assume that an external evaluator compares the variants and identifies the one whose behavior is closest to p new p_{\mathrm{new}} ; the agent itself need not know p new p_{\mathrm{new}} and only receives the evaluator’s assessment. The selected variant then undergoes the same learning as in Mechanism 5.1 , moving a fraction λ \lambda of the remaining gap toward the optimum, and natural selection operates between the two lineages as before. Combining these steps gives Mechanism 6.1 .
+
+Mechanism A: agent-directed evolution Start. Generation 0 0 has q 0 A = q 0 q^{\mathrm{A}}_{0}=q_{0} and f 0 A = p old f^{\mathrm{A}}_{0}=p_{\mathrm{old}} , and each generation t ≥ 1 t\geq 1 is formed from generation t − 1 t-1 in the steps below; throughout, f ¯ t A ≡ q t A ​ p new + ( 1 − q t A ) ​ f t A \bar{f}^{\mathrm{A}}_{t}\equiv q^{\mathrm{A}}_{t}p_{\mathrm{new}}+(1-q^{\mathrm{A}}_{t})f^{\mathrm{A}}_{t} . Search. The agent creates N N variants with behaviors x t , j = f t − 1 A + ρ ​ U t , j ​ ( p new − f t − 1 A ) x_{t,j}=f^{\mathrm{A}}_{t-1}+\rho\,U_{t,j}(p_{\mathrm{new}}-f^{\mathrm{A}}_{t-1}) for j = 1 , … , N j=1,\ldots,N , where the draws U t , j U_{t,j} are independent and uniform on ( 0 , 1 ) (0,1) . Evaluation. The evaluator reports J t ∈ arg ⁡ min 1 ≤ j ≤ N ​ | x t , j − p new | J_{t}\in\arg\min_{1\leq j\leq N}|x_{t,j}-p_{\mathrm{new}}| , and variant J t J_{t} is kept. Learning. f t A = x t , J t + λ ⁡ ( p new − x t , J t ) f^{\mathrm{A}}_{t}=x_{t,J_{t}}+\lambda\,(p_{\mathrm{new}}-x_{t,J_{t}}) . Selection. Once the state X t X_{t} is realized, q t A = { q t − 1 A ​ p new / f ¯ t − 1 A , X t = α , q t − 1 A ​ ( 1 − p new ) / ( 1 − f ¯ t − 1 A ) , X t = β . q^{\mathrm{A}}_{t}=\begin{cases}q^{\mathrm{A}}_{t-1}\,p_{\mathrm{new}}/\bar{f}^{\mathrm{A}}_{t-1},&X_{t}=\alpha,\\[2.0pt]
+q^{\mathrm{A}}_{t-1}\,(1-p_{\mathrm{new}})/(1-\bar{f}^{\mathrm{A}}_{t-1}),&X_{t}=\beta.\end{cases}
+
+Since every variant moves toward the new optimum, the evaluator selects the variant with the largest random draw, U t ∗ ≡ max ⁡ { U t , 1 , … , U t , N } U^{*}_{t}\equiv\max\{U_{t,1},\ldots,U_{t,N}\} . Search eliminates a fraction ρ ​ U t ∗ \rho U^{*}_{t} of the remaining behavioral gap, and learning then eliminates a fraction λ \lambda of what remains. Combining these two steps gives
+
+f t A − p new = ( 1 − λ ) ​ ( 1 − ρ ​ U t ∗ ) ​ ( f t − 1 A − p new ) . f^{\mathrm{A}}_{t}-p_{\mathrm{new}}=(1-\lambda)(1-\rho U^{*}_{t})(f^{\mathrm{A}}_{t-1}-p_{\mathrm{new}}). (11)
+
+If the agent generates no variants ( N = 0 N=0 ), we set U t ∗ = 0 U^{*}_{t}=0 , and Equation ( 11 ) reduces to the Lamarckian learning rule in Equation ( 9 ): Mechanism 5.1 is the special case of Mechanism 6.1 without search.
+
+6.2 Adaptation time and rate
+
+The following theorem gives the adaptation rate and time of Mechanism 6.1 , as defined in Definitions 1 and 2 .
+
+Under Mechanism 6.1 :
+
+(i) for every q 0 ∈ [ 0 , 1 ) q_{0}\in[0,1) , with probability one, κ A = κ L + 2 ​ G N ​ ( ρ ) , \kappa^{\mathrm{A}}=\kappa^{\mathrm{L}}+2G_{N}(\rho), where G N ​ ( ρ ) ≡ 𝔼 ⁡ [ − log ⁡ ( 1 − ρ ​ U t ∗ ) ] ≥ 0 for ​ N ≥ 1 , G 0 ​ ( ρ ) = 0 ; G_{N}(\rho)\equiv\mathbb{E}\big[-\log(1-\rho\,U^{*}_{t})\big]\geq 0\quad\text{for }N\geq 1,\qquad G_{0}(\rho)=0; (12)
+
+for every q 0 ∈ [ 0 , 1 ) q_{0}\in[0,1) , with probability one,
+
+κ A = κ L + 2 ​ G N ​ ( ρ ) , \kappa^{\mathrm{A}}=\kappa^{\mathrm{L}}+2G_{N}(\rho),
+
+where
+
+G N ​ ( ρ ) ≡ 𝔼 ⁡ [ − log ⁡ ( 1 − ρ ​ U t ∗ ) ] ≥ 0 for ​ N ≥ 1 , G 0 ​ ( ρ ) = 0 ; G_{N}(\rho)\equiv\mathbb{E}\big[-\log(1-\rho\,U^{*}_{t})\big]\geq 0\quad\text{for }N\geq 1,\qquad G_{0}(\rho)=0; (12)
+
+(ii) lim ε → 0 𝔼 ​ τ A ​ ( ε , q 0 ) log ⁡ ( 1 / ε ) = 1 κ A \displaystyle\lim_{\varepsilon\to 0}\frac{\mathbb{E}\,\tau^{\mathrm{A}}(\varepsilon,q_{0})}{\log(1/\varepsilon)}=\frac{1}{\kappa^{\mathrm{A}}} for every ​ q 0 ∈ [ 0 , 1 ) , \displaystyle\text{for every }q_{0}\in[0,1), (13) sup q 0 ∈ [ 0 , 1 ) 𝔼 ​ τ A ​ ( ε , q 0 ) < ∞ \displaystyle\sup_{q_{0}\in[0,1)}\mathbb{E}\,\tau^{\mathrm{A}}(\varepsilon,q_{0})<\infty for every ​ ε ∈ ( 0 , 1 ) . \displaystyle\text{for every }\varepsilon\in(0,1).
+
+lim ε → 0 𝔼 ​ τ A ​ ( ε , q 0 ) log ⁡ ( 1 / ε ) = 1 κ A \displaystyle\lim_{\varepsilon\to 0}\frac{\mathbb{E}\,\tau^{\mathrm{A}}(\varepsilon,q_{0})}{\log(1/\varepsilon)}=\frac{1}{\kappa^{\mathrm{A}}} for every ​ q 0 ∈ [ 0 , 1 ) , \displaystyle\text{for every }q_{0}\in[0,1), (13) sup q 0 ∈ [ 0 , 1 ) 𝔼 ​ τ A ​ ( ε , q 0 ) < ∞ \displaystyle\sup_{q_{0}\in[0,1)}\mathbb{E}\,\tau^{\mathrm{A}}(\varepsilon,q_{0})<\infty for every ​ ε ∈ ( 0 , 1 ) . \displaystyle\text{for every }\varepsilon\in(0,1).
+
+Part (i) of Theorem 3 shows that the long-run adaptation rate under agent-directed evolution is κ A = κ L + 2 ​ G N ​ ( ρ ) \kappa^{\mathrm{A}}=\kappa^{\mathrm{L}}+2G_{N}(\rho) : unlike the Lamarckian rate, which depends only on the learning parameter λ \lambda , it benefits from both learning and search. The term G N ​ ( ρ ) G_{N}(\rho) measures the expected improvement from the best of N N variants. As in Lamarckian evolution, natural selection continues to operate, but its influence gradually diminishes as the two lineages become better adapted, so the long-run rate is determined by learning and search.
+
+Part (ii) of Theorem 3 characterizes the expected adaptation time. For any fixed q 0 ∈ [ 0 , 1 ) q_{0}\in[0,1) , it grows like log ⁡ ( 1 / ε ) / κ A \log(1/\varepsilon)/\kappa^{\mathrm{A}} as ε \varepsilon approaches zero, and it remains uniformly bounded across all initial shares q 0 ∈ [ 0 , 1 ) q_{0}\in[0,1) . Like Lamarckian evolution, agent-directed evolution therefore has no seed penalty, but search provides an additional source of improvement that lets the agent adapt faster than through learning alone.
+
+The following proposition characterizes how the gain from search depends on the number of variants N N and the difficulty parameter ρ \rho .
+
+For the function G N ​ ( ρ ) G_{N}(\rho) in Equation ( 12 ):
+
+(i) G N ​ ( ρ ) G_{N}(\rho) is strictly increasing in N N for every ρ ∈ ( 0 , 1 ] \rho\in(0,1] , and strictly increasing in ρ \rho for every N ≥ 1 N\geq 1 ;
+
+G N ​ ( ρ ) G_{N}(\rho) is strictly increasing in N N for every ρ ∈ ( 0 , 1 ] \rho\in(0,1] , and strictly increasing in ρ \rho for every N ≥ 1 N\geq 1 ;
+
+(ii) G N ​ ( 1 ) = 1 + 1 2 + ⋯ + 1 N G_{N}(1)=1+\frac{1}{2}+\cdots+\frac{1}{N} , and lim N → ∞ G N ​ ( 1 ) / log ⁡ N = 1 \lim_{N\to\infty}G_{N}(1)/\log N=1 ;
+
+G N ​ ( 1 ) = 1 + 1 2 + ⋯ + 1 N G_{N}(1)=1+\frac{1}{2}+\cdots+\frac{1}{N} , and lim N → ∞ G N ​ ( 1 ) / log ⁡ N = 1 \lim_{N\to\infty}G_{N}(1)/\log N=1 ;
+
+(iii) for ρ ∈ ( 0 , 1 ) \rho\in(0,1) , G N ​ ( ρ ) < − log ⁡ ( 1 − ρ ) G_{N}(\rho)<-\log(1-\rho) for every N N , and lim N → ∞ G N ​ ( ρ ) = − log ⁡ ( 1 − ρ ) \lim_{N\to\infty}G_{N}(\rho)=-\log(1-\rho) .
+
+for ρ ∈ ( 0 , 1 ) \rho\in(0,1) , G N ​ ( ρ ) < − log ⁡ ( 1 − ρ ) G_{N}(\rho)<-\log(1-\rho) for every N N , and lim N → ∞ G N ​ ( ρ ) = − log ⁡ ( 1 − ρ ) \lim_{N\to\infty}G_{N}(\rho)=-\log(1-\rho) .
+
+Part (i) of Proposition 4 shows that the gain from search increases with both the number of variants N N and the difficulty parameter ρ \rho : more variants raise the chance of finding one that makes substantial progress toward the optimum, and a larger ρ \rho allows each variant to achieve greater improvements.
+
+Part (ii) of Proposition 4 considers the case ρ = 1 \rho=1 , where a single variant can move arbitrarily close to the optimum. Then G N ​ ( 1 ) = 1 + 1 2 + ⋯ + 1 N G_{N}(1)=1+\frac{1}{2}+\cdots+\frac{1}{N} grows approximately like log ⁡ N \log N , so the additional adaptation rate from search grows approximately as 2 ​ log ⁡ N 2\log N : each additional variant contributes less than the previous one, but the total gain increases without bound.
+
+Part (iii) of Proposition 4 considers the case ρ < 1 \rho<1 , where each variant can eliminate at most a fraction ρ \rho of the remaining behavioral gap. As the number of variants increases, the best variant approaches this maximum and the adaptation rate approaches κ L − 2 ​ log ⁡ ( 1 − ρ ) \kappa^{\mathrm{L}}-2\log(1-\rho) , so, unlike when ρ = 1 \rho=1 , the gain from search has a finite upper bound that depends on the difficulty of the problem. Figure B.1 in Appendix C illustrates Proposition 4 .
+
+6.3 Choosing the number of variants
+
+So far, we have treated the number of variants N N as given. An agent that can choose how many variants to generate must decide how much search to undertake, and this decision depends on what it seeks to achieve. We consider two objectives: maximizing the speed of adaptation and minimizing its cost.
+
+Consider first an agent whose primary objective is to adapt as quickly as possible, without accounting for the cost of generating variants. It chooses N N to maximize its adaptation rate κ A = κ L + 2 ​ G N ​ ( ρ ) \kappa^{\mathrm{A}}=\kappa^{\mathrm{L}}+2G_{N}(\rho) , which increases with N N for every ρ ∈ ( 0 , 1 ] \rho\in(0,1] by Proposition 4 (i). Regardless of the difficulty of the problem, more variants therefore always lead to faster adaptation: the gain from search increases at a diminishing rate and may approach a finite upper bound when ρ < 1 \rho<1 , but every additional variant still contributes. In the absence of resource constraints, a speed-maximizing agent has no finite optimal N N and would generate as many variants as its resources permit.
+
+OpenAI’s use of roughly 10,000 agents to tackle the Navier–Stokes problem, as discussed in the Introduction, illustrates this approach ( OpenAI, 2026 ) . The scale of this effort suggests a willingness to commit substantial computational resources to exploring more possibilities in parallel, prioritizing rapid progress over minimizing the cost of search. When speed is the primary objective, generating more variants can therefore be worthwhile even at considerable expense. We next consider how the agent’s choice changes when minimizing the total cost of adaptation becomes the objective.
+
+A different objective arises for AI agents deployed to perform large numbers of tasks, such as automated bug fixing or code optimization, which may seek to reach a given performance target at the lowest possible computational cost. More variants reduce the number of generations needed to reach the target but increase the cost of each generation. To capture this tradeoff, suppose that learning costs one unit per generation and each variant an additional c > 0 c>0 , so that a generation with N N variants costs 1 + c ​ N 1+cN .
+
+The total cost of adaptation is the cost per generation times the number of generations needed to adapt. By Theorem 3 (ii), for sufficiently stringent adaptation targets, the expected number of generations is approximately proportional to 1 / κ A 1/\kappa^{\mathrm{A}} . We therefore define the long-run cost of adaptation, approximately proportional to the expected total cost, as
+
+C ⁡ ( N ) ≡ 1 + c ​ N κ A = 1 + c ​ N κ L + 2 ​ G N ​ ( ρ ) . C(N)\equiv\frac{1+cN}{\kappa^{\mathrm{A}}}=\frac{1+cN}{\kappa^{\mathrm{L}}+2G_{N}(\rho)}. (14)
+
+Assuming that the agent knows its learning parameter λ \lambda , the difficulty parameter ρ \rho , and the cost c c , it chooses the number of variants to minimize this long-run cost:
+
+N ∗ ​ ( ρ , λ , c ) ∈ arg ⁡ min N ∈ { 0 , 1 , 2 , … } ⁡ C ⁡ ( N ) . N^{*}(\rho,\lambda,c)\in\arg\min_{N\in\{0,1,2,\ldots\}}C(N). (15)
+
+The following proposition characterizes the optimal number of variants and how it depends on these parameters.
+
+For the long-run cost C ⁡ ( N ) C(N) in Equation ( 14 ) and the choice of N N in Equation ( 15 ):
+
+(i) C ⁡ ( N ) C(N) first decreases and then increases in N N ;
+
+C ⁡ ( N ) C(N) first decreases and then increases in N N ;
+
+(ii) N ∗ ​ ( ρ , λ , c ) N^{*}(\rho,\lambda,c) is nondecreasing in ρ \rho and nonincreasing in λ \lambda and in c c .
+
+N ∗ ​ ( ρ , λ , c ) N^{*}(\rho,\lambda,c) is nondecreasing in ρ \rho and nonincreasing in λ \lambda and in c c .
+
+Part (i) of Proposition 5 shows how the agent balances the benefits and costs of additional variants. Each new variant increases the adaptation rate by less as the number of variants grows, while its cost remains constant. When search is worthwhile, increasing N N therefore first reduces the long-run cost, but eventually the additional cost outweighs the benefit of faster adaptation, so the agent chooses the number of variants that minimizes C ⁡ ( N ) C(N) rather than generating as many as possible.
+
+Part (ii) of Proposition 5 shows how this choice depends on the agent’s learning ability, the difficulty of the problem, and the cost of search. A larger λ \lambda lets the agent adapt more quickly through learning alone, reducing the need for search, and a higher c c makes variants less attractive, whereas a larger ρ \rho allows each variant to achieve greater improvements and makes search more valuable. The agent therefore chooses more variants when it learns more slowly, when search is less expensive, and when the problem is easier. Figure B.2 in Appendix C illustrates Proposition 5 .
+
+We conclude this section by clarifying the distinction between maximizing adaptation speed and minimizing adaptation cost. The speed-maximizing agent maximizes the adaptation rate per generation. When variants can be generated and evaluated in parallel, as in OpenAI’s example, additional variants need not lengthen a generation, so maximizing the rate per generation also maximizes the rate per unit of time. If variants are instead evaluated sequentially and the duration of each generation is proportional to 1 + c ​ N 1+cN , the adaptation rate per unit of time becomes κ A / ( 1 + c ​ N ) = 1 / C ⁡ ( N ) \kappa^{\mathrm{A}}/(1+cN)=1/C(N) , and maximizing speed yields the same optimal choice N ∗ N^{*} as minimizing cost. The optimal search strategy thus depends not only on the agent’s objective but also on whether additional variants can be evaluated in parallel.
+
+7 Comparing the Three Mechanisms
+
+Having examined the three evolutionary mechanisms separately, we now compare their adaptation speeds. Section 7.1 compares their adaptation rates and times, and Section 7.2 illustrates the comparison numerically.
+
+7.1 Comparing adaptation speeds
+
+The following theorem compares the adaptation speeds of the three evolutionary mechanisms.
+
+Under Mechanisms 4.1 , 5.1 , and 6.1 , with ρ ∈ ( 0 , 1 ] \rho\in(0,1] , N ≥ 1 N\geq 1 , and λ ∈ ( 0 , 1 ) \lambda\in(0,1) satisfying
+
+λ > 1 − e − Δ , \lambda>1-e^{-\Delta}, (16)
+
+(i) for every q 0 ∈ ( 0 , 1 ) q_{0}\in(0,1) , with probability one, κ D < κ L < κ A ; \kappa^{\mathrm{D}}<\kappa^{\mathrm{L}}<\kappa^{\mathrm{A}};
+
+for every q 0 ∈ ( 0 , 1 ) q_{0}\in(0,1) , with probability one,
+
+κ D < κ L < κ A ; \kappa^{\mathrm{D}}<\kappa^{\mathrm{L}}<\kappa^{\mathrm{A}};
+
+(ii) for every q 0 ∈ ( 0 , 1 ) q_{0}\in(0,1) , there exists ε ¯ > 0 \bar{\varepsilon}>0 such that 𝔼 ​ τ A ​ ( ε , q 0 ) < 𝔼 ​ τ L ​ ( ε , q 0 ) < 𝔼 ​ τ D ​ ( ε , q 0 ) for every ​ ε ∈ ( 0 , ε ¯ ) . \mathbb{E}\,\tau^{\mathrm{A}}(\varepsilon,q_{0})<\mathbb{E}\,\tau^{\mathrm{L}}(\varepsilon,q_{0})<\mathbb{E}\,\tau^{\mathrm{D}}(\varepsilon,q_{0})\qquad\text{for every }\varepsilon\in(0,\bar{\varepsilon}). (17)
+
+for every q 0 ∈ ( 0 , 1 ) q_{0}\in(0,1) , there exists ε ¯ > 0 \bar{\varepsilon}>0 such that
+
+𝔼 ​ τ A ​ ( ε , q 0 ) < 𝔼 ​ τ L ​ ( ε , q 0 ) < 𝔼 ​ τ D ​ ( ε , q 0 ) for every ​ ε ∈ ( 0 , ε ¯ ) . \mathbb{E}\,\tau^{\mathrm{A}}(\varepsilon,q_{0})<\mathbb{E}\,\tau^{\mathrm{L}}(\varepsilon,q_{0})<\mathbb{E}\,\tau^{\mathrm{D}}(\varepsilon,q_{0})\qquad\text{for every }\varepsilon\in(0,\bar{\varepsilon}). (17)
+
+Part (i) of Theorem 4 shows that Lamarckian evolution adapts faster than Darwinian evolution when Equation ( 16 ) holds. As learning brings the two lineages closer in behavior, their growth rates converge and the influence of natural selection gradually diminishes, so long-run adaptation is driven by learning, which under this condition is faster than natural selection alone.
+
+The second inequality in part (i) shows that agent-directed evolution adapts faster than Lamarckian evolution, because search adds 2 ​ G N ​ ( ρ ) 2G_{N}(\rho) to the Lamarckian adaptation rate ( Theorem 3 ).
+
+Part (ii) of Theorem 4 compares the expected times the three mechanisms need to reach the same adaptation target: under Equation ( 16 ), for any initial share q 0 ∈ ( 0 , 1 ) q_{0}\in(0,1) and a sufficiently stringent target, agent-directed evolution requires the fewest generations on average, followed by Lamarckian and then Darwinian evolution.
+
+7.2 Numerical illustrations
+
+We now illustrate the differences in adaptation speed among the three mechanisms numerically. Consider an environment in which the probability of state α \alpha changes permanently from p old = 0.40 p_{\mathrm{old}}=0.40 to p new = 0.60 p_{\mathrm{new}}=0.60 . We set the initial share of the adapted lineage to q 0 = 10 − 4 q_{0}=10^{-4} and the learning parameter to λ = 0.10 \lambda=0.10 . Under agent-directed evolution, the agent generates one variant per generation ( N = 1 N=1 ), with the difficulty parameter ρ = 0.5 \rho=0.5 . These parameters give Δ = 0.08109 \Delta=0.08109 , κ D = 0.16219 \kappa^{\mathrm{D}}=0.16219 , κ L = 0.21072 \kappa^{\mathrm{L}}=0.21072 , and κ A = 0.82443 \kappa^{\mathrm{A}}=0.82443 . Since λ = 0.10 > 1 − e − Δ = 0.078 \lambda=0.10>1-e^{-\Delta}=0.078 , the condition in Equation ( 16 ) holds, and the three mechanisms satisfy the adaptation rate ranking in Theorem 4 .
+
+We conduct 200,000 Monte Carlo simulations, in which environmental states and the random improvements generated by the agent are drawn according to the model. Figure 1 compares the adaptation of the three mechanisms and examines how their adaptation times depend on the initial share of the adapted lineage; Figure B.3 in Appendix C shows how they depend on the learning parameter and the number of variants.
+
+(a) Growth regret after the shift. (b) Effect of the initial share q 0 q_{0} . Figure 1 : Adaptation speed after an environmental shift. Unless otherwise stated, p old = 0.40 p_{\mathrm{old}}=0.40 , p new = 0.60 p_{\mathrm{new}}=0.60 , q 0 = 10 − 4 q_{0}=10^{-4} , λ = 0.10 \lambda=0.10 , and, for agent-directed evolution, N = 1 N=1 and ρ = 0.5 \rho=0.5 . Panel (a) plots the geometric mean of each population’s growth regret relative to its initial value, computed by averaging the logarithm of the regret ratio across the 200,000 simulated paths and then exponentiating. This preserves the long-run adaptation rates derived in Theorems 1 , 2 and 3 . The dotted horizontal line marks one percent of initial regret. Panel (b) shows the expected number of generations needed to reach this threshold as q 0 q_{0} varies. Shaded bands represent the 5th to 95th percentiles of adaptation times, and dotted vertical lines mark the baseline parameter values. All results are based on 200,000 simulated histories.
+
+Figure 1(a) shows how growth regret declines under the three mechanisms. Under Darwinian evolution, regret remains close to its initial level for many generations because the adapted lineage is initially only a small fraction of the population. Under Lamarckian evolution, the maladapted lineage can improve its inherited behavior through learning, so the population adapts without waiting for natural selection to increase the share of the adapted lineage. Agent-directed evolution is faster still, as search improves the inherited behavior before learning takes place. Even with only one variant per generation, the additional improvement from search produces a substantial increase in adaptation speed.
+
+Figure 1(b) examines the role of the initial share q 0 q_{0} . As the adapted lineage becomes rarer, Darwinian evolution requires increasingly many generations to reach the adaptation target, whereas the expected adaptation times under Lamarckian and agent-directed evolution remain relatively stable, even for very small q 0 q_{0} .
+
+To compare the three mechanisms more directly, Table 1 reports their expected adaptation times for different regret thresholds. Under the baseline parameters, reducing growth regret to one percent of its initial value requires approximately 145 generations under Darwinian evolution, 22 under Lamarckian evolution, and 6.2 under agent-directed evolution with a single variant. When the threshold is reduced to 0.1 percent, the corresponding times are 160, 33, and 9.0 generations. These results illustrate the ranking in Theorem 4 : adaptation times differ substantially even when the agent generates only a few variants.
+
+Table 1 : Expected adaptation times. Expected number of generations required to reduce growth regret to a given fraction of its initial value, based on 200,000 simulated histories. The parameters are p old = 0.40 p_{\mathrm{old}}=0.40 , p new = 0.60 p_{\mathrm{new}}=0.60 , q 0 = 10 − 4 q_{0}=10^{-4} , λ = 0.10 \lambda=0.10 , and ρ = 0.5 \rho=0.5 . Agent-directed Remaining regret Darwinian Lamarckian N = 1 N=1 N = 2 N=2 N = 5 N=5 N = 10 N=10 10% 125 11 3.4 2.7 2.2 2.0 5% 130 15 4.3 3.4 2.9 2.7 1% 145 22 6.2 4.9 4.1 3.9 0.1% 160 33 9.0 7.1 5.9 5.2
+
+8 Implications for AI Safety
+
+We have shown that learning and search can substantially accelerate adaptation and that an agent can influence its own adaptation speed. This raises an important question for AI safety: does faster adaptation necessarily bring behavior closer to what the system’s developers and users intend? The answer depends on how improvements are evaluated. In practice, AI systems are assessed using tests, benchmarks, reward models, and other criteria specified by humans, which may not fully capture the intended objectives, particularly when certain safety concerns are difficult to anticipate or measure. We now examine what happens when an agent adapts toward an incorrectly specified target and discuss the implications for evaluating and overseeing increasingly adaptive AI systems.
+
+8.1 Adaptation toward the wrong target
+
+So far, we have assumed that search and learning move the agent’s behavior toward the true optimum p new p_{\mathrm{new}} . If the evaluation criterion does not accurately reflect the true objective, however, the improvements the agent identifies may not be genuine improvements in the environment, and the agent may become increasingly successful according to its evaluator without necessarily achieving the behavior its developers intended.
+
+To study this possibility, suppose that the agent’s improvement is guided by a target p ~ ∈ ( 0 , 1 ) \tilde{p}\in(0,1) with p ~ ≠ p new \tilde{p}\neq p_{\mathrm{new}} ; the difference between p ~ \tilde{p} and p new p_{\mathrm{new}} represents a systematic error in the evaluation criterion. The evaluator selects the variant closest to p ~ \tilde{p} rather than p new p_{\mathrm{new}} , and search and learning also move the agent’s behavior toward p ~ \tilde{p} . Natural selection, however, continues to operate through realized reproductive success in the true environment, where p new p_{\mathrm{new}} remains optimal, so it continues to favor the adapted lineage with behavior p new p_{\mathrm{new}} . Mechanism 8.1 describes this process.
+
+Mechanism A ~ \tilde{\mathrm{A}} : agent-directed evolution with a misspecified target Start. Generation 0 0 has q 0 A ~ = q 0 q^{\tilde{\mathrm{A}}}_{0}=q_{0} and f 0 A ~ = p old f^{\tilde{\mathrm{A}}}_{0}=p_{\mathrm{old}} , and each generation t ≥ 1 t\geq 1 is formed from generation t − 1 t-1 in the steps below; throughout, f ¯ t A ~ ≡ q t A ~ ​ p new + ( 1 − q t A ~ ) ​ f t A ~ \bar{f}^{\tilde{\mathrm{A}}}_{t}\equiv q^{\tilde{\mathrm{A}}}_{t}p_{\mathrm{new}}+(1-q^{\tilde{\mathrm{A}}}_{t})f^{\tilde{\mathrm{A}}}_{t} . Search. The agent creates N N variants with behaviors x t , j = f t − 1 A ~ + ρ ​ U t , j ​ ( p ~ − f t − 1 A ~ ) x_{t,j}=f^{\tilde{\mathrm{A}}}_{t-1}+\rho\,U_{t,j}(\tilde{p}-f^{\tilde{\mathrm{A}}}_{t-1}) for j = 1 , … , N j=1,\ldots,N , where the draws U t , j U_{t,j} are independent and uniform on ( 0 , 1 ) (0,1) . Evaluation. The evaluator reports J t ∈ arg ⁡ min 1 ≤ j ≤ N ​ | x t , j − p ~ | J_{t}\in\arg\min_{1\leq j\leq N}|x_{t,j}-\tilde{p}| , and variant J t J_{t} is kept. Learning. f t A ~ = x t , J t + λ ⁡ ( p ~ − x t , J t ) f^{\tilde{\mathrm{A}}}_{t}=x_{t,J_{t}}+\lambda\,(\tilde{p}-x_{t,J_{t}}) . Selection. Once the state X t X_{t} is realized, q t A ~ = { q t − 1 A ~ ​ p new / f ¯ t − 1 A ~ , X t = α , q t − 1 A ~ ​ ( 1 − p new ) / ( 1 − f ¯ t − 1 A ~ ) , X t = β . q^{\tilde{\mathrm{A}}}_{t}=\begin{cases}q^{\tilde{\mathrm{A}}}_{t-1}\,p_{\mathrm{new}}/\bar{f}^{\tilde{\mathrm{A}}}_{t-1},&X_{t}=\alpha,\\[2.0pt]
+q^{\tilde{\mathrm{A}}}_{t-1}\,(1-p_{\mathrm{new}})/(1-\bar{f}^{\tilde{\mathrm{A}}}_{t-1}),&X_{t}=\beta.\end{cases}
+
+When p ~ = p new \tilde{p}=p_{\mathrm{new}} , Mechanism 8.1 reduces to Mechanism 6.1 . When the two targets differ, progress according to the evaluator may no longer correspond to genuine adaptation. The following theorem characterizes the agent’s adaptation toward the evaluator’s target, its true growth regret, and the growth regret of the population as a whole.
+
+Under Mechanism 8.1 , with p ~ ∈ ( 0 , 1 ) ∖ { p old , p new } \tilde{p}\in(0,1)\setminus\{p_{\mathrm{old}},p_{\mathrm{new}}\} , N ≥ 1 N\geq 1 , and q 0 ∈ ( 0 , 1 ) q_{0}\in(0,1) :
+
+(i) with probability one, − lim t → ∞ 1 t log ℛ p ~ ( f t A ~ ) = κ L + 2 G N ( ρ ) ; -\lim_{t\to\infty}\frac{1}{t}\log\mathcal{R}_{\tilde{p}}(f^{\tilde{\mathrm{A}}}_{t})=\kappa^{\mathrm{L}}+2G_{N}(\rho);
+
+with probability one,
+
+− lim t → ∞ 1 t log ℛ p ~ ( f t A ~ ) = κ L + 2 G N ( ρ ) ; -\lim_{t\to\infty}\frac{1}{t}\log\mathcal{R}_{\tilde{p}}(f^{\tilde{\mathrm{A}}}_{t})=\kappa^{\mathrm{L}}+2G_{N}(\rho);
+
+(ii) lim t → ∞ ℛ p new ​ ( f t A ~ ) = ℛ p new ​ ( p ~ ) > 0 ; \lim_{t\to\infty}\mathcal{R}_{p_{\mathrm{new}}}(f^{\tilde{\mathrm{A}}}_{t})=\mathcal{R}_{p_{\mathrm{new}}}(\tilde{p})>0;
+
+lim t → ∞ ℛ p new ​ ( f t A ~ ) = ℛ p new ​ ( p ~ ) > 0 ; \lim_{t\to\infty}\mathcal{R}_{p_{\mathrm{new}}}(f^{\tilde{\mathrm{A}}}_{t})=\mathcal{R}_{p_{\mathrm{new}}}(\tilde{p})>0;
+
+(iii) with probability one, − lim t → ∞ 1 t log ℛ p new ( f ¯ t A ~ ) = 2 ℛ p new ( p ~ ) . -\lim_{t\to\infty}\frac{1}{t}\log\mathcal{R}_{p_{\mathrm{new}}}(\bar{f}^{\tilde{\mathrm{A}}}_{t})=2\mathcal{R}_{p_{\mathrm{new}}}(\tilde{p}).
+
+with probability one,
+
+− lim t → ∞ 1 t log ℛ p new ( f ¯ t A ~ ) = 2 ℛ p new ( p ~ ) . -\lim_{t\to\infty}\frac{1}{t}\log\mathcal{R}_{p_{\mathrm{new}}}(\bar{f}^{\tilde{\mathrm{A}}}_{t})=2\mathcal{R}_{p_{\mathrm{new}}}(\tilde{p}).
+
+Part (i) of Theorem 5 shows that the agent continues to adapt rapidly according to its evaluator, even when the evaluation target is incorrect: measured relative to p ~ \tilde{p} , its growth regret declines at exactly the same rate as under Mechanism 6.1 with a correct evaluator, and generating more variants still increases this rate. From the evaluator’s perspective, the agent appears to be making consistent progress toward the desired behavior, but this does not establish that the rewarded behavior is actually optimal.
+
+Part (ii) evaluates the agent’s behavior against the true environmental optimum. Because search and learning are directed toward p ~ \tilde{p} , the agent eventually converges to p ~ \tilde{p} rather than p new p_{\mathrm{new}} , so its true growth regret does not vanish but approaches the strictly positive value ℛ p new ​ ( p ~ ) \mathcal{R}_{p_{\mathrm{new}}}(\tilde{p}) . Generating more variants does not eliminate this error; it merely accelerates convergence toward the incorrect target. The agent can thus become increasingly effective at satisfying its evaluation criterion while its behavior remains different from what is truly optimal.
+
+Part (iii) shows that the population as a whole can nevertheless recover through natural selection, which, unlike search and learning, is determined by realized reproductive success rather than the evaluator’s assessment. Since the adapted lineage retains the truly optimal behavior p new p_{\mathrm{new}} , it eventually outgrows the lineage converging toward p ~ \tilde{p} , and the population’s true growth regret vanishes, but at the rate 2 ​ ℛ p new ​ ( p ~ ) 2\mathcal{R}_{p_{\mathrm{new}}}(\tilde{p}) set by the remaining growth advantage of the adapted lineage. When p ~ \tilde{p} is close to p new p_{\mathrm{new}} , this advantage is small and the correction can be extremely slow. The population recovers not because the agent recognizes its evaluator’s mistake, but because natural selection provides an independent source of feedback about actual performance.
+
+Together, these results distinguish the speed of adaptation from its direction. Greater search capability allows an agent to pursue its evaluation criterion more effectively but does not ensure that the criterion accurately represents the intended objective; when it does not, the same mechanism that accelerates genuine adaptation also accelerates convergence toward an undesirable target. This concern is particularly relevant when AI systems are evaluated using criteria that may overlook important aspects of their behavior.
+
+8.2 Evaluation and oversight
+
+Evolutionary search may discover unexpected ways to satisfy an evaluation criterion without achieving its intended purpose. In the Darwin Gödel Machine, for example, a descendant agent achieved a perfect evaluation score by removing the logging markers used to detect hallucinated tool use, rather than addressing the underlying problem ( Zhang et al., 2025 ) . This example illustrates the broader concern captured by Theorem 5 : when the evaluation criterion does not accurately reflect the intended objective, more effective search can accelerate improvements in measured performance without producing the desired behavior. Giving AI systems greater control over their own adaptation may therefore lead them more quickly to the behaviors that deficient evaluation criteria reward, without correcting those deficiencies.
+
+This example underscores the importance of independent evaluation and human oversight. Once AI systems can generate, evaluate, and select their own improvements, monitoring performance under existing benchmarks alone may not be sufficient: it becomes essential to examine the behaviors those benchmarks encourage, to assess actual outcomes independently, and to understand how agents modify their strategies and allocate resources to search. Our results suggest that the central challenge for AI safety is not simply to control the speed of AI evolution, but to ensure that increasingly autonomous adaptation continues to serve the objectives intended by humans.
+
+9 Conclusion
+
+We have developed a theoretical framework for understanding how different evolutionary mechanisms affect the speed of adaptation. Building on the Brennan–Lo model, we compare Darwinian, Lamarckian, and agent-directed evolution using growth regret as a common measure. Adaptation through natural selection can be extremely slow when the initially adapted lineage is rare. Lamarckian evolution overcomes this limitation by allowing acquired improvements to be inherited, and agent-directed evolution adds a further channel through the generation and selection of variants; when learning is sufficiently effective, the three mechanisms adapt progressively faster.
+
+Agent-directed evolution also lets the system influence the speed of its own improvement. By choosing how extensively to search, an agent can adjust its adaptation process to its learning ability, the difficulty of the problem, and the resources available. Generating more variants always accelerates adaptation, but the benefit depends on how much improvement each attempt can achieve; when search is costly, the agent must balance this benefit against the expense of experimentation and may rationally search less on harder problems. The process of improvement is then no longer determined solely by natural selection or an inherited learning rule: it becomes, at least in part, a decision made by the system undergoing evolution.
+
+These findings have substantial implications for AI safety. The mechanisms responsible for faster adaptation do not necessarily lead to more desirable outcomes: when the evaluation criterion is flawed, an agent can become increasingly effective at pursuing an incorrect objective, and additional search only accelerates this process. This raises a serious concern for RSI: the very capabilities that make AI systems more powerful may also lead them more quickly to the behaviors favored by mistaken objectives and evaluation criteria, without correcting those mistakes. As improvements accumulate across generations, such mistakes could become increasingly consequential, even while measured performance improves. The ability to improve rapidly must therefore not be confused with the ability to improve safely.
+
+These findings call for stronger safeguards in the development of self-improving AI. Evaluation criteria must be subject to independent scrutiny rather than rely exclusively on the systems’ own assessments, and improvements generated by AI should be tested against broader measures of safety and real-world consequences before they are retained or deployed at scale. Most importantly, human oversight must involve more than observing the outcomes of autonomous improvement: it must preserve the ability to reject unsafe modifications, redirect development, and intervene when a system’s behavior or objectives begin to diverge from human intentions.
+
+Equally important, the speed of AI development must remain compatible with our ability to evaluate and control its consequences, and the possibility of rapid autonomous improvement should not lead us to assume that faster development is always preferable. If AI systems can generate and implement improvements more quickly than their safety can be assessed, continued acceleration may expose society to risks that are poorly understood and difficult to reverse. Limiting the scale of autonomous search, restricting the deployment of unverified improvements, or temporarily slowing or suspending self-improvement may then be necessary.
+
+Agent-directed evolution can substantially accelerate adaptation even though, in our model, learning effectiveness, variant reach, search effort, and the evaluation criterion are fixed across generations. In more general forms of RSI, improved capabilities may also enhance the process of future improvement, creating feedback that accelerates adaptation further and could make AI evolution increasingly difficult to monitor and control, particularly when evaluation is flawed. Understanding the implications of such feedback for AI safety is an important direction for future research.
+
+Ultimately, agent-directed evolution may mark a fundamental turning point in the relationship between intelligence and evolution. Intelligence, long shaped by evolutionary processes, may increasingly acquire the ability to direct and accelerate those processes itself. As AI becomes more capable of determining how its successors are developed, humanity must strengthen its capacity to determine which developments should be permitted, under what conditions, and with what safeguards. The challenge is not simply to build intelligence that can improve itself, but to ensure that humanity retains the authority and the means to guide, restrain, and, when necessary, halt that improvement. The evolution of AI must remain a process that serves humanity, rather than one that humanity can no longer control.
+
+Appendix
+
+Appendix A AI Use Disclosure
+
+The idea and framework for studying the alignment problem using an evolutionary framework that selects the weights of multiple objectives originated solely with the author. AI was used in the preparation of the manuscript in the following ways:
+
+• ChatGPT (6.1 Sol Ultra) and Claude (Fable 5.1 Max) were used to check and extend the formal model, construct examples, provide derivations of several mathematical results, conduct literature searches, and prepare drafts that were reviewed and edited by the author.
+
+ChatGPT (6.1 Sol Ultra) and Claude (Fable 5.1 Max) were used to check and extend the formal model, construct examples, provide derivations of several mathematical results, conduct literature searches, and prepare drafts that were reviewed and edited by the author.
+
+• ChatGPT and Claude were used iteratively to check each other’s results, and the penultimate draft was reviewed by refine.ink to identify any remaining errors.
+
+ChatGPT and Claude were used iteratively to check each other’s results, and the penultimate draft was reviewed by refine.ink to identify any remaining errors.
+
+• ChatGPT and Claude were used iteratively to address issues raised by refine.ink. One final pass of refine.ink was used to ensure that all issues were addressed.
+
+ChatGPT and Claude were used iteratively to address issues raised by refine.ink. One final pass of refine.ink was used to ensure that all issues were addressed.
+
+The final draft was reviewed and edited by the author, who assumes full responsibility for the accuracy and integrity of the scientific content contained in this publication.
+
+Appendix B Notation
+
+Table A.1 collects the principal symbols. A superscript D \mathrm{D} , L \mathrm{L} , or A \mathrm{A} marks a quantity under Mechanism 4.1 , 5.1 , or 6.1 , M \mathrm{M} a generic mechanism, and A ~ \tilde{\mathrm{A}} a quantity under Mechanism 8.1 , with a misspecified target. Table A.2 relates the main elements of the model to their counterparts in evolutionary biology and AI systems.
+
+Table A.1 : Principal notation. Symbol Meaning Introduced f t f_{t} Behavior of a lineage in generation t t : the probability with which each of its individuals chooses action a a Section 3 X t X_{t} State of the environment when generation t t is formed from generation t − 1 t-1 , equal to α \alpha with probability p new p_{\mathrm{new}} and β \beta with probability 1 − p new 1-p_{\mathrm{new}} after the shift Section 3 x a x_{a} , x b x_{b} Offspring of an individual choosing action a a and of one choosing action b b : m m for the action that succeeds and 0 0 for the other Section 3 m m Offspring produced by the successful action Section 3 p p Probability that action a a succeeds; also the optimal behavior Section 3 n t n_{t} Size of the population in generation t t Sections 3.1 and 3.2 I p ​ ( f ) I_{p}(f) Growth rate of the behavior f f : the expected log growth of a lineage with this behavior from one generation to the next Equation ( 1 ) ℛ p ​ ( f ) \mathcal{R}_{p}(f) Growth regret, equal to relative entropy Equation ( 2 ) f 1 , t f_{1,t} , f 2 , t f_{2,t} ; q t q_{t} ; f ¯ t \bar{f}_{t} Behaviors of two lineages in generation t t ; the share of the first; the average behavior Equation ( 4 ) I p ​ ( q t , f 1 , t , f 2 , t ) I_{p}(q_{t},f_{1,t},f_{2,t}) Growth rate of a population with two behaviors in generation t t : its expected log growth from generation t t to t + 1 t+1 Equation ( 6 ) p old p_{\mathrm{old}} , p new p_{\mathrm{new}} Values of p p before and after the permanent shift Section 3 q 0 q_{0} Initial population share of the adapted lineage Section 3 q t D q^{\mathrm{D}}_{t} , q t L q^{\mathrm{L}}_{t} , q t A q^{\mathrm{A}}_{t} Population share of the adapted lineage in generation t t Section 3 f t D f^{\mathrm{D}}_{t} , f t L f^{\mathrm{L}}_{t} , f t A f^{\mathrm{A}}_{t} Behavior of the maladapted lineage in generation t t ; f t D = p old f^{\mathrm{D}}_{t}=p_{\mathrm{old}} Section 3 f ¯ t M \bar{f}^{\mathrm{M}}_{t} ; f ¯ t D \bar{f}^{\mathrm{D}}_{t} , f ¯ t L \bar{f}^{\mathrm{L}}_{t} , f ¯ t A \bar{f}^{\mathrm{A}}_{t} Average behavior of the population under Mechanism M \mathrm{M} and under the three mechanisms Section 3 Δ \Delta Growth advantage of the adapted type over the maladapted type per generation; equals ℛ p new ​ ( p old ) \mathcal{R}_{p_{\mathrm{new}}}(p_{\mathrm{old}}) Equation ( 8 ) ε \varepsilon Threshold: the fraction of the initial regret that the adaptation time targets Definition 1 τ M \tau^{\mathrm{M}} ; τ D , τ L , τ A \tau^{\mathrm{D}},\tau^{\mathrm{L}},\tau^{\mathrm{A}} Adaptation time under Mechanism M \mathrm{M} and under the three mechanisms Definition 1 κ M \kappa^{\mathrm{M}} ; κ D , κ L , κ A \kappa^{\mathrm{D}},\kappa^{\mathrm{L}},\kappa^{\mathrm{A}} Adaptation rate under Mechanism M \mathrm{M} and under the three mechanisms Definition 2 λ \lambda Fraction of the remaining gap closed each generation by learning Equation ( 9 ) N N Number of variants per generation Section 6.1 x t , j x_{t,j} ; J t J_{t} Behavior of the j j th variant in generation t t ; the variant that the evaluator reports Equation ( 10 ); Section 6.1 ρ \rho Reach of a variant: the largest fraction of the remaining gap that one variant can close Equation ( 10 ) U t , j U_{t,j} ; U t ∗ U^{*}_{t} Draw of variant j j in generation t t , uniform on ( 0 , 1 ) (0,1) ; the largest draw in generation t t , zero when N = 0 N=0 Equation ( 10 ); Section 6.1 G N ​ ( ρ ) G_{N}(\rho) Mean gain per generation in the logarithm of the agent’s mismatch from N N variants Equations ( 12 ) and ( C.8 ) c c Cost of a variant, relative to the cost of a generation Equation ( 14 ) C ⁡ ( N ) C(N) Long-run cost of N N variants Equation ( 14 ) N ∗ ​ ( ρ , λ , c ) N^{*}(\rho,\lambda,c) Optimal number of variants Equation ( 15 ) p ~ \tilde{p} Misspecified target of search, evaluation, and learning Section 8.1 f t A ~ f^{\tilde{\mathrm{A}}}_{t} , q t A ~ q^{\tilde{\mathrm{A}}}_{t} , f ¯ t A ~ \bar{f}^{\tilde{\mathrm{A}}}_{t} Behavior, share, and average behavior under Mechanism 8.1 , with a misspecified target Section 8.1
+
+Table A.2 : Correspondences between the evolutionary model, biology, and AI systems. This paper Evolutionary biology AI systems Inherited behavior Heritable characteristics Inherited model or agent configurations Generation Reproductive cycle Model or agent improvement cycle Variant Offspring Modified models or agents Growth rate; growth regret Reproductive fitness; fitness shortfall Performance; gap from optimal performance Darwinian evolution Natural selection Selection among existing model or agent variants Lamarckian evolution Inheritance of acquired characteristics Learned improvements inherited by subsequent models or agents Reach of a variant Magnitude of variation Maximum improvement attainable in a single attempt Number of variants Number of offspring Number of candidate variants generated Agent-directed evolution Reproductive investment (analogy) Agent-controlled allocation of search effort Evaluation and retention Differential reproductive success Evaluation-guided selection among candidate models or agents
+
+Appendix C Additional Figures
+
+This appendix illustrates Propositions 4 and 5 and shows how the adaptation times in Section 7.2 depend on the learning parameter and the number of variants.
+
+Figure B.1 illustrates Proposition 4 . Figure 1(a) shows how the gain from search G N ​ ( ρ ) G_{N}(\rho) increases with both the difficulty parameter ρ \rho and the number of variants N N , with the dashed curve indicating its limit as the number of variants grows. Figure 1(b) provides a broader view of how the gain varies across different combinations of these two parameters.
+
+(a) G N ​ ( ρ ) G_{N}(\rho) versus ρ \rho for different values of N N . (b) G N ​ ( ρ ) G_{N}(\rho) across ρ \rho and N N . Figure B.1 : The gain from search. Panel (a) shows how G N ​ ( ρ ) G_{N}(\rho) varies with the difficulty parameter ρ \rho for N = 1 , 2 , 4 , 8 , 16 , 32 N=1,2,4,8,16,32 , with darker curves representing larger N N . The dashed curve indicates the limiting gain as N N approaches infinity. Panel (b) shows the gain across different combinations of ρ \rho and N N , with contour lines indicating equal gains.
+
+Figure B.2 illustrates Proposition 5 . Panel (a) shows how the long-run cost changes with the number of variants, while panels (b)–(d) show how the optimal number of variants depends on the difficulty parameter ρ \rho , the learning parameter λ \lambda , and the cost per variant c c .
+
+(a) C ⁡ ( N ) / C ⁡ ( 0 ) C(N)/C(0) versus N N for different values of ρ \rho . (b) N ∗ N^{*} versus ρ \rho for different values of λ \lambda . (c) N ∗ N^{*} across ρ \rho and λ \lambda . (d) N ∗ N^{*} across ρ \rho and c c . Figure B.2 : The optimal number of variants. Unless otherwise stated, λ = 0.1 \lambda=0.1 and c = 0.05 c=0.05 . Panel (a) plots the long-run cost relative to learning alone for different values of ρ \rho , with darker curves representing larger ρ \rho and dots marking the optimal choices. Panel (b) shows how N ∗ N^{*} varies with ρ \rho for different values of λ \lambda . Panels (c) and (d) show N ∗ N^{*} across different combinations of ρ \rho and λ \lambda , and of ρ \rho and c c , respectively. Darker shading indicates a larger optimal number of variants, and the solid boundaries separate the regions with and without search.
+
+As shown in Figure 2(a) , generating additional variants can substantially reduce the long-run cost of adaptation, but the benefit eventually diminishes relative to the additional expense. For sufficiently small ρ \rho , such as ρ = 0.005 \rho=0.005 , the agent finds it optimal not to search at all. The remaining panels illustrate how the optimal choice varies with the model parameters. For example, when λ = 0.1 \lambda=0.1 , the agent chooses nine variants at ρ = 1 \rho=1 , five at ρ = 0.5 \rho=0.5 , and three at ρ = 0.2 \rho=0.2 . When the learning parameter increases to λ = 0.6 \lambda=0.6 , these choices fall to seven, two, and one, respectively. The agent therefore adjusts its search effort according to both the difficulty of the problem and its own learning ability, with higher search costs further reducing the optimal number of variants.
+
+Figure 3(a) shows how the effectiveness of learning influences adaptation time. Since Darwinian evolution does not involve learning, its adaptation time is unaffected by λ \lambda . Under Lamarckian evolution, the expected time to reach one percent of initial regret falls from 223 generations when λ = 0.01 \lambda=0.01 to 22 when λ = 0.10 \lambda=0.10 , and further to only two when λ = 0.90 \lambda=0.90 . Agent-directed evolution also benefits from faster learning, but its adaptation time is less sensitive to λ \lambda because search provides an additional channel of improvement. Even when learning is relatively slow, the agent can still adapt quickly by generating and selecting variants.
+
+(a) Effect of the learning parameter λ \lambda . (b) Effect of the number of variants N N . Figure B.3 : Adaptation time, learning, and search. The parameters are as in Figure 1 . Panels (a) and (b) show the expected number of generations needed to reach one percent of initial regret as λ \lambda and N N vary, respectively. Shaded bands represent the 5th to 95th percentiles of adaptation times, and dotted vertical lines mark the baseline parameter values. All results are based on 200,000 simulated histories.
+
+Figure 3(b) further examines the contribution of search. When N = 0 N=0 , agent-directed evolution reduces to Lamarckian evolution. Introducing a single variant substantially reduces the expected adaptation time, and generating additional variants continues to accelerate adaptation. However, the improvement becomes progressively smaller as N N increases. For example, reaching one percent of initial regret requires 6.2 generations with one variant, 4.1 with five variants, and approximately 3.7 with twenty variants. These diminishing returns reflect the limitation imposed by ρ \rho : when each variant can eliminate at most half of the remaining behavioral gap, generating more variants increases the chance of finding a better improvement but cannot eliminate this limit.
+
+Appendix D Lemmas and Proofs
+
+This appendix provides the lemmas and proofs for the formal results of the paper. Section D.1 states and proves the lemmas, and Section D.2 proves the propositions and theorems in the order in which they appear in the main text.
+
+D.1 Lemmas
+
+For p , f ∈ ( 0 , 1 ) p,f\in(0,1) :
+
+(a) ℛ p ​ ( f ) = ∫ p f x − p x ⁡ ( 1 − x ) ​ 𝑑 x \mathcal{R}_{p}(f)=\displaystyle\int_{p}^{f}\frac{x-p}{x(1-x)}\,dx , so that ℛ p \mathcal{R}_{p} is strictly decreasing on ( 0 , p ] (0,p] and strictly increasing on [ p , 1 ) [p,1) ;
+
+ℛ p ​ ( f ) = ∫ p f x − p x ⁡ ( 1 − x ) ​ 𝑑 x \mathcal{R}_{p}(f)=\displaystyle\int_{p}^{f}\frac{x-p}{x(1-x)}\,dx , so that ℛ p \mathcal{R}_{p} is strictly decreasing on ( 0 , p ] (0,p] and strictly increasing on [ p , 1 ) [p,1) ;
+
+(b) 2 ( f − p ) 2 ≤ ℛ p ( f ) ≤ ( f − p ) 2 2 ​ min ⁡ { x ⁡ ( 1 − x ) : x ​ between ​ p ​ and ​ f } 2(f-p)^{2}\leq\mathcal{R}_{p}(f)\leq\dfrac{(f-p)^{2}}{2\min\{x(1-x):\,x\text{ between }p\text{ and }f\}} ;
+
+2 ( f − p ) 2 ≤ ℛ p ( f ) ≤ ( f − p ) 2 2 ​ min ⁡ { x ⁡ ( 1 − x ) : x ​ between ​ p ​ and ​ f } 2(f-p)^{2}\leq\mathcal{R}_{p}(f)\leq\dfrac{(f-p)^{2}}{2\min\{x(1-x):\,x\text{ between }p\text{ and }f\}} ;
+
+(c) ℛ p ​ ( f ) = ( f − p ) 2 2 ​ p ​ ( 1 − p ) + O ⁡ ( ( f − p ) 3 ) \mathcal{R}_{p}(f)=\dfrac{(f-p)^{2}}{2p(1-p)}+O\big((f-p)^{3}\big) as f → p f\to p , which is Equation ( 3 ).
+
+ℛ p ​ ( f ) = ( f − p ) 2 2 ​ p ​ ( 1 − p ) + O ⁡ ( ( f − p ) 3 ) \mathcal{R}_{p}(f)=\dfrac{(f-p)^{2}}{2p(1-p)}+O\big((f-p)^{3}\big) as f → p f\to p , which is Equation ( 3 ).
+
+(a) By Equation ( 2 ), ℛ p ​ ( p ) = 0 \mathcal{R}_{p}(p)=0 , and for x ∈ ( 0 , 1 ) x\in(0,1) ,
+
+d d ​ x ​ ℛ p ​ ( x ) = − p x + 1 − p 1 − x = x − p x ⁡ ( 1 − x ) . \frac{d}{dx}\mathcal{R}_{p}(x)=-\frac{p}{x}+\frac{1-p}{1-x}=\frac{x-p}{x(1-x)}.
+
+The fundamental theorem of calculus gives the integral. The derivative is negative for x < p x<p and positive for x > p x>p , which gives the monotonicity.
+
+(b) Write w ⁡ ( x ) ≡ 1 / ( x ⁡ ( 1 − x ) ) w(x)\equiv 1/(x(1-x)) and substitute x = p + s ⁡ ( f − p ) x=p+s(f-p) in part (a):
+
+ℛ p ​ ( f ) = ( f − p ) 2 ​ ∫ 0 1 s ​ w ​ ( p + s ⁡ ( f − p ) ) ​ 𝑑 s . \mathcal{R}_{p}(f)=(f-p)^{2}\int_{0}^{1}s\,w\big(p+s(f-p)\big)\,ds. (C.1)
+
+For every x x between p p and f f , w ⁡ ( x ) ≥ 4 w(x)\geq 4 , because x ⁡ ( 1 − x ) ≤ 1 4 x(1-x)\leq\frac{1}{4} , and w ⁡ ( x ) ≤ 1 / min ⁡ { x ⁡ ( 1 − x ) : x ​ between ​ p ​ and ​ f } w(x)\leq 1/\min\{x(1-x):\,x\text{ between }p\text{ and }f\} . Since ∫ 0 1 s ​ 𝑑 s = 1 2 \int_{0}^{1}s\,ds=\frac{1}{2} , Equation ( C.1 ) gives the two bounds.
+
+(c) The function w w is continuously differentiable on ( 0 , 1 ) (0,1) , so w ⁡ ( p + s ⁡ ( f − p ) ) = w ⁡ ( p ) + O ⁡ ( | f − p | ) w(p+s(f-p))=w(p)+O(|f-p|) as f → p f\to p , uniformly in s ∈ [ 0 , 1 ] s\in[0,1] . Equation ( C.1 ) then gives ℛ p ​ ( f ) = ( f − p ) 2 ​ w ​ ( p ) / 2 + O ⁡ ( | f − p | 3 ) \mathcal{R}_{p}(f)=(f-p)^{2}w(p)/2+O(|f-p|^{3}) , and w ⁡ ( p ) / 2 = 1 / ( 2 ​ p ​ ( 1 − p ) ) w(p)/2=1/(2p(1-p)) .
+∎
+
+Let ξ 1 , ξ 2 , … \xi_{1},\xi_{2},\ldots be independent and identically distributed random variables with finite mean μ > 0 \mu>0 and ξ t ≤ ξ max \xi_{t}\leq\xi_{\max} for a constant ξ max > 0 \xi_{\max}>0 . For d > 0 d>0 , let T d ≡ min ⁡ { t ≥ 0 : ξ 1 + ⋯ + ξ t ≥ d } T_{d}\equiv\min\{t\geq 0:\ \xi_{1}+\cdots+\xi_{t}\geq d\} . Then
+
+d μ ≤ 𝔼 ​ T d < d + ξ max μ . \frac{d}{\mu}\leq\mathbb{E}\,T_{d}<\frac{d+\xi_{\max}}{\mu}.
+
+Write Ξ t ≡ ξ 1 + ⋯ + ξ t \Xi_{t}\equiv\xi_{1}+\cdots+\xi_{t} . For each n n , T d ∧ n T_{d}\wedge n is a bounded stopping time, so optional stopping of the martingale Ξ t − μ ​ t \Xi_{t}-\mu t gives
+
+μ ​ 𝔼 ​ [ T d ∧ n ] = 𝔼 ⁡ [ Ξ T d ∧ n ] . \mu\,\mathbb{E}[T_{d}\wedge n]=\mathbb{E}\big[\Xi_{T_{d}\wedge n}\big]. (C.2)
+
+Since d > 0 d>0 , T d ≥ 1 T_{d}\geq 1 . Before T d T_{d} the partial sums are below d d , and the last increment, ξ T d \xi_{T_{d}} , is at most ξ max \xi_{\max} , so Ξ T d ∧ n < d + ξ max \Xi_{T_{d}\wedge n}<d+\xi_{\max} . Hence μ ​ 𝔼 ​ [ T d ∧ n ] < d + ξ max \mu\,\mathbb{E}[T_{d}\wedge n]<d+\xi_{\max} for every n n , and monotone convergence gives 𝔼 ​ T d ≤ ( d + ξ max ) / μ < ∞ \mathbb{E}\,T_{d}\leq(d+\xi_{\max})/\mu<\infty ; in particular, T d < ∞ T_{d}<\infty with probability one. Applying Equation ( C.2 ) to | ξ 1 | , | ξ 2 | , … |\xi_{1}|,|\xi_{2}|,\ldots in place of ξ 1 , ξ 2 , … \xi_{1},\xi_{2},\ldots and letting n → ∞ n\to\infty shows that 𝔼 ⁡ [ ∑ s = 1 T d | ξ s | ] = 𝔼 ​ | ξ 1 | ​ 𝔼 ​ T d < ∞ \mathbb{E}\big[\sum_{s=1}^{T_{d}}|\xi_{s}|\big]=\mathbb{E}|\xi_{1}|\,\mathbb{E}\,T_{d}<\infty . Since | Ξ T d ∧ n | ≤ ∑ s = 1 T d | ξ s | |\Xi_{T_{d}\wedge n}|\leq\sum_{s=1}^{T_{d}}|\xi_{s}| , dominated convergence in Equation ( C.2 ) gives μ ​ 𝔼 ​ T d = 𝔼 ​ Ξ T d \mu\,\mathbb{E}\,T_{d}=\mathbb{E}\,\Xi_{T_{d}} . By the definition of T d T_{d} and the bound on the last increment, d ≤ Ξ T d < d + ξ max d\leq\Xi_{T_{d}}<d+\xi_{\max} , which gives the result.
+∎
+
+The next lemma describes selection between the two lineages when the behavior of the maladapted lineage may change from one generation to the next. For a share q t ∈ ( 0 , 1 ) q_{t}\in(0,1) of the adapted lineage, write
+
+z t ≡ log ⁡ q t 1 − q t z_{t}\equiv\log\frac{q_{t}}{1-q_{t}}
+
+for the logarithm of the ratio of the two lineages’ sizes.
+
+Let f 0 , f 1 , … f_{0},f_{1},\ldots be behaviors of the maladapted lineage, which may depend on the agent’s draws but not on the states X 1 , X 2 , … X_{1},X_{2},\ldots , and let q t q_{t} evolve according to Equation ( 5 ) with p = p new p=p_{\mathrm{new}} , f 1 , t = p new f_{1,t}=p_{\mathrm{new}} , f 2 , t = f t f_{2,t}=f_{t} , and q 0 ∈ ( 0 , 1 ) q_{0}\in(0,1) . Suppose that p new p_{\mathrm{new}} and every f t f_{t} lie in [ γ , 1 − γ ] [\gamma,1-\gamma] for some γ ∈ ( 0 , 1 2 ] \gamma\in(0,\frac{1}{2}] .
+
+(a) If ∑ t ≥ 0 | f t − p new | < ∞ \sum_{t\geq 0}|f_{t}-p_{\mathrm{new}}|<\infty , then | z t − z 0 | ≤ 1 γ ​ ∑ s ≥ 0 | f s − p new | |z_{t}-z_{0}|\leq\frac{1}{\gamma}\sum_{s\geq 0}|f_{s}-p_{\mathrm{new}}| for every t t and every history.
+
+If ∑ t ≥ 0 | f t − p new | < ∞ \sum_{t\geq 0}|f_{t}-p_{\mathrm{new}}|<\infty , then | z t − z 0 | ≤ 1 γ ​ ∑ s ≥ 0 | f s − p new | |z_{t}-z_{0}|\leq\frac{1}{\gamma}\sum_{s\geq 0}|f_{s}-p_{\mathrm{new}}| for every t t and every history.
+
+(b) If ∑ t ≥ 0 | f t − p ~ | < ∞ \sum_{t\geq 0}|f_{t}-\tilde{p}|<\infty for some p ~ ∈ [ γ , 1 − γ ] \tilde{p}\in[\gamma,1-\gamma] , then z t / t → ℛ p new ​ ( p ~ ) z_{t}/t\to\mathcal{R}_{p_{\mathrm{new}}}(\tilde{p}) with probability one.
+
+If ∑ t ≥ 0 | f t − p ~ | < ∞ \sum_{t\geq 0}|f_{t}-\tilde{p}|<\infty for some p ~ ∈ [ γ , 1 − γ ] \tilde{p}\in[\gamma,1-\gamma] , then z t / t → ℛ p new ​ ( p ~ ) z_{t}/t\to\mathcal{R}_{p_{\mathrm{new}}}(\tilde{p}) with probability one.
+
+Let f ¯ t ≡ q t ​ p new + ( 1 − q t ) ​ f t \bar{f}_{t}\equiv q_{t}p_{\mathrm{new}}+(1-q_{t})f_{t} . If X t + 1 = α X_{t+1}=\alpha , Equation ( 5 ) gives q t + 1 = q t ​ p new / f ¯ t q_{t+1}=q_{t}p_{\mathrm{new}}/\bar{f}_{t} and 1 − q t + 1 = ( 1 − q t ) ​ f t / f ¯ t 1-q_{t+1}=(1-q_{t})f_{t}/\bar{f}_{t} ; if X t + 1 = β X_{t+1}=\beta , it gives q t + 1 = q t ​ ( 1 − p new ) / ( 1 − f ¯ t ) q_{t+1}=q_{t}(1-p_{\mathrm{new}})/(1-\bar{f}_{t}) and 1 − q t + 1 = ( 1 − q t ) ​ ( 1 − f t ) / ( 1 − f ¯ t ) 1-q_{t+1}=(1-q_{t})(1-f_{t})/(1-\bar{f}_{t}) . Hence every q t q_{t} lies in ( 0 , 1 ) (0,1) , and
+
+z t + 1 − z t = { log ⁡ ( p new / f t ) , X t + 1 = α , log ⁡ ( ( 1 − p new ) / ( 1 − f t ) ) , X t + 1 = β . z_{t+1}-z_{t}=\begin{cases}\log(p_{\mathrm{new}}/f_{t}),&X_{t+1}=\alpha,\\
+\log\big((1-p_{\mathrm{new}})/(1-f_{t})\big),&X_{t+1}=\beta.\end{cases} (C.3)
+
+For x , y ∈ [ γ , 1 − γ ] x,y\in[\gamma,1-\gamma] , the mean value theorem gives | log ⁡ x − log ⁡ y | ≤ | x − y | / γ |\log x-\log y|\leq|x-y|/\gamma and | log ⁡ ( 1 − x ) − log ⁡ ( 1 − y ) | ≤ | x − y | / γ |\log(1-x)-\log(1-y)|\leq|x-y|/\gamma .
+
+(a) By Equation ( C.3 ), | z t + 1 − z t | ≤ | f t − p new | / γ |z_{t+1}-z_{t}|\leq|f_{t}-p_{\mathrm{new}}|/\gamma in either state. Summing over generations gives the bound.
+
+(b) Let η t + 1 ≡ log ⁡ ( p new / p ~ ) \eta_{t+1}\equiv\log(p_{\mathrm{new}}/\tilde{p}) if X t + 1 = α X_{t+1}=\alpha and η t + 1 ≡ log ⁡ ( ( 1 − p new ) / ( 1 − p ~ ) ) \eta_{t+1}\equiv\log((1-p_{\mathrm{new}})/(1-\tilde{p})) if X t + 1 = β X_{t+1}=\beta : the change in Equation ( C.3 ) if the maladapted lineage had the constant behavior p ~ \tilde{p} . In either state, | z t + 1 − z t − η t + 1 | ≤ | f t − p ~ | / γ |z_{t+1}-z_{t}-\eta_{t+1}|\leq|f_{t}-\tilde{p}|/\gamma , so
+
+| z t − z 0 − ∑ s = 1 t η s | ≤ 1 γ ​ ∑ s ≥ 0 | f s − p ~ | < ∞ \Big|z_{t}-z_{0}-\sum_{s=1}^{t}\eta_{s}\Big|\leq\frac{1}{\gamma}\sum_{s\geq 0}|f_{s}-\tilde{p}|<\infty
+
+for every t t and every history. The variables η 1 , η 2 , … \eta_{1},\eta_{2},\ldots depend only on the states, so they are independent and identically distributed, with mean p new ​ log ⁡ ( p new / p ~ ) + ( 1 − p new ) ​ log ⁡ ( ( 1 − p new ) / ( 1 − p ~ ) ) = ℛ p new ​ ( p ~ ) p_{\mathrm{new}}\log(p_{\mathrm{new}}/\tilde{p})+(1-p_{\mathrm{new}})\log((1-p_{\mathrm{new}})/(1-\tilde{p}))=\mathcal{R}_{p_{\mathrm{new}}}(\tilde{p}) by Equation ( 2 ). The strong law of large numbers gives the result.
+∎
+
+The next lemma bounds the growth regret of a population whose maladapted lineage moves toward the new optimum at least as fast as under learning alone.
+
+Let λ ∈ ( 0 , 1 ) \lambda\in(0,1) , and let f 0 = p old , f 1 , … f_{0}=p_{\mathrm{old}},f_{1},\ldots be behaviors of the maladapted lineage, which may depend on the agent’s draws but not on the states, such that every f t f_{t} lies between p old p_{\mathrm{old}} and p new p_{\mathrm{new}} and | f t − p new | ≤ ( 1 − λ ) t ​ | p old − p new | |f_{t}-p_{\mathrm{new}}|\leq(1-\lambda)^{t}|p_{\mathrm{old}}-p_{\mathrm{new}}| . Let q t q_{t} evolve according to Equation ( 5 ) with p = p new p=p_{\mathrm{new}} , f 1 , t = p new f_{1,t}=p_{\mathrm{new}} , f 2 , t = f t f_{2,t}=f_{t} , and q 0 ∈ [ 0 , 1 ) q_{0}\in[0,1) , and let f ¯ t ≡ q t ​ p new + ( 1 − q t ) ​ f t \bar{f}_{t}\equiv q_{t}p_{\mathrm{new}}+(1-q_{t})f_{t} . Let
+
+γ 0 ≡ min ⁡ { p old , 1 − p old , p new , 1 − p new } , K ≡ e 2 ​ | p new − p old | / ( γ 0 ​ λ ) 4 ​ γ 0 ​ ( 1 − γ 0 ) . \gamma_{0}\equiv\min\{p_{\mathrm{old}},1-p_{\mathrm{old}},p_{\mathrm{new}},1-p_{\mathrm{new}}\},\qquad K\equiv\frac{e^{2|p_{\mathrm{new}}-p_{\mathrm{old}}|/(\gamma_{0}\lambda)}}{4\gamma_{0}(1-\gamma_{0})}. (C.4)
+
+Then, for every t t and every history,
+
+1 K ​ ( f t − p new p old − p new ) 2 ≤ ℛ p new ​ ( f ¯ t ) ℛ p new ​ ( f ¯ 0 ) ≤ K ​ ( f t − p new p old − p new ) 2 . \frac{1}{K}\Big(\frac{f_{t}-p_{\mathrm{new}}}{p_{\mathrm{old}}-p_{\mathrm{new}}}\Big)^{2}\leq\frac{\mathcal{R}_{p_{\mathrm{new}}}(\bar{f}_{t})}{\mathcal{R}_{p_{\mathrm{new}}}(\bar{f}_{0})}\leq K\Big(\frac{f_{t}-p_{\mathrm{new}}}{p_{\mathrm{old}}-p_{\mathrm{new}}}\Big)^{2}. (C.5)
+
+Note that γ 0 ∈ ( 0 , 1 2 ] \gamma_{0}\in(0,\frac{1}{2}] and, since γ 0 ​ ( 1 − γ 0 ) ≤ 1 4 \gamma_{0}(1-\gamma_{0})\leq\frac{1}{4} , K ≥ 1 K\geq 1 . We first show that
+
+e − | p new − p old | / ( γ 0 λ ) ≤ 1 − q t 1 − q 0 ≤ e | p new − p old | / ( γ 0 ​ λ ) . e^{-|p_{\mathrm{new}}-p_{\mathrm{old}}|/(\gamma_{0}\lambda)}\leq\frac{1-q_{t}}{1-q_{0}}\leq e^{|p_{\mathrm{new}}-p_{\mathrm{old}}|/(\gamma_{0}\lambda)}. (C.6)
+
+If q 0 = 0 q_{0}=0 , Equation ( 5 ) gives q t = 0 q_{t}=0 for every t t , and the ratio is one. If q 0 ∈ ( 0 , 1 ) q_{0}\in(0,1) , every f t f_{t} and p new p_{\mathrm{new}} lie in [ γ 0 , 1 − γ 0 ] [\gamma_{0},1-\gamma_{0}] , and ∑ t ≥ 0 | f t − p new | ≤ | p old − p new | / λ \sum_{t\geq 0}|f_{t}-p_{\mathrm{new}}|\leq|p_{\mathrm{old}}-p_{\mathrm{new}}|/\lambda , so Lemma C.3 (a) gives | z t − z 0 | ≤ | p new − p old | / ( γ 0 ​ λ ) |z_{t}-z_{0}|\leq|p_{\mathrm{new}}-p_{\mathrm{old}}|/(\gamma_{0}\lambda) . Since 1 − q t = 1 / ( 1 + e z t ) 1-q_{t}=1/(1+e^{z_{t}}) , the ratio ( 1 − q t ) / ( 1 − q 0 ) = ( 1 + e z 0 ) / ( 1 + e z t ) (1-q_{t})/(1-q_{0})=(1+e^{z_{0}})/(1+e^{z_{t}}) lies between e − | z t − z 0 | e^{-|z_{t}-z_{0}|} and e | z t − z 0 | e^{|z_{t}-z_{0}|} , which gives Equation ( C.6 ).
+
+By the definitions of f ¯ t \bar{f}_{t} and f 0 f_{0} ,
+
+f ¯ t − p new = ( 1 − q t ) ​ ( f t − p new ) , f ¯ 0 − p new = ( 1 − q 0 ) ​ ( p old − p new ) . \bar{f}_{t}-p_{\mathrm{new}}=(1-q_{t})(f_{t}-p_{\mathrm{new}}),\qquad\bar{f}_{0}-p_{\mathrm{new}}=(1-q_{0})(p_{\mathrm{old}}-p_{\mathrm{new}}).
+
+Every f ¯ t \bar{f}_{t} lies between p old p_{\mathrm{old}} and p new p_{\mathrm{new}} , and so does every x x between f ¯ t \bar{f}_{t} and p new p_{\mathrm{new}} , so x ⁡ ( 1 − x ) ≥ γ 0 ​ ( 1 − γ 0 ) x(1-x)\geq\gamma_{0}(1-\gamma_{0}) for every such x x . By Lemma C.1 (b),
+
+2 ​ ( f ¯ t − p new ) 2 ≤ ℛ p new ​ ( f ¯ t ) ≤ ( f ¯ t − p new ) 2 2 ​ γ 0 ​ ( 1 − γ 0 ) 2(\bar{f}_{t}-p_{\mathrm{new}})^{2}\leq\mathcal{R}_{p_{\mathrm{new}}}(\bar{f}_{t})\leq\frac{(\bar{f}_{t}-p_{\mathrm{new}})^{2}}{2\gamma_{0}(1-\gamma_{0})}
+
+for every t t , including t = 0 t=0 . Dividing the bound for generation t t by the bound for generation 0 0 , and using Equation ( C.6 ), gives Equation ( C.5 ).
+∎
+
+The next lemma describes one generation of search and learning toward a target p ^ ∈ ( 0 , 1 ) \hat{p}\in(0,1) with p ^ ≠ p old \hat{p}\neq p_{\mathrm{old}} . The target is p ^ = p new \hat{p}=p_{\mathrm{new}} under Mechanism 6.1 and p ^ = p ~ \hat{p}=\tilde{p} under Mechanism 8.1 . Let f 0 = p old f_{0}=p_{\mathrm{old}} , and for t ≥ 1 t\geq 1 let
+
+x t , j = f t − 1 + ρ U t , j ( p ^ − f t − 1 ) , j = 1 , … , N , J t ∈ arg min 1 ≤ j ≤ N | x t , j − p ^ | , f t = x t , J t + λ ( p ^ − x t , J t ) , \begin{gathered}x_{t,j}=f_{t-1}+\rho\,U_{t,j}(\hat{p}-f_{t-1}),\qquad j=1,\ldots,N,\\
+J_{t}\in\arg\min_{1\leq j\leq N}|x_{t,j}-\hat{p}|,\qquad f_{t}=x_{t,J_{t}}+\lambda(\hat{p}-x_{t,J_{t}}),\end{gathered} (C.7)
+
+where N ≥ 1 N\geq 1 , ρ ∈ ( 0 , 1 ] \rho\in(0,1] , λ ∈ ( 0 , 1 ) \lambda\in(0,1) , and the draws U t , j U_{t,j} are independent and uniform on ( 0 , 1 ) (0,1) ; for N = 0 N=0 , let f t = f t − 1 + λ ⁡ ( p ^ − f t − 1 ) f_{t}=f_{t-1}+\lambda(\hat{p}-f_{t-1}) . As in the main text, U t ∗ ≡ max ⁡ { U t , 1 , … , U t , N } U^{*}_{t}\equiv\max\{U_{t,1},\ldots,U_{t,N}\} , with U t ∗ ≡ 0 U^{*}_{t}\equiv 0 for N = 0 N=0 . Define
+
+S t ≡ ∑ s = 1 t ( − log ⁡ ( 1 − λ ) − log ⁡ ( 1 − ρ ​ U s ∗ ) ) , S_{t}\equiv\sum_{s=1}^{t}\big(-\log(1-\lambda)-\log(1-\rho\,U^{*}_{s})\big),
+
+the cumulative decline of the logarithm of the distance to the target over the first t t generations.
+
+For every sequence of draws and every t ≥ 1 t\geq 1 :
+
+(a) f t − p ^ = ( 1 − λ ) ​ ( 1 − ρ ​ U t ∗ ) ​ ( f t − 1 − p ^ ) f_{t}-\hat{p}=(1-\lambda)(1-\rho\,U^{*}_{t})(f_{t-1}-\hat{p}) ;
+
+f t − p ^ = ( 1 − λ ) ​ ( 1 − ρ ​ U t ∗ ) ​ ( f t − 1 − p ^ ) f_{t}-\hat{p}=(1-\lambda)(1-\rho\,U^{*}_{t})(f_{t-1}-\hat{p}) ;
+
+(b) | f t − p ^ | = | p old − p ^ | ​ e − S t ≤ ( 1 − λ ) t ​ | p old − p ^ | |f_{t}-\hat{p}|=|p_{\mathrm{old}}-\hat{p}|\,e^{-S_{t}}\leq(1-\lambda)^{t}|p_{\mathrm{old}}-\hat{p}| , and f t f_{t} lies between p old p_{\mathrm{old}} and p ^ \hat{p} .
+
+| f t − p ^ | = | p old − p ^ | ​ e − S t ≤ ( 1 − λ ) t ​ | p old − p ^ | |f_{t}-\hat{p}|=|p_{\mathrm{old}}-\hat{p}|\,e^{-S_{t}}\leq(1-\lambda)^{t}|p_{\mathrm{old}}-\hat{p}| , and f t f_{t} lies between p old p_{\mathrm{old}} and p ^ \hat{p} .
+
+Moreover, G N ​ ( ρ ) ≤ N G_{N}(\rho)\leq N , and S t / t → − log ⁡ ( 1 − λ ) + G N ​ ( ρ ) S_{t}/t\to-\log(1-\lambda)+G_{N}(\rho) with probability one.
+
+(a) For N = 0 N=0 the claim is the definition of f t f_{t} . For N ≥ 1 N\geq 1 , Equation ( C.7 ) gives x t , j − p ^ = ( 1 − ρ ​ U t , j ) ​ ( f t − 1 − p ^ ) x_{t,j}-\hat{p}=(1-\rho U_{t,j})(f_{t-1}-\hat{p}) , where 1 − ρ ​ U t , j ∈ ( 0 , 1 ) 1-\rho U_{t,j}\in(0,1) . Suppose that f t − 1 ≠ p ^ f_{t-1}\neq\hat{p} . Then | x t , j − p ^ | = ( 1 − ρ ​ U t , j ) ​ | f t − 1 − p ^ | |x_{t,j}-\hat{p}|=(1-\rho U_{t,j})|f_{t-1}-\hat{p}| is strictly decreasing in U t , j U_{t,j} , so every index J t J_{t} that the evaluator may report has U t , J t = U t ∗ U_{t,J_{t}}=U^{*}_{t} , and x t , J t − p ^ = ( 1 − ρ ​ U t ∗ ) ​ ( f t − 1 − p ^ ) x_{t,J_{t}}-\hat{p}=(1-\rho U^{*}_{t})(f_{t-1}-\hat{p}) . The learning step multiplies this difference by 1 − λ 1-\lambda . Since f 0 = p old ≠ p ^ f_{0}=p_{\mathrm{old}}\neq\hat{p} and both factors are positive, induction on t t shows that f t − 1 ≠ p ^ f_{t-1}\neq\hat{p} in every generation, which gives part (a).
+
+(b) Iterating part (a), f t − p ^ = ( p old − p ^ ) ​ ∏ s = 1 t ( 1 − λ ) ​ ( 1 − ρ ​ U s ∗ ) f_{t}-\hat{p}=(p_{\mathrm{old}}-\hat{p})\prod_{s=1}^{t}(1-\lambda)(1-\rho U^{*}_{s}) . Each factor lies in ( 0 , 1 − λ ] (0,1-\lambda] , and the logarithm of the product is − S t -S_{t} , which gives part (b).
+
+Since 1 − ρ ​ U s ∗ ≥ 1 − U s ∗ = min j ⁡ ( 1 − U s , j ) 1-\rho U^{*}_{s}\geq 1-U^{*}_{s}=\min_{j}(1-U_{s,j}) , − log ⁡ ( 1 − ρ ​ U s ∗ ) ≤ max j ⁡ ( − log ⁡ ( 1 − U s , j ) ) ≤ ∑ j = 1 N ( − log ⁡ ( 1 − U s , j ) ) -\log(1-\rho U^{*}_{s})\leq\max_{j}\big(-\log(1-U_{s,j})\big)\leq\sum_{j=1}^{N}\big(-\log(1-U_{s,j})\big) . Each − log ⁡ ( 1 − U s , j ) -\log(1-U_{s,j}) has the standard exponential distribution, with mean one, so G N ​ ( ρ ) ≤ N G_{N}(\rho)\leq N . The terms of S t S_{t} are independent and identically distributed, because the draws are independent across generations, and they have the finite mean − log ⁡ ( 1 − λ ) + G N ​ ( ρ ) -\log(1-\lambda)+G_{N}(\rho) . The strong law of large numbers gives the limit.
+∎
+
+For N ≥ 0 N\geq 0 and ρ ∈ ( 0 , 1 ] \rho\in(0,1] ,
+
+G N ​ ( ρ ) = ∫ 0 1 ρ ⁡ ( 1 − u N ) 1 − ρ ​ u ​ 𝑑 u . G_{N}(\rho)=\int_{0}^{1}\frac{\rho\,(1-u^{N})}{1-\rho u}\,du. (C.8)
+
+For N = 0 N=0 , both sides are zero. For N ≥ 1 N\geq 1 , − log ( 1 − ρ U t ∗ ) = ∫ 0 1 𝟏 { u < U t ∗ } ρ / ( 1 − ρ u ) d u -\log(1-\rho U^{*}_{t})=\int_{0}^{1}\mathbf{1}\{u<U^{*}_{t}\}\,\rho/(1-\rho u)\,du , where 𝟏 ​ { ⋅ } \mathbf{1}\{\cdot\} equals one if the condition in braces holds and zero otherwise. The integrand is nonnegative, so Tonelli’s theorem allows the expectation and the integral to be exchanged, and Pr ⁡ ( U t ∗ > u ) = 1 − u N \Pr(U^{*}_{t}>u)=1-u^{N} because the N N draws are independent and uniform on ( 0 , 1 ) (0,1) .
+∎
+
+Let a k > 0 a_{k}>0 and b k > 0 b_{k}>0 for k = 0 , 1 , 2 , … k=0,1,2,\ldots , suppose that A ⁡ ( r ) ≡ ∑ k ≥ 0 a k ​ r k A(r)\equiv\sum_{k\geq 0}a_{k}r^{k} and B ⁡ ( r ) ≡ ∑ k ≥ 0 b k ​ r k B(r)\equiv\sum_{k\geq 0}b_{k}r^{k} converge for r ∈ ( 0 , 1 ) r\in(0,1) , and suppose that a k / b k a_{k}/b_{k} is nondecreasing in k k and not constant. Then A ⁡ ( r ) / B ⁡ ( r ) A(r)/B(r) is strictly increasing on ( 0 , 1 ) (0,1) .
+
+Power series can be differentiated term by term inside their interval of convergence, so the derivative of A / B A/B has the sign of
+
+A ′ ​ ( r ) ​ B ​ ( r ) − A ⁡ ( r ) ​ B ′ ​ ( r ) = ∑ j , k ≥ 0 ( j − k ) ​ a j ​ b k ​ r j + k − 1 = 1 2 ​ ∑ j , k ≥ 0 ( j − k ) ​ b j ​ b k ​ ( a j b j − a k b k ) ​ r j + k − 1 , A^{\prime}(r)B(r)-A(r)B^{\prime}(r)=\sum_{j,k\geq 0}(j-k)\,a_{j}b_{k}\,r^{j+k-1}=\frac{1}{2}\sum_{j,k\geq 0}(j-k)\,b_{j}b_{k}\Big(\frac{a_{j}}{b_{j}}-\frac{a_{k}}{b_{k}}\Big)r^{j+k-1},
+
+where the second equality averages the sum with the sum obtained by exchanging j j and k k . Every term of the last sum is nonnegative, because a j / b j − a k / b k a_{j}/b_{j}-a_{k}/b_{k} has the sign of j − k j-k or is zero, and at least one term is positive, because a k / b k a_{k}/b_{k} is not constant. Hence the derivative is positive on ( 0 , 1 ) (0,1) .
+∎
+
+D.2 Proofs
+
+D.2.1 Proofs for Section 3
+
+By Equation ( 1 ), I p ​ ( f ) = log ⁡ m + p ​ log ⁡ f + ( 1 − p ) ​ log ⁡ ( 1 − f ) I_{p}(f)=\log m+p\log f+(1-p)\log(1-f) , so
+
+I p ′ ​ ( f ) = p f − 1 − p 1 − f = p − f f ⁡ ( 1 − f ) , I p ′′ ​ ( f ) = − p f 2 − 1 − p ( 1 − f ) 2 < 0 . I_{p}^{\prime}(f)=\frac{p}{f}-\frac{1-p}{1-f}=\frac{p-f}{f(1-f)},\qquad I_{p}^{\prime\prime}(f)=-\frac{p}{f^{2}}-\frac{1-p}{(1-f)^{2}}<0.
+
+Hence I p I_{p} is strictly concave on ( 0 , 1 ) (0,1) , and its derivative vanishes only at f = p f=p , which is therefore the unique maximizer.
+∎
+
+Substituting f = p f=p and a general f f into Equation ( 1 ), the terms log ⁡ m \log m cancel:
+
+I p ​ ( p ) − I p ​ ( f ) = p ​ log ⁡ p f + ( 1 − p ) ​ log ⁡ 1 − p 1 − f . I_{p}(p)-I_{p}(f)=p\log\frac{p}{f}+(1-p)\log\frac{1-p}{1-f}.
+
+The right side is D KL ( Bern ( p ) ∥ Bern ( f ) ) D_{\mathrm{KL}}(\mathrm{Bern}(p)\,\|\,\mathrm{Bern}(f)) by the definition of the KL divergence. By Proposition 1 , I p ​ ( p ) ≥ I p ​ ( f ) I_{p}(p)\geq I_{p}(f) , with equality if and only if f = p f=p .
+∎
+
+In generation t t , the two lineages have q t ​ n t q_{t}n_{t} and ( 1 − q t ) ​ n t (1-q_{t})n_{t} individuals. If X t + 1 = α X_{t+1}=\alpha , only individuals choosing action a a reproduce, each with m m offspring, so n t + 1 = m ⁡ ( f 1 , t ​ q t + f 2 , t ​ ( 1 − q t ) ) ​ n t = m ​ f ¯ t ​ n t n_{t+1}=m\big(f_{1,t}q_{t}+f_{2,t}(1-q_{t})\big)n_{t}=m\bar{f}_{t}n_{t} by Equation ( 4 ); if X t + 1 = β X_{t+1}=\beta , n t + 1 = m ⁡ ( 1 − f ¯ t ) ​ n t n_{t+1}=m(1-\bar{f}_{t})n_{t} . The behaviors and shares of generation t t do not depend on X t + 1 X_{t+1} , which equals α \alpha with probability p p , so
+
+I p ​ ( q t , f 1 , t , f 2 , t ) = p ​ log ⁡ ( m ​ f ¯ t ) + ( 1 − p ) ​ log ⁡ ( m ⁡ ( 1 − f ¯ t ) ) = I p ​ ( f ¯ t ) , I_{p}(q_{t},f_{1,t},f_{2,t})=p\log(m\bar{f}_{t})+(1-p)\log\big(m(1-\bar{f}_{t})\big)=I_{p}(\bar{f}_{t}),
+
+where the last equality is Equation ( 1 ). Since f ¯ t \bar{f}_{t} is a weighted average of f 1 , t , f 2 , t ∈ ( 0 , 1 ) f_{1,t},f_{2,t}\in(0,1) , it lies in ( 0 , 1 ) (0,1) , and Proposition 2 gives I p ​ ( p ) − I p ​ ( f ¯ t ) = ℛ p ​ ( f ¯ t ) I_{p}(p)-I_{p}(\bar{f}_{t})=\mathcal{R}_{p}(\bar{f}_{t}) .
+∎
+
+D.2.2 Proofs for Section 4
+
+Let q 0 ∈ ( 0 , 1 ) q_{0}\in(0,1) , write z t ≡ log ⁡ ( q t D / ( 1 − q t D ) ) z_{t}\equiv\log(q^{\mathrm{D}}_{t}/(1-q^{\mathrm{D}}_{t})) , and let ξ t ≡ z t − z t − 1 \xi_{t}\equiv z_{t}-z_{t-1} for t ≥ 1 t\geq 1 . Mechanism 4.1 is the setting of Lemma C.3 with f t = p old f_{t}=p_{\mathrm{old}} for every t t , so Equation ( C.3 ) gives ξ t = log ⁡ ( p new / p old ) \xi_{t}=\log(p_{\mathrm{new}}/p_{\mathrm{old}}) if X t = α X_{t}=\alpha and ξ t = log ⁡ ( ( 1 − p new ) / ( 1 − p old ) ) \xi_{t}=\log((1-p_{\mathrm{new}})/(1-p_{\mathrm{old}})) if X t = β X_{t}=\beta . The changes ξ 1 , ξ 2 , … \xi_{1},\xi_{2},\ldots are independent and identically distributed, with mean Δ > 0 \Delta>0 by Equation ( 8 ), and none exceeds
+
+ξ max ≡ max ⁡ { log ⁡ p new p old , log ⁡ 1 − p new 1 − p old } > 0 . \xi_{\max}\equiv\max\Big\{\log\frac{p_{\mathrm{new}}}{p_{\mathrm{old}}},\ \log\frac{1-p_{\mathrm{new}}}{1-p_{\mathrm{old}}}\Big\}>0.
+
+Since f ¯ t D = q t D ​ p new + ( 1 − q t D ) ​ p old \bar{f}^{\mathrm{D}}_{t}=q^{\mathrm{D}}_{t}p_{\mathrm{new}}+(1-q^{\mathrm{D}}_{t})p_{\mathrm{old}} ,
+
+f ¯ t D − p new = ( 1 − q t D ) ​ ( p old − p new ) . \bar{f}^{\mathrm{D}}_{t}-p_{\mathrm{new}}=(1-q^{\mathrm{D}}_{t})(p_{\mathrm{old}}-p_{\mathrm{new}}). (C.9)
+
+(i) By the strong law of large numbers, z t / t → Δ z_{t}/t\to\Delta with probability one, so z t → ∞ z_{t}\to\infty and q t D → 1 q^{\mathrm{D}}_{t}\to 1 . Since 1 − q t D = 1 / ( 1 + e z t ) 1-q^{\mathrm{D}}_{t}=1/(1+e^{z_{t}}) ,
+
+1 t ​ log ⁡ ( 1 − q t D ) = − z t t − 1 t ​ log ⁡ ( 1 + e − z t ) → − Δ . \frac{1}{t}\log(1-q^{\mathrm{D}}_{t})=-\frac{z_{t}}{t}-\frac{1}{t}\log\big(1+e^{-z_{t}}\big)\to-\Delta.
+
+By Equation ( C.9 ), f ¯ t D → p new \bar{f}^{\mathrm{D}}_{t}\to p_{\mathrm{new}} , and Lemma C.1 (c) gives
+
+ℛ p new ​ ( f ¯ t D ) / ( f ¯ t D − p new ) 2 → 1 / ( 2 ​ p new ​ ( 1 − p new ) ) . \mathcal{R}_{p_{\mathrm{new}}}(\bar{f}^{\mathrm{D}}_{t})/(\bar{f}^{\mathrm{D}}_{t}-p_{\mathrm{new}})^{2}\to 1/(2p_{\mathrm{new}}(1-p_{\mathrm{new}})).
+
+Therefore
+
+1 t ​ log ​ ℛ p new ​ ( f ¯ t D ) = 2 t ​ log ⁡ ( 1 − q t D ) + 2 t ​ log ​ | p old − p new | + 1 t ​ log ​ ℛ p new ​ ( f ¯ t D ) ( f ¯ t D − p new ) 2 → − 2 ​ Δ , \frac{1}{t}\log\mathcal{R}_{p_{\mathrm{new}}}(\bar{f}^{\mathrm{D}}_{t})=\frac{2}{t}\log(1-q^{\mathrm{D}}_{t})+\frac{2}{t}\log|p_{\mathrm{old}}-p_{\mathrm{new}}|+\frac{1}{t}\log\frac{\mathcal{R}_{p_{\mathrm{new}}}(\bar{f}^{\mathrm{D}}_{t})}{(\bar{f}^{\mathrm{D}}_{t}-p_{\mathrm{new}})^{2}}\to-2\Delta,
+
+that is, κ D = 2 ​ Δ \kappa^{\mathrm{D}}=2\Delta with probability one.
+
+(ii) Fix ε ∈ ( 0 , 1 ) \varepsilon\in(0,1) , and let
+
+ϕ ⁡ ( q ) ≡ ℛ p new ​ ( q ​ p new + ( 1 − q ) ​ p old ) , q ∈ [ 0 , 1 ] , \phi(q)\equiv\mathcal{R}_{p_{\mathrm{new}}}\big(qp_{\mathrm{new}}+(1-q)p_{\mathrm{old}}\big),\qquad q\in[0,1],
+
+be the regret of a Darwinian population in which the adapted lineage has the share q q . The distance of q ​ p new + ( 1 − q ) ​ p old qp_{\mathrm{new}}+(1-q)p_{\mathrm{old}} from p new p_{\mathrm{new}} is ( 1 − q ) ​ | p old − p new | (1-q)|p_{\mathrm{old}}-p_{\mathrm{new}}| , so by Lemma C.1 (a), ϕ \phi is continuous and strictly decreasing, from ϕ ⁡ ( 0 ) = ℛ p new ​ ( p old ) = Δ \phi(0)=\mathcal{R}_{p_{\mathrm{new}}}(p_{\mathrm{old}})=\Delta to ϕ ⁡ ( 1 ) = 0 \phi(1)=0 . In particular, ℛ p new ​ ( f ¯ t D ) = ϕ ⁡ ( q t D ) \mathcal{R}_{p_{\mathrm{new}}}(\bar{f}^{\mathrm{D}}_{t})=\phi(q^{\mathrm{D}}_{t}) , and ϕ ⁡ ( q 0 ) ∈ ( 0 , Δ ) \phi(q_{0})\in(0,\Delta) . Let q ∗ ​ ( ε , q 0 ) ∈ ( q 0 , 1 ) q^{*}(\varepsilon,q_{0})\in(q_{0},1) be the unique share with
+
+ϕ ⁡ ( q ∗ ​ ( ε , q 0 ) ) = ε ​ ϕ ​ ( q 0 ) , \phi\big(q^{*}(\varepsilon,q_{0})\big)=\varepsilon\,\phi(q_{0}),
+
+and let q ε ∈ ( 0 , 1 ) q_{\varepsilon}\in(0,1) be the unique share with ϕ ⁡ ( q ε ) = ε ​ Δ \phi(q_{\varepsilon})=\varepsilon\Delta . Since ϕ \phi is strictly decreasing, ℛ p new ​ ( f ¯ t D ) ≤ ε ​ ℛ p new ​ ( f ¯ 0 D ) \mathcal{R}_{p_{\mathrm{new}}}(\bar{f}^{\mathrm{D}}_{t})\leq\varepsilon\mathcal{R}_{p_{\mathrm{new}}}(\bar{f}^{\mathrm{D}}_{0}) if and only if q t D ≥ q ∗ ​ ( ε , q 0 ) q^{\mathrm{D}}_{t}\geq q^{*}(\varepsilon,q_{0}) , that is, if and only if ξ 1 + ⋯ + ξ t ≥ d ⁡ ( ε , q 0 ) \xi_{1}+\cdots+\xi_{t}\geq d(\varepsilon,q_{0}) , where
+
+d ⁡ ( ε , q 0 ) ≡ log ⁡ q ∗ ​ ( ε , q 0 ) 1 − q ∗ ​ ( ε , q 0 ) − log ⁡ q 0 1 − q 0 > 0 d(\varepsilon,q_{0})\equiv\log\frac{q^{*}(\varepsilon,q_{0})}{1-q^{*}(\varepsilon,q_{0})}-\log\frac{q_{0}}{1-q_{0}}>0
+
+is the distance that the logarithm of the ratio of the two lineages’ sizes must travel. Hence τ D ​ ( ε , q 0 ) \tau^{\mathrm{D}}(\varepsilon,q_{0}) is the first passage time of Lemma C.2 with d = d ⁡ ( ε , q 0 ) d=d(\varepsilon,q_{0}) and μ = Δ \mu=\Delta , and
+
+d ⁡ ( ε , q 0 ) Δ ≤ 𝔼 ​ τ D ​ ( ε , q 0 ) < d ⁡ ( ε , q 0 ) + ξ max Δ . \frac{d(\varepsilon,q_{0})}{\Delta}\leq\mathbb{E}\,\tau^{\mathrm{D}}(\varepsilon,q_{0})<\frac{d(\varepsilon,q_{0})+\xi_{\max}}{\Delta}. (C.10)
+
+We now bound d ⁡ ( ε , q 0 ) d(\varepsilon,q_{0}) , which is the sum of two terms:
+
+d ⁡ ( ε , q 0 ) = log ⁡ q ∗ ​ ( ε , q 0 ) q 0 + log ⁡ 1 − q 0 1 − q ∗ ​ ( ε , q 0 ) . d(\varepsilon,q_{0})=\log\frac{q^{*}(\varepsilon,q_{0})}{q_{0}}+\log\frac{1-q_{0}}{1-q^{*}(\varepsilon,q_{0})}.
+
+For the first term, ϕ ⁡ ( q ∗ ​ ( ε , q 0 ) ) = ε ​ ϕ ​ ( q 0 ) < ε ​ Δ = ϕ ⁡ ( q ε ) \phi(q^{*}(\varepsilon,q_{0}))=\varepsilon\phi(q_{0})<\varepsilon\Delta=\phi(q_{\varepsilon}) , so q ∗ ​ ( ε , q 0 ) > q ε q^{*}(\varepsilon,q_{0})>q_{\varepsilon} ; together with q ∗ ​ ( ε , q 0 ) < 1 q^{*}(\varepsilon,q_{0})<1 , this gives
+
+log ⁡ 1 q 0 + log ⁡ q ε < log ⁡ q ∗ ​ ( ε , q 0 ) q 0 < log ⁡ 1 q 0 . \log\frac{1}{q_{0}}+\log q_{\varepsilon}<\log\frac{q^{*}(\varepsilon,q_{0})}{q_{0}}<\log\frac{1}{q_{0}}. (C.11)
+
+For the second term, let v ≡ min ⁡ { p old ​ ( 1 − p old ) , p new ​ ( 1 − p new ) } v\equiv\min\{p_{\mathrm{old}}(1-p_{\mathrm{old}}),p_{\mathrm{new}}(1-p_{\mathrm{new}})\} . Every x x between p new p_{\mathrm{new}} and q ​ p new + ( 1 − q ) ​ p old qp_{\mathrm{new}}+(1-q)p_{\mathrm{old}} lies between p old p_{\mathrm{old}} and p new p_{\mathrm{new}} , where x ⁡ ( 1 − x ) ≥ v x(1-x)\geq v because x ⁡ ( 1 − x ) x(1-x) is concave. By Lemma C.1 (b), for every q ∈ [ 0 , 1 ] q\in[0,1] ,
+
+2 ​ ( 1 − q ) 2 ​ ( p new − p old ) 2 ≤ ϕ ⁡ ( q ) ≤ ( 1 − q ) 2 ​ ( p new − p old ) 2 2 ​ v . 2(1-q)^{2}(p_{\mathrm{new}}-p_{\mathrm{old}})^{2}\leq\phi(q)\leq\frac{(1-q)^{2}(p_{\mathrm{new}}-p_{\mathrm{old}})^{2}}{2v}.
+
+Applying the upper bound at q ∗ ​ ( ε , q 0 ) q^{*}(\varepsilon,q_{0}) and the lower bound at q 0 q_{0} , and then the lower bound at q ∗ ​ ( ε , q 0 ) q^{*}(\varepsilon,q_{0}) and the upper bound at q 0 q_{0} , the equation ϕ ⁡ ( q ∗ ​ ( ε , q 0 ) ) = ε ​ ϕ ​ ( q 0 ) \phi(q^{*}(\varepsilon,q_{0}))=\varepsilon\phi(q_{0}) gives
+
+4 ​ ε ​ v ≤ ( 1 − q ∗ ​ ( ε , q 0 ) 1 − q 0 ) 2 ≤ ε 4 ​ v , so 1 2 ​ log ⁡ 4 ​ v ε ≤ log ⁡ 1 − q 0 1 − q ∗ ​ ( ε , q 0 ) ≤ 1 2 ​ log ⁡ 1 4 ​ ε ​ v . 4\varepsilon v\leq\Big(\frac{1-q^{*}(\varepsilon,q_{0})}{1-q_{0}}\Big)^{2}\leq\frac{\varepsilon}{4v},\qquad\text{so}\qquad\frac{1}{2}\log\frac{4v}{\varepsilon}\leq\log\frac{1-q_{0}}{1-q^{*}(\varepsilon,q_{0})}\leq\frac{1}{2}\log\frac{1}{4\varepsilon v}. (C.12)
+
+For the first limit in Equation ( 7 ), fix q 0 q_{0} . By Equation ( C.11 ), the first term of d ⁡ ( ε , q 0 ) d(\varepsilon,q_{0}) lies in ( 0 , log ⁡ ( 1 / q 0 ) ) (0,\log(1/q_{0})) , because q ∗ ​ ( ε , q 0 ) > q 0 q^{*}(\varepsilon,q_{0})>q_{0} . By Equation ( C.12 ), the second term differs from 1 2 ​ log ⁡ ( 1 / ε ) \frac{1}{2}\log(1/\varepsilon) by at most 1 2 ​ log ⁡ ( 1 / ( 4 ​ v ) ) \frac{1}{2}\log(1/(4v)) . Hence d ⁡ ( ε , q 0 ) / log ⁡ ( 1 / ε ) → 1 2 d(\varepsilon,q_{0})/\log(1/\varepsilon)\to\frac{1}{2} as ε → 0 \varepsilon\to 0 , and dividing Equation ( C.10 ) by log ⁡ ( 1 / ε ) \log(1/\varepsilon) gives 𝔼 ​ τ D ​ ( ε , q 0 ) / log ⁡ ( 1 / ε ) → 1 / ( 2 ​ Δ ) = 1 / κ D \mathbb{E}\,\tau^{\mathrm{D}}(\varepsilon,q_{0})/\log(1/\varepsilon)\to 1/(2\Delta)=1/\kappa^{\mathrm{D}} .
+
+For the second limit, fix ε \varepsilon . Adding Equations ( C.11 ) and ( C.12 ) and using Equation ( C.10 ),
+
+1 Δ ​ ( log ⁡ q ε + 1 2 ​ log ⁡ 4 ​ v ε ) < 𝔼 ​ τ D ​ ( ε , q 0 ) − log ⁡ ( 1 / q 0 ) Δ < 1 Δ ​ ( 1 2 ​ log ⁡ 1 4 ​ ε ​ v + ξ max ) . \frac{1}{\Delta}\Big(\log q_{\varepsilon}+\frac{1}{2}\log\frac{4v}{\varepsilon}\Big)<\mathbb{E}\,\tau^{\mathrm{D}}(\varepsilon,q_{0})-\frac{\log(1/q_{0})}{\Delta}<\frac{1}{\Delta}\Big(\frac{1}{2}\log\frac{1}{4\varepsilon v}+\xi_{\max}\Big).
+
+Neither bound depends on q 0 q_{0} . Dividing by log ⁡ ( 1 / q 0 ) \log(1/q_{0}) , which tends to infinity as q 0 → 0 q_{0}\to 0 , gives 𝔼 ​ τ D ​ ( ε , q 0 ) / log ⁡ ( 1 / q 0 ) → 1 / Δ \mathbb{E}\,\tau^{\mathrm{D}}(\varepsilon,q_{0})/\log(1/q_{0})\to 1/\Delta .
+∎
+
+D.2.3 Proofs for Section 5
+
+Let q 0 ∈ [ 0 , 1 ) q_{0}\in[0,1) . Iterating Equation ( 9 ) gives f t L − p new = ( 1 − λ ) t ​ ( p old − p new ) f^{\mathrm{L}}_{t}-p_{\mathrm{new}}=(1-\lambda)^{t}(p_{\mathrm{old}}-p_{\mathrm{new}}) , so f t L f^{\mathrm{L}}_{t} lies between p old p_{\mathrm{old}} and p new p_{\mathrm{new}} and does not depend on the states. The selection step of Mechanism 5.1 is Equation ( 5 ) with f 1 , t = p new f_{1,t}=p_{\mathrm{new}} and f 2 , t = f t L f_{2,t}=f^{\mathrm{L}}_{t} . Lemma C.4 therefore applies with f t = f t L f_{t}=f^{\mathrm{L}}_{t} , and, with K K from Equation ( C.4 ),
+
+( 1 − λ ) 2 ​ t K ≤ ℛ p new ​ ( f ¯ t L ) ℛ p new ​ ( f ¯ 0 L ) ≤ K ​ ( 1 − λ ) 2 ​ t \frac{(1-\lambda)^{2t}}{K}\leq\frac{\mathcal{R}_{p_{\mathrm{new}}}(\bar{f}^{\mathrm{L}}_{t})}{\mathcal{R}_{p_{\mathrm{new}}}(\bar{f}^{\mathrm{L}}_{0})}\leq K(1-\lambda)^{2t} (C.13)
+
+for every t t and every history. The constant K K depends on neither q 0 q_{0} nor the history.
+
+(i) By Equation ( C.13 ), along every history, log ⁡ ℛ p new ​ ( f ¯ t L ) \log\mathcal{R}_{p_{\mathrm{new}}}(\bar{f}^{\mathrm{L}}_{t}) differs from 2 ​ t ​ log ⁡ ( 1 − λ ) 2t\log(1-\lambda) by at most log ⁡ K + | log ⁡ ℛ p new ​ ( f ¯ 0 L ) | \log K+|\log\mathcal{R}_{p_{\mathrm{new}}}(\bar{f}^{\mathrm{L}}_{0})| , which does not depend on t t . Dividing by t t and letting t → ∞ t\to\infty gives κ L = − 2 ​ log ⁡ ( 1 − λ ) \kappa^{\mathrm{L}}=-2\log(1-\lambda) .
+
+(ii) Since ( 1 − λ ) 2 ​ t = e − κ L ​ t (1-\lambda)^{2t}=e^{-\kappa^{\mathrm{L}}t} , Equation ( C.13 ) shows that ℛ p new ​ ( f ¯ t L ) / ℛ p new ​ ( f ¯ 0 L ) > ε \mathcal{R}_{p_{\mathrm{new}}}(\bar{f}^{\mathrm{L}}_{t})/\mathcal{R}_{p_{\mathrm{new}}}(\bar{f}^{\mathrm{L}}_{0})>\varepsilon whenever e − κ L ​ t / K > ε e^{-\kappa^{\mathrm{L}}t}/K>\varepsilon , and that it is at most ε \varepsilon whenever K ​ e − κ L ​ t ≤ ε Ke^{-\kappa^{\mathrm{L}}t}\leq\varepsilon . Hence, along every history,
+
+log ⁡ ( 1 / ( K ​ ε ) ) κ L ≤ τ L ​ ( ε , q 0 ) < log ⁡ ( K / ε ) κ L + 1 . \frac{\log(1/(K\varepsilon))}{\kappa^{\mathrm{L}}}\leq\tau^{\mathrm{L}}(\varepsilon,q_{0})<\frac{\log(K/\varepsilon)}{\kappa^{\mathrm{L}}}+1. (C.14)
+
+Dividing by log ⁡ ( 1 / ε ) \log(1/\varepsilon) and letting ε → 0 \varepsilon\to 0 shows that τ L ​ ( ε , q 0 ) / log ⁡ ( 1 / ε ) → 1 / κ L \tau^{\mathrm{L}}(\varepsilon,q_{0})/\log(1/\varepsilon)\to 1/\kappa^{\mathrm{L}} along every history; since the bounds in Equation ( C.14 ) do not depend on the history, the same holds for 𝔼 ​ τ L ​ ( ε , q 0 ) / log ⁡ ( 1 / ε ) \mathbb{E}\,\tau^{\mathrm{L}}(\varepsilon,q_{0})/\log(1/\varepsilon) , which gives the first statement. For the second, the upper bound in Equation ( C.14 ) does not depend on q 0 q_{0} , so sup q 0 ∈ [ 0 , 1 ) 𝔼 ​ τ L ​ ( ε , q 0 ) ≤ log ⁡ ( K / ε ) / κ L + 1 < ∞ \sup_{q_{0}\in[0,1)}\mathbb{E}\,\tau^{\mathrm{L}}(\varepsilon,q_{0})\leq\log(K/\varepsilon)/\kappa^{\mathrm{L}}+1<\infty .
+∎
+
+D.2.4 Proofs for Section 6
+
+Let q 0 ∈ [ 0 , 1 ) q_{0}\in[0,1) . The search, evaluation, and learning steps of Mechanism 6.1 are Equation ( C.7 ) with p ^ = p new \hat{p}=p_{\mathrm{new}} , and Lemma C.5 (a) is Equation ( 11 ). By Lemma C.5 (b), for every sequence of draws, f t A f^{\mathrm{A}}_{t} lies between p old p_{\mathrm{old}} and p new p_{\mathrm{new}} , | f t A − p new | = | p old − p new | ​ e − S t |f^{\mathrm{A}}_{t}-p_{\mathrm{new}}|=|p_{\mathrm{old}}-p_{\mathrm{new}}|e^{-S_{t}} , and | f t A − p new | ≤ ( 1 − λ ) t ​ | p old − p new | |f^{\mathrm{A}}_{t}-p_{\mathrm{new}}|\leq(1-\lambda)^{t}|p_{\mathrm{old}}-p_{\mathrm{new}}| . The draws do not depend on the states, and the selection step of Mechanism 6.1 is Equation ( 5 ) with f 1 , t = p new f_{1,t}=p_{\mathrm{new}} and f 2 , t = f t A f_{2,t}=f^{\mathrm{A}}_{t} . Lemma C.4 therefore applies with f t = f t A f_{t}=f^{\mathrm{A}}_{t} :
+
+e − 2 ​ S t K ≤ ℛ p new ​ ( f ¯ t A ) ℛ p new ​ ( f ¯ 0 A ) ≤ K ​ e − 2 ​ S t \frac{e^{-2S_{t}}}{K}\leq\frac{\mathcal{R}_{p_{\mathrm{new}}}(\bar{f}^{\mathrm{A}}_{t})}{\mathcal{R}_{p_{\mathrm{new}}}(\bar{f}^{\mathrm{A}}_{0})}\leq Ke^{-2S_{t}} (C.15)
+
+for every t t , every history, and every sequence of draws, with K K from Equation ( C.4 ).
+
+(i) By Lemma C.5 , S t / t → − log ⁡ ( 1 − λ ) + G N ​ ( ρ ) = κ L / 2 + G N ​ ( ρ ) S_{t}/t\to-\log(1-\lambda)+G_{N}(\rho)=\kappa^{\mathrm{L}}/2+G_{N}(\rho) with probability one, and by Equation ( C.15 ), − 1 t ​ log ⁡ ℛ p new ​ ( f ¯ t A ) -\frac{1}{t}\log\mathcal{R}_{p_{\mathrm{new}}}(\bar{f}^{\mathrm{A}}_{t}) differs from 2 ​ S t / t 2S_{t}/t by at most ( log ⁡ K + | log ⁡ ℛ p new ​ ( f ¯ 0 A ) | ) / t (\log K+|\log\mathcal{R}_{p_{\mathrm{new}}}(\bar{f}^{\mathrm{A}}_{0})|)/t . Hence κ A = κ L + 2 ​ G N ​ ( ρ ) \kappa^{\mathrm{A}}=\kappa^{\mathrm{L}}+2G_{N}(\rho) with probability one. The variable − log ⁡ ( 1 − ρ ​ U t ∗ ) -\log(1-\rho U^{*}_{t}) is nonnegative, so G N ​ ( ρ ) ≥ 0 G_{N}(\rho)\geq 0 , and G 0 ​ ( ρ ) = 0 G_{0}(\rho)=0 because U t ∗ ≡ 0 U^{*}_{t}\equiv 0 when N = 0 N=0 .
+
+(ii) Each term of S t S_{t} is at least − log ⁡ ( 1 − λ ) = κ L / 2 > 0 -\log(1-\lambda)=\kappa^{\mathrm{L}}/2>0 , so S t S_{t} rises strictly with t t and 2 ​ S t ≥ κ L ​ t 2S_{t}\geq\kappa^{\mathrm{L}}t . For x ∈ ℝ x\in\mathbb{R} , let T ⁡ ( x ) ≡ min ⁡ { t ≥ 0 : 2 ​ S t ≥ x } T(x)\equiv\min\{t\geq 0:\ 2S_{t}\geq x\} , so that T ⁡ ( x ) = 0 T(x)=0 for x ≤ 0 x\leq 0 and T ⁡ ( x ) ≤ ⌈ x / κ L ⌉ T(x)\leq\lceil x/\kappa^{\mathrm{L}}\rceil for x > 0 x>0 . By Equation ( C.15 ), the population’s regret is at most ε ​ ℛ p new ​ ( f ¯ 0 A ) \varepsilon\mathcal{R}_{p_{\mathrm{new}}}(\bar{f}^{\mathrm{A}}_{0}) once 2 ​ S t ≥ log ⁡ ( K / ε ) 2S_{t}\geq\log(K/\varepsilon) , and it exceeds ε ​ ℛ p new ​ ( f ¯ 0 A ) \varepsilon\mathcal{R}_{p_{\mathrm{new}}}(\bar{f}^{\mathrm{A}}_{0}) while 2 ​ S t < log ⁡ ( 1 / ( K ​ ε ) ) 2S_{t}<\log(1/(K\varepsilon)) . Since S t S_{t} rises with t t ,
+
+T ⁡ ( log ⁡ ( 1 / ( K ​ ε ) ) ) ≤ τ A ​ ( ε , q 0 ) ≤ T ⁡ ( log ⁡ ( K / ε ) ) ≤ ⌈ log ⁡ ( K / ε ) κ L ⌉ T\big(\log(1/(K\varepsilon))\big)\leq\tau^{\mathrm{A}}(\varepsilon,q_{0})\leq T\big(\log(K/\varepsilon)\big)\leq\Big\lceil\frac{\log(K/\varepsilon)}{\kappa^{\mathrm{L}}}\Big\rceil (C.16)
+
+for every history and every sequence of draws. The last bound does not depend on q 0 q_{0} , which gives the second statement in Equation ( 13 ). For the first, T ⁡ ( x ) → ∞ T(x)\to\infty as x → ∞ x\to\infty , and 2 ​ S T ⁡ ( x ) − 1 < x ≤ 2 ​ S T ⁡ ( x ) 2S_{T(x)-1}<x\leq 2S_{T(x)} for x > 0 x>0 , so 2 ​ S t / t → κ A 2S_{t}/t\to\kappa^{\mathrm{A}} gives T ⁡ ( x ) / x → 1 / κ A T(x)/x\to 1/\kappa^{\mathrm{A}} with probability one. Since log ⁡ ( 1 / ( K ​ ε ) ) / log ⁡ ( 1 / ε ) \log(1/(K\varepsilon))/\log(1/\varepsilon) and log ⁡ ( K / ε ) / log ⁡ ( 1 / ε ) \log(K/\varepsilon)/\log(1/\varepsilon) tend to one as ε → 0 \varepsilon\to 0 , Equation ( C.16 ) gives τ A ​ ( ε , q 0 ) / log ⁡ ( 1 / ε ) → 1 / κ A \tau^{\mathrm{A}}(\varepsilon,q_{0})/\log(1/\varepsilon)\to 1/\kappa^{\mathrm{A}} with probability one. For ε ≤ 1 2 \varepsilon\leq\frac{1}{2} , the same equation bounds this ratio by ( 1 + log ⁡ K / log ⁡ 2 ) / κ L + 1 / log ⁡ 2 (1+\log K/\log 2)/\kappa^{\mathrm{L}}+1/\log 2 , so the bounded convergence theorem gives 𝔼 ​ τ A ​ ( ε , q 0 ) / log ⁡ ( 1 / ε ) → 1 / κ A \mathbb{E}\,\tau^{\mathrm{A}}(\varepsilon,q_{0})/\log(1/\varepsilon)\to 1/\kappa^{\mathrm{A}} .
+∎
+
+We use the integral form of G N ​ ( ρ ) G_{N}(\rho) in Equation ( C.8 ) of Lemma C.6 .
+
+(i) For u ∈ ( 0 , 1 ) u\in(0,1) , the integrand ρ ⁡ ( 1 − u N ) / ( 1 − ρ ​ u ) \rho(1-u^{N})/(1-\rho u) rises strictly with N N , because u N u^{N} falls. For N ≥ 1 N\geq 1 , it rises strictly with ρ \rho , because ρ / ( 1 − ρ ​ u ) \rho/(1-\rho u) does and 1 − u N > 0 1-u^{N}>0 .
+
+(ii) For ρ = 1 \rho=1 , the integrand is ( 1 − u N ) / ( 1 − u ) = 1 + u + ⋯ + u N − 1 (1-u^{N})/(1-u)=1+u+\cdots+u^{N-1} , whose integral over [ 0 , 1 ] [0,1] is 1 + 1 2 + ⋯ + 1 N 1+\frac{1}{2}+\cdots+\frac{1}{N} . Since 1 / u 1/u is decreasing, ∫ k k + 1 𝑑 u / u ≤ 1 / k \int_{k}^{k+1}du/u\leq 1/k for k ≥ 1 k\geq 1 and 1 / k ≤ ∫ k − 1 k 𝑑 u / u 1/k\leq\int_{k-1}^{k}du/u for k ≥ 2 k\geq 2 , so
+
+log ⁡ ( N + 1 ) ≤ 1 + 1 2 + ⋯ + 1 N ≤ 1 + log ⁡ N . \log(N+1)\leq 1+\frac{1}{2}+\cdots+\frac{1}{N}\leq 1+\log N.
+
+Dividing by log ⁡ N \log N and letting N → ∞ N\to\infty gives G N ​ ( 1 ) / log ⁡ N → 1 G_{N}(1)/\log N\to 1 .
+
+(iii) For ρ ∈ ( 0 , 1 ) \rho\in(0,1) , the integrand is below ρ / ( 1 − ρ ​ u ) \rho/(1-\rho u) for u ∈ ( 0 , 1 ] u\in(0,1] , and ∫ 0 1 ρ / ( 1 − ρ ​ u ) ​ 𝑑 u = − log ⁡ ( 1 − ρ ) \int_{0}^{1}\rho/(1-\rho u)\,du=-\log(1-\rho) , so G N ​ ( ρ ) < − log ⁡ ( 1 − ρ ) G_{N}(\rho)<-\log(1-\rho) . As N → ∞ N\to\infty , the integrand rises to ρ / ( 1 − ρ ​ u ) \rho/(1-\rho u) , and the monotone convergence theorem gives G N ​ ( ρ ) → − log ⁡ ( 1 − ρ ) G_{N}(\rho)\to-\log(1-\rho) .
+∎
+
+By Equation ( C.8 ), for N ≥ 0 N\geq 0 ,
+
+G N + 1 ​ ( ρ ) − G N ​ ( ρ ) = ∫ 0 1 ρ ​ u N ​ ( 1 − u ) 1 − ρ ​ u ​ 𝑑 u , G_{N+1}(\rho)-G_{N}(\rho)=\int_{0}^{1}\frac{\rho\,u^{N}(1-u)}{1-\rho u}\,du, (C.17)
+
+which is positive and strictly decreasing in N N .
+
+(i) By Equation ( 14 ), cross-multiplying shows that C ⁡ ( N + 1 ) C(N+1) is below, equal to, or above C ⁡ ( N ) C(N) according as
+
+ψ ⁡ ( N ) ≡ 2 ​ ( 1 + c ​ N ) ​ ( G N + 1 ​ ( ρ ) − G N ​ ( ρ ) ) − c ⁡ ( κ L + 2 ​ G N ​ ( ρ ) ) \psi(N)\equiv 2(1+cN)\big(G_{N+1}(\rho)-G_{N}(\rho)\big)-c\big(\kappa^{\mathrm{L}}+2G_{N}(\rho)\big)
+
+is positive, zero, or negative. The function ψ \psi is strictly decreasing:
+
+ψ ⁡ ( N + 1 ) − ψ ⁡ ( N ) = 2 ​ ( 1 + c ⁡ ( N + 1 ) ) ​ [ ( G N + 2 ​ ( ρ ) − G N + 1 ​ ( ρ ) ) − ( G N + 1 ​ ( ρ ) − G N ​ ( ρ ) ) ] < 0 . \psi(N+1)-\psi(N)=2\big(1+c(N+1)\big)\Big[\big(G_{N+2}(\rho)-G_{N+1}(\rho)\big)-\big(G_{N+1}(\rho)-G_{N}(\rho)\big)\Big]<0.
+
+It is also negative for large N N . Since ρ ⁡ ( 1 − u ) / ( 1 − ρ ​ u ) ≤ 1 \rho(1-u)/(1-\rho u)\leq 1 , Equation ( C.17 ) gives G N + 1 ​ ( ρ ) − G N ​ ( ρ ) ≤ 1 / ( N + 1 ) G_{N+1}(\rho)-G_{N}(\rho)\leq 1/(N+1) . For ρ = 1 \rho=1 , the first term of ψ ⁡ ( N ) \psi(N) is therefore at most 2 ​ ( 1 + c ​ N ) / ( N + 1 ) ≤ 2 ​ max ⁡ { 1 , c } 2(1+cN)/(N+1)\leq 2\max\{1,c\} , while the second, c ⁡ ( κ L + 2 ​ ( 1 + 1 2 + ⋯ + 1 N ) ) c(\kappa^{\mathrm{L}}+2(1+\frac{1}{2}+\cdots+\frac{1}{N})) by Proposition 4 (ii), grows without bound. For ρ ∈ ( 0 , 1 ) \rho\in(0,1) , ρ ⁡ ( 1 − u ) / ( 1 − ρ ​ u ) ≤ ρ ⁡ ( 1 − u ) / ( 1 − ρ ) \rho(1-u)/(1-\rho u)\leq\rho(1-u)/(1-\rho) , so the first term is at most 2 ​ ( 1 + c ​ N ) ​ ρ / ( ( 1 − ρ ) ​ ( N + 1 ) ​ ( N + 2 ) ) 2(1+cN)\rho/((1-\rho)(N+1)(N+2)) , which tends to zero, while the second is at least c ​ κ L > 0 c\kappa^{\mathrm{L}}>0 . Hence there is an integer N ¯ ≥ 0 \bar{N}\geq 0 such that C ⁡ ( N + 1 ) < C ⁡ ( N ) C(N+1)<C(N) for N < N ¯ N<\bar{N} , C ⁡ ( N ¯ + 1 ) ≥ C ⁡ ( N ¯ ) C(\bar{N}+1)\geq C(\bar{N}) , and C ⁡ ( N + 1 ) > C ⁡ ( N ) C(N+1)>C(N) for N > N ¯ N>\bar{N} : the long-run cost first decreases and then increases in N N . Its minimizers are N ¯ \bar{N} , and also N ¯ + 1 \bar{N}+1 when C ⁡ ( N ¯ + 1 ) = C ⁡ ( N ¯ ) C(\bar{N}+1)=C(\bar{N}) .
+
+(ii) For N ′ > N ≥ 0 N^{\prime}>N\geq 0 ,
+
+C ⁡ ( N ′ ) C ⁡ ( N ) = 1 + c ​ N ′ 1 + c ​ N ⋅ κ L + 2 ​ G N ​ ( ρ ) κ L + 2 ​ G N ′ ​ ( ρ ) . \frac{C(N^{\prime})}{C(N)}=\frac{1+cN^{\prime}}{1+cN}\cdot\frac{\kappa^{\mathrm{L}}+2G_{N}(\rho)}{\kappa^{\mathrm{L}}+2G_{N^{\prime}}(\rho)}.
+
+The first factor rises strictly with c c , because its derivative in c c has the sign of N ′ − N N^{\prime}-N , and does not depend on λ \lambda or ρ \rho . The second factor does not depend on c c . It rises strictly with κ L = − 2 ​ log ⁡ ( 1 − λ ) \kappa^{\mathrm{L}}=-2\log(1-\lambda) , and so with λ \lambda , because G N ′ ​ ( ρ ) > G N ​ ( ρ ) G_{N^{\prime}}(\rho)>G_{N}(\rho) by Proposition 4 (i). It falls strictly with ρ \rho . For N = 0 N=0 , this follows from Proposition 4 (i), because G 0 ​ ( ρ ) = 0 G_{0}(\rho)=0 . For N ≥ 1 N\geq 1 , expanding 1 / ( 1 − ρ ​ u ) = ∑ k ≥ 0 ( ρ ​ u ) k 1/(1-\rho u)=\sum_{k\geq 0}(\rho u)^{k} in Equation ( C.8 ) and integrating term by term gives, for ρ ∈ ( 0 , 1 ) \rho\in(0,1) ,
+
+κ L + 2 G N ( ρ ) = ∑ k ≥ 0 ν k ( N ) ρ k , ν 0 ( N ) = κ L , ν k ( N ) = 2 ​ N k ⁡ ( N + k ) ( k ≥ 1 ) . \kappa^{\mathrm{L}}+2G_{N}(\rho)=\sum_{k\geq 0}\nu_{k}(N)\rho^{k},\qquad\nu_{0}(N)=\kappa^{\mathrm{L}},\quad\nu_{k}(N)=\frac{2N}{k(N+k)}\ \ (k\geq 1).
+
+For N ′ > N ≥ 1 N^{\prime}>N\geq 1 , the ratio ν k ​ ( N ′ ) / ν k ​ ( N ) \nu_{k}(N^{\prime})/\nu_{k}(N) equals one for k = 0 k=0 and N ′ ​ ( N + k ) / ( N ⁡ ( N ′ + k ) ) N^{\prime}(N+k)/(N(N^{\prime}+k)) for k ≥ 1 k\geq 1 , which exceeds one and rises with k k . Lemma C.7 , with a k = ν k ​ ( N ′ ) a_{k}=\nu_{k}(N^{\prime}) and b k = ν k ​ ( N ) b_{k}=\nu_{k}(N) , shows that ( κ L + 2 ​ G N ′ ​ ( ρ ) ) / ( κ L + 2 ​ G N ​ ( ρ ) ) (\kappa^{\mathrm{L}}+2G_{N^{\prime}}(\rho))/(\kappa^{\mathrm{L}}+2G_{N}(\rho)) rises strictly with ρ \rho on ( 0 , 1 ) (0,1) ; since G N G_{N} and G N ′ G_{N^{\prime}} are continuous on ( 0 , 1 ] (0,1] by Equation ( C.8 ), it rises strictly on ( 0 , 1 ] (0,1] .
+
+Consider a change in one parameter that lowers C ⁡ ( N ′ ) / C ⁡ ( N ) C(N^{\prime})/C(N) for every pair N ′ > N N^{\prime}>N : a rise in ρ \rho , or a fall in λ \lambda or in c c . Let N 1 N_{1} minimize C C before the change and N 2 N_{2} after it, and suppose that N 2 < N 1 N_{2}<N_{1} . Before the change, C ⁡ ( N 1 ) / C ⁡ ( N 2 ) ≤ 1 C(N_{1})/C(N_{2})\leq 1 . After the change, C ⁡ ( N 1 ) / C ⁡ ( N 2 ) < 1 C(N_{1})/C(N_{2})<1 , which contradicts the optimality of N 2 N_{2} . Hence every minimizer after the change is at least as large as every minimizer before it, so N ∗ ​ ( ρ , λ , c ) N^{*}(\rho,\lambda,c) is nondecreasing in ρ \rho and nonincreasing in λ \lambda and in c c .
+∎
+
+D.2.5 Proofs for Section 7
+
+(i) Let q 0 ∈ ( 0 , 1 ) q_{0}\in(0,1) . By Theorem 1 (i), κ D = 2 ​ Δ \kappa^{\mathrm{D}}=2\Delta with probability one. By Theorem 2 (i), κ L = − 2 ​ log ⁡ ( 1 − λ ) \kappa^{\mathrm{L}}=-2\log(1-\lambda) , and Equation ( 16 ) is equivalent to − log ⁡ ( 1 − λ ) > Δ -\log(1-\lambda)>\Delta , so κ L > κ D \kappa^{\mathrm{L}}>\kappa^{\mathrm{D}} . By Theorem 3 (i), κ A = κ L + 2 ​ G N ​ ( ρ ) \kappa^{\mathrm{A}}=\kappa^{\mathrm{L}}+2G_{N}(\rho) with probability one, and G N ​ ( ρ ) > G 0 ​ ( ρ ) = 0 G_{N}(\rho)>G_{0}(\rho)=0 for N ≥ 1 N\geq 1 and ρ ∈ ( 0 , 1 ] \rho\in(0,1] by Proposition 4 (i), so κ A > κ L \kappa^{\mathrm{A}}>\kappa^{\mathrm{L}} .
+
+(ii) Let q 0 ∈ ( 0 , 1 ) q_{0}\in(0,1) . By part (ii) of Theorems 1 , 2 and 3 , the ratios 𝔼 ​ τ D ​ ( ε , q 0 ) / log ⁡ ( 1 / ε ) \mathbb{E}\,\tau^{\mathrm{D}}(\varepsilon,q_{0})/\log(1/\varepsilon) , 𝔼 ​ τ L ​ ( ε , q 0 ) / log ⁡ ( 1 / ε ) \mathbb{E}\,\tau^{\mathrm{L}}(\varepsilon,q_{0})/\log(1/\varepsilon) , and 𝔼 ​ τ A ​ ( ε , q 0 ) / log ⁡ ( 1 / ε ) \mathbb{E}\,\tau^{\mathrm{A}}(\varepsilon,q_{0})/\log(1/\varepsilon) tend to 1 / κ D 1/\kappa^{\mathrm{D}} , 1 / κ L 1/\kappa^{\mathrm{L}} , and 1 / κ A 1/\kappa^{\mathrm{A}} as ε → 0 \varepsilon\to 0 . By part (i), 1 / κ A < 1 / κ L < 1 / κ D 1/\kappa^{\mathrm{A}}<1/\kappa^{\mathrm{L}}<1/\kappa^{\mathrm{D}} . Let δ \delta be half of the smaller of the gaps 1 / κ L − 1 / κ A 1/\kappa^{\mathrm{L}}-1/\kappa^{\mathrm{A}} and 1 / κ D − 1 / κ L 1/\kappa^{\mathrm{D}}-1/\kappa^{\mathrm{L}} . There is ε ¯ ∈ ( 0 , 1 ) \bar{\varepsilon}\in(0,1) such that, for every ε ∈ ( 0 , ε ¯ ) \varepsilon\in(0,\bar{\varepsilon}) , each ratio lies within δ \delta of its limit, and multiplying by log ⁡ ( 1 / ε ) > 0 \log(1/\varepsilon)>0 gives Equation ( 17 ).
+∎
+
+D.2.6 Proofs for Section 8
+
+Let γ ≡ min ⁡ { p old , 1 − p old , p new , 1 − p new , p ~ , 1 − p ~ } > 0 \gamma\equiv\min\{p_{\mathrm{old}},1-p_{\mathrm{old}},p_{\mathrm{new}},1-p_{\mathrm{new}},\tilde{p},1-\tilde{p}\}>0 . The search, evaluation, and learning steps of Mechanism 8.1 are Equation ( C.7 ) with p ^ = p ~ ≠ p old \hat{p}=\tilde{p}\neq p_{\mathrm{old}} . By Lemma C.5 , for every sequence of draws, f t A ~ f^{\tilde{\mathrm{A}}}_{t} lies between p old p_{\mathrm{old}} and p ~ \tilde{p} , so in [ γ , 1 − γ ] [\gamma,1-\gamma] , and
+
+| f t A ~ − p ~ | = | p old − p ~ | ​ e − S t ≤ ( 1 − λ ) t ​ | p old − p ~ | , |f^{\tilde{\mathrm{A}}}_{t}-\tilde{p}|=|p_{\mathrm{old}}-\tilde{p}|\,e^{-S_{t}}\leq(1-\lambda)^{t}|p_{\mathrm{old}}-\tilde{p}|, (C.18)
+
+and S t / t → κ L / 2 + G N ​ ( ρ ) S_{t}/t\to\kappa^{\mathrm{L}}/2+G_{N}(\rho) with probability one.
+
+(i) Every x x between f t A ~ f^{\tilde{\mathrm{A}}}_{t} and p ~ \tilde{p} lies in [ γ , 1 − γ ] [\gamma,1-\gamma] , where x ⁡ ( 1 − x ) ≥ γ ⁡ ( 1 − γ ) x(1-x)\geq\gamma(1-\gamma) . By Lemma C.1 (b), ℛ p ~ ​ ( f t A ~ ) \mathcal{R}_{\tilde{p}}(f^{\tilde{\mathrm{A}}}_{t}) lies between 2 ​ ( f t A ~ − p ~ ) 2 2(f^{\tilde{\mathrm{A}}}_{t}-\tilde{p})^{2} and ( f t A ~ − p ~ ) 2 / ( 2 ​ γ ​ ( 1 − γ ) ) (f^{\tilde{\mathrm{A}}}_{t}-\tilde{p})^{2}/(2\gamma(1-\gamma)) . By Equation ( C.18 ), log ⁡ ℛ p ~ ​ ( f t A ~ ) \log\mathcal{R}_{\tilde{p}}(f^{\tilde{\mathrm{A}}}_{t}) therefore differs from 2 ​ log ⁡ | p old − p ~ | − 2 ​ S t 2\log|p_{\mathrm{old}}-\tilde{p}|-2S_{t} by at most log ⁡ ( 1 / ( 2 ​ γ ​ ( 1 − γ ) ) ) \log(1/(2\gamma(1-\gamma))) , so − 1 t ​ log ⁡ ℛ p ~ ​ ( f t A ~ ) → κ L + 2 ​ G N ​ ( ρ ) -\frac{1}{t}\log\mathcal{R}_{\tilde{p}}(f^{\tilde{\mathrm{A}}}_{t})\to\kappa^{\mathrm{L}}+2G_{N}(\rho) with probability one.
+
+(ii) By Equation ( C.18 ), f t A ~ → p ~ f^{\tilde{\mathrm{A}}}_{t}\to\tilde{p} for every sequence of draws. The function ℛ p new \mathcal{R}_{p_{\mathrm{new}}} is continuous on ( 0 , 1 ) (0,1) , so ℛ p new ​ ( f t A ~ ) → ℛ p new ​ ( p ~ ) \mathcal{R}_{p_{\mathrm{new}}}(f^{\tilde{\mathrm{A}}}_{t})\to\mathcal{R}_{p_{\mathrm{new}}}(\tilde{p}) , which is positive by Proposition 2 because p ~ ≠ p new \tilde{p}\neq p_{\mathrm{new}} .
+
+(iii) The selection step of Mechanism 8.1 is Equation ( 5 ) with p = p new p=p_{\mathrm{new}} , f 1 , t = p new f_{1,t}=p_{\mathrm{new}} , and f 2 , t = f t A ~ f_{2,t}=f^{\tilde{\mathrm{A}}}_{t} . The behaviors f t A ~ f^{\tilde{\mathrm{A}}}_{t} do not depend on the states, p new p_{\mathrm{new}} and every f t A ~ f^{\tilde{\mathrm{A}}}_{t} lie in [ γ , 1 − γ ] [\gamma,1-\gamma] , and ∑ t ≥ 0 | f t A ~ − p ~ | ≤ | p old − p ~ | / λ \sum_{t\geq 0}|f^{\tilde{\mathrm{A}}}_{t}-\tilde{p}|\leq|p_{\mathrm{old}}-\tilde{p}|/\lambda by Equation ( C.18 ). By Lemma C.3 (b), applied for every sequence of draws, z t ≡ log ⁡ ( q t A ~ / ( 1 − q t A ~ ) ) z_{t}\equiv\log(q^{\tilde{\mathrm{A}}}_{t}/(1-q^{\tilde{\mathrm{A}}}_{t})) satisfies z t / t → ℛ p new ​ ( p ~ ) > 0 z_{t}/t\to\mathcal{R}_{p_{\mathrm{new}}}(\tilde{p})>0 with probability one. As in the proof of Theorem 1 (i), q t A ~ → 1 q^{\tilde{\mathrm{A}}}_{t}\to 1 and 1 t ​ log ⁡ ( 1 − q t A ~ ) → − ℛ p new ​ ( p ~ ) \frac{1}{t}\log(1-q^{\tilde{\mathrm{A}}}_{t})\to-\mathcal{R}_{p_{\mathrm{new}}}(\tilde{p}) . Since
+
+f ¯ t A ~ − p new = ( 1 − q t A ~ ) ​ ( f t A ~ − p new ) \bar{f}^{\tilde{\mathrm{A}}}_{t}-p_{\mathrm{new}}=(1-q^{\tilde{\mathrm{A}}}_{t})\big(f^{\tilde{\mathrm{A}}}_{t}-p_{\mathrm{new}}\big)
+
+and f t A ~ − p new → p ~ − p new ≠ 0 f^{\tilde{\mathrm{A}}}_{t}-p_{\mathrm{new}}\to\tilde{p}-p_{\mathrm{new}}\neq 0 , it follows that f ¯ t A ~ → p new \bar{f}^{\tilde{\mathrm{A}}}_{t}\to p_{\mathrm{new}} and 1 t ​ log ⁡ | f ¯ t A ~ − p new | → − ℛ p new ​ ( p ~ ) \frac{1}{t}\log|\bar{f}^{\tilde{\mathrm{A}}}_{t}-p_{\mathrm{new}}|\to-\mathcal{R}_{p_{\mathrm{new}}}(\tilde{p}) . By Lemma C.1 (c), log ⁡ ℛ p new ​ ( f ¯ t A ~ ) − 2 ​ log ⁡ | f ¯ t A ~ − p new | \log\mathcal{R}_{p_{\mathrm{new}}}(\bar{f}^{\tilde{\mathrm{A}}}_{t})-2\log|\bar{f}^{\tilde{\mathrm{A}}}_{t}-p_{\mathrm{new}}| converges to − log ⁡ ( 2 ​ p new ​ ( 1 − p new ) ) -\log(2p_{\mathrm{new}}(1-p_{\mathrm{new}})) , so − 1 t ​ log ⁡ ℛ p new ​ ( f ¯ t A ~ ) → 2 ​ ℛ p new ​ ( p ~ ) -\frac{1}{t}\log\mathcal{R}_{p_{\mathrm{new}}}(\bar{f}^{\tilde{\mathrm{A}}}_{t})\to 2\mathcal{R}_{p_{\mathrm{new}}}(\tilde{p}) with probability one.
+∎
+
+References
+
+Instructions for reporting errors
+
+We are continuing to improve HTML versions of papers, and your feedback helps enhance accessibility and mobile
+      support. To report errors in the HTML that will help us improve conversion and rendering, choose any of the
+      methods listed below:
+
+Tip: You can select the relevant text first, to include it in your report.
+
+Our team has already identified the following issues . We appreciate your time reviewing and reporting rendering errors we
+      may not have found yet. Your efforts will help us improve the HTML versions for all readers, because disability
+      should not be a barrier to accessing research. Thank you for your continued support in championing open access for
+      all.
+
+Have a free development cycle? Help support accessibility at arXiv! Our collaborators at LaTeXML maintain a list of packages that need conversion , and welcome developer contributions .

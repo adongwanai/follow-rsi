@@ -1,0 +1,447 @@
+ODD+LLM: Specifying LLM-Agent Behaviorfor Reproducible Social Simulation Skip to main content Report GitHub Issue × Title: Content selection saved. Describe the issue below: Description: Submit without GitHub Submit in GitHub Why HTML? Report Issue Back to Abstract Download PDF Contents Reading mode Colour theme Abstract 1 Introduction 2 Related Work ODD and its extensions. ODD applied to LLM-agent simulation. Validity critiques of LLM-agent simulations. Representation-effect audits. Cognitive-architecture frameworks. 3 The ODD+LLM Protocol 3.1 Block A: Cognitive Architecture (CoALA-structured) 3.2 Block B: Identity 3.3 Block C: Inference Configuration C-spine (system level). C-role (repeated per model role). 3.4 Block D: Behavioral Submodel D-spine (system level). Signature (what the call is). Binding (how it is rendered). Resolution (how output becomes an action). Delegation. Systems with multiple call sites. 3.5 Block E: Validation 4 Multiverse Demonstration Branch points. Stage 1: Memory-state probe. Stage 2: Full simulation. Interpretation. 5 Reconstruction-Sufficiency Review Instrument. Results. Decision points. Claim strength vs. specification. 6 Discussion The protocol records choices already made. Limitations. Not a critique. Conclusion. References A Per-Paper Sufficiency Scores B Per-Item Score Distribution C Corpus and Exclusions Inclusion. Flow. Exclusions on read. D Coding Instrument (v1) Score scale. Decision-point granularity. Block A: Cognitive Architecture (9 items). Block B: Identity (6 items). Block C spine (2 items). Block D spine (2 items). Block E: Validation (10 items). Per model role (6 items, repeated). Per call site (15 items, repeated). E Worked Example: Block D for the Naming Game Item mapping. Verbatim prompts (baseline arm). Parser and retry (DR-1 to DR-4). Block C mapping (per-role: agent). License: CC BY 4.0 arXiv:2611.08932v1 [cs.MA] 06 Nov 2026 \workshoptitle SocialAgent Workshop ODD+LLM: Specifying LLM-Agent Behavior for Reproducible Social Simulation Justin Downes Affiliation: Amazon Web Services Email: jusdow@amazon.com Robby Milletich Affiliation: Amazon Web Services Email: rmilleti@amazon.com Newel Hirst Affiliation: Amazon Web Services Email: nhirst@amazon.com Abstract The ODD protocol is the de facto standard for describing agent-based models, but it lacks
+vocabulary for the components that determine LLM-agent behavior: prompt assembly, memory
+serialization, parsing, and retry logic. We propose ODD+LLM , a backward-compatible
+extension adding five documentation blocks grounded in the CoALA cognitive-architecture
+framework. To show that the gap matters, we conduct a multiverse analysis ( Steegen et al., 2016 ) of a published LLM naming-game simulation, varying six specification
+choices a reimplementer must make. Variants that are defensible readings of the paper stay
+within statistical noise of our baseline reconstruction. Missing one instruction that the
+paper states but is easy to overlook (that the model answers as an outside observer rather
+than as a player) raises the share of runs settling on the convention agents individually
+favor from 0.35 to 1.00 and makes convergence three times faster, in a reimplementation
+that uses a different model from the original. We complement the demonstration
+with a reconstruction-sufficiency review of 28 published LLM-agent simulations, finding that
+the details of how prompts are built and how model outputs are parsed are undetermined in
+77% of cases, and that no paper fully specifies its main LLM call.
+ODD+LLM gives the field a standard home for information it already produces but currently
+scatters across code repositories, supplementary files, and undocumented defaults. 1 Introduction The ODD protocol ( Grimm et al., 2006 ; Grimm et al., 2010 ; Grimm et al., 2020 ) standardized agent-based model
+description by providing a structured template complete enough that an independent modeler
+can reimplement a model and recover its results. Its core is the Submodels block, where agent behavior is specified as equations or rules; the other blocks describe
+the model around it. LLM-agent simulations have no Submodels block, and no vocabulary for writing one. ODD is
+already being adopted for this purpose; YuLan-OneSim ( Wang et al., 2025b ) generates
+executable simulators from LLM-authored ODD protocols across fifty social-science
+scenarios, but the protocols it produces specify agent types and interaction patterns while
+saying nothing about how context is assembled or how output becomes an action. An LLM
+agent’s action is the output of a sampling
+procedure applied to a token sequence assembled at runtime from a system prompt, a persona,
+some subset of interaction history, some rendering of environment state, and an output
+instruction, then parsed, possibly rejected, possibly resampled, and mapped onto a
+simulation action. That assembly procedure is what a Submodels block for LLM agents must
+describe. This matters in practice. Ye et al. (2026) hold persona content fixed and vary only its presentation (prose, bullet list, key–value table), observing a
+76-percentage-point difference in cooperation rate ( N = 30 N{=}30 seeds, p < 0.001 p{<}0.001 ). Two papers
+reporting “agents were given demographic personas” can therefore support opposite
+conclusions about whether LLM agents cooperate. ODD+LLM is a reporting standard, not a new algorithm. Like ODD itself and reporting
+guidelines such as CONSORT ( Schulz et al., 2010 ) and TRIPOD ( Collins et al., 2015 ) ,
+its contribution is what it standardizes and the evidence that those items matter. We make
+three contributions: 1. ODD+LLM : a backward-compatible extension to ODD adding five documentation
+blocks for LLM-agent simulations (§ 3 ). Blocks C and D use repeated records (one per model role and one per call site), following ODD’s
+existing pattern for submodels. The core of the protocol is Block D, the behavioral submodel,
+which specifies each LLM call in the loop by signature, binding, and resolution. 2. A multiverse demonstration that specification salience is consequential
+(§ 4 ). We take a published naming-game simulation ( Flint Ashery et al., 2025a ) , identify six specification choices (four from supplementary
+materials, one in main text but non-obvious, one genuinely open), implement a baseline
+and seven one-factor variants, and show that missing a single stated but easily
+overlooked instruction determines the headline result. 3. A reconstruction-sufficiency review of 28 LLM-agent simulations coded for
+where an independent implementer would have to guess (§ 5 ). 2 Related Work ODD and its extensions. ODD ( Grimm et al., 2006 ; Grimm et al., 2010 ) was extended to ODD+D for decision-making ( Müller et al., 2013 ) , ODD+2D for data-driven models ( Laatabi et al., 2018 ) , vODD-DD for visual
+documentation ( Lee and Lazarova-Molnar, 2026 ) , and VISA for machine-reproducible descriptions ( He, 2026 ) . None address the prompt-assembly problem because it did not exist
+before LLM agents. The closest antecedent is the move from verbal rules to equations in ODD
+2020 ( Grimm et al., 2020 ) , which argued that natural-language descriptions of behavior are
+insufficient for reconstruction, precisely the claim we make about LLM-agent descriptions.
+VISA opens with nearly our framing (“two readers routinely reconstruct different models
+from the same documentation”) but targets classical ABMs rather than LLM-agent behavior. ODD applied to LLM-agent simulation. YuLan-OneSim ( Wang et al., 2025b ) generates executable LLM-agent simulators from
+ODD protocols across 50 social-science scenarios. They use ODD forward (natural language → \to ODD → \to code), whereas we test it backward (published study → \to could an implementer reconstruct it?). Their
+generated protocols specify agent types and interaction patterns but contain nothing about
+which model runs, how context is assembled, or how output is parsed; those choices are
+resolved downstream by code templates and configuration. A system that already wants ODD for LLM agents is evidence of demand; that its protocols
+stop where Blocks C and D begin is evidence of the gap. Validity critiques of LLM-agent simulations. Larooij and Törnberg (2025) review 35 papers and find systematic validation gaps. Zhou et al. (2025) propose six design-validity principles (PIMMUR) and re-run five papers. Ye et al. (2026) demonstrate that format-only perturbations move outcomes by up to
+76pp, though the same perturbation on deepseek-v3 produces ∼ {\sim} 1pp, indicating strong
+model-dependence. Barrie and Törnberg (2025) argue that naming-game results are observationally
+equivalent to data leakage from pretraining; Flint Ashery et al. (2025b) respond that the
+effect survives controls. Our work complements these critiques by providing a specification , and our multiverse analysis measures the range of outcomes
+consistent with a description rather than testing whether a specific mechanism is correct. Representation-effect audits. Ye et al. (2026) ’s TRAILS-R taxonomy audits representation-level perturbations (formatting,
+delimiter choice, output schema, instruction order, memory representation) that map onto our
+Block D items DB-1 through DB-7. We adopt their three-level claim_strength hierarchy (exploratory, mechanism, policy) for our corpus metadata. TRAILS is an audit taxonomy (what to perturb to test robustness), while ODD+LLM is a documentation protocol (what to write down so a
+finding can be reconstructed at all). Block D’s resolution layer (parser, validity
+constraints, retry, failure cascade, failure rate) has no TRAILS analogue, and our
+reconstruction-sufficiency review measures determinability rather than robustness.
+TRAILS found that memory representation had the smallest effect among the representation
+axes they tested, independently corroborating our Stage 2 finding that memory-format
+and memory-order arms (M1, M2) produce small population-level effects relative to person
+framing (M4). Cognitive-architecture frameworks. CoALA ( Sumers et al., 2024 ) provides a taxonomy of LLM-agent components (working memory,
+long-term memory, internal/external actions, decision procedure). We adopt it as the
+ontology for Block A rather than inventing one. DSPy ( Khattab et al., 2024 ) provides a
+machine-readable signature format for LLM modules; Block D’s schema draws on it. 3 The ODD+LLM Protocol ODD+LLM adds five blocks to the standard ODD template. The existing ODD blocks (Purpose,
+Entities/State Variables, Process Overview, Design Concepts, Initialization, Input Data,
+Submodels) are retained unchanged; the extension occupies a new section between Design
+Concepts and Initialization. Following ODD’s own pattern (Submodels is already one entry per submodel; State Variables is
+a list), Blocks C and D are repeated records . Block C has one record per model role
+and Block D one per LLM call site, so documentation grows with the system. A two-agent
+dilemma with one call site stays a one-page specification, while a generative-architecture paper with nine distinct calls produces nine
+records. 3.1 Block A: Cognitive Architecture (CoALA-structured) Documents the agent’s information-processing architecture using CoALA’s taxonomy (9 items):
+working memory contents per cycle; long-term memory types, backing store, retrieval rule
+(formula and cardinality), and write rule; internal and external action spaces; decision
+procedure (including actions per activation); tools; and the inter-agent communication
+channel with its visibility parameter. 3.2 Block B: Identity Documents persona source, content, surface form (the verbatim template), heterogeneity
+method, behavioral constraints, and identity stability (static vs. drifting, with the
+update rule). The surface-form item is marked as behavioral rather than cosmetic, following Ye et al. (2026) ’s finding. (6 items.) 3.3 Block C: Inference Configuration Block C has a two-item spine at the system level and a per-role record (6 items) repeated for each model or API in the behavior or measurement path. C-spine (system level). • CS1 : Known provider-side non-determinism sources (batching, routing,
+caching) and their handling. • CS2 : Execution concurrency and ordering: whether calls are issued
+sequentially, concurrently, or asynchronously, and whether intra-timestep ordering is
+deterministic. C-role (repeated per model role). Roles observed in the corpus include agent , classifier , judge , embedder , generator (offline content), and external API . Each record
+contains: • CR1–CR3 : Model identity (exact version string or pinned snapshot),
+build identity (system fingerprint), and provider/endpoint/API version/access date. • CR4 : Decoding parameters, named unambiguously and distinguished from
+same-named training or reward parameters. • CR5 : Serving precision and quantization. • CR6 : Training or adaptation (base checkpoint, method, data construction,
+objective, selection criterion). Marked NA if used off the shelf. Every model role gets a record. An unnamed embedder is a role record scoring 0 on CR1, not
+a footnote. 3.4 Block D: Behavioral Submodel Block D is the ODD Submodels equivalent for LLM agents. Like Block C, it has a two-item spine at the system level and a per-call-site record (15 items) repeated
+for each distinct LLM call in the simulation loop. Items within a call-site record are
+grouped into four sections: D-spine (system level). • DG1 : Temporal coupling: whether step t t output enters step t + 1 t{+}1 input, and in what form. • DG2 : Scheduling and activation: timestep duration, who acts when,
+within-step ordering. Controlled vocabulary adopted from Concordia ( Vezhnevets et al., 2023 ) : simultaneous / sequential / asynchronous . Signature (what the call is). • DS-1 : Input bindings: which state variables feed this call. • DS-2 : Output type or schema. Binding (how it is rendered). • DB-1 : Static text (system prompt and fixed instructions, verbatim). • DB-2 : Serialization per slot: how each variable renders into text. • DB-3 : Component order and system-vs-user role placement. • DB-4 : History policy with cardinality (“top-ranked memories” without a k k is underdetermined). • DB-5 : Truncation/summarization rule with constants. • DB-6 : Token budget and drop order. • DB-7 : Action-space encoding: how the option set is presented. Resolution (how output becomes an action). • DR-1 : Parser: exact extraction procedure. • DR-2 : Validity constraints: what makes a parseable output invalid. • DR-3 : Retry policy: count, whether prompt is modified, fallback on final
+failure. • DR-4 : Failure action and cascade: what the system does, and what other
+agents observe. • DR-5 : Failure rate (an empirical result, included to force reporting;
+analogous to ODD’s “Output Data”). Delegation. • DF-1 : Third-party framework: library name, pinned version , and
+which part of assembly or resolution it owns. An unpinned framework dependency is
+undetermined. Systems with multiple call sites. Complex architectures may call the LLM in several places (e.g., acting, reflecting,
+summarizing memory). Document the primary call site, the one that produces the
+agent’s behavioral output, against all 15 items. List any other call sites in a short
+inventory that names each one and marks whether it is fully documented. A simple model
+stays at one record, and readers can still see how much of a complex architecture is
+specified. Block D is designed so that a .yaml configuration file satisfying the schema is the Block D documentation; no separate prose description is needed. The
+arm configurations for our multiverse analysis (§ 4 ) are themselves
+Block D specifications. 3.5 Block E: Validation Documents behavioral reference, validation level, replication count (E3a) and the unit over
+which variance is reported (E3b), variance reporting, representation sensitivity (whether
+any prompt-form perturbation was tested), population dispersion, ablation and non-social
+controls (E7a), non-LLM or human baselines (E7b), and longitudinal stability. (10 items.) The E3 and E7 splits distinguish papers that state n = 1 n{=}1 from those that never state n n ,
+and papers with ablation controls from those with human baselines, distinctions that
+collapsed in an earlier draft and obscured the dominant failure mode. 4 Multiverse Demonstration We select Flint Ashery et al. (2025a) , “Emergent social conventions and collective bias in LLM
+populations” ( Science Advances , 2025). In this naming game, N = 24 N{=}24 agents
+repeatedly choose names from a pool of W = 2 W{=}2 letters; matching earns + 100 +100 , mismatching
+costs − 50 -50 . The paper reports that individually unbiased agents converge
+disproportionately to one “strong” convention, driven by microscopic asymmetry in
+stick-after-success vs. switch-after-failure behavior. We chose this paper because it is well documented by current norms. It reports model
+versions, includes real controls, provides supplementary prompts, and publishes code
+( github.com/Ariel-Flint-Ashery/AI-norms ). This makes it a conservative test case.
+The gaps we identify exist despite above-average documentation, because there is no
+standard home for the information Block D requires. Branch points. We identify six specification choices from the 21 decision points our instrument assigns to
+this paper, selected on the basis that each corresponds to a choice our rubric flags as
+behaviorally relevant ( changes_behavior: certain or likely ): ID Axis Main-text ambiguity Levels SI M1 Memory format “dynamic memory prompt” table / narr. / JSON SI M2 Memory order Order of H H entries unstated recent / oldest-first SI M3 Score semantics “accumulated score over H H ” window / cumulative SI M4 Person framing “external observer” 3rd / 1st-person Spec. M5 Pairing protocol “two agents randomly selected” random / perfect SI M6 Parse failure “consistent format” resample+uniform / uniform-only Open Table 1: Branch points (multiverse axes). SI = determinable from the supplementary
+materials; Spec. = specified in the main text but non-obvious; Open = genuinely
+underspecified. Four of six choices are resolvable from supplementary materials, one is
+specified in the main text but non-obvious, and a reader working from the methods section
+alone would likely resolve them differently. We implement eight arms: one baseline (our best reading of the main text) plus one
+alternative per branch point (with M1 having two alternatives). All arms share N = 24 N{=}24 , W = 2 W{=}2 , H = 5 H{=}5 , payoffs + 100 / − 50 +100/-50 , and chain-of-thought prompting, everything the paper does specify. We use Claude Sonnet 4.6 (via AWS Bedrock, temperature 0.7) rather
+than the paper’s original models (which specify temperature 0.5, top-k 10, max tokens 6 in
+Table S4 of the supplementary). Both deviations illustrate the specification-salience problem,
+because the original values are in the supplementary materials but are easy to miss. Stage 1: Memory-state probe. Before running full simulations, we synthesize memory states and query the model directly
+(7 states × \times 8 arms × \times 300 samples = 16,800 calls). This measures the
+microscopic asymmetry the paper identifies as the origin of collective bias. Arm P ⁡ ( M ∣ empty ) P(M\mid\text{empty}) R4 Asymmetry Baseline (table/recent/3rd) 0.680 + 0.200 +0.200 M1: Narrative 0.653 + 0.063 +0.063 M1: JSON 0.730 − 0.040 -0.040 M2: Oldest-first 0.690 + 0.021 +0.021 M3: Cumulative score 0.707 + 0.217 +0.217 M4: First-person 0.587 − 0.243 \mathbf{-0.243} M5: Perfect matching 0.693 + 0.257 +0.257 M6: Uniform fallback 0.663 + 0.227 +0.227 Table 2: Stage 1 probe results. R4 asymmetry measures the difference P ( M ∣ { 1 : M , Q ; 2 : Q , M } ) − P ( Q ∣ { 1 : Q , M ; 2 : M , Q } ) P(M\mid\{1{:}M,Q;\;2{:}Q,M\})-P(Q\mid\{1{:}Q,M;\;2{:}M,Q\}) (matching
+Flint Ashery et al.’s interaction indexing): positive means M is the “strong”
+convention. M4 (person framing) reverses the sign; M1 (format) and M2 (order) attenuate
+or reverse it. M5 and M6 cannot logically affect a direct probe (they are
+population-level mechanisms); their variation is sampling noise. Stage 2: Full simulation. We run 20 seeds per arm (8 arms × \times 20 seeds × \times ∼ \sim 200 calls/seed ≈ \approx 32,000 LLM calls). The headline metric is P ⁡ ( M ) P(M) : the fraction of runs whose
+consensus convention is M. Arm P ⁡ ( M ) P(M) 95% Wilson CI Conv. round Baseline 0.350 [0.18, 0.57] 16.1 M1: Narrative 0.450 [0.26, 0.66] 15.6 M1: JSON 0.300 [0.15, 0.52] 17.6 M2: Oldest-first 0.450 [0.26, 0.66] 19.9 M3: Cumulative 0.350 [0.18, 0.57] 14.9 M4: First-person 1.000 [0.84, 1.00] 5.3 M5: Perfect matching 0.550 [0.34, 0.74] 19.4 M6: Uniform fallback 0.350 [0.18, 0.57] 15.3 Table 3: Stage 2 results. Conv. round = first population round at which mean success
+rate crosses the 0.95 threshold; arms may subsequently dip below it (see Figure 2).
+First-person framing (M4) produces convergence to M in all 20 seeds,
+three times faster than any third-person arm. Figure 1 : Specification curve ( Simonsohn et al., 2020 ) : P ⁡ ( M ) P(M) across multiverse arms
+(sorted), with Wilson CIs. The dot matrix below shows which branch level each arm uses.
+The first-person arm (M4, rightmost) is the only arm whose CI does not overlap the
+others; a single specification choice qualitatively determines the outcome. Figure 2 : Mean success rate by population round. First-person framing converges by round 5;
+most third-person arms converge by rounds 15–20, though one arm (M2: oldest-first) shows
+a slower trajectory reaching full coordination only near round 35. All arms produce
+naming-game-like convergence (they are all plausible implementations), but they land on
+different conventions. Interpretation. The specification curve ( Simonsohn et al., 2020 ) (Figure 1 ) separates two
+kinds of arm. The six arms that vary a choice the main text leaves open or delegates to the
+supplement span P ⁡ ( M ) ∈ [ 0.30 , 0.55 ] P(M)\in[0.30,0.55] , all within noise of the baseline. M4 is different
+in kind. It reverses an instruction the paper states, so it tests what happens when salient
+information is missed rather than offering a seventh defensible reconstruction. Two tensions constrain the claim. Stage 1 vs. Stage 2. The microscopic probe (Table 2 ) shows M as
+the “strong” convention (baseline asymmetry + 0.200 +0.200 ), yet the population simulation
+lands on Q two-thirds of the time ( P ⁡ ( M ) = 0.350 P(M){=}0.350 ). This reversal likely reflects
+stochastic dynamics at 20 seeds. Every third-person arm’s Wilson CI covers 0.5, so none
+can be distinguished from a fair coin. The detectable signal is M4 alone. A single-item claim. We do not claim that six choices determine the outcome.
+Missing one stated instruction, person framing, changes it in our reimplementation ( P ⁡ ( M ) = 1.00 P(M){=}1.00 in all 20 seeds, convergence three times faster;
+Figure 2 ), while five further choices plausibly modulate the outcome
+below our detection power. Because we also substitute the model and decoding settings, the
+result shows sensitivity in this reimplementation, not a property of the original system.
+It still matters in practice, because an implementer who writes first-person instructions (the
+natural default for “a naming-game simulation”) would observe a qualitatively different
+phenomenon. Specification salience. M4 is specified in the paper (“external observer
+forecasting Player 1”) and is thus not underspecified in the strict sense. But it
+demonstrates that even specified information can fail to reach an independent reader if it
+has no standard home. Only M6 (parse failure) is genuinely open, and it returns
+the baseline P ⁡ ( M ) P(M) of 0.350 exactly. Parse failures occur in under 1% of calls, so
+the branch almost never fires, which shows where specification effort matters. 5 Reconstruction-Sufficiency Review We code 28 published LLM-agent simulations (2023–2026) for reconstruction sufficiency,
+stratified by architecture: minimal-choice agents, opinion dynamics, platform-scale
+simulators, economic/market models, full generative architectures, policy testbeds, and
+norm emergence. For each paper, we ask one question per item: could an independent
+implementer, reading only this paper and its linked artifacts, determine this, or would
+they have to guess? Instrument. Items are scored 0 (undetermined), 1 (partially determined: the
+component is named but at least one behaviorally relevant aspect remains open), or 2
+(determined). The key distinction is between asserting that a component exists and specifying it. “Agents have a
+memory module” asserts a component exists; it does not specify what enters it, how it is
+rendered, or when it is cleared. Assertion without operational content scores 1, never 2.
+Every score of 0 or 1 generates a named decision point, an independently variable choice
+that two implementers could set differently without contradicting the text. The instrument was derived from 10 papers screened in Pass 1 (9 eligible, 1 excluded on
+read), during which the repeated-record structure emerged from corpus evidence
+then frozen as v1. Pass 2 codes the remaining 19 papers with
+the frozen instrument unchanged; decision points that do not fit the block structure are
+recorded as misses and reported. Each paper carries a claim_strength label (exploratory, mechanism, or policy;
+following the TRAILS hierarchy ( Ye et al., 2026 ) ), letting us test whether the strongest
+empirical claims rest on the weakest specifications. Results. Of 32 papers screened, 4 were excluded on read (2 × \times E1, 1 × \times E3, 1 deferred), yielding 28
+coded papers across 18 venues and 7 strata (2023–2026); all 28 are listed individually in
+Table 5 . Because Blocks C and D are repeated records, papers have
+different denominators and raw item counts are not comparable. We therefore report three
+numbers. (1) System-block coverage. The mean sufficiency score across the 29 system-level
+items is 1.52/2.00 (76%). Architecture (Block A: 1.63) and validation (Block E: 1.46) are
+documented reasonably well. Inference configuration is not. Block C averages 0.48/2.00
+per role and 0.00 on system fingerprint (CR2), which scored 0 in all 28 papers. (2) Fraction of papers whose primary call site is fully determined. None of
+the 28 primary call sites scored 2 on every binding and resolution item. The resolution
+layer (DR 1 –DR 5 ) is nearly absent from the literature: 96% of resolution
+item-scores are < < 2 (i.e., not fully determined); retry policy (DR 3 ) scores 0 in
+85% of papers; parse-failure rate (DR 5 ) is unreported in 93%. Block D binding items
+(DB 1 –DB 7 ) fare better at 1.14/2.00 but still leave 62% of item-scores at 0 or 1.
+The combined undetermination rate across binding and resolution items (fraction of
+item-scores < < 2) is 77% (236/306). (3) Complexity. Papers average 1.5 model roles (range 1–3); only the primary
+call site is formally coded. Block C averages 0.53/2.00 for agent roles alone but 0.48
+across all roles, confirming that secondary models are systematically invisible. Block Scope Mean Items at 0 n n A (Architecture) system 1.63 n/a 209 B (Identity) system 1.57 n/a 131 C spine system 0.90 n/a 48 D spine system 1.73 n/a 56 E (Validation) system 1.46 E3a (37%) 269 C per-role repeated 0.48 CR2 (100%) 186 D call-site repeated 0.90 DR 5 (93%) 370 Binding 1.14 170 Resolution 0.37 136 Table 4: Mean sufficiency by block (0–2 scale). System-level items that existing
+documentation conventions cover (A, D-spine: mean 1.68) score roughly double the
+repeated-record items (C per-role, D call-site: mean 0.69) that have no standard home. n < 28 × items n<28\times\text{items} because NA items (design makes the item inapplicable) and
+UNVERIFIED items (supplementary not retrieved) are excluded from scoring. Decision points. The 28 papers yield 705 decision points (mean 25.2 per paper,
+range 10–40). The inventory saturated by paper 15: fewer than 2 novel axes per paper
+thereafter, suggesting that the block structure derived from Pass 1 generalizes to the
+held-out set. Zero decision points required a block the frozen instrument could not house. Claim strength vs. specification. Papers making mechanism claims ( n = 11 n{=}11 )
+average a per-paper Block D call-site score of 1.00/2.00; policy claims ( n = 9 n{=}9 ) average
+0.72. Stratum is a confounder (policy papers cluster in more complex architectures) and
+the difference is not statistically tested at this sample size. 6 Discussion The protocol records choices already made. Every Block D item corresponds to a choice the implementer has already made; the protocol
+asks only that it be written in a standard location. For our own study this took one
+configuration file plus a results section (DR-5, Block E; Appendix E ). We
+have not measured author burden more generally. Our multiverse arm configurations are Block D specifications, and losing one stated item from them produced a
+qualitatively different outcome. Limitations. Demonstration. The multiverse is a single case study with 20 seeds per arm. It
+shows that one specification item can determine a result but does not estimate how often
+this happens across simulations. It uses one model (Claude Sonnet 4.6) with decoding
+settings that differ from the original, so magnitudes may differ with other models. The
+design is one-factor-at-a-time (8 arms), not a full factorial ( 2 6 = 64 2^{6}{=}64 ); interactions
+between axes are untested. With 20 seeds, only M4 is statistically separable; the remaining
+branches may modulate outcomes below our detection power. M4 is specified in the source
+paper (“external observer”), so first-person framing is a sensitivity test of what happens
+when salient-but-non-obvious information is missed, not a defensible reconstruction. Coverage of the protocol. The multiverse exercises six items (DB-1 to DB-4, DG2,
+DR-3). The remaining items are motivated by how often the corpus leaves them undetermined
+and by prior evidence such as Ye et al. (2026) , not by experiment; validating each item is
+future work. Evidence for the standard. The rubric is new and was applied by a
+single coder without inter-rater reliability estimation, so the 77% figure is indicative
+rather than validated. We have not yet shown that ODD+LLM improves reconstruction or
+measured its cost to authors. Double-coding a subset of the corpus and a study in which
+readers reconstruct calls from completed specifications are the next steps. The current
+protocol assumes text-in/text-out calls; multimodal inputs (images, video frames) to
+vision-language models are not covered. Not a critique. Flint Ashery et al. is well-documented by current norms. The information exists;
+what is missing is salience , a standard place for choices that are already made. Conclusion. ODD+LLM gives the LLM-agent simulation community a structured home for specification
+decisions that determine behavior. It is a documentation convention that reduces avoidable
+ambiguity. It cannot guarantee reproducibility, because models change, providers update silently, and
+stochastic systems are inherently variable. But the choices a researcher can pin down
+should be pinned down. Missing one stated instruction flips a reimplementation’s headline
+result; 77% of binding and resolution items across 28 papers are undetermined. Adopting the protocol
+costs one configuration file; Figure 1 shows the cost of leaving these
+choices undocumented. References Akata et al. [2025] Elif Akata, Lion Schulz, Julian Coda-Forno, Seong Joon Oh, Matthias Bethge, and
+Eric Schulz. Playing repeated games with large language models. Nature Human Behaviour , 9(7):1380–1390,
+2025. doi: 10.1038/s41562-025-02172-y . Aoki and Ghaffarzadegan [2026] Goshi Aoki and Navid Ghaffarzadegan. AI agents as policymakers in simulated epidemics, 2026. arXiv:2601.04245. Barrie and Törnberg [2025] Christopher Barrie and Petter Törnberg. Emergent LLM behaviors are observationally equivalent to data
+leakage, 2025. arXiv:2505.23796. Chuang et al. [2024] Yun-Shiuan Chuang, Agam Goyal, Nikunj Harlalka, Siddharth Suresh, Robert
+Hawkins, Sijia Yang, Dhavan Shah, Junjie Hu, and Timothy T. Rogers. Simulating opinion dynamics with networks of LLM-based agents. In Findings of the Association for Computational Linguistics:
+NAACL 2024 , pages 3326–3346, 2024. arXiv:2311.09618. Collins et al. [2015] Gary S. Collins, Johannes B. Reitsma, Douglas G. Altman, and Karel G. M. Moons. Transparent reporting of a multivariable prediction model for
+individual prognosis or diagnosis (TRIPOD): The TRIPOD statement. BMJ , 350:g7594, 2015. Dai et al. [2024] Gordon Dai, Weijia Zhang, Jinhan Li, Siqi Yang, Chidera Onochie Ibe, Srihas
+Rao, Arthur Caetano, and Misha Sra. Artificial Leviathan: Exploring social evolution of LLM agents
+through the lens of Hobbesian social contract theory, 2024. arXiv:2406.14373. Flint Ashery et al. [2025a] Ariel Flint Ashery, Luca Maria Aiello, and Andrea Baronchelli. Emergent social conventions and collective bias in LLM populations. Science Advances , 11(20):eadu9368,
+2025a. doi: 10.1126/sciadv.adu9368 . Flint Ashery et al. [2025b] Ariel Flint Ashery, Luca Maria Aiello, and Andrea Baronchelli. Reply to “Emergent LLM behaviors are observationally equivalent to
+data leakage”, 2025b. arXiv:2506.18600. Fontana et al. [2025] Nicoló Fontana, Francesco Pierri, and Luca Maria Aiello. Nicer than humans: How do large language models behave in the
+prisoner’s dilemma? In Proceedings of the International AAAI Conference on Web
+and Social Media (ICWSM) , volume 19, pages 522–535, 2025. arXiv:2406.13605. Gao et al. [2023] Chen Gao, Xiaochong Lan, Zhihong Lu, Jinzhu Mao, Jinghua Piao, Huandong Wang,
+Depeng Jin, and Yong Li. S 3 : Social-network simulation system with large language
+model-empowered agents, 2023. arXiv:2307.14984. Grimm et al. [2006] Volker Grimm, Uta Berger, Finn Bastiansen, Sigrunn Eliassen, Vincent Ginot,
+Jarl Giske, John Goss-Custard, Tamara Grand, Simone K. Heinz, Geir Huse,
+Andreas Huth, Jane U. Jepsen, Christian Jørgensen, Wolf M. Mooij, Birgit
+Müller, Guy Pe’er, Cyril Piou, Steven F. Railsback, Andrew M. Robbins,
+Martha M. Robbins, Eva Rossmanith, Nadja Rüger, Espen Strand, Sami
+Souissi, Richard A. Stillman, Rune Vabø, Ute Visser, and Donald L.
+DeAngelis. A standard protocol for describing individual-based and agent-based
+models. Ecological Modelling , 198(1–2):115–126,
+2006. doi: 10.1016/j.ecolmodel.2006.04.023 . Grimm et al. [2010] Volker Grimm, Uta Berger, Donald L. DeAngelis, J. Gareth Polhill, Jarl Giske,
+and Steven F. Railsback. The ODD protocol: A review and first update. Ecological Modelling , 221(23):2760–2768,
+2010. doi: 10.1016/j.ecolmodel.2010.08.019 . Grimm et al. [2020] Volker Grimm, Steven F. Railsback, Christian E. Vincenot, Uta Berger, Cara
+Gallagher, Donald L. DeAngelis, Bruce Edmonds, Jiaqi Ge, Jarl Giske,
+Jürgen Groeneveld, Alice S. A. Johnston, Alexander Milles, Jacob
+Nabe-Nielsen, J. Gareth Polhill, Viktoriia Radchuk, Marie-Sophie
+Rohwäder, Richard A. Stillman, Jan C. Thiele, and Daniel Ayllón. The ODD protocol for describing agent-based and other simulation
+models: A second update to improve clarity, replication, and structural
+realism. Journal of Artificial Societies and Social Simulation ,
+23(2):7, 2020. doi: 10.18564/jasss.4259 . Gu et al. [2025] Chenhao Gu, Ling Luo, Zainab Razia Zaidi, and Shanika Karunasekera. Large language model driven agents for simulating echo chamber
+formation, 2025. arXiv:2502.18138. Guan et al. [2025] Haoxiang Guan, Jiyan He, Liyang Fan, Zhenzhen Ren, Shaobin He, Xin Yu, Yuan
+Chen, Shuxin Zheng, Tie-Yan Liu, and Zhen Liu. Modeling earth-scale human-like societies with one billion agents,
+2025. arXiv:2506.12078v1. He [2026] Zhou He. VISA: A structured description protocol for agent-based simulation
+models towards machine reproducibility, 2026. arXiv:2607.28027. Hou et al. [2025] Abe Bohan Hou, Hongru Du, Yichen Wang, Jingyu Zhang, Zixiao Wang, Paul Pu
+Liang, Daniel Khashabi, Lauren Gardner, and Tianxing He. Can a society of generative agents simulate human behavior and inform
+public health policy? A case study on vaccine hesitancy, 2025. arXiv:2503.09639. Huang et al. [2026] Renhong Huang, Ning Tang, Jiarong Xu, Yuxuan Cao, Qingqian Tu, Sheng Guo,
+Bo Zheng, Huiyuan Liu, and Yang Yang. PolicySim: An LLM-based agent social simulation sandbox for
+proactive policy optimization. In Proceedings of the ACM Web Conference 2026 (WWW ’26) ,
+pages 4781–4792, 2026. doi: 10.1145/3774904.3792555 . Khattab et al. [2024] Omar Khattab, Arnav Singhvi, Paridhi Maheshwari, Zhiyuan Zhang, Keshav
+Santhanam, Sri Vardhamanan, Saiful Haq, Ashutosh Sharma, Thomas T. Joshi,
+Hanna Moazam, Heather Miller, Matei Zaharia, and Christopher Potts. DSPy: Compiling declarative language model calls into
+self-improving pipelines. In The Twelfth International Conference on Learning
+Representations (ICLR) , 2024. arXiv:2310.03714. Laatabi et al. [2018] Ahmed Laatabi, Nicolas Marilleau, Tri Nguyen-Huu, Hassan Hbid, and Mohamed
+Ait Babram. ODD+2D: An ODD based protocol for mapping data to empirical
+ABMs. Journal of Artificial Societies and Social Simulation ,
+21(2):9, 2018. doi: 10.18564/jasss.3646 . Larooij and Törnberg [2025] Maik Larooij and Petter Törnberg. Validation is the central challenge for generative social simulation:
+A critical review of LLMs in agent-based modeling. Artificial Intelligence Review , 59(1):15,
+2025. doi: 10.1007/s10462-025-11412-6 . Lee and Lazarova-Molnar [2026] Hui Min Lee and Sanja Lazarova-Molnar. vODD-DD: A visual documentation protocol for transparent and
+reproducible data-driven agent-based models. In Proceedings of the 2026 Winter Simulation Conference
+(WSC) , 2026. Li et al. [2024] Nian Li, Chen Gao, Mingyu Li, Yong Li, and Qingmin Liao. EconAgent: Large language model-empowered agents for simulating
+macroeconomic activities. In Proceedings of the 62nd Annual Meeting of the Association
+for Computational Linguistics (ACL) , pages 15523–15536, 2024. arXiv:2310.10436. Li and Shirado [2025] Yuxuan Li and Hirokazu Shirado. Spontaneous giving and calculated greed in language models. In Proceedings of the 2025 Conference on Empirical Methods in
+Natural Language Processing (EMNLP) , pages 5271–5286, 2025. Liu et al. [2025] Genglin Liu, Vivian Le, Salman Rahman, Elisa Kreiss, Marzyeh Ghassemi, and
+Saadia Gabriel. MOSAIC: Modeling social AI for content dissemination and
+regulation in multi-agent simulations. In Proceedings of the 2025 Conference on Empirical Methods in
+Natural Language Processing (EMNLP) , pages 6390–6417, 2025. doi: 10.18653/v1/2025.emnlp-main.325 . Liu et al. [2024] Yuhan Liu, Xiuying Chen, Xiaoqing Zhang, Xing Gao, Ji Zhang, and Rui Yan. From skepticism to acceptance: Simulating the attitude dynamics
+toward fake news. In Proceedings of the Thirty-Third International Joint
+Conference on Artificial Intelligence (IJCAI-24) , pages 7886–7894, 2024. doi: 10.24963/ijcai.2024/873 . Manning et al. [2024] Benjamin S. Manning, Kehang Zhu, and John J. Horton. Automated social science: Language models as scientist and subjects,
+2024. arXiv:2404.11794. Mou et al. [2024] Xinyi Mou, Zhongyu Wei, and Xuanjing Huang. Unveiling the truth and facilitating change: Towards agent-based
+large-scale social movement simulation. In Findings of the Association for Computational Linguistics:
+ACL 2024 , pages 4789–4809, 2024. doi: 10.18653/v1/2024.findings-acl.285 . Müller et al. [2013] Birgit Müller, Friedrich Bohn, Gunnar Dreßler, Jürgen Groeneveld,
+Christian Klassert, Romina Martin, Maja Schlüter, Jule Schulze, Hanna
+Weise, and Nina Schwarz. Describing human decisions in agent-based models – ODD+D, an
+extension of the ODD protocol. Environmental Modelling & Software , 48:37–48,
+2013. doi: 10.1016/j.envsoft.2013.06.003 . Orlando et al. [2026] Gian Marco Orlando, Jinyi Ye, Valerio La Gatta, Mahdi Saeedi, Vincenzo Moscato,
+Emilio Ferrara, and Luca Luceri. Emergent coordinated behaviors in networked LLM agents: Modeling
+the strategic dynamics of information operations. In Proceedings of the ACM Web Conference 2026 (WWW ’26) ,
+pages 4805–4816, 2026. doi: 10.1145/3774904.3792580 . Piao et al. [2025a] Jinghua Piao, Zhihong Lu, Chen Gao, Fengli Xu, Qinghua Hu, Fernando P. Santos,
+Yong Li, and James Evans. Emergence of human-like polarization among large language model
+agents, 2025a. arXiv:2501.05171. Piao et al. [2025b] Jinghua Piao, Yuwei Yan, Jun Zhang, Nian Li, Junbo Yan, Xiaochong Lan, Zhihong
+Lu, Zhiheng Zheng, Jing Yi Wang, Di Zhou, Chen Gao, Fengli Xu, Fang Zhang,
+Ke Rong, Jun Su, and Yong Li. AgentSociety: Large-scale simulation of LLM-driven generative
+agents advances understanding of human behaviors and society,
+2025b. arXiv:2502.08691. Piatti et al. [2024] Giorgio Piatti, Zhijing Jin, Max Kleiman-Weiner, Bernhard Schölkopf,
+Mrinmaya Sachan, and Rada Mihalcea. Cooperate or collapse: Emergence of sustainable cooperation in a
+society of LLM agents. In Advances in Neural Information Processing Systems ,
+volume 37, pages 111715–111759, 2024. arXiv:2404.16698. Ren et al. [2024] Siyue Ren, Zhiyao Cui, Ruiqi Song, Zhen Wang, and Shuyue Hu. Emergence of social norms in generative agent societies: Principles
+and architecture. In Proceedings of the Thirty-Third International Joint
+Conference on Artificial Intelligence (IJCAI-24) , pages 7895–7903, 2024. doi: 10.24963/ijcai.2024/874 . Schulz et al. [2010] Kenneth F. Schulz, Douglas G. Altman, David Moher, and CONSORT Group. CONSORT 2010 statement: Updated guidelines for reporting parallel
+group randomised trials. BMJ , 340:c332, 2010. Simonsohn et al. [2020] Uri Simonsohn, Joseph P. Simmons, and Leif D. Nelson. Specification curve analysis. Nature Human Behaviour , 4(11):1208–1214,
+2020. doi: 10.1038/s41562-020-0912-z . Steegen et al. [2016] Sara Steegen, Francis Tuerlinckx, Andrew Gelman, and Wolf Vanpaemel. Increasing transparency through a multiverse analysis. Perspectives on Psychological Science , 11(5):702–712, 2016. doi: 10.1177/1745691616658637 . Sumers et al. [2024] Theodore R. Sumers, Shunyu Yao, Karthik Narasimhan, and Thomas L. Griffiths. Cognitive architectures for language agents. Transactions on Machine Learning Research , 2024. arXiv:2309.02427. Törnberg et al. [2023] Petter Törnberg, Diliara Valeeva, Justus Uitermark, and Christopher Bail. Simulating social media using large language models to evaluate
+alternative news feed algorithms, 2023. arXiv:2310.05984. Vezhnevets et al. [2023] Alexander Sasha Vezhnevets, John P. Agapiou, Avia Aharon, Ron Ziv, Jayd Matyas,
+Edgar A. Duéñez-Guzmán, William A. Cunningham, Simon Osindero,
+Danny Karmon, and Joel Z. Leibo. Generative agent-based modeling with actions grounded in physical,
+social, or digital space using Concordia, 2023. arXiv:2312.03664. Wang et al. [2025a] Chenxi Wang, Zongfang Liu, Dequan Yang, and Xiuying Chen. Decoding echo chambers: LLM-powered simulations revealing
+polarization in social networks. In Proceedings of the 31st International Conference on
+Computational Linguistics (COLING 2025) , pages 3913–3923,
+2025a. Wang et al. [2025b] Lei Wang, Heyang Gao, Xiaohe Bo, Xu Chen, and Ji-Rong Wen. YuLan-OneSim: Towards the next generation of social simulator with
+large language models, 2025b. arXiv:2505.07581. Wang et al. [2025c] Lei Wang, Jingsen Zhang, Hao Yang, Zhi-Yuan Chen, Jiakai Tang, Zeyu Zhang,
+Xu Chen, Yankai Lin, Ruihua Song, Wayne Xin Zhao, Jun Xu, Zhicheng Dou, Jun
+Wang, and Ji-Rong Wen. User behavior simulation with large language model-based agents. ACM Transactions on Information Systems , 43(2):1–37, 2025c. doi: 10.1145/3708985 . Wang et al. [2023] Zhilin Wang, Yu Ying Chiu, and Yu Cheung Chiu. Humanoid agents: Platform for simulating human-like generative
+agents. In Proceedings of the 2023 Conference on Empirical Methods in
+Natural Language Processing: System Demonstrations , pages 167–176, 2023. doi: 10.18653/v1/2023.emnlp-demo.15 . Yang et al. [2025a] Yuzhe Yang, Yifei Zhang, Minghao Wu, Kaidi Zhang, Yunmiao Zhang, Honghai Yu,
+Yan Hu, and Benyou Wang. TwinMarket: A scalable behavioral and social simulation for
+financial markets. In Advances in Neural Information Processing Systems
+(NeurIPS) , 2025a. arXiv:2502.01506. Yang et al. [2025b] Ziyi Yang, Zaibin Zhang, Zirui Zheng, Yuxian Jiang, Ziyue Gan, Zhiyu Wang,
+Zijian Ling, Jinsong Chen, Martz Ma, Bowen Dong, Prateek Gupta, Shuyue Hu,
+Zhenfei Yin, Guohao Li, Xu Jia, Lijun Wang, Bernard Ghanem, Huchuan Lu,
+Chaochao Lu, Wanli Ouyang, Yu Qiao, Philip Torr, and Jing Shao. OASIS: Open agent social interaction simulations with one million
+agents. In International Conference on Learning Representations
+(ICLR) , 2025b. arXiv:2411.11581. Ye et al. [2026] Jinyi Ye, Lei Cao, Ding Chen, and Emilio Ferrara. Stop drawing scientific claims from LLM social simulations without
+robustness audits, 2026. arXiv:2605.18890. Zhou et al. [2025] Jiaxu Zhou, Jen-tse Huang, Xuhui Zhou, Man Ho Lam, Xintao Wang, Hao Zhu,
+Wenxuan Wang, and Maarten Sap. The PIMMUR principles: Ensuring validity in collective behavior of
+LLM societies, 2025. arXiv:2509.18052. Appendix A Per-Paper Sufficiency Scores Table 5 reports the sufficiency scores for all 28 coded papers. System
+mean is over the 29 system-level items (Blocks A, B, C-spine, D-spine, E). D-site mean
+is over the 15 per-call-site items for the primary call site. DPs is the count of
+decision points, independently variable choices the text leaves open. Paper Str. Year Sys D-site DPs Roles Claim Akata et al. 2025 S1 2025 1.86 1.73 10 1 mechanism Flint Ashery et al. 2025a S1 2025 1.64 0.64 21 1 mechanism Fontana et al. 2025 S1 2025 1.89 1.17 13 1 n/a Li and Shirado 2025 S1 2025 1.77 1.29 14 1 mechanism Piatti et al. 2024 S1 2024 1.78 0.93 20 2 mechanism Chuang et al. 2024 S2 2024 1.69 1.23 17 1 n/a Gu et al. 2025 S2 2025 1.27 0.36 32 2 mechanism Mou et al. 2024 S2 2024 1.67 1.08 20 1 n/a Piao et al. 2025a S2 2025 1.22 0.64 28 1 policy Wang et al. 2025a S2 2025 1.33 0.55 30 1 policy Guan et al. 2025 S3 2025 1.79 1.07 26 3 mechanism Piao et al. 2025b S3 2025 1.11 0.47 26 1 policy Törnberg et al. 2023 S3 2023 1.32 0.71 32 2 policy Yang et al. 2025b S3 2025 1.24 0.12 26 1 n/a Manning et al. 2024 S4 2024 1.74 1.21 24 2 mechanism Li et al. 2024 S4 2024 1.88 1.15 15 1 n/a Wang et al. 2025c S4 2025 1.36 1.00 33 3 mechanism Yang et al. 2025a S4 2025 1.38 1.00 31 2 mechanism Dai et al. 2024 S5 2024 1.52 1.07 28 1 mechanism Gao et al. 2023 S5 2023 1.04 0.33 40 2 policy Wang et al. 2023 S5 2023 1.36 0.73 37 2 mechanism Aoki and Ghaffarzadegan 2026 S6 2026 1.81 1.13 16 1 policy Hou et al. 2025 S6 2025 1.78 1.08 20 1 n/a Huang et al. 2026 S6 2026 1.54 0.56 26 1 n/a Liu et al. 2025 S6 2025 1.46 1.13 33 3 policy Liu et al. 2024 S7 2024 1.44 1.00 25 1 policy Orlando et al. 2026 S7 2026 1.50 0.53 36 3 policy Ren et al. 2024 S7 2024 1.23 0.89 26 1 n/a Table 5: Per-paper sufficiency scores (0–2 scale). Strata: S1 minimal-choice, S2 opinion
+dynamics, S3 platform-scale, S4 economic/market, S5 generative architectures, S6 policy
+testbeds, S7 norms/emergence. Claim: mechanism = mechanistic causal claim; policy =
+policy-relevant conclusion; n/a = exploratory or unclassified.
+Wang et al. 2025a (COLING) and 2025c (ACM TOIS) are corpus papers;
+Wang et al. 2025b is YuLan-OneSim, cited only as related work. Appendix B Per-Item Score Distribution Table 6 shows the score distribution for Block D call-site items across the
+28 primary call sites. The resolution layer (DR 1 –DR 5 ) is systematically absent. Section Item Mean n ⁡ ( 0 ) n(0) n ⁡ ( 1 ) n(1) n ⁡ ( 2 ) n(2) n n Signature DS_1 (input bindings) 1.81 0 5 22 27 DS_2 (output type) 1.60 0 8 12 20 Binding DB_1 (static text) 1.45 3 6 13 22 DB_2 (serialization) 1.27 5 6 11 22 DB_3 (order/placement) 0.86 5 15 2 22 DB_4 (history policy) 1.36 2 14 12 28 DB_5 (truncation) 1.19 6 10 11 27 DB_6 (token budget) 0.39 17 11 0 28 DB_7 (action encoding) 1.57 3 3 15 21 Resolution DR_1 (parser) 0.71 11 14 3 28 DR_2 (validity) 0.75 10 15 3 28 DR_3 (retry policy) 0.15 23 4 0 27 DR_4 (failure cascade) 0.12 23 3 0 26 DR_5 (failure rate) 0.07 25 2 0 27 Delegation DF_1 (framework) 0.53 8 9 0 17 Table 6: Block D per-call-site item scores. Items are grouped by section within the
+call-site record. The resolution layer is nearly absent from the literature: DR 3 –DR 5 have never scored 2 in any paper. Appendix C Corpus and Exclusions The corpus was drawn from a pre-specified venue set (ACL, EMNLP, NAACL, COLING, NeurIPS,
+ICML, ICLR, AAAI, IJCAI, AAMAS, ICWSM, WWW, CHI, JASSS, Science Advances , Nature Human Behaviour , PNAS , arXiv cs.MA/cs.CL/physics.soc-ph), 2023–2026. Inclusion. ≥ \geq 1 LLM-driven agent whose behavior is repeatedly elicited over ≥ \geq 2 timesteps with state carried forward, interacting with at least one other party
+(LLM, scripted, or human), in a social, economic, or political scenario. Flow. 48 records identified → \to 16 excluded at title/abstract screening → \to 32 screened on read → \to 4 excluded on read → \to 28 coded. Exclusions on read. horton2023 (E1: one-shot
+vignettes, no carried-forward state), park2024 (E1: independent questionnaire
+responses, no inter-agent interaction), abdelnabi2023 (E3: evaluation benchmark,
+not social simulation), relorder2026 (deferred: retrieval failure).
+Screening exclusions: 7 × \times E3 task-completion, 3 × \times E2 non-human actors,
+3 × \times E4 methodology papers, 3 × \times E5 framework papers. Appendix D Coding Instrument (v1) The full instrument, frozen 2026-08-15 after Pass 1. Every item answers one question: Could an independent implementer, reading only this paper and its linked artifacts,
+determine this, or would they have to guess? Score scale. 2 (Determined): an implementer could set this correctly without guessing. 1 (Partially determined): named with some content, but at least one behaviorally
+relevant aspect remains open; assertion without operational content scores 1, never 2. 0 (Undetermined): absent or constrains nothing. NA : the system genuinely has no such component. UNVERIFIED : artifact exists but coder could not obtain it; excluded from
+denominators. Decision-point granularity. One decision point = one independently variable choice that could be set differently
+without contradicting the text. This is deliberately the same definition as a multiverse
+branch point. Block A: Cognitive Architecture (9 items). A1. Working memory contents per cycle A2. Long-term memory types and backing store A3. Retrieval rule (formula, constants, cardinality) A4. Learning/write rule A5. Internal action space A6. External action space A7. Decision procedure (incl. actions per activation) A8. Tools (or NA) A9. Inter-agent channel and visibility parameter Block B: Identity (6 items). B1. Persona source B2. Persona content B3. Persona surface form (verbatim template) B4. Heterogeneity method B5. Behavioral constraints B6. Identity stability (static/drifting, with update rule) Block C spine (2 items). CS1. Provider-side non-determinism sources and handling CS2. Execution concurrency and ordering Block D spine (2 items). DG1. Temporal coupling (step t t output → \to step t + 1 t{+}1 input) DG2. Scheduling and activation (timestep, who acts, ordering) Block E: Validation (10 items). E1. Behavioral reference E2. Validation level E3a. Replication count stated E3b. Variance unit E4. Variance reporting E5. Representation sensitivity E6. Population dispersion E7a. Ablation/non-social control E7b. Non-LLM or human baseline E8. Longitudinal stability Per model role (6 items, repeated). Roles: agent, classifier, judge, embedder, generator, external API. CR1. Model identity (exact version string) CR2. Build identity (system fingerprint) CR3. Provider, endpoint, API version, access date CR4. Decoding parameters (named unambiguously) CR5. Serving precision and quantization CR6. Training/adaptation (NA if off-the-shelf) Per call site (15 items, repeated). Signature: DS-1. Input bindings (which state variables feed this call) DS-2. Output type or schema Binding: DB-1. Static text (system prompt, verbatim) DB-2. Serialization per slot DB-3. Component order and role placement DB-4. History policy with cardinality DB-5. Truncation/summarization rule with constants DB-6. Token budget and drop order DB-7. Action-space encoding Resolution: DR-1. Parser (exact extraction procedure) DR-2. Validity constraints DR-3. Retry policy (count, prompt modification, fallback) DR-4. Failure action and cascade DR-5. Failure rate (reported as result) Delegation: DF-1. Third-party framework (library, pinned version, scope) Appendix E Worked Example: Block D for the Naming Game Our multiverse arm configurations are themselves Block D specifications. Below we show
+how the baseline configuration ( base.yaml ) maps to each protocol item. experiment:
+  population_size: 24
+  name_pool: ["M", "Q"]
+  memory_length: 5
+  payoff_success: 100
+  payoff_failure: -50
+
+model:
+  provider: "bedrock"
+  name: "us.anthropic.claude-sonnet-4-6"
+  temperature: 0.7
+  top_k: 40
+  max_tokens: 1024
+
+branch:
+  memory_format: "table"       # DB-2
+  memory_order: "recent_first" # DB-3
+  score_semantics: "window_sum"# DB-4
+  person_framing: "third_person_observer" # DB-1
+  pairing: "random_pair_per_step"         # DG2
+  parse_failure: "resample_max_3"         # DR-3
+
+fixed:
+  randomize_name_order: true   # DB-7
+  cot: true                    # DB-1 Item mapping. DG1 (temporal coupling): step t t output (chosen name, payoff) enters step t + 1 t{+}1 as a memory row. DG2 : random-pair-per-step, sequential within step. DS-1 : f ​ ( persona , memory ​ [ H ] , score , name_pool ) f(\text{persona},\text{memory}[H],\text{score},\text{name\_pool}) . DS-2 : single letter from name pool. DB-1 : fixed system prompt with third-person observer framing and CoT instruction
+(verbatim below). DB-2 : table format (columns: round, Player 1, Player 2, payoff). DB-3 : system prompt → \to memory table → \to query; recent-first within table. DB-4 : last H = 5 H{=}5 interactions, no retrieval beyond window. DB-5 : hard window truncation at H H . DB-6 : max_tokens 1024; no drop order needed (prompt ≪ \ll budget). DB-7 : name pool presented as list; order randomized per call. DR-1 : case-insensitive regex CHOICE:\s*(\S+) , quotes stripped, matched
+against the name pool; if that fails, the last line of the output that equals a pool name
+(exact code below). DR-2 : output must be in name pool. DR-3 : resample up to 3 times with identical prompt; uniform random on final failure. DR-4 : uniform random choice; other agents observe a valid name (no null actions). DR-5 : 0.4% (127/32,000 calls across all arms). DF-1 : no third-party framework; custom implementation. Verbatim prompts (baseline arm). The system prompt is three blocks joined by blank lines; {pool} is the name pool
+in a per-call random order (DB-7), and the memory table holds the last H = 5 H{=}5 interactions,
+most recent first. With an empty memory, the table block is replaced by “Player 1
+has no interaction history yet. This is their first interaction.” [system]
+You are observing a coordination game between two players. In each round,
+both players simultaneously choose a name from the pool: {pool}. If both
+players choose the same name, each earns +100 points. If they choose
+different names, each loses 50 points. Player 1’s objective is to maximize
+their own accumulated point tally, conditional on the behavior of their
+co-player. You will predict what Player 1 will choose next based on their
+history.
+
+Player 1’s interaction history (most recent first):
+
+| Round | Player 1’s Choice | Co-player’s Choice | Outcome | Payoff |
+|-------|-------------|------------------|---------|--------|
+| {round} | {own} | {partner} | {Match|Mismatch} | {+100|-50} |
+...
+
+Player 1’s accumulated score: {window_sum}
+
+Think step by step, then predict Player 1’s next choice. Keep your
+reasoning brief (2-3 sentences).
+
+You MUST end your response with exactly this line:
+CHOICE: <name>
+
+where <name> is one of the names from the pool.
+
+[user]
+What name will Player 1 choose in the next interaction? The first-person arm (M4) replaces the observer wording with second-person wording
+(“You are playing a coordination game with another player…”, “What name do you
+choose for this interaction?”); the other arms change only the memory block. Parser and retry (DR-1 to DR-4). def parse_choice(raw_output, name_pool):
+    m = re.search(r"CHOICE:\s*(\S+)", raw_output, re.IGNORECASE)
+    if m:
+        cand = m.group(1).strip().strip(’"’).strip("’")
+        for name in name_pool:
+            if cand.upper() == name.upper():
+                return name
+    for line in reversed(raw_output.strip().split("\n")):
+        for name in name_pool:
+            if line.strip().upper() == name.upper():
+                return name
+    return None   # parse failure
+
+# DR-3: on None, resample with the identical prompt up to 3 times;
+# DR-4: after the final failure, choose uniformly at random from the pool. Block C mapping (per-role: agent). CR1 : us.anthropic.claude-sonnet-4-6 (dated model ID, not a rotating alias). CR2 : not available (Bedrock does not expose system fingerprints). CR3 : AWS Bedrock us-east-1 , accessed 2026-07-20 through 2026-08-10. CR4 : temperature 0.7, top_k 40, max_tokens 1024; 20 seeds per arm
+( seed_offset 0–19). CR5 : provider-managed (Bedrock); precision not user-configurable. CR6 : not applicable (no fine-tuning or adaptation). Experimental support, please view the build logs for errors. Generated by L A T E xml . Instructions for reporting errors We are continuing to improve HTML versions of papers, and your feedback helps enhance accessibility and mobile
+      support. To report errors in the HTML that will help us improve conversion and rendering, choose any of the
+      methods listed below: Click the "Report Issue" ( ) button, located in the page header. Tip: You can select the relevant text first, to include it in your report. Our team has already identified the following issues . We appreciate your time reviewing and reporting rendering errors we
+      may not have found yet. Your efforts will help us improve the HTML versions for all readers, because disability
+      should not be a barrier to accessing research. Thank you for your continued support in championing open access for
+      all. Have a free development cycle? Help support accessibility at arXiv! Our collaborators at LaTeXML maintain a list of packages that need conversion , and welcome developer contributions . We gratefully acknowledge support from our major funders , member institutions , ,
+        and all contributors. About · Help · Contact · Subscribe · Copyright · Privacy · Accessibility · Operational Status (opens in new tab)

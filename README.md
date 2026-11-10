@@ -27,6 +27,14 @@ RSI 论文每天都在冒，但不是每个「变强了」都经得起检验。F
 
 <!-- AUTO:TODAY:START -->
 
+**更新进度（尚未发刊） · 2026-11-10**
+
+北京时间08:06–08:15已实际尝试12路信源。HF今日榜未就绪；API提示开放至11/08，但显式请求11/09成功取得31篇，比昨日快照增加23个晚到成员，全部对账，未照搬过时的开放日提示。新增42个稳定ID（来源38项、已有issue补入4项）完成来源、范围与独立交叉审查：8项支持限定Harness范围、33项排除、1项待补。CPU-ARC按实际HF推荐日补回11/09，其他通过项均是较早来源，单列历史补录。另处理8项旧积压：6项通过范围及定性摘要复核、Evolver排除Harness、Cache Engineering仍缺具体演化版本证据；合计13项历史补录进入本周审核记录，不算今日新论文。三路arXiv查询成功且窗口内为0；五路RSS取得50条窗口记录；GitHub检查13个仓库，窗口内release为0。S2引文取得311条窗口记录（278个去重ID），匿名限流及单路180秒采集窗口使引文与作者覆盖未完成，未取得部分未知。8项历史来源阻塞经16次免费重试仍缺所需正文。新增付费生成请求为0。本期是采集与审核快照简报，不是新增论文日报，也不能据此断言全天没有更新。
+
+[查看逐日进度 →](https://adongwanai.github.io/follow-rsi/daily/index.html#publication-status)
+
+**最近已发布**
+
 **[2026-11-09](https://adongwanai.github.io/follow-rsi/daily/2026-11-09.html)** · 1 篇，已审查并批准。
 
 - [The Last Mile to the Real World](https://arxiv.org/abs/2611.07461) · 三、组件级进化 · 开发 Agent 根据失败轨迹修订 Harness 控制原语，经测试与开发集检查后保留，供独立任务复用；仅收录其 Harness 原语分支。
@@ -135,7 +143,7 @@ RSI 论文每天都在冒，但不是每个「变强了」都经得起检验。F
 
 <!-- AUTO:SOURCES:START -->
 
-已实际运行成功：arxiv-adjacent · arxiv-harness · arxiv-rsi · github-releases · hf-daily · rss-deepmind · rss-metr · rss-openai · rss-sakana · rss-weco · s2-citations。 本次失败：arxiv-adjacent · arxiv-harness · arxiv-rsi · s2-authors · s2-citations。 [信源状态](https://adongwanai.github.io/follow-rsi/feed/status.json).
+已实际运行成功：arxiv-adjacent · arxiv-harness · arxiv-rsi · github-releases · hf-daily · rss-deepmind · rss-metr · rss-openai · rss-sakana · rss-weco · s2-citations。 本次失败：s2-authors · s2-citations。 榜单未就绪：hf-daily。 [信源状态](https://adongwanai.github.io/follow-rsi/feed/status.json).
 
 <!-- AUTO:SOURCES:END -->
 

@@ -1,0 +1,10 @@
+5.4 Ablations and Cache Engineering Policies Table 3: Drop-target and repos \operatorname{repos} ablations with GPT-OSS-120B on each benchmark’s first 100 tasks. Strategy Repos \operatorname{Repos} BCP SWE Score Cost Score Cost Standard ✗ 56.0 13.5 41.0 19.1 Tool drop ✗ 55.0 7.1 41.0 9.4 Reasoning drop ✓ 56.5 8.2 36.5 14.2 Both drop ✓ 56.5 8.7 34.5 7.8 Tool drop ✓ 62.0 10.9 41.0 9.5 Table 4: Agentic cache reduction on a 100-task BCP subset. CAT means Cache-As-Tool. Model Metric Method Standard Text Eng. CAT GPT-OSS- 120B Score 52.1 50.0 61.0 Cost 13.4 13.9 12.1 MiniMax- M2.7 Score 56.0 61.0 64.0 Cost 5.4 5.5 5.9 Ablation study .
+Table 4 compares drop targets and the use of repos \operatorname{repos} , showing that tool-response drop with repos \operatorname{repos} achieves the highest pass rate on both benchmarks.
+Adding repos \operatorname{repos} raises BCP’s pass rate from 55% to 62%, allowing exploration beyond the position limit that would otherwise halt execution.
+With repos \operatorname{repos} enabled, dropping reasoning cache, either alone or together with tool-response cache, yields lower pass rates on both benchmarks than dropping tool-response cache alone. Recursive self-improvement (RSI) .
+Figure 4 shows that RSI finds lower-cost cache policies than our manually designed tool-response rolling-drop policy ( K = 12 K=12 ) while maintaining Standard’s accuracy.
+We use MiniMax-M2.7 to refine policies on 20 BCP tasks and evaluate the resulting policies on 100 held-out tasks.
+The policies from iterations 3 and 6 reduce per-task cost by 15.6% and 17.8% relative to Standard, respectively. Cache management as a tool .
+Exposing cache management as a tool lets agents proactively decide when to reduce the cache and what to retain.
+Table 4 shows that this approach achieves the highest pass rate on a 100-task BCP subset for both models: 61.0% for GPT-OSS-120B and 64.0% for MiniMax-M2.7.
+Compared with Standard, GPT-OSS-120B’s per-task cost falls from 13.4 to 12.1 cents, while MiniMax-M2.7’s rises from 5.4 to 5.9 cents as it executes more turns.
