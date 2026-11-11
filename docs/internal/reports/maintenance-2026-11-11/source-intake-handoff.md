@@ -4,7 +4,7 @@
 
 ## 冻结范围与处理状态
 
-本子 agent 只写 build/maintenance-2026-11-11/source-intake；未调用付费模型，未修改 production/data/review/site，未执行 Git/GitHub 写入。主 agent 的并行整合与发布不在此断言范围内。
+本子 agent 只写 docs/internal/reports/maintenance-2026-11-11；未调用付费模型，未修改 production/data/review/site，未执行 Git/GitHub 写入。主 agent 的并行整合与发布不在此断言范围内。
 
 基线 main/HEAD：`48b8e7a01f35f4808003294ee83f959a9eb9f762`；规范库 1880 条，SHA-256 `93bd42b6d47f74bd0a9dcd4f5ff73579eb1a68a19c31f0c0ec8428fc108bca46`。所有 source/raw、proposal、初稿、终稿已冻结；此交接和 QA 是追加报告。
 

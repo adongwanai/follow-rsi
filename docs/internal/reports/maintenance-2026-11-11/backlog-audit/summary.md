@@ -1,13 +1,13 @@
 # 2026-11-11 历史积压与全部来源增量对账
 
-冻结于 2026-11-11T00:31:35.503030+00:00。规范库 1944；全部来源/规范/审核/issue稳定ID并集 8761。
+冻结于 2026-11-11T00:45:14.331411+00:00。规范库 1944；全部来源/规范/审核/issue稳定ID并集 8761。
 
 | 规范库处理状态 | 数量 |
 |---|---:|
 | external_blocked | 9 |
-| formal_or_catalog_record | 791 |
+| formal_or_catalog_record | 853 |
 | pending_evidence | 55 |
-| reusable_scope_advice | 1089 |
+| reusable_scope_advice | 1027 |
 
 完整HF保存文件 21份（20个不同payload）、878个ID；缺失推荐日 0。
 合格原始/issue候选尚未入规范库 0；真正未覆盖的规范记录 0。
