@@ -1,0 +1,1298 @@
+InstantHMR: Real-Time Human Mesh Recovery on Your Phone
+Mohamed Adjel1
+Kahina Chalabi2
+Vincent Bonnet2
+1NaturalPad, Montpellier, France
+2LAAS-CNRS, Toulouse, France
+mohamed.adjel@naturalpad.fr, {kchalabi, vbonnet}@laas.fr
+Abstract
+Real-time 3D human mesh recovery from a single image
+on mobile devices is a challenging problem with many ap-
+plications, including robotics, biomechanics, AR/VR, and
+exergames. Current state-of-the-art models are either too
+slow to run efficiently on mobile devices or sacrifice ac-
+curacy for speed.
+We present InstantHMR, a family of
+open-source single-image regressors suited for mobile in-
+ference, based on the Momentum Human Rig (MHR) para-
+metric model and trained exclusively on publicly avail-
+able annotations from the SAM 3D Body dataset.
+Our
+approach achieves remarkable performance on a Samsung
+Galaxy S23 NPU, recovering a 6,890-vertex body mesh in
+5.5 ms per person, and 0.98 ms on an NVIDIA RTX 4070
+GPU. This speed surpasses all existing methods we eval-
+uated. On mobile, it is 12× and 23× faster than NLF-S
+and NLF-L, the only phone-compatible methods that out-
+perform ours in accuracy, while achieving competitive ac-
+curacy with 40.0 mm PA-MPJPE on 3DPW, 48.8 mm on
+EMDB and 41.7 mm on RICH. To ensure fair comparisons,
+we re-evaluate 11 state-of-the-art methods under a unified
+protocol aligned with the closest MHR-based competitors,
+including Meta’s official MHR-to-SMPL conversion, and
+report their reproduction results. Additionally, we measure
+latency across eight different targets, ranging from desk-
+top TensorRT to two phone NPUs. Code and models are
+available at https://github.com/Naturalpad-
+studio/InstantHMR.
+1. Introduction
+Monocular real-time human mesh recovery (HMR) is a
+long-standing goal in computer vision, with applications
+in robotics [10], tele-rehabilitation [39], workplace er-
+gonomics [13, 21], AR/VR [12, 27], exergames [45], and
+3D animation [37]. Since 2023, most smartphones include a
+neural processing unit (NPU), which is a formidable oppor-
+tunity for local real-time inference, fostering privacy, low
+energy consumption and ease of use.
+Recent models recover a body mesh from a single image
+101
+102
+103
+latency per person (ms, log scale)
+40
+50
+60
+70
+80
+EMDB-1 PA-MPJPE (mm, J24)   ↑ better
+Galaxy S23 · Snapdragon 8 Gen 2
+Do not run here: Fast SAM 3D Body, SAM 3D Body,
+CameraHMR, TokenHMR, HMR2.0b
+Phone NPU
+N
+T
+S
+M
+SMPLer-X-S32
+MeshPose
+NLF-S
+NLF-L
+Multi-HMR-S
+InstantHMR
+InstantHMR N / T / S / M (ours)
+SMPL / SMPL-X methods
+real time (≥ 30 FPS)
+Figure 1. Accuracy against latency on a phone. EMDB-1 PA-
+MPJPE (24 joints, lower is better, up) against model latency per
+person on the NPU of a Samsung Galaxy S23 (log scale, faster is
+left), for every method under the protocol of Sec. 4. InstantHMR’s
+four sizes form the blue curve. The shaded zone is real time
+(≥30 FPS): the only other method in it, SMPLer-X, is 22 mm less
+accurate than InstantHMR-M, and the methods more accurate than
+InstantHMR-M run 12–23× slower or not at all. The same plot on
+a desktop GPU is in the supplementary material.
+with remarkable robustness [29, 34, 44], but they are built
+for GPUs: SAM 3D Body [44] takes 416 ms per person on
+a desktop GPU in its own release and does not run on a
+phone’s NPU at all. NLF [34] is the fastest state-of-the-art
+model on a desktop GPU (1.52 ms per person for the small-
+est variant), but is not tailored for real-time mobile inference
+(67.97 ms per person on a Samsung Galaxy S23 NPU). On
+the other hand, models like SMPLer-X-S32 or MeshPose
+[4, 18] that run real-time1 on a phone give up much of the
+1In this context, real-time means a latency lower than 33 ms, 30 fps
+1
+arXiv:2611.09195v1  [cs.CV]  6 Nov 2026
+
+accuracy (cf. Tab. 2 and Fig. 1).
+We present InstantHMR, a family of single-image HMR
+models designed for phones. InstantHMR regresses the pa-
+rameters of the Momentum Human Rig (MHR) [7] with
+an efficient convolutional backbone [46] and a small trans-
+former decoder. It is trained on the publicly released an-
+notations of SAM 3D Body’s training set. On a Samsung
+Galaxy S23 NPU, InstantHMR-M recovers a 6,890-vertex
+mesh in 5.5 ms per person, faster than every method we
+measure and 12× and 23× faster than NLF-S and NLF-L,
+the only phone-compatible methods that outperform ours
+in accuracy (cf. Fig. 1 and Tab. 1). Published numbers on
+EMDB [15] and 3DPW [40] are produced under different
+person boxes, focal lengths, joint sets and conversions be-
+tween body models, and these choices move a single model
+by several millimetres (supplementary material), as much as
+the gaps between methods. We therefore re-evaluate eleven
+methods under one protocol, matched to the closest MHR-
+based competitors, and report for each how closely we re-
+produce its paper. In summary, our contributions are:
+• InstantHMR, a family of four MHR regressors (nano to
+medium) that trace one accuracy/latency curve, trained
+only on released annotations; InstantHMR-M runs in real
+time on a phone NPU at 48.8 mm PA-MPJPE on EMDB-
+1, 40.0 mm on 3DPW and 41.7 mm on RICH.
+• A matched evaluation protocol with Meta’s official
+MHR-to-SMPL conversion, under which eleven com-
+petitors are re-scored, each with a reproduction verdict
+against its own paper.
+• Latency on eight targets, from desktop TensorRT to two
+phone NPUs and two phone CPUs, measured the same
+way for every method.
+The
+code
+(Apache-2.0)
+and
+the
+models
+(for
+non-
+commercial use) are available at https://github.
+com/Naturalpad-studio/InstantHMR.
+We also provide a commercially safe variant of the
+medium model (InstantHMR-M-C) trained on a smaller
+corpus of images with a permissive license (cf. Tab. 3).
+2. Related work
+Parametric body models.
+Most HMR methods do not
+predict a mesh directly, but the parameters of a paramet-
+ric body model that maps a few pose and shape coeffi-
+cients to a skinned mesh. SMPL [25] is by far the most
+used, with a 6,890-vertex mesh, 24 joints and a shape space
+learned from 3D scans.
+SMPL-H [32] adds articulated
+hands, and SMPL-X [30] adds both hands and an expressive
+face. More recently, Meta released the Momentum Human
+Rig (MHR) [7], which decouples the skeleton from the body
+shape. Unlike SMPL, Anny [3] does not learn its shape
+space from 3D scans. Its shape is set by interpretable pa-
+rameters such as age, height and weight, built on the open-
+source MakeHuman software and calibrated on WHO pop-
+ulation statistics, so that a single model spans bodies from
+infants to elders. SOMA [33] goes one step further and
+maps SMPL, SMPL-X, MHR and Anny to a single canon-
+ical mesh and skeleton. These models differ in topology,
+skeleton and units, so comparing methods that predict dif-
+ferent models requires converting between them, which is a
+key part of our protocol (Sec. 4). InstantHMR predicts in
+MHR parametric space.
+Human mesh recovery from a single image.
+Histor-
+ically, HMR [14] consists in regressing SMPL parame-
+ters from a single image.
+HMR2.0 [8] scales this for-
+mulation with a ViT backbone and large pseudo-labelled
+data, TokenHMR [6] predicts the pose as discrete tokens,
+CLIFF [23] conditions the regressor on the location of the
+person in the full frame, and CameraHMR [29] adds a
+camera-aware head trained with estimated focal lengths.
+HybrIK [19] recovers the rotations from 3D keypoints with
+analytical inverse kinematics, and NLF [34] predicts any
+body point as a continuous field, which allows training a
+single model on annotations from different skeletons and
+meshes.
+SMPLer-X [4] and Multi-HMR [2] regress the
+expressive SMPL-X model, for one person or for many
+at once, and the authors of Anny show that a Multi-HMR
+model trained on synthetic Anny images matches its scan-
+based counterparts [3]. SAM 3D Body [44] moves to MHR
+with a promptable DINOv3-based architecture trained on a
+large human-annotated corpus, and Fast SAM 3D Body [43]
+accelerates it by up to 10.9× without retraining. NVIDIA’s
+GEM-X [28] also builds on DINOv3 and predicts SOMA. It
+provides a single-image model, and a video model that we
+discuss in the next paragraph. These recent models are re-
+markably robust, but they are built for GPUs. InstantHMR
+predicts in MHR parametric space, with an architecture tai-
+lored to phone inference.
+Human mesh recovery from video.
+Video methods use
+the temporal information to recover smoother and more ac-
+curate motion, often in world coordinates. WHAM [38]
+lifts sequences of 2D keypoints to 3D, fuses them with
+the features of a pretrained single-image encoder, and es-
+timates the global trajectory with recurrent networks that
+only look at past frames, so it runs online. TRAM [41]
+and GVHMR [36] recover the global trajectory and motion
+of people from whole sequences, GEM [20] unifies mo-
+tion estimation and generation in a single diffusion-based
+model, and the video model of GEM-X [28] follows the mo-
+tion over the sequence from the features of its single-image
+model and 2D keypoints. FastHMR [26] accelerates a ViT
+regressor by merging tokens and layers, then denoises the
+pose over 243-frame clips with a diffusion decoder, reach-
+ing 103–150 FPS on an RTX 3090.
+2
+
+person crop, 288 px
+HGNetV2
+encoder features 3636
+99
+CLIFF conditioning
+bbox position
+bbox scale
+focal
+MHR head
+pose, shape
+Camera head
+translation
+SimCC head
+x, y bins
+posed MHR mesh (camera view)
+2D keypoint heatmaps
+71 learned queries
+1 body  70 keypoints
+Transformer
+decoder
+13.6 M parameters
+16.8 M parameters
+Figure 2. InstantHMR. A 288 px crop around the person goes through a convolutional HGNetV2 encoder (shown: the first principal
+component of its second-stage features, 36 × 36, contrast-stretched) down to 9 × 9 image tokens. A 4-layer transformer decoder refines 71
+learned queries (one for the body, one per keypoint) by attention among themselves and to the image tokens; the box’s position in the full
+frame (two viewing angles and the size over the focal length) is embedded and added to every query. The body query feeds the MHR and
+camera heads, from which the rig’s forward kinematics (FK) gives the posed mesh; each keypoint query feeds a SimCC head that classifies
+its x and y over 96 bins (shown over the crop: for each keypoint, the product of its two distributions). Every visual is the real output of
+InstantHMR-M on a 3DPW test frame [40]. InstantHMR-M has 32.2 M parameters: 13.6 M in the backbone, 16.8 M in the decoder, and
+1.8 M in the projections, queries and heads.
+Efficient and on-device recovery.
+Many applications
+such as AR/VR, tele-rehabilitation or the teleoperation of
+robots, need a low latency and not only a high through-
+put: the pose of a frame must be available while that frame
+is captured. Most video methods induce latency, since an
+output that depends on future frames has to wait for them:
+FastHMR waits for up to 242 later frames, about 8 s at
+30 FPS. Online methods such as WHAM avoid this wait,
+but still need a per-frame image model: the 200 FPS re-
+ported for WHAM exclude its ViTPose keypoint detector
+and its pretrained image encoder [38]. This study there-
+fore focuses on the single-image model, which estimates
+the current frame from that frame alone and is the per-frame
+building block of online video methods such as WHAM.
+Among single-image methods, efficient HMR has mostly
+targeted GPUs, e.g. Seeing Machines reports 5.5–15.8 ms
+on an NVIDIA Jetson Thor robotics module [35].
+On
+phones, BlazePose GHUM Holistic [9] estimates 3D land-
+marks in real time and lifts them to a body model, but is
+not evaluated on a standard mesh benchmark. The closest
+work to ours is MeshPose [18], which localises a low-poly
+SMPL mesh with DensePose-style supervision and runs at
+97–153 FPS on an iPhone 12, depending on the backbone;
+we evaluate its released model in Sec. 5.
+Evaluation protocols.
+3DPW [40], EMDB [15] and
+RICH [11] are the standard in-the-wild benchmarks, but pa-
+pers evaluate on them in different ways. They differ in the
+person boxes (ground truth or detections), the focal length
+(calibrated or a fixed field of view), and, for methods that do
+not output SMPL, the conversion to SMPL. For instance,
+SAM 3D Body converts MHR to SMPL with Meta’s it-
+erative fitter, Fast SAM 3D Body replaces that fitter with
+a learned network, and GEM-X releases its own dataset-
+specific projectors. Each of these choices moves a single
+model by several millimetres, so we fix one protocol, the
+one of the closest MHR-based competitors, and re-run ev-
+ery method under it (Sec. 4).
+3. InstantHMR
+InstantHMR takes a square crop of the person, I
+∈
+R288×288×3, and the position of that crop in the full im-
+age, c ∈R3 (defined in Sec. 3.1). It returns three outputs
+(Fig. 2). The first is the person’s MHR parameters: the rig
+parameters θ ∈R204, which hold the root translation and
+rotation, 130 joint parameters and 68 bone scales, and the
+identity coefficients β ∈R45, which shape the body sur-
+face. The second is, for each of the 70 2D keypoints, two
+probability distributions over 96 bins, one for its x and one
+for its y coordinate, P ∈[0, 1]70×2×96 (SimCC [22]). Their
+expectations give the 2D keypoints x ∈R70×2, in crop co-
+ordinates. The third is the camera translation t ∈R3, which
+places the body in the camera frame. The MHR rig M then
+turns (θ, β) into the posed mesh V = M(θ, β) ∈R6,890×3
+and its 70 3D keypoints J ∈R70×3, which are in camera
+coordinates once translated by t. V is a farthest-point sub-
+3
+
+set of MHR’s 18,439-vertex mesh, with as many vertices as
+SMPL, so that every method’s latency is measured up to a
+mesh of the same size. Every design choice serves one con-
+straint: the whole network must compile to a phone NPU, in
+fp16, with no operator falling back to the CPU. The mathe-
+matical details of this section, the equations of the network
+and of the losses, are given in the supplementary material.
+3.1. Network
+HGNetV2 Backbone.
+A convolutional HGNetV2 [46]
+backbone E, pretrained on ImageNet, turns the 288 × 288
+crop into a 9 × 9 grid of features. A linear layer projects
+them to d = 512 channels, and a fixed 2D sine-cosine posi-
+tional embedding is added, which gives the 81 image tokens
+F = E(I) ∈R81×d. Convolutions, unlike the attention of a
+ViT backbone, map directly onto the operators phone NPUs
+accelerate. The four sizes of InstantHMR differ only in the
+backbone (B0, B1, B2, B4 for nano, tiny, small, medium),
+and have 20.0, 20.3, 24.4 and 32.2 M parameters. The de-
+coder and the heads are the same in every size, and the de-
+coder alone holds 16.8 M of these parameters.
+CLIFF conditioning.
+A crop alone does not determine
+where the person is in 3D: the same crop could come
+from the centre or the edge of a wide-angle image.
+As
+in CLIFF [23], the network therefore receives the posi-
+tion of the crop in the full image, but expressed through
+the focal length f rather than the image size, so that it
+keeps one meaning across cameras.
+For a box of cen-
+tre (bx, by) and size bw × bh in an image of size W ×
+H, c holds the two viewing angles of the box centre,
+arctan((bx −W/2)/f) and arctan((by −H/2)/f), and
+the box size max(bw, bh)/f. A two-layer MLP ϕ embeds
+it into ϕ(c) ∈Rd. At deployment, without calibration, f
+defaults to 1.05× the image diagonal.
+Transformer Decoder.
+71 learned queries Q ∈R71×d,
+one for the body and one per 2D keypoint, receive the posi-
+tion embedding ϕ(c), added to every query. A 4-layer pre-
+norm transformer decoder [5] D (8 heads) then lets them
+attend to each other and to the image tokens F, and outputs
+one feature zi ∈Rd per query. The feature z0 comes from
+the body query, and z1, . . . , z70 from the keypoint queries.
+Decoder Heads.
+Three heads read the decoder output.
+The SimCC head h2D, a two-layer MLP shared by all
+keypoints, turns each keypoint query into its two distribu-
+tions, Pk = h2D(zk), whose expectations over the bin cen-
+tres give the 2D keypoint xk. Classifying the coordinates
+rather than regressing them keeps the image evidence of ev-
+ery joint in the decoder. The camera head hcam, a linear
+layer, predicts the camera translation from the body query,
+t = hcam(z0). The MHR head hMHR predicts the body
+from the same query, (θ, β) = hMHR(z0). It is a two-layer
+head in SAM 3D Body’s continuous parameterisation: the
+root rotation as a 6D vector [47], the body pose in its contin-
+uous form, the identity coefficients β, 28 bone-scale prin-
+cipal components and two hand blocks, which are decoded
+into the rig parameters θ. The root translation is fixed to
+zero (the person is placed by the camera translation), and
+the bone-scale coefficients and the six limb-length parame-
+ters are bounded to the range seen in training. Without these
+bounds, the scales enter the rig’s forward kinematics mul-
+tiplicatively along each limb, and a single large prediction
+can produce a skeleton hundreds of metres tall that diverges
+the training.
+The 3D keypoints are not regressed: they are read from
+the posed rig through its own forward kinematics, so 3D
+keypoints and mesh can never disagree.
+3.2. Training
+Dataset.
+InstantHMR is trained on the human-annotated
+MHR fits that Meta released with SAM 3D Body [44], over
+the images of five of its sources: SA-1B [17], AI Chal-
+lenger [42], Harmony4D [16], COCO [24] and MPII [1],
+4.2 M person crops in total, sampled at 43 / 26 / 14 / 13 / 4 %.
+No 3DPW or EMDB images are used. The labels are the
+dataset’s annotations, not the predictions of a teacher model,
+so the student is not capped at a teacher’s accuracy.
+Losses.
+The training loss is a weighted sum of eleven
+terms, which fall into three groups. The first group com-
+pares the predicted MHR parameters with the annotated
+ones: the joint parameters, the root rotation, the bone scales,
+the identity coefficients and the camera translation. The
+second group compares the geometry that the rig produces
+from these parameters: the 70 3D keypoints, 595 vertices
+spread over the mesh, and the 127 joints of the skeleton. As
+in NLF [34], the keypoint and vertex errors are plain Eu-
+clidean distances, not squared ones, so that a few bad sam-
+ples do not dominate the gradient. The vertex term matters
+for shape: the identity coefficients β move the mesh but not
+the skeleton, so without it they receive no geometric gradi-
+ent at all. The third group supervises the image side: the
+SimCC cross-entropy against a Gaussian label centred on
+each annotated keypoint, a distance on the 2D keypoints x,
+and a reprojection term that projects the 3D keypoints with
+the predicted translation t and the calibrated camera, and
+compares them with the annotated 2D keypoints. The 40
+finger keypoints weigh 0.2 in the 3D and reprojection terms,
+and the terms that go through the rig are ramped up over the
+first 2,000 steps. We tuned the weights of the eleven terms
+empirically, with single-batch overfitting tests and by bal-
+ancing the measured gradient norm of each term; the equa-
+tions and the weights are given in the supplementary mate-
+rial.
+4
+
+Accuracy (mm)
+Latency per person (ms)
+EMDB-1
+RTX 4070
+CPU
+Phone NPU (fp16)
+Phone CPU (fp32)
+Method
+PA-MPJPE
+TRT fp16
+ORT fp32
+PyTorch
+i5 ORT
+S23
+S24
+S23
+A14
+InstantHMR-M
+48.8
+0.98
+4.42
+–
+29.24
+5.49
+4.01
+92.97
+294
+Run on a phone NPU
+SMPLer-X-S32
+71.0
+1.38 1.4×
+5.30
+11.98
+50.61
+11.12 2×
+8.16
+164
+509
+MeshPose (HRNet-32)
+73.7
+2.36 2×
+7.85
+12.07
+63.36
+43.81 8×
+31.19
+309
+979
+NLF-S
+45.0
+1.52 1.6×
+3.71
+10.19
+33.16
+67.97 12×
+54.45
+103
+306
+HybrIK-R34
+69.2
+–
+–
+14.95
+–
+–
+–
+–
+–
+NLF-L
+39.3
+4.32 4×
+10.62
+16.40
+136
+125 23×
+97.54
+638
+2,013
+Multi-HMR-S
+68.5
+3.94 4×
+24.66
+32.12
+387
+139 25×
+108
+1,670
+4,420
+Do not run on a phone NPU
+CameraHMR
+46.7
+5.31 5×
+13.87
+21.61
+408
+×
+×
+–
+×
+TokenHMR
+54.7
+5.31 5×
+14.56
+23.36
+409
+×
+×
+–
+×
+HMR2.0b
+78.4
+5.51 6×
+14.91
+24.76
+412
+×
+×
+–
+×
+Fast SAM 3D Body
+38.6
+130 133×
+–
+192
+–
+×
+×
+–
+×
+SAM 3D Body
+40.3
+–
+–
+416
+–
+×
+×
+–
+×
+Table 1. Latency on eight targets. Model latency per person crop in ms, batch 1, up to a 6,890-vertex posed mesh. EMDB-1 PA-MPJPE
+(mm, 24 joints, Tab. 2) is shown for context. Methods are grouped by whether they run on a phone NPU at all; within a group, fastest first.
+Blue: ours. Bold: best in the column; underlined: best among the methods that run on a phone NPU. Shaded : real time on the phone
+(≤33.3 ms, 30 FPS). Small grey factors: how many times slower than InstantHMR-M on the same target. ×: does not run on the device
+(memory over the limit, or the compiled model fails). –: the complete method could not be timed on this target; we report no partial timings
+(HybrIK’s analytical IK does not export, so it is timed only in its own PyTorch release, IK included). Desktop: RTX 4070 with TensorRT
+fp16, ONNX Runtime (ORT) CUDA fp32 and each method’s own PyTorch release; CPU: Intel i5-14400F, ORT on 6 performance cores.
+Phones: Samsung Galaxy S23 and S24 (Snapdragon 8 Gen 2 / Gen 3) NPU in fp16, and the S23 and Galaxy A14 CPUs in fp32, through
+Qualcomm AI Hub (median of 3 jobs). SAM 3D Body and Fast SAM 3D Body do not export as one graph: their PyTorch row is their own
+pipeline, and Fast’s TensorRT row its own TensorRT backbone with the rest in PyTorch.
+Training Recipe and Deployment.
+Each model is trained
+for 600 epochs of 400 k samples, batch 256 on four GPUs,
+with AdamW and a one-cycle learning-rate schedule peak-
+ing at 6 × 10−4. Each training crop is either the standard
+crop (probability 0.75) or one of three other framings cut
+from the full image (zoomed out, zoomed in, shifted), with
+synthetic occlusion. This mix is the largest single gain we
+measured (Tab. 4): against training on the standard crop
+alone, it improves EMDB-1 PA-MPJPE by 10.0 mm (58.8
+to 48.8) and 3DPW by 2.7 mm, more than an even or uni-
+form mix of the framings. The 288 px input is the second:
+at every backbone size, it improves EMDB-1 PA-MPJPE by
+4.4–5.5 mm over 224 px (Tab. 4 for the medium backbone,
+the supplementary material for the others).
+The network exports to a single ONNX graph, which
+runs in fp16 on the S23 NPU with all of its 1,607 layers on
+the NPU. For the latency we report, the graph also includes
+the rig’s forward kinematics and linear blend skinning up to
+the posed mesh V.
+4. Evaluation protocol
+How a method is scored on 3DPW and EMDB moves
+its error by several millimetres, as much as the gaps be-
+tween methods.
+The supplementary material shows this
+for InstantHMR-M alone: on EMDB-1, the choice of per-
+son boxes, focal length and body-model conversion moves
+its PA-MPJPE between 46.9 and 50.1 mm, and a learned
+conversion network [43] raises it to 65.9 mm. Picking the
+most favourable setting per benchmark would be protocol
+shopping.
+Our protocol is not the most favourable one
+for us: detector boxes score InstantHMR-M 1.9 mm better
+than the ground-truth boxes we report. We fix one protocol
+before scoring our models under it: the one of our clos-
+est competitors, the MHR-based SAM 3D Body and Fast
+SAM 3D Body, and score every method under it.
+Settings.
+Every method is scored on the same frames,
+with the same person boxes and the same camera.
+The
+person boxes are the ones the benchmarks provide: EMDB
+ships one per frame, and for 3DPW, which ships none, we
+take the extent of the annotated 2D keypoints enlarged by
+20 %. The only exception is NLF, which we run with its
+5
+
+EMDB-1 (J24, mm)
+3DPW (J14, mm)
+RICH (J24, mm)
+Latency (ms)
+Method
+PA
+MPJPE
+PVE
+PA
+MPJPE
+PVE
+PA
+MPJPE
+PVE
+RTX 4070
+S23 NPU
+InstantHMR-M
+48.8
+74.9
+89.1
+40.0
+64.0
+76.8
+41.7
+64.7
+74.1
+0.98
+5.49
+InstantHMR-M + det.
+46.9
+73.5
+87.1
+39.3
+63.1
+75.2
+–
+–
+–
+0.98
+5.49
+Run on a phone NPU
+SMPLer-X-S32†‡
+71.0
+109.8
+127.7
+50.4
+78.4
+91.9
+61.2
+99.5
+112.2
+1.38 1.4×
+11.12 2×
+MeshPose (HRNet-32)†
+73.7
+–
+–
+49.7
+–
+–
+–
+–
+–
+2.36 2×
+43.81 8×
+NLF-S‡
+45.0
+74.6
+87.9
+39.4
+62.2
+74.6
+33.7
+56.9
+65.7
+1.52 1.6×
+67.97 12×
+HybrIK-R34†
+69.2
+104.7
+126.7
+49.0
+76.2
+92.3
+59.4
+100.2
+115.1
+14.95p 15×
+–
+NLF-L‡
+39.3
+67.7
+79.7
+35.1
+57.2
+68.3
+27.3
+47.3
+53.7
+4.32 4×
+125 23×
+Multi-HMR-S
+68.5
+103.0
+115.6
+54.8
+84.4
+99.1
+69.4
+102.4
+112.5
+3.94 4×
+139 25×
+Do not run on a phone NPU
+CameraHMR
+46.7
+76.7
+91.5
+38.8
+61.3
+72.6
+33.6
+54.8
+63.8
+5.31 5×
+×
+TokenHMR
+54.7
+88.8
+106.5
+44.5
+69.8
+83.5
+42.1
+80.6
+93.6
+5.31 5×
+×
+HMR2.0b
+78.4
+117.3
+140.1
+54.1
+80.8
+92.1
+58.0
+104.8
+122.3
+5.51 6×
+×
+Fast SAM 3D Body†
+38.6
+65.5
+77.4
+34.1
+55.0
+66.3
+32.1
+53.1
+60.5
+130t 133×
+×
+SAM 3D Body†
+40.3
+65.1
+77.4
+35.1
+55.7
+67.2
+33.5
+54.6
+62.3
+416p 425×
+×
+Table 2. Accuracy under one protocol. Every method is scored on the same frames with the same ground truth (Sec. 4): ground-truth
+person boxes, the calibrated focal length, and, for MHR methods, Meta’s official MHR-to-SMPL conversion. Errors in mm on every 10th
+frame of EMDB-1 and 3DPW, and on the 21,287 test crops of RICH listed by CameraHMR, scored on the 24 joints regressed from the
+mesh. Groups and order as in Tab. 1. Blue: ours. Bold: best in the column; underlined: best among the methods that run on a phone NPU.
+Latency in ms; shaded : real time on the phone (≤33.3 ms, 30 FPS); small grey factors: how many times slower than InstantHMR-M.
+InstantHMR-M + det. is the same model given the boxes of an off-the-shelf person detector (YOLO11n-pose) instead of the ground-truth
+boxes. MeshPose outputs vertices without a metric scale, so only PA-MPJPE is defined. For the three methods that output only a mesh
+(SMPLer-X, Multi-HMR, MeshPose), the 24 EMDB-1 joints are regressed from the vertices; the other methods use the SMPL skeleton, as
+the ground truth does. †: trained on 3DPW-train; ‡: trained on RICH. p: its PyTorch release; t: its TensorRT backbone + PyTorch.
+InstantHMR-M
+5.5 ms
+NLF-S
+68.0 ms
+SMPLer-X-S32
+11.1 ms
+MeshPose
+43.8 ms
+prediction (each method)
+ground truth (side view, EMDB-1 and 3DPW only)
+Figure 3. Qualitative comparison of the methods that run on a phone NPU. For each image, left: the predicted mesh projected into the
+image; right: the same mesh seen from the side. On the EMDB-1 [15] images (columns 1–3), the side view also shows the ground-truth
+mesh in green; the prediction is placed on its hips and scaled to its size, but not rotated. The COCO [24] images (columns 4–5) are in the
+wild and have no 3D ground truth. Under each method: its latency per person on the Samsung Galaxy S23 NPU.
+6
+
+PA-MPJPE (mm)
+Latency (ms)
+RTX
+S23
+Model
+EMDB-1 3DPW RICH 4070 NPU CPU
+InstantHMR-N
+61.7
+46.6
+53.5
+0.70
+4.60
+31.5
+InstantHMR-T
+58.0
+44.0
+49.7
+0.73
+4.84
+37.4
+InstantHMR-S
+53.3
+41.7
+45.4
+0.84
+5.38
+54.5
+InstantHMR-M
+48.8
+40.0
+41.7
+0.98
+5.49
+93.0
+InstantHMR-M-C
+72.2
+50.7
+–
+0.98
+5.49
+93.0
+Table 3.
+The InstantHMR family.
+Nano, tiny, small and
+medium use HGNetV2-B0, B1, B2 and B4 backbones; M-C is
+the medium architecture trained only on commercially usable im-
+ages (Harmony4D and COCO). Protocol of Tab. 2. Latency per
+person: RTX 4070 with TensorRT fp16, Samsung Galaxy S23
+NPU in fp16 and CPU in fp32. Shaded : real time on the phone
+(≤33.3 ms).
+own person detector, as in its paper; giving it the ground-
+truth boxes instead changes its error by less than 1 mm. The
+focal length is the calibrated one of each benchmark. Meth-
+ods that output SMPL are scored as they are, and the others
+are first converted to SMPL: MHR outputs with Meta’s of-
+ficial MHR-to-SMPL fitting, as in the Fast SAM 3D Body
+paper, and SMPL-X outputs through Meta’s surface maps
+from SMPL-X to MHR to SMPL, which add 0.67 mm of er-
+ror on average. As in each benchmark’s literature, EMDB-1
+is scored on the 24 SMPL joints and 3DPW on the 14 joints
+regressed from the mesh with the Human3.6M regressor.
+We score every 10th frame, which gives 2,419 frames on
+EMDB-1 and 3,562 person-frames on 3DPW; scoring ev-
+ery frame instead changes PA-MPJPE by at most 0.3 mm.
+On RICH [11], we score the 21,287 test crops listed in the
+label file of CameraHMR [29] (every 5th frame of the 50
+test sequences, from all 7 cameras), with the person box
+that file gives. The ground truth is each crop’s SMPL-X
+fit converted to SMPL and each model is scored on the 24
+joints regressed from the SMPL mesh. A frame on which a
+method returns no prediction counts as missing.
+Reproduction.
+We run each competitor from its released
+code and weights, with its own crop and preprocessing,
+and compare our score with the one printed in its paper,
+on the joint set of that paper.
+We call a method repro-
+duced when the two PA-MPJPE differ by less than 1 mm.
+NLF-S and TokenHMR reproduce on both benchmarks, and
+CameraHMR on 3DPW. NLF-L scores 1.9–2.2 mm better
+than its paper, and SAM 3D Body, Fast SAM 3D Body,
+HybrIK, and CameraHMR on EMDB-1 score 1.3–4.5 mm
+worse. On RICH, CameraHMR reproduces its published
+number (0.4 mm better), SAM 3D Body scores 2.6 mm
+worse and Fast SAM 3D Body 1.7 mm better than their
+papers.
+HMR2.0b scores 9.9 mm worse than the run of
+it reported by SAM 3D Body, whose crop is not stated,
+while our harness reproduces HMR2.0b on EMDB-1 within
+0.4 mm. Such gaps can come from settings that a paper does
+not fully specify, and we do not claim that any published
+number is wrong.
+Latency.
+Latency is the model’s time per person crop at
+batch 1, from the crop to a posed mesh of up to 6,890
+vertices; detection and cropping are excluded for every
+method.
+Desktop timings are medians over interleaved
+rounds, so background load affects all methods alike. Phone
+timings use Qualcomm AI Hub [31] on physical devices,
+the median of three jobs. Only complete methods are timed:
+a method that does not export whole is timed in its own re-
+lease (HybrIK, SAM 3D Body, Fast SAM 3D Body), and
+partial timings are left to the supplementary material.
+5. Experiments
+We evaluate on EMDB-1 [15], 3DPW test [40] and RICH
+test [11] under the protocol of Sec. 4. None of the three
+benchmarks’ images are in InstantHMR’s training data;
+four competitors trained on 3DPW-train (marked †), and
+three on RICH (‡), which makes EMDB-1 the fairer of the
+three.
+Speed (Tab. 1).
+On the Galaxy S23 NPU, InstantHMR-M
+takes 5.49 ms per person, and 4.01 ms on the S24. Only one
+other method is real time on the phone: SMPLer-X-S32, at
+11.12 ms, but 22 mm less accurate on EMDB-1. Every ViT-
+H and DINOv3-based method (CameraHMR, TokenHMR,
+HMR2.0, SAM 3D Body, Fast SAM 3D Body) fails to run
+on either phone NPU, for lack of memory or because the
+compiled model fails. On the desktop GPU, InstantHMR-
+M takes 0.98 ms with TensorRT, the fastest of all methods
+(nano: 0.70 ms).
+Why InstantHMR is fast on the NPU.
+On the S23’s
+CPU, InstantHMR-M (93 ms) and NLF-S (103 ms) are
+close, and on the desktop GPU they are 1.6× apart, but on
+the NPU NLF-S is 12× slower. Both models run entirely
+on the NPU (807 of 807 layers for NLF-S, 1,607 of 1,607
+for InstantHMR-M), so the gap does not come from lay-
+ers falling back to the CPU: it comes from how each model
+produces the mesh. NLF estimates each vertex as a sepa-
+rate query point with its own 8 × 8 × 8 heatmap, whose
+score-weighted average gives the vertex position. For 6,890
+vertices, most of the work is moving and summing tensors
+of 6,890 × 512 values, which an NPU, built for convolu-
+tions and matrix products, does slowly: gathers, reductions,
+transposes, reshapes and softmaxes take 71% of NLF-S’s
+NPU time, its convolutions under 2%. With 1,048 query
+7
+
+points instead of 6,890, the same network runs in 8.1 ms. In-
+stantHMR instead regresses the 204 MHR parameters once
+per person, with a convolutional backbone and a small de-
+coder, operators the NPU is designed for; the mesh then fol-
+lows from the rig’s forward kinematics and skinning, a fixed
+weighted sum whose cost does not depend on the network.
+Accuracy (Tab. 2).
+Among the methods that run on
+a phone, InstantHMR-M is 20–25 mm more accurate
+than SMPLer-X, MeshPose, HybrIK and Multi-HMR on
+EMDB-1 (PA-MPJPE), and 9–15 mm on 3DPW. Mesh-
+Pose, the closest phone-oriented work, is released only
+with its HRNet-32 backbone, which scores 73.7 mm on
+EMDB-1 and 49.7 mm on 3DPW against 48.8 and 40.0 mm
+for InstantHMR-M; its paper reports its phone-sized vari-
+ants, which are not released, 2–3 mm behind that model
+on 3DPW2. On hard poses, the gap can be much larger
+than these averages (Fig. 3).
+Only NLF is more accu-
+rate, at 12× (NLF-S) and 23× (NLF-L) the phone la-
+tency; on 3DPW, InstantHMR-M is within 0.6 mm of NLF-
+S. Without the phone constraint, Fast SAM 3D Body and
+SAM 3D Body remain the most accurate, 8–10 mm better
+than InstantHMR-M on EMDB-1, at 130–416 ms per per-
+son on a desktop GPU. With detector boxes in place of the
+ground-truth ones (InstantHMR-M + det.), InstantHMR-M
+improves to 46.9 mm on EMDB-1 and 39.3 mm on 3DPW,
+the setting NLF is evaluated in. RICH shows the same pic-
+ture: InstantHMR-M (41.7 mm) is 18–28 mm more accurate
+than HybrIK, Multi-HMR and SMPLer-X, which is trained
+on RICH. Among the methods that run on a phone, only
+NLF, also trained on RICH, is more accurate; and Cam-
+eraHMR, SAM 3D Body and Fast SAM 3D Body are 8–
+10 mm better than InstantHMR-M.
+The family (Tab. 3).
+From nano to medium, EMDB-
+1 PA-MPJPE improves from 61.7 to 48.8 mm (53.5 to
+41.7 mm on RICH), while the S23 NPU latency only grows
+from 4.60 to 5.49 ms: on the phone NPU, the latency barely
+depends on the backbone size, so medium is the natural
+choice. On the S23 CPU, it is a different story, the latency
+triples from nano to medium (31.5 to 93.0 ms), and nano is
+the only size that runs in real time there. On phones with-
+out a usable NPU, the smaller sizes are therefore worth the
+accuracy they lose. Training on commercially usable im-
+ages only (Harmony4D and COCO, M-C) costs 23 mm on
+EMDB-1, with 0.5 M of the 4.2 M training crops: the train-
+ing images matter more than any architectural change we
+tried.
+2MeshPose-S / -XS, as published [18]: 3DPW PA-MPJPE 48.97 /
+49.71 mm on 14 LSP joints from the authors’ unreleased landmarker; 99 /
+153 FPS on an iPhone 12 with CoreML. Weights not released; not compa-
+rable with our rows.
+Training run
+EMDB-1 PA
+3DPW PA
+Crop framing (B4, 288 px)
+standard crop only
+58.8
+42.7
+standard 50 %
+50.4
+40.8
+standard 75 % (InstantHMR-M)
+48.8
+40.0
+uniform, 25 % each
+51.2
+41.1
+Input size (B4, earlier recipe)
+224 px
+54.2
+43.9
+288 px
+49.8
+42.2
+Table 4. Design ablation. PA-MPJPE (mm) as in Tab. 2; each row
+is a full training run. Crop framing: the share of standard crops,
+the rest zoomed out, zoomed in or shifted. The input-size pair uses
+an earlier recipe (hence 49.8, not 48.8 mm); other backbones in the
+supplementary material.
+6. Limitations and conclusion
+Limitations.
+InstantHMR has no dedicated hand encoder
+or decoder. The hands are read from the same 288 × 288
+crop of the whole person and the same 9 × 9 image to-
+kens as the rest of the body, where a hand covers only a
+few pixels. SAM 3D Body, in contrast, refines the hands
+with a second decoder that runs on crops around each hand.
+Adding a light hand branch, without losing the real-time
+latency on the phone NPU, is left for future work.
+All
+our phone measurements are on Android phones with Qual-
+comm NPUs (Galaxy S23 and S24). We did not evaluate In-
+stantHMR on Apple silicon (the Neural Engine of iPhones,
+through Core ML), which is also left for future work. In-
+stantHMR estimates each frame on its own, and we report
+no temporal metric (jitter or acceleration error), although
+the applications we target are sensitive to it; evaluating it,
+with and without the 1 Euro filter of our released demo,
+is future work. Finally, InstantHMR is trained on the re-
+leased annotations of the SAM 3D Body dataset, but many
+of its images, such as those of SA-1B and AI Challenger,
+may only be used for research. For this reason, the nano,
+tiny, small and medium models are released for research use
+only. InstantHMR-M-C, trained only on commercially us-
+able images (Harmony4D and COCO), can be used in com-
+mercial products, but it is much less accurate: 72.2 mm PA-
+MPJPE on EMDB-1 against 48.8 mm for InstantHMR-M.
+Closing this gap requires more training images with per-
+missive licences, real or synthetic.
+Conclusion.
+We presented InstantHMR, a family of
+single-image MHR regressors built for phone NPUs. On
+the Samsung Galaxy S23 NPU, InstantHMR-M recovers a
+6,890-vertex body mesh in 5.49 ms per person, at 48.8 mm
+PA-MPJPE on EMDB-1, 40.0 mm on 3DPW and 41.7 mm
+on RICH. It is the most accurate method that runs in real
+time on the phone; the two methods that are more accurate
+8
+
+and also run on a phone NPU, NLF-S and NLF-L, are 12×
+and 23× slower there. To make these comparisons fair, we
+re-evaluated eleven methods under one protocol, matched
+to the closest MHR-based competitors, and reported how
+closely each reproduces its paper. Code and models are
+available at https://github.com/Naturalpad-
+studio/InstantHMR.
+Acknowledgements
+This work was granted access to the HPC resources
+of IDRIS under the allocation AD011017116 made by
+GENCI. We thank Meta for releasing the annotations of the
+SAM 3D Body dataset and the MHR body model.
+LLM Usage Statement
+We used Claude Code (Anthropic), an LLM-based cod-
+ing assistant, to write and run evaluation code under our
+direction (competitor reproduction, scoring, latency mea-
+surement, and the generation of tables and figures), to
+search the literature, and to draft and edit text.
+The
+model, its training and the experimental design are ours;
+we reviewed all code, verified every source and revised
+all text, and every number comes from saved result
+files.
+References
+[1] Mykhaylo Andriluka, Leonid Pishchulin, Peter Gehler, and
+Bernt Schiele. 2D human pose estimation: New benchmark
+and state of the art analysis. In CVPR, 2014. 4
+[2] Fabien Baradel, Matthieu Armando, Salma Galaaoui, Ro-
+main Br´egier, Philippe Weinzaepfel, Gr´egory Rogez, and
+Thomas Lucas. Multi-HMR: Multi-person whole-body hu-
+man mesh recovery in a single shot. In ECCV, 2024. 2
+[3] Romain Br´egier, Gu´enol´e Fiche, Laura Bravo-S´anchez,
+Thomas Lucas, Matthieu Armando, Philippe Weinzaepfel,
+Gr´egory Rogez, and Fabien Baradel. Human mesh modeling
+for Anny body. arXiv preprint arXiv:2511.03589, 2025. 2
+[4] Zhongang Cai, Wanqi Yin, Ailing Zeng, Chen Wei, Qing-
+ping Sun, Yanjun Wang, Hui En Pang, Haiyi Mei, Mingyuan
+Zhang, Lei Zhang, Chen Change Loy, Lei Yang, and Zi-
+wei Liu. SMPLer-X: Scaling up expressive human pose and
+shape estimation.
+In NeurIPS Datasets and Benchmarks,
+2023. 1, 2
+[5] Nicolas Carion, Francisco Massa, Gabriel Synnaeve, Nicolas
+Usunier, Alexander Kirillov, and Sergey Zagoruyko. End-to-
+end object detection with transformers. In ECCV, 2020. 4
+[6] Sai Kumar Dwivedi, Yu Sun, Priyanka Patel, Yao Feng, and
+Michael J. Black. TokenHMR: Advancing human mesh re-
+covery with a tokenized pose representation. In CVPR, 2024.
+2
+[7] Aaron Ferguson, Ahmed A. A. Osman, Berta Bescos,
+Carsten Stoll, Chris Twigg, et al. MHR: Momentum human
+rig. arXiv preprint arXiv:2511.15586, 2025. 2
+[8] Shubham Goel, Georgios Pavlakos, Jathushan Rajasegaran,
+Angjoo Kanazawa, and Jitendra Malik.
+Humans in 4D:
+Reconstructing and tracking humans with transformers. In
+ICCV, 2023. 2
+[9] Ivan Grishchenko, Valentin Bazarevsky, Andrei Zanfir, Ed-
+uard Gabriel Bazavan, Mihai Zanfir, Richard Yee, Karthik
+Raveendran, Matsvei Zhdanovich, Matthias Grundmann,
+and Cristian Sminchisescu.
+BlazePose GHUM Holistic:
+Real-time 3D human landmarks and pose estimation. arXiv
+preprint arXiv:2206.11678, 2022. 3
+[10] Tairan He, Zhengyi Luo, Wenli Xiao, Chong Zhang, Kris
+Kitani, Changliu Liu, and Guanya Shi.
+Learning human-
+to-humanoid real-time whole-body teleoperation. In IROS,
+2024. 1
+[11] Chun-Hao P. Huang, Hongwei Yi, Markus H¨oschle, Matvey
+Safroshkin, Tsvetelina Alexiadis, Senya Polikovsky, Daniel
+Scharstein, and Michael J. Black. Capturing and inferring
+dense full-body human-scene contact.
+In Proceedings of
+the IEEE/CVF Conference on Computer Vision and Pattern
+Recognition (CVPR), pages 13274–13285, 2022. 3, 7
+[12] Jiaxi Jiang, Paul Streli, Huajian Qiu, Andreas Fender, Larissa
+Laich, Patrick Snape, and Christian Holz. AvatarPoser: Ar-
+ticulated full-body pose tracking from sparse motion sens-
+ing. In European Conference on Computer Vision (ECCV),
+pages 443–460, 2022. 1
+[13] Zeyu Jiao, Kai Huang, Qun Wang, Guozhu Jia, Zhenyu
+Zhong, and Yingjie Cai.
+Improved REBA: deep learning
+based rapid entire body risk assessment for prevention of
+musculoskeletal disorders. Ergonomics, 2024. 1
+[14] Angjoo Kanazawa, Michael J. Black, David W. Jacobs, and
+Jitendra Malik. End-to-end recovery of human shape and
+pose. In CVPR, 2018. 2
+[15] Manuel Kaufmann, Jie Song, Chen Guo, Kaiyue Shen, Tian-
+jian Jiang, Chengcheng Tang, Juan Jos´e Z´arate, and Otmar
+Hilliges. EMDB: The electromagnetic database of global 3D
+human pose and shape in the wild. In ICCV, 2023. 2, 3, 6, 7
+[16] Rawal Khirodkar, Jyun-Ting Song, Jinkun Cao, Zhengyi
+Luo, and Kris Kitani. Harmony4D: A video dataset for in-
+the-wild close human interactions. In NeurIPS Datasets and
+Benchmarks, 2024. 4
+[17] Alexander Kirillov, Eric Mintun, Nikhila Ravi, Hanzi Mao,
+Chloe Rolland, Laura Gustafson, Tete Xiao, Spencer White-
+head, Alexander C. Berg, Wan-Yen Lo, Piotr Doll´ar, and
+Ross Girshick. Segment anything. In ICCV, 2023. 4
+[18] Eric-Tuan Lˆe, Antonis Kakolyris, Petros Koutras, Himmy
+Tam, Efstratios Skordos, George Papandreou, Rıza Alp
+G¨uler, and Iasonas Kokkinos. MeshPose: Unifying Dense-
+Pose and 3D body mesh reconstruction. In CVPR, 2024. 1,
+3, 8
+[19] Jiefeng Li, Chao Xu, Zhicun Chen, Siyuan Bian, Lixin Yang,
+and Cewu Lu. HybrIK: A hybrid analytical-neural inverse
+kinematics solution for 3D human pose and shape estima-
+tion. In CVPR, 2021. 2
+[20] Jiefeng Li, Jinkun Cao, Haotian Zhang, Davis Rempe, Jan
+Kautz, Umar Iqbal, and Ye Yuan. GEM: A generalist model
+for human motion. In ICCV, 2025. 2
+[21] Li Li, Tara Martin, and Xu Xu. A novel vision-based real-
+time method for evaluating postural risk factors associated
+with musculoskeletal disorders.
+Applied Ergonomics, 87:
+103138, 2020. 1
+9
+
+[22] Yanjie Li, Sen Yang, Peidong Liu, Shoukui Zhang, Yunx-
+iao Wang, Zhicheng Wang, Wankou Yang, and Shu-Tao Xia.
+SimCC: A simple coordinate classification perspective for
+human pose estimation. In ECCV, 2022. 3
+[23] Zhihao Li, Jianzhuang Liu, Zhensong Zhang, Songcen Xu,
+and Youliang Yan. CLIFF: Carrying location information in
+full frames into human pose and shape estimation. In ECCV,
+2022. 2, 4
+[24] Tsung-Yi Lin, Michael Maire, Serge Belongie, James Hays,
+Pietro Perona, Deva Ramanan, Piotr Doll´ar, and C. Lawrence
+Zitnick. Microsoft COCO: Common objects in context. In
+ECCV, 2014. 4, 6
+[25] Matthew Loper, Naureen Mahmood, Javier Romero, Gerard
+Pons-Moll, and Michael J. Black. SMPL: A skinned multi-
+person linear model. ACM Transactions on Graphics (Proc.
+SIGGRAPH Asia), 34(6), 2015. 2
+[26] Soroush Mehraban,
+Andrea Iaboni,
+and Babak Taati.
+FastHMR: Accelerating human mesh recovery via token and
+layer merging. In WACV, 2026. 2
+[27] Dushyant Mehta, Srinath Sridhar, Oleksandr Sotnychenko,
+Helge Rhodin, Mohammad Shafiei, Hans-Peter Seidel,
+Weipeng Xu, Dan Casas, and Christian Theobalt. VNect:
+Real-time 3D human pose estimation with a single RGB
+camera. ACM Transactions on Graphics, 36(4):44:1–44:14,
+2017. 1
+[28] NVIDIA. GEM-X: Full-body and hand pose estimation from
+image and video.
+https://github.com/NVlabs/
+GEM-X, 2026. 2
+[29] Priyanka Patel and Michael J. Black. CameraHMR: Aligning
+people with perspective. In 3DV, 2025. 1, 2, 7
+[30] Georgios Pavlakos, Vasileios Choutas, Nima Ghorbani,
+Timo Bolkart, Ahmed A. A. Osman, Dimitrios Tzionas, and
+Michael J. Black. Expressive body capture: 3D hands, face,
+and body from a single image. In CVPR, 2019. 2
+[31] Qualcomm.
+Qualcomm AI Hub.
+https://aihub.
+qualcomm.com, 2026. 7
+[32] Javier Romero, Dimitrios Tzionas, and Michael J. Black.
+Embodied hands: Modeling and capturing hands and bodies
+together. ACM Transactions on Graphics (Proc. SIGGRAPH
+Asia), 36(6), 2017. 2
+[33] Jun Saito, Jiefeng Li, Michael de Ruyter, Miguel Guerrero,
+Edy Lim, et al. SOMA: Unifying parametric human body
+models. arXiv preprint arXiv:2603.16858, 2026. 2
+[34] Istv´an S´ar´andi and Gerard Pons-Moll. Neural localizer fields
+for continuous 3D human pose and shape estimation.
+In
+NeurIPS, 2024. 1, 2, 4
+[35] Seeing Machines. Seeing machines HMR: Real-time 3D hu-
+man mesh recovery at up to 180 FPS on NVIDIA Jetson
+Thor. Technical paper, https://seeingmachines.
+com, 2026. 3
+[36] Zehong Shen, Huaijin Pi, Yan Xia, Zhi Cen, Sida Peng,
+Zechen Hu, Hujun Bao, Ruizhen Hu, and Xiaowei Zhou.
+World-grounded human motion recovery via gravity-view
+coordinates. In SIGGRAPH Asia, 2024. 2
+[37] Soshi Shimada, Vladislav Golyanik, Weipeng Xu, and Chris-
+tian Theobalt. PhysCap: Physically plausible monocular 3D
+motion capture in real time. ACM Transactions on Graphics,
+39(6):235, 2020. 1
+[38] Soyong Shin, Juyong Kim, Eni Halilaj, and Michael J. Black.
+WHAM: Reconstructing world-grounded humans with accu-
+rate 3D motion. In CVPR, 2024. 2, 3
+[39] Scott D. Uhlrich, Antoine Falisse, Łukasz Kidzi´nski, Julie
+Muccini, Michael Ko, Akshay S. Chaudhari, Jennifer L.
+Hicks, and Scott L. Delp. OpenCap: Human movement dy-
+namics from smartphone videos. PLOS Computational Biol-
+ogy, 19(10):e1011462, 2023. 1
+[40] Timo von Marcard, Roberto Henschel, Michael J. Black,
+Bodo Rosenhahn, and Gerard Pons-Moll.
+Recovering ac-
+curate 3D human pose in the wild using IMUs and a moving
+camera. In ECCV, 2018. 2, 3, 7
+[41] Yufu Wang, Ziyun Wang, Lingjie Liu, and Kostas Daniilidis.
+TRAM: Global trajectory and motion of 3D humans from
+in-the-wild videos. In ECCV, 2024. 2
+[42] Jiahong Wu et al.
+AI Challenger: A large-scale dataset
+for going deeper in image understanding.
+arXiv preprint
+arXiv:1711.06475, 2017. 4
+[43] Timing Yang, Sicheng He, Hongyi Jing, Jiawei Yang, Zhijian
+Liu, Chuhang Zou, and Yue Wang.
+Fast SAM 3D Body:
+Accelerating SAM 3D Body for real-time full-body human
+mesh recovery. arXiv preprint arXiv:2603.15603, 2026. 2, 5
+[44] Xitong Yang, Devansh Kukreja, Don Pinkus, Anushka Sagar,
+Taosha Fan, Jinhyung Park, Soyong Shin, Jinkun Cao, Jiawei
+Liu, Nicolas Ugrinovic, Matt Feiszli, Jitendra Malik, Piotr
+Doll´ar, and Kris Kitani. SAM 3D Body: Robust full-body
+human mesh recovery.
+arXiv preprint arXiv:2602.15989,
+2026. 1, 2, 4
+[45] Yanis Zaoui, Valentin B´egel, and Mohamed Adjel. Rhythmic
+fitness beat ’em all using real-time monocular human pose
+estimation. In International Conference on Entertainment
+Computing (ICEC), 2026. 1
+[46] Yian Zhao, Wenyu Lv, Shangliang Xu, Jinman Wei,
+Guanzhong Wang, Qingqing Dang, Yi Liu, and Jie Chen.
+DETRs beat YOLOs on real-time object detection. In CVPR,
+2024. 2, 4
+[47] Yi Zhou, Connelly Barnes, Jingwan Lu, Jimei Yang, and Hao
+Li. On the continuity of rotation representations in neural
+networks. In CVPR, 2019. 4
+10

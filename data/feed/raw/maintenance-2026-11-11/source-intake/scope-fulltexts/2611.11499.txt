@@ -1,0 +1,461 @@
+JoMoHa: Joint Model–Harness Optimization with Reinforcement Learning Skip to main content Report GitHub Issue × Title: Content selection saved. Describe the issue below: Description: Submit without GitHub Submit in GitHub Why HTML? Report Issue Back to Abstract Download PDF Contents Reading mode Colour theme Abstract 1 Introduction 2 Related Work Model-weight optimization. Harness optimization. Joint learning and coordination. 3 Background 4 Why Learn Weights and Harnesses Together? 4.1 Diagnosing Model–Harness Compatibility Separating execution interference from Solver degradation. Case 1: Harness-induced failure on ALFWorld. Case 2: Solver failure without the learned harness. 4.2 From Compatibility to Coordinated Learning 5 JoMoHa 5.1 Learning from a Shared Task Outcome 5.2 Value Estimation for Two Different Roles Context: account for collaboration conditions. ValueNorm: account for different return scales. 5.3 Coordinating Policy Updates Peer: weight experience using the partner’s trajectory. Schedule: give the Solver additional adaptation. 6 Experiments Experimental setup. Baselines. 6.1 Main Results 6.2 Ablation Studies Training the Engineer beyond fresh harness sampling. Harness utility at unchanged Solver weights. Coordinating the two learners. 7 Discussion and Conclusion References License: CC BY 4.0 arXiv:2611.11499v1 [cs.LG] 08 Nov 2026 JoMoHa: Joint Model–Harness Optimization
+with Reinforcement Learning Xudong Wu Affiliation: The University of Hong Kong, Hong Kong Guangchen Lan Affiliation: Salesforce AI Research Mingqi Yuan Affiliation: The University of Hong Kong, Hong Kong Jiayu Chen Affiliation: The University of Hong Kong, Hong Kong Correspondence to: jiayuc@hku.hk Abstract The performance of language agents depends jointly on model
+weights and the harness.
+Optimizing either alone can be constrained by the other
+component, limiting overall performance gains.
+Our analysis of naive alternating training reveals progressive
+incompatibility between the model and harness, which increasingly
+interferes with task execution and may also undermine model
+training, leading to performance degradation.
+To coordinate the evolution of models and harnesses, we
+introduce JoMoHa , to our knowledge the first framework
+to jointly train an executable harness generation policy
+and a task execution policy through reinforcement learning. JoMoHa outperforms the evaluated weight-only and harness-only
+baselines and achieves the highest success rates among the
+evaluated methods on ALFWorld, WebShop, and DBBench,
+averaging 70.3% and reaching 97.0% on ALFWorld.
+By learning both task execution and runtime improvement
+from its own generated trajectories, JoMoHa performs
+recursive self-improvement (RSI). Keywords: multi-agent reinforcement learning, language agents,
+joint harness–weight optimization 0 0 36 36 72 72 108 108 144 144 70 70 80 80 90 90 100 100 97.0 90.5 Reported training step Success (%) JoMoHa Weight-only Harness-only Frozen Engineer Figure 1: Learning the runtime writer alongside the Solver on ALFWorld. The joint system reaches 97.0%, versus 90.5% for Frozen Engineer,
+89.5% for Weight-only, and 80.5% for Harness-only.
+Weight-only does not use harness.
+Frozen Engineer keeps the initial code-writing model fixed but generates
+harnesses while training the Solver. Figure 2: From one-sided learning to joint model–harness RL. Weight-only trains the Solver under the fixed base executor, without a
+learned harness. Harness-only trains the Engineer against a frozen Solver. JoMoHa trains both policies from the same executed task outcome.
+Solid policy boxes denote updated parameters; dashed boxes denote fixed
+components. Dashed arrows carry training feedback, not gradients through
+the generated program. SAO denotes the single-rollout actor–critic
+backbone ( Hou et al., 2026 ) ; Section 3 introduces the learning terms and
+notation. Figure 3: Joint reinforcement learning of the Engineer and Solver. The Engineer writes a runtime program under which the Solver interacts
+with the task. The resulting shared reward R R trains both policies,
+each on its own generated tokens. 1 Introduction A language agent consists of a model and a harness.
+The model weights determine its learned reasoning and decision-making
+capabilities, while the harness organizes how these capabilities are
+used.
+Improving an agent therefore admits two complementary paths:
+training its model weights and improving its harness. Existing methods have made progress along both paths.
+Reinforcement learning methods train model weights from task feedback,
+improving the policy that makes decisions ( Yu et al., 2022 ; Shao et al., 2024 ) .
+Alternatively, harness optimization changes the runtime surrounding
+the model ( Lee et al., 2026 ; Shao et al., 2026 ) . However, agent performance depends jointly on both components,
+and optimizing either alone can leave overall gains constrained
+by the other.
+The comparison with weight-only and harness-only training
+in Figure 1 further motivates learning model
+weights and harnesses together. However, naively alternating updates to model weights and
+the harness does not ensure their compatibility.
+As the model changes, an existing harness may provide
+outdated or incorrect guidance that interferes with task
+execution and limits performance gains.
+Such guidance also shapes the experience used for training
+and may steer subsequent model updates toward less effective
+behavior, potentially worsening performance over time.
+We diagnose these issues through controlled comparisons
+and failure trajectory analysis in Section 4 . WHALE mitigates this issue through small alternating updates
+to model weights and harnesses.
+Its published instantiation updates model weights through
+online rejection-sampling fine-tuning (RSFT) rather than RL,
+and uses Meta-Harness search driven by a fixed external
+proprietary frontier model ( Kim et al., 2026 ) .
+However, harness optimization continues to rely on a fixed
+external proprietary frontier model to propose improvements.
+Execution feedback guides harness selection, but does not
+update the proposer itself.
+The capability to improve the harness therefore remains
+delegated to an external model rather than trained within
+the system.
+This motivates a different approach: making harness generation
+a trainable policy and using the same task execution outcome
+to train both the harness generator and the task performer. We instantiate recursive self-improvement (RSI) by learning both task execution and harness construction
+from the system’s own generated programs, trajectories,
+and execution feedback.
+Harness-R1 supports the potential of this direction:
+its trained harness Engineer outperforms the evaluated fixed
+frontier editors, including proprietary models ( Shao et al., 2026 ) .
+However, it keeps the task-performing model frozen during
+Engineer training.
+This leaves an open question: How can both policies improve through reinforcement
+learning from their shared task executions? A natural starting point is to alternate updates to the two policies
+using task outcomes.
+Yet alternation alone does not ensure that their improvements remain
+compatible.
+We investigate this problem through controlled diagnosis of a
+long-phase alternating run in which performance initially improves
+and subsequently deteriorates (Section 4.1 ).
+By evaluating saved model checkpoints with and without the same
+fixed harness, we distinguish two sources of decline:
+the task-performing model loses ability, and the unchanged harness
+becomes more harmful as the model changes.
+In one task, a later model succeeds in 14 turns without a harness
+but reaches the 50-turn limit under the old harness (Table 3 b).
+These findings motivate coordinating the two learners throughout
+training, rather than relying on alternation alone. We introduce JoMoHa , to our knowledge the first framework to jointly train a harness-generation policy and a
+task-execution policy through reinforcement learning.
+We call the two policies the Engineer and the Solver .
+The Engineer generates an executable harness, and the Solver
+interacts with the environment under that harness.
+The generated program and its multi-turn execution form a paired
+training example (Figure 3 ).
+The shared task outcome trains both policies,
+each on its own generated tokens.
+Therefore, JoMoHa implements RSI : the improvement
+policy itself learns from execution feedback, alongside the
+task-performing policy.
+We release our code at https://github.com/xudongwu-0/coevolve . We evaluate JoMoHa on ALFWorld, WebShop, and DBBench,
+where it achieves the highest success rates among the evaluated
+methods: 97.0%, 45.8%, and 68.0%, respectively
+(Section 6.1 , Table 4 ). To coordinate the Engineer and Solver, JoMoHa combines
+collaboration-aware value estimation, role-specific return
+normalization, partner-trajectory weighting, and asymmetric
+update schedules.
+We examine these design choices through component studies
+in Section 6.2 . Our contributions are threefold: 1. Diagnosing failure in alternating training. Fixed-component tests distinguish declining Solver capability
+from worsening harness compatibility.
+Trajectory analysis reveals how incorrect harness state
+disrupts otherwise successful execution.
+Together, these findings highlight risks to both task
+execution and continued learning, motivating
+compatibility-aware joint training. 2. Joint model–harness reinforcement learning. We introduce, to our knowledge, the first framework
+to jointly train an executable-harness generation policy
+and a task-execution policy through RL.
+The Engineer and Solver learn from the same task outcome,
+making both harness construction and task execution
+trainable within a shared learning process. 3. Coordination adaptations and empirical evaluation. We adapt cooperative-learning mechanisms to the
+Engineer–Solver setting and evaluate JoMoHa across three environments.
+Frozen-Engineer controls, fixed-Solver harness comparisons,
+and component studies assess the benefits of training
+the Engineer, improving the harness, and coordinating
+the two policies. 2 Related Work Model-weight optimization. Reinforcement learning improves language-model reasoning and
+decision-making from task feedback ( Shao et al., 2024 ) .
+Single-Rollout Asynchronous Optimization (SAO) uses one rollout per
+prompt, a learned value model, and token-level calibration to stabilize
+asynchronous agentic RL ( Hou et al., 2026 ) .
+For tool-using agents, Search-R1 learns when and how to retrieve
+information ( Jin et al., 2025 ) , while ReTool learns to interleave
+reasoning with code execution ( Feng et al., 2025 ) .
+RAGEN studies the training dynamics of multi-turn agents ( Wang et al., 2025 ) .
+These methods improve the task-performing policy under a prescribed
+runtime, rather than jointly learning a separate policy that
+constructs that runtime. JoMoHa trains the Solver alongside an Engineer whose generated
+harness shapes the Solver’s execution. Harness optimization. A complementary line improves the system surrounding the model.
+ReAct organizes reasoning and action, while Self-Refine and Reflexion
+use textual feedback to revise behavior ( Yao et al., 2023 ; Madaan et al., 2023 ; Shinn et al., 2023 ) .
+OPRO and DSPy support instruction and pipeline optimization ( Yang et al., 2023 ; Khattab et al., 2023 ) .
+ADAS and AFlow search over agent architectures and executable
+workflows ( Hu et al., 2024 ; Zhang et al., 2024 ) , and Meta-Harness
+searches executable harnesses using prior code, scores, and
+execution traces ( Lee et al., 2026 ) .
+These approaches motivate treating the runtime as an optimization
+object, but improving a program does not necessarily train
+its generator.
+Harness-R1 makes runtime editing a learned capability by training
+an Engineer through RL against a frozen target agent ( Shao et al., 2026 ) . JoMoHa further trains the Solver alongside the Engineer,
+allowing both policies to adapt to their changing partner. Joint learning and coordination. WHALE jointly improves model weights and harnesses through
+alternating updates ( Kim et al., 2026 ) .
+Its published instantiation combines online RSFT with
+Meta-Harness search driven by a fixed external proprietary
+frontier model.
+Compared with WHALE, JoMoHa learns the harness-generating
+policy itself and trains both policies through RL from the
+same executed program–rollout pair (Table 1 ). Cooperative RL provides foundations for learning from team outcomes ( Yu et al., 2022 ; Foerster et al., 2017a ; Kuba et al., 2021 ; Foerster et al., 2017b ; van Hasselt et al., 2016 ) .
+These classical methods were primarily developed and evaluated
+in non-language environments.
+Adapting these ideas to LLM training, particularly our
+program-mediated setting, is nontrivial:
+the Engineer and Solver have separate token histories and different
+decision horizons, while the Engineer’s program shapes the Solver’s
+entire multi-turn rollout.
+Their execution conditions also change as both policies learn.
+Our adaptations address critic information, role-specific return
+scales, partner-trajectory weighting, and update frequency.
+Component studies examine their contributions in this setting,
+and the complete coordination design improves performance over
+the Joint-only baseline (Section 6.2 ). Table 1: Comparison of model–harness learning procedures. Engineer and Solver columns describe parameter updates.
+A fixed Engineer can still search for new harnesses.
+For Harness-R1, the Solver is frozen during Engineer training.
+A dash denotes no separate harness Engineer. Method Harness adaptation Engineer Solver Search-R1 / ReTool Prescribed – RL Meta-Harness Code search External Fixed Harness-R1 Learned edits RL Fixed WHALE Code search External RSFT JoMoHa Learned generation RL RL 3 Background Reinforcement learning (RL) improves a policy, a distribution over
+actions, through interaction and reward ( Sutton and Barto, 2018 ) .
+A Markov decision process (MDP) describes this interaction using
+states, actions, transition dynamics, and rewards: the next state
+depends on the current state and action.
+An episode is one task attempt.
+Language agents observe only part of the environment, so their
+policies use the available history.
+An actor is the trainable policy; a critic predicts its
+future return and provides a baseline for advantages—whether an
+outcome is better or worse than expected. For a task x x , the Engineer uses evidence e e to sample a proposal
+trajectory τ E \tau_{\mathrm{E}} .
+Validation and fallback map it to the executed harness h = 𝒱 ⁡ ( τ E ) h=\mathcal{V}(\tau_{\mathrm{E}}) .
+The Solver acts under h h , producing trajectory τ S \tau_{\mathrm{S}} and terminal task reward R ⁡ ( x , τ S ) R(x,\tau_{\mathrm{S}}) .
+For role i ∈ { E , S } i\in\{\mathrm{E},\mathrm{S}\} , θ i \theta_{i} and ϕ i \phi_{i} are actor and critic parameters, with actor policy π θ i \pi_{\theta_{i}} .
+Indices t t , b b , and k k denote generated-token positions,
+paired episodes, and saved checkpoints, respectively; θ S ( k ) \theta_{\mathrm{S}}^{(k)} and h k h_{k} identify saved weights and code.
+The no-harness condition ∅ \varnothing retains the base executor. SAO learns from one rollout per prompt using a critic ( Hou et al., 2026 ) .
+Both roles share the task reward, while their returns also include
+role-specific KL penalties that restrain divergence from fixed
+reference policies. 4 Why Learn Weights and Harnesses Together? We examine an alternating-training baseline that updates
+the Solver and Engineer in separate phases.
+Such training may lead to over-adaptation between the
+Solver and its harness: each component adapts to a counterpart
+that subsequently changes, potentially making their learned
+behavior less compatible.
+On ALFWorld, this baseline initially improves from 83.0%
+to 90.5%, but then deteriorates across successive stages
+to 31.5% (Table 2 ).
+In comparison, JoMoHa reaches 97.0%.
+We analyze the alternating run to investigate how harness
+mismatch can affect both task execution and Solver learning. Table 2: Performance degradation during alternating
+training on ALFWorld. Each alternating stage uses its corresponding Solver–harness
+pair ( θ S ( k ) , h k ) (\theta_{\mathrm{S}}^{(k)},h_{k}) .
+The highest alternating-stage success and the result of JoMoHa are bolded.
+The fixed-code diagnosis is reported in Table 3 . Training scheme Checkpoint Success (%) Alternating training θ S ( 0 ) , h 0 \theta_{\mathrm{S}}^{(0)},h_{0} 83.0 θ S ( 1 ) , h 1 \theta_{\mathrm{S}}^{(1)},h_{1} 90.5 θ S ( 2 ) , h 2 \theta_{\mathrm{S}}^{(2)},h_{2} 78.5 θ S ( 3 ) , h 3 \theta_{\mathrm{S}}^{(3)},h_{3} 48.5 θ S ( 4 ) , h 4 \theta_{\mathrm{S}}^{(4)},h_{4} 31.5 JoMoHa 144 rounds 97.0 4.1 Diagnosing Model–Harness Compatibility The stage-level results alone cannot distinguish declining
+Solver ability from worsening harness compatibility,
+because both components change across stages.
+We therefore hold one harness fixed and evaluate it with
+different Solver checkpoints. The percentage success SR ⁡ ( θ S , h ) \mathrm{SR}(\theta_{\mathrm{S}},h) evaluates
+fixed Solver weights under a saved harness.
+The no-harness condition h = ∅ h=\varnothing removes the learned
+harness while retaining the base executor.
+The harness contribution to a fixed Solver is Δ h ​ ( θ S , h ) = SR ⁡ ( θ S , h ) − SR ⁡ ( θ S , ∅ ) . \Delta_{h}(\theta_{\mathrm{S}},h)=\mathrm{SR}(\theta_{\mathrm{S}},h)-\mathrm{SR}(\theta_{\mathrm{S}},\varnothing). (1) This comparison separates Solver performance without the
+learned harness from the harness’s immediate effect on execution. Specifically, we select earlier Solver weights θ S ( 2 ) \theta_{\mathrm{S}}^{(2)} ,
+later weights θ S ( 3 ) \theta_{\mathrm{S}}^{(3)} , and the saved harness h 2 h_{2} from the
+alternating run.
+For each Solver, we evaluate the same fixed harness and
+the no-harness condition on the same ALFWorld evaluation tasks.
+The following aggregate comparisons and trajectory analyses
+examine both execution interference and Solver degradation. Table 3: Execution interference and Solver degradation
+during alternating training. (a) Aggregate success rates; harness effect is the difference
+within each row in percentage points.
+(b) Case 1 from the ALFWorld trajectory analysis:
+outcomes and episode lengths across four Solver–harness
+combinations.
+Both h 2 h_{2} conditions execute the identical saved harness.
+No harness retains the base executor but removes the
+learned harness. (a) Aggregate success (%) Solver No harness Fixed h 2 h_{2} Harness effect Earlier θ S ( 2 ) \theta_{\mathrm{S}}^{(2)} 82.5 78.5 − 4.0 -4.0 Later θ S ( 3 ) \theta_{\mathrm{S}}^{(3)} 48.0 31.0 − 17.0 -17.0 Change − 34.5 -34.5 − 47.5 -47.5 − 13.0 -13.0 (b) Case 1: Clean sponge and place on cart Solver No harness Fixed h 2 h_{2} Earlier θ S ( 2 ) \theta_{\mathrm{S}}^{(2)} Success 16 turns Success 14 turns Later θ S ( 3 ) \theta_{\mathrm{S}}^{(3)} Success 14 turns Timeout 50 turns Separating execution interference from Solver degradation. Table 3 reveals two distinct changes.
+Across each row, adding the same harness reduces success
+by 4.0 points for θ S ( 2 ) \theta_{\mathrm{S}}^{(2)} but 17.0 points for θ S ( 3 ) \theta_{\mathrm{S}}^{(3)} :
+its negative effect increases by 13.0 points.
+Down the no-harness column, success falls from 82.5% to 48.0%:
+the Solver loses 34.5 points even when the learned harness
+is removed.
+Together, these account for the decline under the fixed harness: − 47.5 ⏟ system decline = − 34.5 ⏟ Solver decline + − 13.0 ⏟ compatibility loss . \underbrace{-47.5}_{\text{system decline}}=\underbrace{-34.5}_{\text{Solver decline}}+\underbrace{-13.0}_{\text{compatibility loss}}. (2) The first comparison shows that an unchanged harness can
+increasingly interfere with execution as the Solver changes.
+The additional loss cannot be explained by the Engineer
+generating a worse new harness.
+At θ S ( 3 ) \theta_{\mathrm{S}}^{(3)} , adding h 2 h_{2} changes success to failure on
+18.0% of evaluation tasks and failure to success on 1.0%. The second comparison shows that removing the harness does
+not restore the later Solver’s earlier performance.
+The decline therefore extends beyond interference during
+the current execution.
+It is consistent with the concern that training under
+mismatched harnesses may steer the Solver toward
+less effective behavior.
+These findings motivate maintaining Solver–harness
+compatibility throughout training, rather than treating
+the harness only as an inference-time aid. Case 1: Harness-induced failure on ALFWorld. We examine evaluation trajectories produced by the earlier
+and later Solver checkpoints from the alternating training
+run analyzed above.
+The task requires cleaning a sponge and placing it on a cart.
+The later Solver succeeds in 14 turns without the learned
+harness, but reaches the 50-turn limit under the old
+harness h 2 h_{2} (Table 3 b).
+The earlier Solver succeeds in both conditions, taking
+16 and 14 turns, respectively.
+The later Solver therefore retains the behavior needed to
+complete this task; the failure appears when it is combined
+with the old harness. The trajectory analysis reveals the following failure sequence: 1. The environment advances. Cleaning has completed, so the remaining work is to finish
+navigation and placement. 2. The harness fails to update its state. The executed action is stored in a nested field, but the old
+lookup uses a literal dotted key.
+The correct access is on the first line below;
+the old lookup is on the second: ctx["action"]["final_action"]
+ctx.get("action.final_action") A dotted string is a different dictionary key, not a nested
+lookup, so the completed action is missed.
+A second state update can also overwrite earlier inventory
+evidence when the current observation omits the word
+indicating cleaning. 3. Stale guidance sends execution backward. Although the environment has confirmed cleaning, the harness
+continues directing the Solver to find and clean the object.
+The episode loops through navigation and reaches the turn limit. Case 2: Solver failure without the learned harness. A contrasting ALFWorld case from the same training run
+exposes a failure in the no-harness condition.
+After cleaning a potato and navigating to the destination,
+the later Solver omits the final placement action and
+eventually reaches the turn limit.
+Because no learned harness is active, this failure cannot
+be attributed to interference from h 2 h_{2} .
+It illustrates why removing an incompatible harness alone
+cannot address all failures of the trained Solver. 4.2 From Compatibility to Coordinated Learning Taken together, these findings suggest that a mismatched
+harness can impair current task execution and may also
+distort the experience from which the Solver learns .
+This creates a risk of a negative feedback loop in which
+ineffective harness guidance and declining Solver capability
+reinforce one another.
+Maintaining a compatible Solver–harness pair throughout
+learning is therefore important. Our unit of learning is a complete task attempt:
+the generated harness, the actions taken under it,
+and the final outcome.
+The Engineer learns to generate effective harnesses,
+while the Solver learns to complete tasks under them.
+To mitigate this risk, our method uses their shared task
+outcome to coordinate value estimation and policy updates,
+supporting the joint adaptation of both policies. 5 JoMoHa JoMoHa jointly trains two LLM policies:
+an Engineer that generates a harness and a Solver that
+performs tasks under it.
+Both learn from the outcome of the same task attempt
+(Figure 3 ).
+To coordinate their learning, we use collaboration-aware
+value estimation, role-specific return normalization,
+partner-trajectory weighting, and asymmetric update schedules. 5.1 Learning from a Shared Task Outcome For a task x x , the Engineer receives historical feedback e e and samples a proposal trajectory τ E \tau_{\mathrm{E}} .
+Validation and fallback map that proposal to the executed harness h = 𝒱 ⁡ ( τ E ) h=\mathcal{V}(\tau_{\mathrm{E}}) .
+The Solver then interacts with the environment under h h ,
+producing trajectory τ S \tau_{\mathrm{S}} and task reward R ⁡ ( x , τ S ) R(x,\tau_{\mathrm{S}}) .
+An invalid proposal maps to h = ∅ h=\varnothing , retaining the base executor. The two policies share the objective J ⁡ ( θ E , θ S ) = 𝔼 x , e , h , τ S ​ [ R ⁡ ( x , τ S ) ] , J(\theta_{\mathrm{E}},\theta_{\mathrm{S}})=\mathbb{E}_{x,e,h,\tau_{\mathrm{S}}}\left[R(x,\tau_{\mathrm{S}})\right], (3) where h h is the validation/fallback result and τ S \tau_{\mathrm{S}} is collected by the Solver under that harness.
+The task reward is binary on ALFWorld. The same reward trains both policies:
+the Engineer learns which harnesses support successful
+execution, while the Solver learns how to complete tasks
+under those harnesses.
+Each policy is updated on its own generated outputs,
+without differentiating through harness execution.
+We use a KL-regularized SAO-based actor–critic backbone ( Hou et al., 2026 ) , with a fixed reference policy for each role.
+The local realization retains behavior–proximal token-ratio
+decoupling. 5.2 Value Estimation for Two Different Roles Each policy has an independent critic that estimates its
+expected return, including task rewards and its own KL penalty.
+The critics provide baselines for computing advantages:
+whether an outcome is better or worse than expected. Context: account for collaboration conditions. The usefulness of an Engineer proposal depends on the Solver,
+while the Solver’s performance depends on the harness.
+A critic V ϕ i ​ ( z i , t , c i ) V_{\phi_{i}}(z_{i,t},c_{i}) predicts the role’s expected
+remaining regularized return from its current history z i , t z_{i,t} and a short collaboration summary c i c_{i} .
+The supplemental fields describe the task identifier, training version,
+and role-specific execution conditions.
+The task field is a path or identifier, not a full environment observation.
+Context is provided only to the critics and does not change
+the actors’ inputs. ValueNorm: account for different return scales. The Engineer generates a harness once, whereas the Solver
+acts over multiple turns.
+Their different output lengths and KL penalties can produce
+different return scales despite the shared task reward.
+Writing the raw, unweighted critic target as G i , t G_{i,t} , we normalize critic targets
+separately for each role: G ^ i , t \displaystyle\widehat{G}_{i,t} = G i , t − m i σ i , \displaystyle=\frac{G_{i,t}-m_{i}}{\sigma_{i}}, V ϕ i ​ ( z i , t , c i ) \displaystyle V_{\phi_{i}}(z_{i,t},c_{i}) = σ i ​ V ^ ϕ i ​ ( z i , t , c i ) + m i , \displaystyle=\sigma_{i}\widehat{V}_{\phi_{i}}(z_{i,t},c_{i})+m_{i}, (4) where m i m_{i} and σ i > 0 \sigma_{i}>0 are running return statistics.
+Values are restored to their original scale before
+advantages are computed.
+Hats denote normalized targets and predictions.
+This critic-target normalization is separate from
+standardizing actor advantages. 5.3 Coordinating Policy Updates We compute advantages using generalized advantage estimation ( Schulman et al., 2016 ) and standardize them separately
+for the two policies.
+We introduce two additional mechanisms to account for
+the changing partner and the different adaptation needs
+of the two roles. Peer: weight experience using the partner’s trajectory. As both policies change, a recorded task attempt may become
+more or less representative of their current collaboration.
+Peer adjusts its influence using the paired partner trajectory: A ~ E , b , t = w S , b ​ A ¯ E , b , t , A ~ S , b , t = w E , b ​ A ¯ S , b , t , \widetilde{A}_{\mathrm{E},b,t}=w_{\mathrm{S},b}\bar{A}_{\mathrm{E},b,t},\qquad\widetilde{A}_{\mathrm{S},b,t}=w_{\mathrm{E},b}\bar{A}_{\mathrm{S},b,t}, (5) where A ¯ i , b , t \bar{A}_{i,b,t} is the role-standardized advantage.
+Each partner weight compares the likelihood of the recorded
+trajectory under the policy snapshot used for the current
+update with its likelihood when collected.
+We bound the weight to [ 0.5 , 2 ] [0.5,2] , treat it as a constant
+during optimization, and leave critic targets unchanged. Schedule: give the Solver additional adaptation. Changing the Engineer changes the harnesses under which
+the Solver learns.
+To give the Solver additional adaptation without another
+Engineer update, the coordination study repeats joint, joint, Solver-only rounds.
+The resulting update ratio is
+Engineer:Solver = 2 : 3 =2:3 . Solver-only rounds freeze the Engineer’s parameters but
+still sample fresh harnesses.
+They use unit partner weights.
+Thus, the Solver continues learning under sampled harnesses
+while their generating policy remains fixed. Algorithm 1 summarizes the procedure.
+At deployment, we select a saved harness and evaluate it
+with a frozen Solver checkpoint. Algorithm 1 Joint learning of the Engineer and Solver 0: Engineer and Solver policies, independent critics,
+reference policies, task/evidence stream 1: for each training round do 2: Choose active roles according to Schedule. 3: Engineer samples a code proposal from historical feedback. 4: Validate it to obtain the executed harness and run the Solver. 5: Record both outputs and their shared task reward. 6: for each active role do 7: Estimate values using Context and ValueNorm. 8: Compute and standardize advantages. 9: Apply Peer weights and update the actor through the SAO-based path. 10: Update the critic on normalized return targets. 11: end for 12: end for 13: Select a saved harness and Solver checkpoint for evaluation. Table 4: Benchmark comparison across agent and harness-optimization methods. Frontier models serve as fixed harness editors.
+Reflection uses success@2 ( † \dagger ).
+Avg. is the mean of ALFWorld All, WebShop success, and DBBench success;
+it excludes WebShop score.
+Best and second-best distinct values are bold on red and underlined on blue,
+including ties. Method ALFWorld WebShop DBBench Avg. Pick Look Clean Heat Cool Pick2 All Score Succ. Succ. Qwen3.5-9B (with default harness) 75.8 66.7 16.9 28.8 9.2 47.5 40.6 66.0 31.2 61.0 44.3 Prompt-based Agentic Methods ReAct 79.8 54.8 27.3 27.4 10.3 53.3 43.4 66.8 37.4 61.7 47.5 Self-Refine 70.7 45.2 11.7 28.8 6.9 57.4 39.0 61.7 29.0 57.3 41.8 Reflection † 91.9 90.5 24.7 56.2 19.5 73.8 59.2 61.2 43.6 64.7 55.8 Fixed Frontier Harness Editors Qwen3.5-397B 76.8 66.7 14.3 31.5 11.5 47.5 41.2 66.4 32.8 63.3 45.8 GLM-5.2 77.8 78.6 18.2 27.4 16.1 54.9 45.0 68.4 36.0 65.3 48.8 Kimi-K2.6 73.7 71.4 14.3 30.1 12.6 49.2 41.4 63.7 31.8 62.7 45.3 DeepSeek-V4-Pro 72.7 69.0 13.0 30.1 16.1 47.5 41.0 65.1 32.4 64.3 45.9 Gemini-3.5-Flash 67.7 69.0 14.3 24.7 10.3 35.2 35.4 63.2 33.6 64.0 44.3 GPT-5.5 80.8 78.6 31.2 28.8 17.2 35.2 43.2 61.4 36.6 64.0 47.9 Harness-Adapted Agents Agent SFT + Harness-R1 93.9 100.0 81.8 74.0 72.4 86.1 84.0 68.7 43.0 65.7 64.2 WHALE 97.7 92.9 55.2 79.3 66.7 87.8 80.5 71.63 43.4 65.3 63.1 JoMoHa (ours) 100.0 100.0 100.0 96.6 97.2 91.8 97.0 73.9 45.8 68.0 70.3 6 Experiments Experimental setup. We evaluate JoMoHa on ALFWorld, WebShop, and DBBench, which test
+household task completion, goal-directed shopping, and database interaction,
+respectively ( Shridhar et al., 2021 ; Yao et al., 2022 ; Liu et al., 2024 ) .
+We report success rates in all three environments, a separate WebShop score,
+and the equally weighted mean of the three success rates.
+The ALFWorld coordination study uses separate Qwen3.5-9B-class Engineer
+and Solver actors with independent critics, initialized from Agent SFT,
+and collects eight paired episodes per round for 144 rounds. Baselines. Except for locally evaluated JoMoHa and WHALE, scores are taken from
+Harness-R1 ( Shao et al., 2026 ) ; we use its training and test sets,
+with checkpoint and harness selection on a separate validation set.
+The task model is Qwen3.5-9B; frontier model names denote harness editors,
+not replacement Solvers.
+Agent SFT + Harness-R1 additionally fine-tunes the task model,
+while WHALE uses its RSFT-plus-search recipe.
+WHALE alternates after eight environment interactions (16 training steps),
+uses the same harness-search settings as JoMoHa , and matches its
+total environment-interaction budget.
+Section 6.2 examines one-sided learning, frozen-Engineer
+training, program swaps, and coordination components. 6.1 Main Results JoMoHa achieves the highest success rates among the evaluated methods
+on all three benchmarks: 97.0% on ALFWorld, 45.8% on WebShop, and
+68.0% on DBBench (Table 4 ).
+Its average success is 70.3%, exceeding Agent SFT + Harness-R1 by
+6.1 percentage points and WHALE by 7.2 points.
+The gains over WHALE are 16.5, 2.4, and 2.7 points across the three
+environments, respectively. The ALFWorld breakdown locates the largest gains on tasks that transform
+an object’s state before placement.
+Against the strongest competing result in each category, JoMoHa gains
+18.2 points on Clean, 17.3 on Heat, and 24.8 on Cool, compared with
+0.0–4.0 points on the remaining categories.
+This pattern extends beyond differences in ceiling effects: on Heat and
+Cool, the gains remove approximately 83.6% and 89.9% of the respective
+best competitor’s errors
+.
+These tasks require execution to distinguish a completed transformation
+from the remaining navigation and placement, making the results consistent
+with the state-tracking issue diagnosed in Section 4.1 .
+Pick2 remains the weakest category at 91.8%, indicating remaining room
+for improvement when multiple objects must be collected and placed. Table 5: Harness utility at fixed Solver weights. Fixed-program cross-evaluation: columns fix Solvers and rows fix programs.
+Earlier and later denote programs and Solvers saved at checkpoints 48
+and 144, respectively.
+The initial program comes from the initial Engineer.
+Colors follow Table 4 . Harness Earlier Solver Later Solver No harness 90.0 91.5 Initial program 91.5 92.5 Earlier program 95.0 95.0 Later program 95.0 96.5 Table 6: Coordination-component additions. Success uses the saved harness and Solver.
+Each addition row changes one coordination component relative to Joint-only;
+the full method combines all four.
+Best and second best follow Table 4 . Variant Success (%) Joint-only 88.5 + Schedule 92.0 + Context 92.5 + Peer 92.0 + ValueNorm 91.5 JoMoHa 97.0 6.2 Ablation Studies We examine three sources of improvement: training the Engineer rather than
+only resampling its outputs, improving the harness at fixed Solver weights,
+and coordinating the two policies beyond the Joint-only baseline. Training the Engineer beyond fresh harness sampling. Frozen Engineer fixes the initial Engineer parameters while continuing to
+sample fresh harnesses and train the Solver.
+It reaches 90.5% at step 144, versus 97.0% for JoMoHa (Figure 1 ); even its best reported checkpoint, 91.5%
+at step 108, remains 5.5 points below the complete method.
+Thus, the gap persists when the control can both resample programs and
+use its best reported checkpoint.
+Weight-only and Harness-only reach 89.5% and 80.5%, respectively.
+Together, these controls favor training both policies over the evaluated
+one-sided recipes, while the component study below examines the additional
+benefit of coordination. Harness utility at unchanged Solver weights. Learning curves alone cannot separate improvements in Solver ability from
+improvements in the generated runtime.
+We therefore cross-evaluate saved programs and Solver checkpoints
+(Table 5 ).
+At the later Solver, replacing the initial program with the later program
+raises success from 92.5% to 96.5%, without changing model weights.
+Relative to no harness, the later program gains 5.0 points, with no observed
+success-to-failure regressions on this evaluation set.
+The earlier and later learned programs also both improve the earlier Solver
+from 91.5% under the initial program to 95.0%.
+These results show that the saved programs contribute useful behavior
+beyond the initial runtime, including at a different Solver checkpoint.
+The equal 95.0% scores on the earlier Solver, but 95.0% versus 96.5%
+on the later Solver, further show that program value depends on the
+Solver with which it is paired. Coordinating the two learners. Joint-only trains both policies from paired task outcomes without Context,
+ValueNorm, Peer, or Schedule.
+Adding each mechanism separately raises its final success from 88.5%
+to 91.5–92.5%; combining all four reaches 97.0%, an 8.5-point
+improvement over Joint-only (Table 6 ).
+Context yields the highest single-addition point estimate, 92.5%,
+consistent with the value of informing each critic about its collaboration
+conditions.
+Schedule and Peer both achieve 92.0%, while ValueNorm achieves 91.5%. 7 Discussion and Conclusion One model learns to write the runtime; another learns to act under it. JoMoHa trains both from the same task result while keeping their token
+histories and value estimates separate.
+Fixed-component tests measure the two sides of this interaction.
+At fixed Solver weights, saved programs improve on the initial code.
+Learning the writer outperforms freezing it while still sampling new code,
+and coordinating the two learners improves on joint updates alone.
+The complete system has the highest reported success on all three
+environments in the benchmark table, averaging 70.3%.
+This is RSI through execution feedback: both the task policy and the
+policy that constructs its runtime are learned within the system. References Feng et al. (2025) J. Feng, S. Huang, X. Qu, G. Zhang, Y. Qin, B. Zhong, C. Jiang, J. Chi, and W. Zhong ReTool: reinforcement learning for strategic tool use in LLMs . External Links: 2504.11536 , Link Cited by: §2 . Foerster et al. (2017a) J. Foerster, G. Farquhar, T. Afouras, N. Nardelli, and S. Whiteson Counterfactual multi-agent policy gradients . External Links: 1705.08926 , Link Cited by: §2 . Foerster et al. (2017b) J. Foerster, N. Nardelli, G. Farquhar, T. Afouras, P. H. S. Torr, P. Kohli, and S. Whiteson Stabilising experience replay for deep multi-agent reinforcement learning . External Links: 1702.08887 , Link Cited by: §2 . Hou et al. (2026) Z. Hou, Y. Li, J. Tang, and Y. Dong Single-rollout asynchronous optimization for agentic reinforcement learning . External Links: 2607.07508 , Document , Link Cited by: Figure 2 , §2 , §3 , §5.1 . Hu et al. (2024) S. Hu, C. Lu, and J. Clune Automated design of agentic systems . External Links: 2408.08435 , Link Cited by: §2 . Jin et al. (2025) B. Jin, H. Zeng, Z. Yue, J. Yoon, S. Arik, D. Wang, H. Zamani, and J. Han Search-R1: training LLMs to reason and leverage search engines with reinforcement learning . External Links: 2503.09516 , Link Cited by: §2 . Khattab et al. (2023) O. Khattab, A. Singhvi, P. Maheshwari, Z. Zhang, K. Santhanam, S. Vardhamanan, S. Haq, A. Sharma, T. T. Joshi, H. Moazam, H. Miller, M. Zaharia, and C. Potts DSPy: compiling declarative language model calls into self-improving pipelines . External Links: 2310.03714 , Link Cited by: §2 . Kim et al. (2026) H. Kim, Y. Lee, G. Lee, C. Finn, and K. Lee WHALE: a simple recipe for joint harness-weight optimization . External Links: 2609.00196 , Link Cited by: §1 , §2 . Kuba et al. (2021) J. G. Kuba, R. Chen, M. Wen, Y. Wen, F. Sun, J. Wang, and Y. Yang Trust region policy optimisation in multi-agent reinforcement learning . External Links: 2109.11251 , Link Cited by: §2 . Lee et al. (2026) Y. Lee, R. Nair, Q. Zhang, K. Lee, O. Khattab, and C. Finn Meta-Harness: end-to-end optimization of model harnesses . External Links: 2603.28052 , Link Cited by: §1 , §2 . Liu et al. (2024) X. Liu, H. Yu, H. Zhang, Y. Xu, X. Lei, H. Lai, Y. Gu, H. Ding, K. Men, K. Yang, S. Zhang, X. Deng, A. Zeng, Z. Du, C. Zhang, S. Shen, T. Zhang, Y. Su, H. Sun, M. Huang, Y. Dong, and J. Tang AgentBench: evaluating LLMs as agents . In International Conference on Learning Representations , External Links: Link Cited by: §6 . Madaan et al. (2023) A. Madaan, N. Tandon, P. Gupta, S. Hallinan, L. Gao, S. Wiegreffe, U. Alon, N. Dziri, S. Prabhumoye, Y. Yang, S. Gupta, B. P. Majumder, K. Hermann, S. Welleck, A. Yazdanbakhsh, and P. Clark Self-Refine: iterative refinement with self-feedback . External Links: 2303.17651 , Link Cited by: §2 . Schulman et al. (2016) J. Schulman, P. Moritz, S. Levine, M. I. Jordan, and P. Abbeel High-dimensional continuous control using generalized advantage estimation . In International Conference on Learning Representations , External Links: Link Cited by: §5.3 . Shao et al. (2026) S. Shao, K. Zhang, Q. Li, S. Wang, H. Wang, W. Jiao, Y. Lu, Y. Guo, W. Liu, and W. Zhang Harness-R1: learning to edit executable runtime harnesses from agent failure trajectories . External Links: 2608.02276 , Link Cited by: §1 , §1 , §2 , §6 . Shao et al. (2024) Z. Shao, P. Wang, Q. Zhu, R. Xu, J. Song, X. Bi, H. Zhang, M. Zhang, Y. K. Li, Y. Wu, and D. Guo DeepSeekMath: pushing the limits of mathematical reasoning in open language models . External Links: 2402.03300 , Link Cited by: §1 , §2 . Shinn et al. (2023) N. Shinn, F. Cassano, E. Berman, A. Gopinath, K. Narasimhan, and S. Yao Reflexion: language agents with verbal reinforcement learning . External Links: 2303.11366 , Link Cited by: §2 . Shridhar et al. (2021) M. Shridhar, X. Yuan, M. Côté, Y. Bisk, A. Trischler, and M. Hausknecht ALFWorld: aligning text and embodied environments for interactive learning . In International Conference on Learning Representations , External Links: Link Cited by: §6 . Sutton and Barto (2018) R. S. Sutton and A. G. Barto Reinforcement learning: an introduction . 2 edition , MIT Press . External Links: Link Cited by: §3 . van Hasselt et al. (2016) H. van Hasselt, A. Guez, M. Hessel, V. Mnih, and D. Silver Learning values across many orders of magnitude . External Links: 1602.07714 , Link Cited by: §2 . Wang et al. (2025) Z. Wang, K. Wang, Q. Wang, P. Zhang, L. Li, Z. Yang, X. Jin, K. Yu, M. N. Nguyen, L. Liu, E. Gottlieb, Y. Lu, K. Cho, J. Wu, F. Li, L. Wang, Y. Choi, and M. Li RAGEN: understanding self-evolution in LLM agents via multi-turn reinforcement learning . External Links: 2504.20073 , Link Cited by: §2 . Yang et al. (2023) C. Yang, X. Wang, Y. Lu, H. Liu, Q. V. Le, D. Zhou, and X. Chen Large language models as optimizers . External Links: 2309.03409 , Link Cited by: §2 . Yao et al. (2022) S. Yao, H. Chen, J. Yang, and K. Narasimhan WebShop: towards scalable real-world web interaction with grounded language agents . In Advances in Neural Information Processing Systems , Vol. 35 . External Links: Link Cited by: §6 . Yao et al. (2023) S. Yao, J. Zhao, D. Yu, N. Du, I. Shafran, K. Narasimhan, and Y. Cao ReAct: synergizing reasoning and acting in language models . In International Conference on Learning Representations , External Links: Link Cited by: §2 . Yu et al. (2022) C. Yu, A. Velu, E. Vinitsky, J. Gao, Y. Wang, A. Bayen, and Y. Wu The surprising effectiveness of PPO in cooperative, multi-agent games . In Advances in Neural Information Processing Systems , Vol. 35 . External Links: Link Cited by: §1 , §2 . Zhang et al. (2024) J. Zhang, J. Xiang, Z. Yu, F. Teng, X. Chen, J. Chen, M. Zhuge, X. Cheng, S. Hong, J. Wang, B. Zheng, B. Liu, Y. Luo, and C. Wu AFlow: automating agentic workflow generation . External Links: 2410.10762 , Link Cited by: §2 . Experimental support, please view the build logs for errors. Generated by L A T E xml . Instructions for reporting errors We are continuing to improve HTML versions of papers, and your feedback helps enhance accessibility and mobile
+      support. To report errors in the HTML that will help us improve conversion and rendering, choose any of the
+      methods listed below: Click the "Report Issue" ( ) button, located in the page header. Tip: You can select the relevant text first, to include it in your report. Our team has already identified the following issues . We appreciate your time reviewing and reporting rendering errors we
+      may not have found yet. Your efforts will help us improve the HTML versions for all readers, because disability
+      should not be a barrier to accessing research. Thank you for your continued support in championing open access for
+      all. Have a free development cycle? Help support accessibility at arXiv! Our collaborators at LaTeXML maintain a list of packages that need conversion , and welcome developer contributions . We gratefully acknowledge support from our major funders , member institutions , ,
+        and all contributors. About · Help · Contact · Subscribe · Copyright · Privacy · Accessibility · Operational Status (opens in new tab)
