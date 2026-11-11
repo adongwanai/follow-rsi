@@ -1,0 +1,252 @@
+SkinMind: Equipping Agentic RAG with Human-Inspired Graph Probing for Reliable Dermatology AI Skip to main content Report GitHub Issue × Title: Content selection saved. Describe the issue below: Description: Submit without GitHub Submit in GitHub Why HTML? Report Issue Back to Abstract Download PDF Contents Reading mode Colour theme Abstract 1 Introduction 2 Related Work Retrieval-Augmented Generation. Multimodal Models in Dermatology. 3 SkinMind 3.1 Overview 3.2 Slow–Fast Thinking 3.3 Agentic Graph-Probing Loop Loop Formulation. Tool Calling. Environment. Context Management. 3.4 Hierarchical Graph-Probing Interfaces 4 SkinMind-KG Construction and Statistics 4.1 Knowledge Graph Construction Conflict Detection and Resolution. Visual Modality Integration. 4.2 Graph Statistics and Structural Characteristics 5 Experiments 5.1 Experimental Setting Datasets. Baselines and Evaluation. Implementation Details. 5.2 Main Results SkinMind delivers consistent performance gains. Adaptive graph probing enables more effective retrieval. SkinMind is competitive with strong standalone reference models. 5.3 Ablation on Graph Probing Tools 5.4 Illustrative Case Study 5.5 Context Efficiency Analysis 6 Conclusion References Appendix A SkinMind-KG Data Appendix A.1 Source Composition and Provenance A.2 Text Parsing, Cleaning, and Chunking A.3 Disease Ontology and Extraction Schema A.4 Merging, Deduplication, and Conflict Resolution A.5 Image-Node Integration A.6 Graph Storage and Representative Records B Experimental Reproducibility B.1 Hardware and Software Environment B.2 Comparative Method Implementation Details C Failure Case Analysis D Prompts and Tool Interfaces D.1 Knowledge-Extraction System Prompt D.2 Knowledge-Extraction User Prompt D.3 Entity-Ontology Block D.4 Relationship-Ontology Block D.5 Description Merging and Conflict-Detection Prompt D.6 Graph-Probing Tool Instructions find_node . read_node . probe_relations . probe_neighbors . read_chunks . probe_path . search_image . describe_image . D.7 Orchestrator System Prompt License: CC BY-NC-ND 4.0 arXiv:2611.08935v1 [cs.IR] 06 Nov 2026 1]Ant Group, AFu Team
+2]The University of Hong Kong
+3]Monash University
+4]University of Science and Technology of China
+5]Southeast University
+6]The Hong Kong University of Science and Technology (Guangzhou) \contribution [*]Corresponding authors. \correspondence Lijun Wu, lijun_wu@outlook.com ; Jian Wang, bobblair.wj@antgroup.com \metadata [Keywords]Retrieval-augmented generation, agentic search, knowledge graphs, multimodal reasoning, dermatology SkinMind: Equipping Agentic RAG with Human-Inspired Graph Probing for Reliable Dermatology AI Jing Hao Weinan Zhou Zhihong Lu Yaling Shen Yiming Xu Yefeng Liu Siyuan Yan Shuaibo Li Ming Dai Junjun He Zuyi Zhu Jinjie Gu Lijun Wu Jian Wang Affiliation: [ Affiliation: [ Affiliation: [ Affiliation: [ Affiliation: [ Affiliation: [ November 6, 2026 Abstract Reliable dermatology AI requires access to verifiable evidence distributed across heterogeneous textual and visual sources. However, conventional retrieval-augmented generation (RAG) typically relies on one-shot retrieval from flat corpora, limiting its ability to adapt retrieval granularity, explore multi-hop relations, and integrate multimodal clinical evidence. We introduce SkinMind , a multimodal agentic RAG framework that equips policy models with human-inspired graph probing for autonomous evidence seeking. SkinMind organizes retrieval as an iterative interaction between an orchestrator and a graph environment. Through eight hierarchical graph-probing tools, the orchestrator progressively identifies relevant entities, inspects node-level information, traverses relations and paths, and retrieves source-text and visual evidence. This progressive-disclosure design allows the model to adaptively determine the retrieval modality, exploration direction, and evidence granularity while constructing a query-specific evidence subgraph. To support autonomous graph probing, we construct SkinMind-KG from a 62M-token corpus of dermatology guidelines and textbooks and 423K images, guided by a dermatologist-informed schema and a conflict-resolution mechanism. The resulting graph contains over 1.0M nodes and 2.0M edges, unifying textual, relational, and visual evidence for retrieval. Across six dermatology VQA benchmarks and two policy-model settings, SkinMind improves the average score over direct answering by 8.70 8.70 and 8.89 8.89 points with GPT-5.4-mini and Gemini-2.5-Flash, respectively, while consistently outperforming competing RAG methods. Together, SkinMind and SkinMind-KG provide an effective foundation for evidence-grounded multimodal reasoning in dermatology. 1 Introduction Multimodal large language models (MLLMs) have demonstrated remarkable capabilities in language understanding, visual perception, and multi-step reasoning, showing considerable potential for addressing complex real-world tasks [ 28 , 6 , 12 , 27 , 33 , 37 , 1 ] . Dermatology represents a particularly promising application: many skin conditions are visually observable, and patients increasingly seek convenient access to professional medical guidance through online consultations. Accordingly, medical and dermatology-specific MLLMs have shown potential across tasks such as visual question answering, diagnostic decision-making, and treatment recommendation [ 10 , 17 , 16 , 5 , 31 , 29 , 44 , 22 ] . Despite this promise, their deployment in safety-critical healthcare settings remains challenging. First, they may generate fluent but factually incorrect statements, potentially leading to harmful clinical decisions. Second, their parametric knowledge is acquired from static training corpora and cannot be readily updated as clinical evidence and guidelines evolve. Third, their responses often lack verifiable references to supporting medical evidence, substantially limiting their reliability and interpretability. Figure 1 : Performance comparison across six dermatology VQA benchmarks using Gemini-2.5-Flash as the policy model. SkinMind consistently outperforms direct answering and LightRAG. Retrieval-augmented generation (RAG) offers a promising means of mitigating these limitations by grounding model responses in external, authoritative, and traceable medical evidence [ 9 , 8 , 13 , 30 , 35 , 23 , 36 , 25 , 24 , 20 , 3 , 15 ] . Conventional RAG systems, however, typically perform a one-shot retrieval over a flat collection of textual chunks, presenting two limitations for complex medical reasoning [ 14 ] . First, one-shot retrieval relies solely on the initial query and cannot adapt to information needs that emerge during multi-step reasoning. Second, flat-chunk retrieval often provides fragmented evidence with insufficient relational context while introducing irrelevant information. Addressing the first limitation requires adaptive, multi-round retrieval, whereas addressing the second calls for a structured representation of external medical knowledge. Recent agentic RAG methods seek to address the first limitation by interleaving reasoning with iterative retrieval [ 8 , 4 ] . Rather than relying on a fixed set of documents retrieved upfront, the model dynamically determines when additional evidence is needed and formulates new queries based on its intermediate reasoning state. Nevertheless, because these methods typically operate over isolated text chunks, they do not fully resolve the fragmentation and loss of relational context inherent in flat-text retrieval.
+Graph-based RAG improves upon flat-text retrieval by organizing knowledge into entities and relations [ 9 , 13 , 43 ] . However, many existing methods still treat the graph primarily as a retrieval index, selecting entities or subgraphs through embedding similarity or predefined expansion rules. Although the knowledge is graph-structured, the graph itself is rarely exposed to the model for interactive exploration. This contrasts with a human-inspired evidence-seeking process, in which a reasoner begins with a relevant concept, inspects its relations, follows informative paths, and adapts the exploration as new information emerges. This process follows the principle of progressive disclosure [ 32 ] , whereby lightweight structural cues guide navigation, while detailed descriptions or source content are accessed only when needed. Compared with retrieving a fixed candidate set, such navigation allows the retrieval path, scope, and granularity to evolve with the reasoning process, facilitating the flexible construction of query-specific evidence subgraphs while reducing irrelevant context. Inspired by this human-like evidence-seeking process, we propose SkinMind , a multimodal agentic RAG framework for autonomous and reliable dermatology assistance. Rather than treating the knowledge graph as a static retrieval index, SkinMind exposes it as an interactive environment and equips the agent with eight specialized graph-probing tools for interleaved reasoning and retrieval of textual, relational, and visual evidence. Given a clinical query, the agent autonomously identifies relevant entry nodes, inspects their relations, follows informative paths, and progressively accesses node descriptions, source content, and clinical images as needed. To provide a comprehensive and traceable foundation of domain-specific evidence, we construct SkinMind-KG , a large-scale heterogeneous dermatology knowledge graph containing over 1 1 million nodes and 2 2 million edges across 23 core entity types and 25 core relation types.
+Notably, SkinMind-KG explicitly links 301,561 301{,}561 images to disease entities, providing rich visual–conceptual associations for multimodal evidence seeking. We conduct extensive experiments on six public dermatology VQA benchmarks spanning morphology recognition, disease diagnosis, and clinical reasoning in both closed- and open-ended settings. As illustrated in Fig. 1 , SkinMind consistently outperforms direct answering across all six benchmarks, with gains of 4.1 4.1 – 19.7 19.7 points under Gemini-2.5-Flash. More broadly, across both policy-model settings, it surpasses LightRAG by an average of 5.75 5.75 points with GPT-5.4-mini and 3.60 3.60 points with Gemini-2.5-Flash. These results suggest that adaptive graph exploration can support more effective use of external knowledge and improve multimodal clinical reasoning. Our main contributions are summarized as follows: • We propose SkinMind , a multimodal agentic RAG framework that treats a knowledge graph as an interactive environment, enabling interleaved reasoning and adaptive evidence seeking through eight graph-probing tools. • We construct SkinMind-KG , a large-scale heterogeneous dermatology knowledge graph comprising over 1 1 million nodes and 2 2 million edges, with more than 300,000 300{,}000 images explicitly linked to disease entities. • Extensive experiments on six dermatology VQA benchmarks across two policy-model settings demonstrate that SkinMind consistently outperforms direct answering and competing RAG methods, validating the effectiveness of adaptive graph exploration for evidence-grounded multimodal clinical reasoning. 2 Related Work Retrieval-Augmented Generation. RAG augments language models with evidence from external
+corpora [ 21 ] . Adaptive methods interleave reasoning and
+retrieval, respond to generation uncertainty, incorporate self-critique,
+or route queries among retrieval
+strategies [ 34 , 19 , 3 , 18 ] .
+GraphRAG, LightRAG, and HippoRAG organize evidence through entity graphs,
+community summaries, and associative
+retrieval [ 9 , 13 , 20 ] .
+Think-on-Graph 2.0 alternates graph and document retrieval, while Medical
+Graph RAG integrates medical sources and controlled
+vocabularies [ 24 , 36 ] . Agentic approaches give
+models control over evidence acquisition: A-RAG exposes hierarchical
+passage-search interfaces, whereas RAGentA coordinates retrieval, answer
+generation, and verification across
+agents [ 8 , 4 ] . SkinMind combines these
+directions by exposing a heterogeneous multimodal graph as an interactive
+environment. Its policy model selectively accesses nodes, relations,
+paths, source passages, and images at the granularity needed for each
+question. Multimodal Models in Dermatology. SkinGPT-4 adapts a visual language model for interactive dermatology,
+while PanDerm provides domain-specific visual
+pretraining [ 44 , 40 ] . Derm1M and MM-Skin
+supply large image–text resources for cross-modal representation,
+retrieval, and dermatology-specific vision–language
+modeling [ 39 , 41 ] . DermoGPT emphasizes
+morphology-grounded diagnostic reasoning [ 29 ] .
+Tool-augmented systems complement these models with external memory and
+specialized components. SkinGPT-X coordinates specialist agents with an
+evolving case memory, while DermAgent combines perception tools, case
+and guideline retrieval, disease taxonomy, and evidence
+auditing [ 5 , 22 ] . SkinMind uses a
+source-linked dermatology graph as its central retrieval environment,
+allowing the policy model to select the modality, relation, and evidence
+granularity during inference. This external knowledge can be updated
+independently of the policy model and traced to its supporting sources. 3 SkinMind Figure 2 : Overview of SkinMind. The orchestrator adaptively explores SkinMind-KG through hierarchical graph-probing tools to construct query-specific evidence subgraphs for response generation. 3.1 Overview SkinMind is a multimodal agentic RAG framework equipped with a specialized suite of graph-probing tools for interleaved reasoning and evidence retrieval over a dermatology-specific graph environment. Given a clinical query, optionally accompanied by an image, SkinMind first routes the query through a slow–fast reasoning mechanism. Queries that can be answered reliably using the orchestrator’s internal knowledge are handled by the fast path, whereas queries requiring external evidence, multimodal retrieval, or multi-step reasoning are directed to the slow path. The slow path implements an iterative Agentic RAG loop with four components: an orchestrator , a suite of graph-probing tools , a graph-based environment , and a context manager . The orchestrator acts as the central policy model: it reasons over the current context, selects and invokes appropriate tools, and incorporates the returned observations into subsequent decisions. Once sufficient evidence has been collected, it terminates the interaction loop and generates an evidence-grounded response for the user. 3.2 Slow–Fast Thinking Let Q Q denote a textual clinical query and I I an optional clinical image. A routing policy first determines whether external evidence seeking is necessary: r = π route ​ ( Q , I ) , r ∈ { Fast , Slow } . r=\pi_{\mathrm{route}}(Q,I),\qquad r\in\{\textsc{Fast},\textsc{Slow}\}. (1) The routing decision accounts for the user intent, query complexity, and the need for external or multimodal evidence. If r = Fast r=\textsc{Fast} , the orchestrator directly generates a response. Otherwise, the query enters the graph-probing loop described below. 3.3 Agentic Graph-Probing Loop Loop Formulation. For a query assigned to the slow path, the orchestrator alternates between
+reasoning, tool invocation, and answer generation based on the
+accumulated interaction history. At step t t , the orchestrator state
+is defined as s t = ( Q , I , ℋ t ) , s_{t}=\left(Q,I,\mathcal{H}_{t}\right), (2) where Q Q is the textual query, I I is an optional clinical image,
+and ℋ t = ( ( a 0 , o 0 ) , … , ( a t − 1 , o t − 1 ) ) \mathcal{H}_{t}=\bigl((a_{0},o_{0}),\ldots,(a_{t-1},o_{t-1})\bigr) (3) denotes the interaction history before step t t . Here, a i a_{i} is the
+action taken at step i i , and o i o_{i} is the corresponding observation
+returned by the graph environment. Conditioned on s t s_{t} , the orchestrator either invokes a graph-probing
+tool or terminates the loop. For a non-terminal action, the selected
+tool operates on the graph environment and returns an observation,
+which is appended to the interaction history for the next reasoning
+step. The loop continues until the orchestrator selects Finish or reaches the maximum interaction budget L max L_{\max} , producing a multi-turn trajectory τ = ( CLOSE ( s 0 , a 0 , o 0 ) , ( s 1 , a 1 , o 1 ) , … , OPEN ( s L − 1 , a L − 1 , o L − 1 ) , ( s L , Finish , Y ) ) , \begin{split}\tau=\bigl(&(s_{0},a_{0},o_{0}),(s_{1},a_{1},o_{1}),\ldots,\\
+&(s_{L-1},a_{L-1},o_{L-1}),(s_{L},\textsc{Finish},Y)\bigr),\end{split} (4) where L ≤ L max L\leq L_{\max} and Y Y denotes the final response. Tool Calling. Let 𝒯 = { T 1 , … , T 8 } \mathcal{T}=\{T_{1},\ldots,T_{8}\} denote the suite of
+graph-probing tools operating on textual and visual information in the
+graph environment. At each step, the orchestrator selects either a
+parameterized tool call a t = ( T k t , ϕ t ) , T k t ∈ 𝒯 , a_{t}=(T_{k_{t}},\phi_{t}),\qquad T_{k_{t}}\in\mathcal{T}, (5) where ϕ t \phi_{t} denotes the tool arguments, or the terminal action Finish . This decision is conditioned on the current state: a t ∼ π θ ( ⋅ ∣ s t ) . a_{t}\sim\pi_{\theta}\!\left(\cdot\mid s_{t}\right). (6) The definitions and functionalities of these tools are detailed under Hierarchical Graph-Probing Interfaces . Environment. Let ℰ \mathcal{E} denote SkinMind-KG , our
+dermatology-specific multimodal graph environment. For each
+non-terminal action, the environment executes the corresponding tool
+call and returns an observation: o t = ℰ ⁡ ( a t ) , a t ≠ Finish . o_{t}=\mathcal{E}(a_{t}),\qquad a_{t}\neq\textsc{Finish}. (7) The construction and organization of SkinMind-KG are detailed under SkinMind-KG Construction and Statistics . Context Management. To control context growth during multi-step graph exploration, SkinMind
+monitors both individual tool observations and the accumulated context.
+If a single observation exceeds 4,096 tokens, the orchestrator compresses
+it before incorporating it into the interaction history. If the
+accumulated context exceeds 16,384 tokens, the orchestrator summarizes
+earlier interactions to reduce the overall context length. These
+operations preserve query-relevant evidence and retrieval provenance
+required for subsequent reasoning and graph exploration. 3.4 Hierarchical Graph-Probing Interfaces SkinMind equips the orchestrator with eight graph-probing tools for
+retrieving and exploring textual, relational, and visual evidence in
+SkinMind-KG. As summarized in Table 1 , six tools
+support textual retrieval and graph exploration, while two tools support
+visual retrieval and inspection. Following the principle of progressive disclosure [ 32 , 8 ] ,
+the interfaces initially return compact
+retrieval results and expose more detailed attributes, relations, and
+source evidence only when requested, thereby reducing unnecessary
+context overhead. Table 1 : Overview of SkinMind’s graph-probing tool suite. The first six tools support textual retrieval and relation-aware graph exploration, while the last two support visual retrieval and metadata inspection. Tool Function Arguments Output find_node Retrieve graph nodes using a textual query Query, top- K K Node IDs, names, and types read_node Retrieve the structured information of a node Node ID Node attributes and description read_chunks Retrieve source-text chunks associated with a node Node ID, chunk limit, character limit Source-text chunks probe_relations List relation types associated with a node Node ID Relation types and neighbor counts probe_neighbors Expand a node along a specified relation Node ID, relation, top- K K Neighbor IDs, names, and types probe_path Search for relational paths between two nodes Source ID, target ID, hop limit Node and relation sequences search_image Retrieve image nodes using a text or image query Text/image query, top- K K Image-node IDs and metadata describe_image Retrieve the metadata of an image node Image-node ID Caption, morphology, and disease labels The orchestrator can enter the graph through textual node retrieval with find_node or through text-to-image or image-to-image retrieval
+with search_image . For image-to-image retrieval, search_image encodes the query image with
+DermLIP [ 39 ] and searches the image-node index by cosine
+similarity, returning image identifiers, similarity scores, and source
+types. Depending on its information needs, the orchestrator may inspect
+captions, clinical attributes, and aligned disease labels using describe_image . The image-to-disease associations established
+during graph construction allow these labels to serve as anchors for
+locating Disease nodes through find_node . To gather further evidence, the orchestrator can inspect node details
+using read_node , explore graph structure using probe_relations , probe_neighbors , and probe_path , and access fine-grained source evidence using read_chunks . Through iterative tool calls, it adaptively
+determines the retrieval modality, exploration direction, and level of
+evidence granularity based on its evolving information needs. The
+retrieved nodes, relations, source chunks, and image records collectively
+form a query-specific evidence subgraph for subsequent reasoning and
+response generation. Figure 2 (b) illustrates an example
+graph-probing trajectory. 4 SkinMind-KG Construction and Statistics Figure 3 : Construction and semantic organization of SkinMind-KG. The ontology-guided pipeline integrates knowledge with conflict resolution, while UMAP projections of entity and relation embeddings reveal clusters across semantic categories. 4.1 Knowledge Graph Construction We construct the textual component of SkinMind-KG from a large-scale
+dermatology corpus comprising 227 clinical guidelines and 542 textbooks
+published since 2015. We collected dermatology guidelines and textbooks
+from international online sources, selecting the latest available
+guideline versions and textbook editions at the time of collection.
+We parse the raw documents using
+MinerU [ 26 ] and employ a lightweight LLM to extract
+document-level metadata, including titles, authors, publishers,
+publication years, and editions. To establish an authoritative disease taxonomy, we adopt the PanDerm
+ontology [ 40 ] , which comprises 127 disease concepts and their
+curated hierarchical relationships. We encode these relationships as IS_SUBTYPE_OF relations and preload the resulting hierarchy
+into SkinMind-KG as its initial taxonomic backbone. Through iterative
+consultations with senior dermatologists, we further define a schema
+containing 23 entity types and 25 relation types to guide information
+extraction.
+Following LightRAG [ 13 ] , we segment the approximately
+62M token corpus into chunks with a length of 1,200
+tokens. GPT-5.4-mini is then used to extract entities, relations, and
+their descriptions from each chunk according to the predefined schema.
+During corpus extraction, the initial disease hierarchy can be extended
+with additional disease entities and subtype relations. Entity and relation extraction is restricted to statements explicitly
+supported by the source text. The source context guides the interpretation
+of clinical qualifiers and the polarity of these statements. Extracted
+entities and textual relations retain links to their supporting source
+chunks, which preserve document-level provenance. Through these links,
+the orchestrator can retrieve supporting passages and their document
+identifiers using read_chunks when node-level descriptions are
+insufficient, providing access to the original clinical context. Conflict Detection and Resolution. Integrating heterogeneous sources may introduce contradictory claims
+about the same entity or relation. We therefore incorporate a detect-then-resolve procedure into the construction pipeline. A
+conflict is identified only when two claims make contradictory
+assertions about the same fact under the same clinical context. Claims
+associated with different clinical contexts are retained as
+context-specific evidence rather than treated as conflicts. For each detected conflict, Gemini-3.1-Pro [ 12 ] formulates targeted queries
+and retrieves relevant evidence through Google Search. It then evaluates
+the retrieved evidence to determine whether the conflict can be
+reliably resolved. Resolvable cases are automatically reconciled,
+whereas ambiguous cases are referred to domain experts. In total, the
+procedure processed 1,375 description-level conflicts, automatically
+resolving 1,366 cases (99.3%) and referring the remaining nine for
+expert review. The overall procedure is illustrated in
+Figure 3 (a). Table 2 : Node and edge counts, degree distribution, and connected-component
+statistics of SkinMind-KG after multimodal integration. Property Value Scale & Composition Nodes 1,006,079 Edges 2,038,419 Graph type Undirected, unweighted 99%-coverage entity types 23 99%-coverage relation types 25 Image nodes 423,016 (42.0%) Linked to disease nodes 301,561 (71.3%) Isolated image nodes 121,455 (28.7%) Degree & Density Average degree 4.05 Median / p90 / p99 degree 1 / 5 / 47 Non-isolated nodes 819,864 (81.5%) Maximum degree 64,345 Degree-one nodes 432,054 (52.7%) Graph density 4.0 × 10 − 6 4.0\times 10^{-6} Connectivity Connected components 191,613 Isolated nodes 186,215 (18.5%) LCC (nodes) 805,181 (80.0%) LCC (edges) 2,029,050 (99.5%) Note: LCC denotes the largest connected component. Degree
+percentiles and the proportion of degree-one nodes use non-isolated
+nodes. Linked and isolated image percentages use all image nodes.
+Core type coverage excludes image nodes and ILLUSTRATED_BY edges, respectively. Visual Modality Integration. After constructing the textual graph, we augment SkinMind-KG with
+423,016 image nodes from Derm1M [ 39 ] , most of which are
+accompanied by disease labels. To integrate these images into the graph,
+we align their disease labels with textual graph nodes of type Disease through a three-stage procedure. First, normalized
+image labels are matched exactly against the names of disease nodes.
+Second, for unmatched labels, Qwen3-Embedding-4B [ 42 ] is
+used to retrieve the top-10 semantically closest disease nodes. Third,
+GPT-5.4-mini disambiguates among these candidates and determines whether
+a reliable label-to-node alignment can be established. Based on the
+resulting alignments, image nodes are connected to the corresponding
+disease nodes through ILLUSTRATED_BY relations. Images without
+a reliable alignment remain unlinked to disease nodes. To support multimodal retrieval, the images and their associated textual
+labels are encoded using the visual and textual branches of
+DermLIP [ 39 ] , respectively. The resulting representations are
+indexed to support text-to-image and image-to-image retrieval over the
+image nodes. 4.2 Graph Statistics and Structural Characteristics The resulting knowledge graph, SkinMind-KG , is a multimodal,
+heterogeneous graph containing 1,006,079 1{,}006{,}079 nodes and 2,038,419 2{,}038{,}419 edges. The 23 core entity types account for 99 % 99\% of all non-image nodes, while the 25 core relation types account for 99 % 99\% of all edges excluding ILLUSTRATED_BY .
+The graph includes 423,016 423{,}016 image nodes, of which 301,561 301{,}561 are connected
+to disease nodes through ILLUSTRATED_BY relations, providing
+explicit associations between clinical images and dermatological concepts.
+SkinMind-KG is unweighted and undirected. Its largest connected component
+contains 80.0 % 80.0\% of all nodes and 99.5 % 99.5\% of all edges, indicating
+that nearly all relational evidence is organized within a shared connected
+subgraph. Table 2 reports the node and edge counts,
+degree distribution, and connected-component statistics. The average
+degree is 4.05 4.05 ; among non-isolated nodes, the median and 99th-percentile
+degrees are 1 1 and 47 47 , respectively, while the maximum degree is 64,345 64{,}345 . This variation in neighborhood size motivates relation-level
+probing to guide selective neighbor expansion, enabling the orchestrator to
+adapt the breadth of exploration to the local graph structure. 5 Experiments 5.1 Experimental Setting Table 3 : Comparison across six dermatology VQA benchmarks (higher is better). Standalone models serve as contextual references and are not directly comparable with the shared SkinMind protocol. Bold and underline mark the best and second-best scores in each column within each of the three blocks. Δ \Delta denotes SkinMind’s absolute gain over the best other method in the same policy block, selected independently per column and including Direct Answer. Average is the unweighted mean across six benchmarks; its Δ \Delta uses the highest baseline Average. Setting Model / Method SkinCon 25Cls Derm-Edu DDI SNU134-4 Morph-R Average Strong Reference Models GPT-5.5 [ 28 ] 72.01 50.40 72.48 65.79 81.50 66.30 68.08 Claude-Sonnet-4.5 [ 2 ] 59.20 34.15 53.64 52.90 68.75 54.37 53.84 DermoGPT-RL [ 29 ] 76.67 64.60 69.68 62.80 60.00 65.48 66.54 SkinVL-PubMM [ 41 ] 61.31 38.75 51.12 48.93 54.58 54.62 51.55 Standalone Lingshu-32B [ 38 ] 52.39 38.40 30.29 34.91 45.83 49.55 41.90 GPT-5.4-mini as Policy Model Direct Answer 63.67 42.22 63.42 50.30 73.33 62.24 59.20 Standard Naive RAG [ 11 ] 67.25 50.40 66.79 52.90 71.25 62.50 61.85 GraphRAG [ 9 ] 64.24 46.55 65.80 54.12 71.25 60.28 60.37 Graph-based RAG LightRAG [ 13 ] 64.95 45.80 68.85 58.38 72.50 62.39 62.15 A-RAG [ 8 ] 66.16 49.50 63.52 53.81 70.00 62.33 60.89 RAGentA [ 4 ] 58.63 43.85 65.58 49.70 65.83 58.71 57.05 Agentic RAG SkinMind 68.84 54.05 70.60 65.09 85.00 63.84 67.90 Δ \Delta vs. Best Baseline +1.59 +3.65 +1.75 +6.71 +11.67 +1.34 +5.75 Gemini-2.5-Flash as Policy Model Direct Answer 66.59 47.20 66.33 59.15 65.42 58.49 60.53 Standard Naive RAG [ 11 ] 64.93 49.75 70.46 60.67 74.58 61.89 63.71 GraphRAG [ 9 ] 59.64 47.65 69.79 61.13 71.67 59.71 61.60 Graph-based RAG LightRAG [ 13 ] 71.28 49.05 71.92 67.07 75.00 60.62 65.82 A-RAG [ 8 ] 70.54 46.85 72.56 62.80 72.50 62.14 64.57 RAGentA [ 4 ] 70.58 49.10 72.53 62.80 76.67 60.97 65.44 Agentic RAG SkinMind 75.18 53.03 73.06 67.53 85.11 62.58 69.42 Δ \Delta vs. Best Baseline +3.90 +3.28 +0.50 +0.46 +8.44 +0.44 +3.60 Datasets. We evaluate SkinMind on six public dermatology VQA benchmarks spanning
+both closed- and open-ended settings. SkinCon [ 29 ] ,
+25Cls [ 29 ] , Derm-Edu [ 29 ] ,
+DDI [ 7 ] , and
+SNU134-4 [ 29 ] are formulated as multiple-choice
+benchmarks, whereas Morph-R [ 29 ] requires free-form
+responses. Collectively, these benchmarks assess morphology recognition,
+disease diagnosis, and clinical reasoning across different response
+formats.
+We use SkinMind-KG as the retrieval corpus. To prevent benchmark leakage
+from image overlap, we first remove exact duplicates based on MD5 hashes.
+We then exclude retrieved image nodes whose DermLIP cosine similarity to
+the query image exceeds 0.98 0.98 , thereby filtering potential near
+duplicates. This two-stage procedure is applied identically to all RAG
+methods to ensure a fair comparison. Baselines and Evaluation. We organize the baselines into three groups.
+(i) Standard baselines comprise zero-shot inference without
+retrieval ( Direct Answer ) and conventional single-round
+retrieval augmentation ( Naive RAG ) [ 11 ] .
+(ii) Graph-based RAG methods include GraphRAG [ 9 ] and LightRAG [ 13 ] , which leverage graph-structured knowledge for retrieval.
+(iii) Agentic RAG methods include A-RAG [ 8 ] and RAGentA [ 4 ] , which interleave model reasoning with iterative retrieval.
+To ensure a fair comparison, all methods use the same answering model
+and inference settings and receive identical task instructions and
+output-format requirements. All retrieval-augmented methods operate on the same SkinMind-KG through a shared retrieval backend. Prompt differences are limited to method-specific retrieval and tool-use instructions. Following the official evaluation protocol of
+DermoGPT-RL [ 29 ] , we report accuracy on the five
+multiple-choice benchmarks and evaluate open-ended responses on Morph-R
+using Gemini-2.5-Pro under an LLM-as-a-judge protocol. We use the official
+DermoGPT evaluation code without
+modification. 1 1 1 https://github.com/mendicant04/DermoGPT The judge compares each response with its reference answer without
+access to the input image. It assesses clinical reasoning, final
+diagnosis, and closed-set morphology output, which the official
+evaluator combines into the reported Morph-R score. Implementation Details. We instantiate each method with two policy models:
+GPT-5.4-mini [ 27 ] and
+Gemini-2.5-Flash [ 6 ] . Non-agentic methods retrieve the top five textual items and the top five image items, whereas agentic methods allow the policy model to determine k k dynamically at each retrieval round, with k = 5 k=5 as the default. Textual and visual retrieval is performed using Qwen3-Embedding-4B [ 42 ] and DermLIP [ 39 ] , respectively, based on cosine similarity.
+Agentic methods are limited to 20 20 retrieval rounds per question. For generation, we set the temperature to 1.0 1.0 and the maximum context length to 32,768 32{,}768 tokens.
+All methods instantiated with the same policy model use identical
+generation settings.
+The topology of SkinMind-KG is stored in GraphML format, whereas Qdrant stores embedding indices for the shared retrieval backend. 5.2 Main Results Table 3 presents the main experimental results across six benchmarks. We highlight three key observations. SkinMind delivers consistent performance gains. SkinMind consistently outperforms the corresponding Direct Answer baseline. With GPT-5.4-mini, it improves the average score from 59.20 59.20 to 67.90 67.90 , a gain of 8.70 8.70 points; with Gemini-2.5-Flash, it
+increases the score from 60.53 60.53 to 69.42 69.42 , a gain of 8.89 8.89 points. Most retrieval-augmented methods also improve over direct
+answering, supporting the value of SkinMind-KG as an external knowledge
+source. Notably, SkinMind outperforms the competing RAG methods under both policy-model settings, indicating that adaptive graph probing enables more effective use of this knowledge. Adaptive graph probing enables more effective retrieval. Compared with LightRAG, SkinMind improves the average score by 5.75 5.75 points with GPT-5.4-mini and 3.60 3.60 points with Gemini-2.5-Flash.
+Meanwhile, the gains of other RAG methods vary across benchmarks and
+policy models, suggesting that retrieval effectiveness depends not only
+on access to external knowledge but also on how that knowledge is
+explored. SkinMind adaptively selects entry nodes, probes relations,
+and traverses paths to gather query-specific textual and visual
+evidence at the required granularity. SkinMind is competitive with strong standalone reference models. Although not directly comparable, standalone models provide useful
+reference points. SkinMind with GPT-5.4-mini achieves an average score
+of 67.90 67.90 , comparable to GPT-5.5’s 68.08 68.08 , while outperforming
+DermoGPT-RL, SkinVL-PubMM, and Lingshu-32B by 1.36 1.36 , 16.35 16.35 , and 26.00 26.00 points, respectively. This result highlights the effectiveness
+of graph-based evidence seeking in narrowing the gap between the
+policy model and stronger standalone models. 5.3 Ablation on Graph Probing Tools Table 4 : Ablations with GPT-5.4-mini on DDI and SNU134-4 . Method DDI SNU134-4 SkinMind (Full) 65.09 85.00 w/o Graph Exploration 62.65 ( − 2.44 -2.44 ) 82.50 ( − 2.50 -2.50 ) w/o Image Retrieval 63.26 ( − 1.83 -1.83 ) 79.17 ( − 5.83 -5.83 ) w/o Progressive Disclosure 64.48 ( − 0.61 -0.61 ) 80.83 ( − 4.17 -4.17 ) To examine the roles of graph exploration, image retrieval, and
+progressive disclosure, we compare SkinMind with three ablation
+variants on DDI and SNU134-4 using GPT-5.4-mini. w/o Graph Exploration disables probe_relations , probe_neighbors , and probe_path , while preserving
+textual and visual node retrieval. w/o Image Retrieval disables search_image and describe_image .
+In w/o Progressive Disclosure , read_node directly
+returns the associated source chunks normally retrieved through a
+separate read_chunks call. Variants without graph exploration, image retrieval, or progressive
+disclosure show lower accuracy on both benchmarks
+(Table 4 ). On DDI, w/o Graph Exploration shows
+the largest gap at 2.44 2.44 points. On SNU134-4, w/o Image Retrieval and w/o Progressive Disclosure show more pronounced gaps of 5.83 5.83 and 4.17 4.17 points, respectively.
+These patterns are consistent with complementary roles for relational
+context, visual references, and selective evidence disclosure in
+diagnostic reasoning. Together, these capabilities allow the
+orchestrator to adapt both the evidence source and the retrieval depth
+to the diagnostic query. 5.4 Illustrative Case Study Figure 4 : An illustrative graph-probing trajectory of SkinMind. By iteratively retrieving visual and textual evidence and comparing plausible diagnoses, SkinMind correctly identifies lichen amyloidosis, whereas Gemini-2.5-Flash and LightRAG produce incorrect predictions. Figure 4 illustrates a reasoning trajectory of SkinMind for dermatological diagnosis. Given a clinical image and a multiple-choice question, SkinMind progressively retrieves visually similar cases, extracts dermatological concepts, and explores relevant disease nodes to gather supporting evidence and eliminate competing diagnoses. By integrating the observed reddish-brown hyperpigmented papules and macules, coalescing lesions, and signs of chronic scratching with the retrieved knowledge, SkinMind correctly identifies the condition as lichen amyloidosis. In contrast, Gemini-2.5-Flash and
+LightRAG select incorrect answers. This example illustrates how
+SkinMind’s iterative evidence-seeking process supports fine-grained,
+evidence-grounded clinical reasoning. 5.5 Context Efficiency Analysis Figure 5 compares the average token consumption of
+SkinMind against five representative retrieval-augmented baselines on the Morph-R benchmark. The stacked bars show input and output tokens
+(left axis), while the line reports the average number of retrieved
+evidence tokens in the model context (right axis). Evidence efficiency. Most notably, SkinMind achieves the strongest task performance while
+using the fewest evidence tokens among all evaluated methods, averaging 1,380 1{,}380 tokens per question. By comparison, LightRAG uses 7,901 7{,}901 evidence tokens, 5.7 × 5.7\times as many as SkinMind. This
+pattern suggests that SkinMind’s gains are associated with more targeted
+evidence selection rather than a larger retrieved context. Its
+hierarchical graph-probing interfaces support selective access to
+relevant textual and visual evidence at different levels of granularity. Figure 5 : Token-efficiency comparison across RAG methods on Morph-R using Gemini-2.5-Flash as the policy model. Stacked bars show average input and output tokens, while the line indicates average retrieved evidence tokens. SkinMind retrieves the most compact evidence set. Reasoning-oriented token allocation. SkinMind allocates 21 % 21\% of its token usage to model outputs,
+amounting to 5,576 5{,}576 tokens per question. These outputs include both
+the final answer and the intermediate decisions involved in navigating
+the graph and selecting evidence. In comparison, LightRAG allocates 2 % 2\% of its token usage ( 291 291 tokens) to model outputs, with 11,802 11{,}802 input tokens consumed through upfront context construction.
+Aggregated across calls, total usage is approximately 26.1 ​ k 26.1\mathrm{k} tokens for SkinMind and 12.1 ​ k 12.1\mathrm{k} for LightRAG. SkinMind’s
+multi-round inputs include the interaction history and tool instructions
+alongside retrieved evidence. This allocation characterizes its
+iterative evidence-acquisition process: the model progressively selects
+what to retrieve and uses the resulting observations to guide subsequent
+graph-probing actions. 6 Conclusion We introduced SkinMind , a multimodal agentic RAG framework that
+interactively probes a dermatology knowledge graph for textual, relational,
+and visual evidence. Equipped with hierarchical graph-probing tools,
+SkinMind interleaves reasoning with adaptive exploration of textual,
+relational, and visual evidence, progressively constructing query-specific
+evidence subgraphs. We also developed SkinMind-KG to provide a
+comprehensive and traceable foundation of domain-specific knowledge.
+Across six dermatology VQA benchmarks and two policy
+models, SkinMind consistently outperforms direct answering and competing
+RAG methods while retrieving more targeted evidence. These results support adaptive graph probing as a promising approach to evidence-grounded dermatology reasoning. References [1] Marah Abdin, Jyoti Aneja, Harkirat Behl, Sébastien Bubeck, Ronen Eldan, Suriya Gunasekar, Michael Harrison, Russell J Hewett, Mojan Javaheripi, Piero Kauffmann, et al. Phi-4 technical report. arXiv preprint arXiv:2412.08905 , 2024. [2] Anthropic. Introducing Claude Sonnet 4.5. https://www.anthropic.com/news/claude-sonnet-4-5 , 2025. [3] Akari Asai, Zeqiu Wu, Yizhong Wang, Avirup Sil, and Hannaneh Hajishirzi. Self-RAG: Learning to retrieve, generate, and critique through self-reflection. In The Twelfth International Conference on Learning Representations , 2024. URL https://openreview.net/forum?id=hSyW5go0v8 . [4] Ines Besrour, Jingbo He, Tobias Schreieder, and Michael Färber. Ragenta: Multi-agent retrieval-augmented generation for attributed question answering. arXiv preprint arXiv:2506.16988 , 2025. [5] Zhangtianyi Chen, Yuhao Shen, Florensia Widjaja, Yan Xu, Liyuan Sun, Zijian Wang, Hongyi Chen, Wufei Dai, and Juexiao Zhou. Skingpt-x: A self-evolving collaborative multi-agent system for transparent and trustworthy dermatological diagnosis. arXiv preprint arXiv:2603.26122 , 2026. [6] Gheorghe Comanici, Eric Bieber, Mike Schaekermann, et al. Gemini 2.5: Pushing the frontier with advanced reasoning, multimodality, long context, and next generation agentic capabilities, 2025. URL https://arxiv.org/abs/2507.06261 . [7] Roxana Daneshjou, Kailas Vodrahalli, Roberto A Novoa, Melissa Jenkins, Weixin Liang, Veronica Rotemberg, Justin Ko, Susan M Swetter, Elizabeth E Bailey, Olivier Gevaert, et al. Disparities in dermatology ai performance on a diverse, curated clinical image set. Science advances , 8(31):eabq6147, 2022. [8] Mingxuan Du, Benfeng Xu, Chiwei Zhu, Shaohan Wang, Pengyu Wang, Xiaorui Wang, and Zhendong Mao. A-rag: Scaling agentic retrieval-augmented generation via hierarchical retrieval interfaces. arXiv preprint arXiv:2602.03442 , 2026. [9] Darren Edge, Ha Trinh, Newman Cheng, Joshua Bradley, Alex Chao, Apurva Mody, Steven Truitt, Dasha Metropolitansky, Robert Osazuwa Ness, and Jonathan Larson. From local to global: A graph RAG approach to query-focused summarization, 2024. URL https://arxiv.org/abs/2404.16130 . [10] Yuxuan Fan, Jing Hao, Hong Chen, Jiahao Bao, Yihua Shao, Yuci Liang, Kuo Feng Hung, and Hao Tang. Oralgpt-plus: Learning to use visual tools via reinforcement learning for panoramic x-ray analysis. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition , pages 35373–35383, 2026. [11] Yunfan Gao, Yun Xiong, Xinyu Gao, Kangxiang Jia, Jinliu Pan, Yuxi Bi, Yi Dai, Jiawei Sun, Meng Wang, and Haofen Wang. Retrieval-augmented generation for large language models: A survey. arXiv preprint arXiv:2312.10997 , 2023. [12] Google DeepMind. Gemini 3.1 Pro model card. https://deepmind.google/models/model-cards/gemini-3-1-pro/ , 2026. [13] Zirui Guo, Lianghao Xia, Yanhua Yu, Tu Ao, and Chao Huang. Lightrag: Simple and fast retrieval-augmented generation. arXiv preprint arXiv:2410.05779 , 2024. [14] Haoyu Han, Li Ma, Yu Wang, Harry Shomer, Yongjia Lei, Zhisheng Qi, Kai Guo, Zhigang Hua, Bo Long, Hui Liu, et al. Rag vs. graphrag: A systematic evaluation and key insights. arXiv preprint arXiv:2502.11371 , 2025. [15] Jing Hao, Siyuan Dai, Yongxin Zhang, Yuci Liang, Jiamin Wu, Jiahao Bao, Yuxuan Fan, Zanting Ye, Yanpeng Sun, Xinyu Zhang, Ming Hu, Liang Zhan, James Kit Hon Tsoi, Linlin Shen, Junjun He, and Kuo Feng Hung. OralAgent: Integrating reasoning, tools, and knowledge for interactive dental image analysis, 2026a. URL https://arxiv.org/abs/2605.27378 . [16] Jing Hao, Yuxuan Fan, Yanpeng Sun, Kaixin Guo, Lin Lizhuo, Jinrong Yang, Qiyong Ai, Lun Wong, Hao Tang, and Kuo Hung. Towards better dental ai: A multimodal benchmark and instruction dataset for panoramic x-ray analysis. Advances in Neural Information Processing Systems , 38, 2026b. [17] Jing Hao, Yuci Liang, Lizhuo Lin, Yuxuan Fan, Wenkai Zhou, Kaixin Guo, Zanting Ye, Yanpeng Sun, Xinyu Zhang, Yanqi Yang, et al. Oralgpt-omni: A versatile dental multimodal large language model. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition , pages 38509–38519, 2026c. [18] Soyeong Jeong, Jinheon Baek, Sukmin Cho, Sung Ju Hwang, and Jong C. Park. Adaptive-RAG: Learning to adapt retrieval-augmented large language models through question complexity. In Proceedings of the 2024 Conference of the North American Chapter of the Association for Computational Linguistics: Human Language Technologies (Volume 1: Long Papers) , pages 7036–7050, 2024. 10.18653/v1/2024.naacl-long.389 . URL https://aclanthology.org/2024.naacl-long.389/ . [19] Zhengbao Jiang, Frank F. Xu, Luyu Gao, Zhiqing Sun, Qian Liu, Jane Dwivedi-Yu, Yiming Yang, Jamie Callan, and Graham Neubig. Active retrieval augmented generation. In Proceedings of the 2023 Conference on Empirical Methods in Natural Language Processing , pages 7969–7992, 2023. 10.18653/v1/2023.emnlp-main.495 . URL https://aclanthology.org/2023.emnlp-main.495/ . [20] Bernal Jiménez Gutiérrez, Yiheng Shu, Yu Gu, Michihiro Yasunaga, and Yu Su. HippoRAG: Neurobiologically inspired long-term memory for large language models. In Advances in Neural Information Processing Systems , volume 37, pages 59532–59569, 2024. 10.52202/079017-1902 . URL https://arxiv.org/abs/2405.14831 . [21] Patrick Lewis, Ethan Perez, Aleksandra Piktus, Fabio Petroni, Vladimir Karpukhin, Naman Goyal, Heinrich Küttler, Mike Lewis, Wen-tau Yih, Tim Rocktäschel, Sebastian Riedel, and Douwe Kiela. Retrieval-augmented generation for knowledge-intensive NLP tasks. In Advances in Neural Information Processing Systems , volume 33, pages 9459–9474, 2020. URL https://proceedings.neurips.cc/paper/2020/hash/6b493230205f780e1bc26945df7481e5-Abstract.html . [22] Yize Liu, Siyuan Yan, Ming Hu, Lie Ju, Xieji Li, Feilong Tang, Wei Feng, and Zongyuan Ge. DermAgent: A self-reflective agentic system for dermatological image analysis with multi-tool reasoning and traceable decision-making, 2026. URL https://arxiv.org/abs/2605.14403 . MICCAI 2026 early acceptance. [23] Yuxing Lu, Gecheng Fu, Wei Wu, Xukai Zhao, Sin Yee Goi, and Jinzhuo Wang. Doctorrag: Medical rag fusing knowledge with patient analogy through textual gradients. arXiv preprint arXiv:2505.19538 , 2025. [24] Shengjie Ma, Chengjin Xu, Xuhui Jiang, Muzhi Li, Huaren Qu, Cehao Yang, Jiaxin Mao, and Jian Guo. Think-on-graph 2.0: Deep and faithful large language model reasoning with knowledge-guided retrieval augmented generation. In The Thirteenth International Conference on Learning Representations , 2025. URL https://openreview.net/forum?id=oFBu7qaZpS . [25] Rakesh Raj Madavan, Akshat Kaimal, Hashim Faisal, and S Chandrakala. Med-grim: enhanced zero-shot medical vqa using prompt-embedded multimodal graph rag. arXiv preprint arXiv:2508.06496 , 2025. [26] Junbo Niu, Zheng Liu, Zhuangcheng Gu, Bin Wang, Linke Ouyang, Zhiyuan Zhao, Tao Chu, Tianyao He, Fan Wu, Qintong Zhang, et al. MinerU2.5: A decoupled vision-language model for efficient high-resolution document parsing. In Proceedings of the 64th Annual Meeting of the Association for Computational Linguistics (ACL 2026) , pages 13–42, 2026. [27] OpenAI. Introducing GPT-5.4 mini and GPT-5.4 nano. https://openai.com/index/introducing-gpt-5-4-mini-and-nano/ , 2026a. [28] OpenAI. Introducing GPT-5.5.

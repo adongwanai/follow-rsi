@@ -1,0 +1,898 @@
+MIRIX-2.0: Multi-Agent Memory System Skip to main content Report GitHub Issue × Title: Content selection saved. Describe the issue below: Description: Submit without GitHub Submit in GitHub Why HTML? Report Issue Back to Abstract Download PDF Contents Reading mode Colour theme Abstract 1 Introduction 2 Methodology 2.1 Problem setup 2.2 Typed evidence plane Multi-agent routing. Evidence records. 2.3 A provenance-preserving n-ary hypergraph Anchors. Registry-guided canonicalization. N-ary frames. Occurrence identity. 2.4 Graph-owned evidence retrieval Query plan. Anchor entry. Two evidence lanes. Fact scoring. Citation-balanced fusion. Answer-time verification. 2.5 AutoDream: consolidation outside the write path Semantic frontier. Candidate generation. Bounded schedule. Lossless structural merge. Procedural refinement. 3 Experiments 3.1 Experimental setup and system variants Default system and ablations. User-memory tasks and baselines. Models and scoring. Efficiency and uncertainty. 3.2 User memory: recall, documents, and personalization The hypergraph and AutoDream each improve conversational recall. Semantic consolidation can help temporal recall without rewriting events. Keeping source details improves document QA. Selective user memory supports personalized generation. 3.3 Agent memory: held-out tasks and skills Setup and transfer to held-out tasks. ALFWorld: useful procedures must generalize across action sequences. WebShop: procedure quality matters more than memory availability. MetaClaw-Bench: answer quality and completed artifacts are distinct. 3.4 Efficiency: ingestion time, answer latency, and tokens Graph construction moves work into ingestion. The available timings characterize M1, not the full M2 system. Fewer agent steps do not necessarily mean fewer tokens. 3.5 What the experiments establish 4 Related Work Memory systems for LLM agents. Multi-agent systems. Self-reflection and memory consolidation. 5 Conclusion Limitations. References A Method details A.1 Memory types, routing, and writing Source-faithful writing. Write ordering. A.2 Anchor admission, canonicalization, and frame extraction Anchor keys and admission. Registry-guided canonicalization. Frames, literals, and repair. A.3 Retrieval budgets, lanes, scores, and fusion Operator budgets. Anchor entry. Two evidence lanes. Fact scoring. Citation-balanced fusion. A.4 Answer-time verification A.5 AutoDream schedule, candidates, and procedural refinement Invocation protocol. Candidate generation. Bounded schedule. Procedural refinement. A.6 Invariants, learned decisions, and complexity Hard invariants. Learned and deterministic decisions. Complexity. A.7 Implementation and an example hypergraph B Additional results B.1 User memory B.2 Agent memory B.3 Costs License: arXiv.org perpetual non-exclusive license arXiv:2611.12068v1 [cs.CL] 09 Nov 2026 \authoremails {whuang80,wzhan42}@uic.edu , njy@tongji.edu , pxia@cs.unc.edu , yuw164@ucsd.edu MIRIX-2.0 : Multi-Agent Memory System Wei-Chieh Huang Affiliation: MIRIX AI Equal contribution Weizhi Zhang Affiliation: MIRIX AI Equal contribution Corresponding author Jiayan Nan Affiliation: MIRIX AI Equal contribution Peng Xia Affiliation: MIRIX AI Equal contribution Yu Wang Affiliation: MIRIX AI Equal contribution Corresponding author Abstract Long-term memory lets LLM agents personalize, stay consistent, and reuse what
+worked before. Parametric memories need training, consolidation can lose details
+for good, and keeping every record leaves a growing store to search. We present MIRIX-2.0 , a multi-agent memory system designed to be practical, accurate, and
+efficient at once. It is the most accurate of the compared systems on four of five QA benchmarks.
+It reaches 91.4% on LoCoMo and 72.6% on LongMemEval-S, where it leads the
+strongest baseline by 14.3 points, and with AutoDream disabled it gains 31.0
+and 22.0 points over HyperMem on single-hop and multi-hop document QA. As procedural memory, it yields the
+highest mean success among the compared memory methods on ALFWorld and WebShop
+and reaches 49.2% on MetaClaw-Bench, against 44.0% for MetaClaw’s skill
+library. Six typed memory agents keep complete records as the system of record,
+and a provenance hypergraph indexes episodic and semantic records with n-ary
+frames that cite their rows. Retrieval runs under explicit budgets, so the
+evidence a question inspects does not grow with the history. AutoDream merges
+duplicate anchors outside the write path without rewriting any record, and it
+distills task sessions into skills. With AutoDream disabled, MIRIX-2.0 answers
+faster than HyperMem on all five timed benchmarks. It needs no fine-tuning, runs
+with closed and open models, and its code is public. † † Website: https://mirix.io/ † † GitHub: https://github.com/Mirix-AI/MIRIX Figure 1: Overview of MIRIX-2.0 . Typed writers fill the evidence plane P u P_{u} , the provenance
+hypergraph G u G_{u} indexes it with n-ary frames that cite their sources, retrieval traverses G u G_{u} under explicit budgets, and AutoDream consolidates outside the write path. 1 Introduction Large language model (LLM) agents now work over horizons far longer than a
+single context window ( Luo et al., 2025b ; Huang et al., 2026b ) . A personal
+agent accumulates months of conversation with its user, and a task agent meets
+similar problems across many episodes. Memory lets such agents carry
+information across sessions ( Wang et al., 2025a ) , so that they can personalize their
+responses ( Zhang et al., 2026e ) , stay consistent with what they were
+told ( Packer et al., 2023 ; Chhikara et al., 2025 ) , and reuse what worked
+before ( Wang et al., 2025e ; Xia et al., 2026a ) . Benchmarks now measure this
+ability on long conversations ( Maharana et al., 2024 ; Wu et al., 2025 ) , long
+documents ( Hu et al., 2026 ) , multi-session agentic
+tasks ( He et al., 2026 ) , and lifelong
+personalization ( Zhang et al., 2026d ) . Benchmarks score a memory by its answers, but a team that deploys one asks more
+of it. A memory that agents can rely on in practice has to meet three
+requirements at once. It has to be accurate about the particulars of past
+experience, such as a name, a date, a count, or the distinction between two
+events, and about the connections between them. It has to be practical, which
+means deployable with the models a team already uses, nothing to train, answers
+that can be traced to stored records, and consolidation that cannot destroy what
+was stored. It also has to be efficient, with answer latency and token cost per
+question that stay bounded as the history grows. Each family of existing systems gives up at least one of the three. Systems
+that consolidate records into extracted facts or
+abstractions ( Chhikara et al., 2025 ; Ye et al., 2026 ) are compact but give up accuracy:
+the details they discard are gone for good, and consolidation can make a
+memory faulty even when it is distilled from useful
+experience ( Zhang et al., 2026a ) . Systems that keep every record and
+retrieve from them directly lose nothing but give up efficiency, since
+retrieval must search an ever larger and noisier
+history ( Huang et al., 2026b ) . Graph memories organize the same content
+around entities and their relations ( Rasmussen et al., 2025 ; Edge et al., 2024 ) , but binary
+triples split an n-ary fact into fragments and lose the connections among its
+participants ( Luo et al., 2025a ) . Hypergraph
+memories ( Yue et al., 2026 ) group episodes under topics and facts under
+episodes, but their hyperedges record which unit belongs where rather than
+the participants of a fact, and retrieval descends from topic summaries
+written at storage time, so a detail is reachable only after its topic has
+been retrieved. File-system memories, such as the auto memory of Claude
+Code ( Anthropic, 2026 ) , route retrieval through summaries in the same way: they keep notes in plain
+files behind a size-capped index that is loaded into every session, and the
+agent opens a file on the strength of its one-line summary. A detail that no
+summary mentions is reachable only by string search, which neither resolves
+an entity across files nor follows its relations, and index entries past the
+cap are not loaded at the start of a session. Both families prune top down to
+bound their cost, and both pay for the pruning with recall on details their
+summaries do not reflect. Parametric memories store experience in model
+weights or latent states ( Wang et al., 2024b ; Wang et al., 2025b ; Wang et al., 2025c ; Behrouz et al., 2025 ) and give up practicality, since they require training and rule out closed
+models. The requirements also weigh differently for the two uses of memory. Recent
+studies separate user-centric memory, which personalizes an agent to its user,
+from agent-centric memory, which accumulates the agent’s own experience, and
+they find that the two face reversed
+challenges ( Huang et al., 2026b ; Huang et al., 2026c ) . A user-centric memory has
+to record a user’s history broadly and connect its pieces, because a later
+question may depend on any detail of that history ( Zhang et al., 2026d ; Ma et al., 2026b ) .
+An agent-centric memory has to be precise and refined instead. It distills
+trajectories into strategies and
+skills ( Zhao et al., 2024 ; Ouyang et al., 2026 ; Xia et al., 2026b ) , and
+retrieving too much can pull the agent’s attention away from the context that
+matters for its next action ( Huang et al., 2026c ) . A practical system has to
+serve both uses from one store. Figures 2 and 3 trace one example of each
+setting through MIRIX-2.0 . Figure 2: User-centric memory. Sessions are stored as episodic and semantic records, and a
+later question retrieves graph facts with their source rows to give a personalized answer. In this work, we present MIRIX-2.0 , a multi-agent memory system designed to be
+practical, accurate, and efficient at once. It keeps the multi-agent design of
+MIRIX ( Wang and Chen, 2025 ) and rethinks how memory is stored, indexed, retrieved, and
+consolidated so that a specific layer meets each requirement
+( Figure 1 ). Six memory agents under a Meta Memory Manager write
+complete records to a typed evidence plane in a vector database, the system
+of record, so details survive consolidation and every graph fact the answer
+receives cites the rows it came from. The graph is only an index. The database write commits first, a failed graph write never rolls back a stored memory, and
+a failed graph read falls back to direct evidence retrieval. A provenance hypergraph indexes the entities, events, relations, roles, and
+times in episodic and semantic records as n-ary frames that cite the rows they
+were extracted from and carry dates, prices, and counts as literals, and undated
+events with similar wording keep distinct identities. At query time, a
+deterministic planner sets explicit budgets, retrieval enters the hypergraph at the anchors that match the question, and the answer receives graph facts together
+with the records they cite ( Section 2.4 ). The evidence a question inspects is therefore bounded by construction
+and does not grow with the length of the history. Like sleep-time and offline consolidation
+methods ( Lin et al., 2025 ; Ye et al., 2026 ) , AutoDream consolidates
+memory outside the write path, and it treats the two kinds of memory in
+opposite ways. For semantic memory, it consolidates identities and never
+rewrites evidence. It pairs each anchor introduced by new semantic rows with its
+nearest anchors of the same identity-stable type, such as a person or a place,
+and asks a language model whether a pair denotes one entity. A confirmed merge
+unites the citations of the two anchors and rewires the frames that mention
+them, while event anchors, fact frames, and stored records stay unchanged, so a
+merge can never destroy a stored memory. Its cost depends on the newly written
+semantic frontier rather than on the total size of memory, verification runs
+under explicit pair caps, and negative decisions are cached so that later cycles
+do not pay for the same pair again. For procedural memory, AutoDream refines
+instead. It judges each finished task session from quotes in its transcript,
+distills lessons worth reusing and mistakes worth avoiding, and lets a
+curator ( Zhang et al., 2026c ) create or edit skills whose edits can cite the
+experiences behind them. We evaluate MIRIX-2.0 on conversational memory, long-document question answering,
+personalized generation, and procedural memory for interactive agents. MIRIX-2.0 has the highest accuracy of all compared memory systems on both conversational
+benchmarks, 91.4% on LoCoMo in our runs and 72.6% on LongMemEval-S, 14.3 points
+above the strongest baseline. On LoCoMo, the hypergraph raises accuracy over flat
+memory from 85.7% to 88.4%, with the largest gain on multi-hop questions, and
+AutoDream raises every question type and lifts the overall score to 91.4%. On
+LongMemEval-S, the hypergraph alone adds 11.2 points. On the single-hop and multi-hop document QA tasks of
+MemoryAgentBench ( Hu et al., 2026 ) , with AutoDream disabled, it answers
+83.0% and 71.0% of the questions, 31.0 and 22.0 points above the strongest
+baseline, and on MemoryCD ( Zhang et al., 2026d ) it has the highest value on all four
+metrics for cross-domain review summarization. Used as procedural memory, MIRIX-2.0 gives the highest mean success among the compared memory methods on
+ALFWorld ( Shridhar et al., 2021 ) , at 76.4% with GPT-6 Luna against 73.6%
+for Agent Workflow Memory (AWM) ( Wang et al., 2025e ) and 69.4% without memory, and on WebShop ( Yao et al., 2022 ) , at
+37.4%. With GPT-5.2 it reaches 49.2% accuracy on
+MetaClaw-Bench ( Xia et al., 2026b ) , against 44.0% reported for the MetaClaw
+skill library. What makes these results usable is the cost at which they come. With AutoDream
+disabled, MIRIX-2.0 answers faster than HyperMem, the strongest baseline, on all five
+benchmarks we timed, ingests the two conversational benchmarks in less time, and
+uses fewer answer tokens on four of the five. As procedural memory, on WebShop it
+uses the fewest training and test tokens among the memory methods while reaching
+the highest success. The cost is paid when long documents are ingested. Building the graph makes
+their ingestion about four times slower than flat memory and slower than that
+baseline. The full system with AutoDream is not timed, and the retrieval bounds
+cover the evidence a question inspects, not latency measured as the history
+grows. No model is fine-tuned, the same system runs with closed and open
+models, and the code is public. Our contributions are as follows. • Accurate and practical. A layered memory design in which six
+typed memory agents keep complete records as the system of record and a
+provenance-preserving n-ary hypergraph serves only as their index, with
+occurrence identities that keep distinct events apart and fail-soft
+indexing that never rolls back a stored memory. • One memory for users and agents. To the best of our
+knowledge, MIRIX-2.0 is the first memory system that handles both user-centric
+and agent-centric memory, serving personalization and the refinement of
+agent skills from one store. • Efficient and safe to consolidate. Graph-owned retrieval runs
+under explicit budgets and returns graph facts together with the records
+that justify them. AutoDream merges duplicate entity anchors under explicit
+caps without touching stored memories, which adds 3.0 points on LoCoMo, and
+distills task sessions into skills for procedural memory. The rest of the paper is organized as follows. Section 2 presents MIRIX-2.0 . It states the problem and the three technical requirements, introduces
+the typed evidence plane and the provenance hypergraph that indexes it,
+describes graph-owned retrieval under explicit budgets, and explains how
+AutoDream consolidates semantic and procedural memory outside the write path. Section 3 evaluates the accuracy of MIRIX-2.0 on conversational recall,
+long-document question answering, and personalized generation, its use as
+agent memory on ALFWorld, WebShop, and MetaClaw-Bench, and its cost in
+ingestion time, answer latency, and tokens. Section 4 relates MIRIX-2.0 to
+prior work on memory systems for LLM agents, multi-agent systems, and memory
+consolidation, and Section 5 concludes and discusses the
+limitations of this study. Appendix A gives the details of the method,
+and Appendix B gives the full results behind the figures. Figure 3: Agent-centric memory. AutoDream turns a failed purchase into experiences and a
+revised routine, which a later task follows to meet every constraint. 2 Methodology MIRIX-2.0 is designed to be practical, accurate, and efficient. It has to run
+with the models a team already uses and leave stored records intact, it has to
+keep a name, a date, a count, or the distinction between two events recoverable
+after writing and after consolidation, and it has to answer from a bounded
+evidence set however long the history grows. This section describes the
+layered design that delivers the three. MIRIX-2.0 separates storage from indexing ( Figure 1 ). A typed evidence plane stores complete
+memories and is the system of record ( Section 2.2 ). A provenance hypergraph indexes the entities, events, relations, roles, and
+times in those memories, and every fact in it cites the records it came from
+( Section 2.3 ). Three paths operate on the two layers, and Algorithm 1 states each of them in pseudocode. The write path stores a
+memory and then indexes it. The read path plans a query, traverses the
+graph, and dereferences only the records it selects ( Section 2.4 ).
+AutoDream, the third path, runs outside the other two ( Section 2.5 ). On semantic memory it
+merges duplicate anchors in the hypergraph and returns the evidence store
+unchanged, so semantic consolidation changes how evidence is connected, never
+what evidence exists. On procedural
+memory, AutoDream instead distills task sessions into skills that cite the
+experiences behind them. Section A.6 collects the properties that hold regardless of
+how the language models behave. 2.1 Problem setup For a user u u , the system observes a stream 𝒳 u = ( x 1 , … , x T ) \mathcal{X}_{u}=(x_{1},\ldots,x_{T}) of conversational or multimodal inputs. When it
+writes x t x_{t} , future queries are unknown, so the writer must produce a
+persistent state 𝒮 u t = ( P u t , G u t ) \mathcal{S}_{u}^{t}=(P_{u}^{t},G_{u}^{t}) (1) from which a later query q q can be answered with a bounded evidence set ℛ ⁡ ( q , 𝒮 u t ) \mathcal{R}(q;\mathcal{S}_{u}^{t}) . The evidence store P u P_{u} collects the typed
+stores, among them the episodic store P u E P_{u}^{E} , the semantic store P u S P_{u}^{S} ,
+and the procedural store P u P P_{u}^{P} . We seek high answer utility under three
+technical requirements. 1. Source fidelity. Concrete evidence remains recoverable after
+writing and after consolidation. 2. Bounded access. A query inspects a small graph neighborhood
+and a bounded set of cited rows instead of scanning the full history. 3. Temporal identity. Repeated descriptions of one event may
+share evidence, but distinct occurrences must not collapse merely because
+they are worded alike. Source fidelity and temporal identity are what make the system accurate and
+its answers traceable, and bounded access is what keeps it efficient. The rest
+of this section shows how the two layers meet these requirements.
+Each subsection explains a block of Algorithm 1 , and the numbers on its right
+point to the equations that define each step. Algorithm 1 MIRIX-2.0 for one user u u . Calls marked ⋆ \star use a language model. 1: procedure Write ( x t x_{t} ) 2: for k ∈ R θ ⋆ ​ ( x t ) k\in R_{\theta}^{\star}(x_{t}) do 3: m ← W k ⋆ ​ ( x t , P u ) m\leftarrow W_{k}^{\star}(x_{t},P_{u}) , Commit ​ ( P u , m ) \textsc{Commit}(P_{u},m) ( 2 ) 4: if k ∈ { episodic , semantic } k\in\{\mathrm{episodic},\mathrm{semantic}\} then 5: Φ ← Extract ⋆ ​ ( m ) ∪ Repair ⋆ ​ ( m ) \Phi\leftarrow\textsc{Extract}^{\star}(m)\cup\textsc{Repair}^{\star}(m) ( 5 ) 6: A m ← Admit ​ ( Canon ⋆ ​ ( Φ ) ) A_{m}\leftarrow\textsc{Admit}(\textsc{Canon}^{\star}(\Phi)) 7: I a ← I a ∪ { i m } I_{a}\leftarrow I_{a}\cup\{i_{m}\} for a ∈ A m a\in A_{m} 8: for f ∈ Φ f\in\Phi with | A f | ≥ 2 |A_{f}|\geq 2 do 9: Upsert ​ ( G u , id ⁡ ( f ) , f ) \textsc{Upsert}(G_{u},\operatorname{id}(f),f) ( 6 ), ( 7 ) 10: C f ← C f ∪ { i m } C_{f}\leftarrow C_{f}\cup\{i_{m}\} 11: procedure Read ( q q ) 12: Π ← Plan ​ ( q ) \Pi\leftarrow\textsc{Plan}(q) ( 9 ) 13: A q ← Top ​ ( Recall ​ ( q ) , s A , K A ) A_{q}\leftarrow\textsc{Top}(\textsc{Recall}(q),\,s_{A},\,K_{A}) ( 10 ) 14: F q ← Top ​ ( Adj ​ ( A q , 𝒫 q ) , s F , B q R ) F_{q}\leftarrow\textsc{Top}(\textsc{Adj}(A_{q},\mathcal{P}_{q}),\,s_{F},\,B_{q}^{R}) ( 11 ) 15: return F q F_{q} , Fuse ​ ( Rows ​ ( A q ) , ⋃ f ∈ F q C f , B q B , B q R ) \textsc{Fuse}(\textsc{Rows}(A_{q}),\,\bigcup_{f\in F_{q}}C_{f};\,B_{q}^{B},B_{q}^{R}) 16: procedure Answer ( q q ) 17: y ^ ← Agent ⋆ ​ ( q ) \hat{y}\leftarrow\textsc{Agent}^{\star}(q) with at most five Read calls 18: if Check ​ ( y ^ ) \textsc{Check}(\hat{y}) then 19: y ^ ← Rewrite ⋆ ​ ( y ^ , Read ​ ( q ′ ) ) \hat{y}\leftarrow\textsc{Rewrite}^{\star}(\hat{y},\textsc{Read}(q^{\prime})) 20: return y ^ \hat{y} 21: procedure SemanticDream ( Δ u \Delta_{u} ) ( 12 ) 22: for ( a , b ) ∈ 𝒞 Δ ∖ 𝒩 (a,b)\in\mathcal{C}_{\Delta}\setminus\mathcal{N} do ( 13 ) 23: if Same ⋆ ​ ( a , b ) \textsc{Same}^{\star}(a,b) then 24: Merge ​ ( a → b ) \textsc{Merge}(a\to b) 25: else 26: 𝒩 ← 𝒩 ∪ { ( a , b ) } \mathcal{N}\leftarrow\mathcal{N}\cup\{(a,b)\} 27: procedure ProceduralDream ( S u S_{u} ) 28: e 1 : m ← Distill ⋆ ( S u ) e_{1:m}\leftarrow\textsc{Distill}^{\star}(S_{u}) 29: P u P ← Curate ⋆ ( P u P , e 1 : m ) P_{u}^{P}\leftarrow\textsc{Curate}^{\star}(P_{u}^{P},e_{1:m}) 2.2 Typed evidence plane Multi-agent routing. A Meta Memory Manager routes each input x t x_{t} to the subset 𝒦 t = R θ ​ ( x t ) \mathcal{K}_{t}=R_{\theta}(x_{t}) of memory types it updates ( Algorithm 1 ,
+line 2 ). Each of the six types, Core, Episodic, Semantic,
+Procedural, Resource, and Knowledge Vault, has its own writer, and the writer
+of a selected type k k produces the record m t ( k ) = W k ​ ( x t , P u t − 1 ) m_{t}^{(k)}=W_{k}(x_{t},P_{u}^{t-1}) and owns the schema and update operations of that type. Only episodic and
+semantic records are indexed by the hypergraph. Section A.1 gives
+the roles of the six types and the reason for this split. Evidence records. Each of the six memory types keeps its records in its own schema. The hypergraph
+indexes the episodic and semantic records, and each of them is represented as m = ( i , k , y , τ e , τ m , ρ , 𝐳 ) , m=(i,k,y,\tau_{e},\tau_{m},\rho,\mathbf{z}), (2) where i i is an immutable row identifier, k ∈ { episodic , semantic } k\in\{\mathrm{episodic},\mathrm{semantic}\} is its memory type, y y is the
+stored text, τ e \tau_{e} is the event time when one applies, τ m \tau_{m} is the
+mention or write time, ρ \rho records source and chunk provenance, and 𝐳 \mathbf{z} holds the search embeddings. Full summaries and details remain in
+the vector database. The graph stores only identifiers and compact structural metadata. Writers keep concrete details such as names, counts, and dates in each record,
+and a record is committed to the vector database before graph construction
+begins (line 3 ), so a failed graph write never rolls back a
+stored memory ( Section A.1 ). 2.3 A provenance-preserving n-ary hypergraph The second half of the write path turns each episodic or semantic record into
+graph structure ( Algorithm 1 , lines 5 – 9 ).
+For each user, MIRIX-2.0 maintains a hypergraph G u = ( 𝒜 u , ℱ u , ℰ u ) G_{u}=(\mathcal{A}_{u},\mathcal{F}_{u},\mathcal{E}_{u}) (3) with entity or concept anchors 𝒜 u \mathcal{A}_{u} , reified fact frames ℱ u \mathcal{F}_{u} , and role-typed incidence edges ℰ u \mathcal{E}_{u} . Section A.7 shows the hypergraph MIRIX-2.0 builds for one LoCoMo conversation. Anchors. An anchor a = ( i a , n a , t a , 𝐞 a , I a E , I a S ) a=(i_{a},n_{a},t_{a},\mathbf{e}_{a},I_{a}^{E},I_{a}^{S}) (4) stores a canonical name n a n_{a} , an entity type t a t_{a} , a name embedding 𝐞 a \mathbf{e}_{a} , and the identifiers I a E I_{a}^{E} and I a S I_{a}^{S} of the episodic and
+semantic rows that mention it. A deterministic key κ ⁡ ( n ) \kappa(n) normalizes
+case, punctuation, function words, word order, and singular and plural variants
+of a name while keeping numbers, and a deterministic admission gate rejects
+generic filing terms and dialogue-role pseudo-entities and caps the anchors
+admitted from one record ( Section A.2 ). Registry-guided canonicalization. Surface normalization cannot decide whether two semantically close names denote
+the same entity. For every extracted entity, approximate nearest-neighbor search
+therefore retrieves a few existing anchors of the user above a similarity
+threshold, and one language-model call per record makes a conservative
+same-entity decision for all of its entities. A rename is accepted only when it
+selects a retrieved candidate, so embeddings propose comparisons but never
+authorize a merge on their own. The neighbor count and the threshold, with their relation to the vector-index score, are in Section A.2 . N-ary frames. For each episodic or semantic record, an extractor produces a set of frames f = ( p , { ( r j , a j ) } j = 1 d f , ℓ f , τ e , τ m , C f ) , f=\left(p,\,\{(r_{j},a_{j})\}_{j=1}^{d_{f}},\,\ell_{f},\,\tau_{e},\tau_{m},\,C_{f}\right), (5) where p p is a canonical predicate, r j r_{j} is the open-vocabulary role of
+anchor a j a_{j} , ℓ f \ell_{f} maps literal attributes to their values, and C f C_{f} is the set of identifiers of the vector-database records the frame cites. A flight, for example,
+becomes one frame with agent, origin, destination, carrier, and companion arms
+instead of several disconnected triples, and owns(Mia, Suica card) in Figure 2 is a frame that cites the May 2 record. The extractor is instructed to keep dates, prices, counts, durations, and
+measurements as literals on the frame rather than as anchors, so that a value
+stays attached to the assertion it qualifies. A frame is materialized only if
+its arguments resolve to at least two distinct anchors of the user. When a deterministic audit finds that
+the extraction misses high-signal source details, one bounded repair call may
+add frames that the source supports, and it cannot remove anything the primary
+extraction produced. Section A.2 describes the audit. Occurrence identity. Semantic claims and episodic occurrences follow different identity rules. Let σ ⁡ ( f ) \sigma(f) be the sorted set of role and anchor keys { r j : κ ⁡ ( n a j ) } \{r_{j}:\kappa(n_{a_{j}})\} . A semantic frame is identified by id S ⁡ ( f ) = H ⁡ ( u , p , σ ⁡ ( f ) ) , \operatorname{id}_{S}(f)=H(u,p,\sigma(f)), (6) so repeated support for the same durable claim accumulates citations on one
+node. An episodic frame adds an occurrence key, id E ⁡ ( f ) \displaystyle\operatorname{id}_{E}(f) = H ⁡ ( u , p , σ ⁡ ( f ) , χ ⁡ ( f ) ) , \displaystyle=H(u,p,\sigma(f),\chi(f)), (7) χ ⁡ ( f ) \displaystyle\chi(f) = { explicit event time , if extracted , immutable memory id , otherwise . \displaystyle=\begin{cases}\text{explicit event time},&\text{if extracted},\\
+\text{immutable memory id},&\text{otherwise}.\end{cases} (8) Two mentions of the same dated event therefore share one frame, while two undated
+events with similar wording, such as two runs on different days, stay separate. A
+frame keeps the time of the event apart from the time it was mentioned, and whether
+the event is planned or done does not change its identity. 2.4 Graph-owned evidence retrieval MIRIX-2.0 treats retrieval as the construction of a bounded evidence set rather
+than as open-ended similarity search. Episodic and semantic candidates must
+enter through the graph, and the vector database dereferences and reranks only the
+identifiers that graph traversal selects. This boundary keeps a hidden
+full-table search from doing the work attributed to the graph. Only a graph
+read that raises an error falls back to direct evidence retrieval. A query passes
+through planning, anchor entry, expansion along two evidence lanes, and fusion,
+and a verifier then checks the answer
+( Algorithm 1 , lines 12 – 19 ). For the question in Figure 2 , the planner chooses the single operator, enters
+the graph at Mia and Tokyo transit, and returns three facts with five rows. Query plan. A deterministic planner maps a query to Π ⁡ ( q ) = ( o q , 𝒫 q , 𝒞 q , 𝒴 q , 𝒯 q , B q B , B q R ) , \Pi(q)=\left(o_{q},\mathcal{P}_{q},\mathcal{C}_{q},\mathcal{Y}_{q},\mathcal{T}_{q},B_{q}^{B},B_{q}^{R}\right), (9) where the operator o q o_{q} is single, temporal, intersection, list-union, or
+count, 𝒫 q \mathcal{P}_{q} holds canonical relation families and their surface
+forms, 𝒞 q \mathcal{C}_{q} holds non-relational constraints, 𝒴 q \mathcal{Y}_{q} holds
+expected answer types, and 𝒯 q \mathcal{T}_{q} holds date and temporal-order
+constraints. The two budgets cap the base-recall rows and the relation-cited
+rows, and B q R B_{q}^{R} also caps the graph facts that the relation lane renders.
+The budgets grow with the operator, from 6 base rows and 4 cited rows for a
+single-value lookup to 8 and 12 for a count, since counting and set
+construction need broader evidence. Table 6 in Section A.3 lists all five
+operators. Anchor entry. The query embedding first recalls fifteen anchors by name. A relation query adds
+the anchors that the question names exactly, and the union is scored by s A ​ ( a , q ) = s vec + s exact + s lex + s pred + s spec − s hub . s_{A}(a,q)=s_{\mathrm{vec}}+s_{\mathrm{exact}}+s_{\mathrm{lex}}+s_{\mathrm{pred}}+s_{\mathrm{spec}}-s_{\mathrm{hub}}. (10) The vector score dominates. Exact mention, token overlap, predicate
+compatibility, and multi-token specificity break close ties, and a logarithmic
+degree penalty suppresses generic hubs. The top fifteen anchors are kept, which
+is the cap K A K_{A} of Algorithm 1 . The cap on exactly named anchors and the hub and predicate rules are in Section A.3 . Two evidence lanes. The selected anchors open two bounded lanes. In the base-recall lane, anchors
+yield the episodic and semantic identifiers directly associated with them, and
+traversing an incident n-ary frame adds the frame’s cited memories and a bounded
+set of memories associated with its co-participants. In the relation-citation
+lane, which opens when the query plan contains a relation, the exactly named anchors seed an indexed adjacency lookup over their incident
+frames. Predicate filtering applies before a cap of 240 frames, the fact score
+below ranks the rest, and at most B q R B_{q}^{R} of them are rendered as explicit
+graph facts that contribute their exact citations into the vector database. The provenance
+recomputation of the base lane and the object filter of the relation lane are
+in Section A.3 . Fact scoring. Each relation-lane frame receives the additive score s F ​ ( f , q ) = \displaystyle s_{F}(f,q)={} s rel + s entity + s constraint + s type \displaystyle s_{\mathrm{rel}}+s_{\mathrm{entity}}+s_{\mathrm{constraint}}+s_{\mathrm{type}} + s time + s intersection + s specificity \displaystyle+s_{\mathrm{time}}+s_{\mathrm{intersection}}+s_{\mathrm{specificity}} + s role + s state . \displaystyle+s_{\mathrm{role}}+s_{\mathrm{state}}. (11) The first seven terms score relation, named-entity, literal, answer-type, and
+temporal compatibility, a shared object for intersection questions, and the
+number of arguments a frame binds. The role term s role s_{\mathrm{role}} rewards agreement
+between the argument direction implied by the question and the frame’s typed
+roles, and it penalizes incompatible roles. The state term s state s_{\mathrm{state}} rewards an event time that matches a requested date and penalizes planned
+occurrences in count, list-union, and temporal questions. Section A.3 describes its fallback and the treatment of intersection questions. Citation-balanced fusion. Rows in each lane are reranked, and fusion takes up to B q R B_{q}^{R} cited rows,
+then up to B q B B_{q}^{B} base rows, and fills the remaining capacity from the rest
+of either lane without duplicating row identifiers. The returned evidence
+therefore contains both the graph facts and the source rows that justify them.
+The reranking prior, the per-type split, and the rule for near-duplicate paraphrases are also in Section A.3 . Answer-time verification. In our harness, the answering agent may call the retriever up to five times.
+After it drafts an answer, a rule-based check requests one more search and one
+rewrite by the answering model when the draft shows explicit uncertainty, lacks a value the question asks for,
+or disagrees with the evidence ledger, for example a count without a number or a
+month that neither the evidence nor the question contains. It also fires on
+every intersection question (line 19 ). The check runs in the answering agent rather than in
+the memory server, and it never inspects a reference answer. Section A.4 lists every trigger and the query of the extra
+search. 2.5 AutoDream: consolidation outside the write path AutoDream runs outside the critical write path
+( Algorithm 1 , lines 22 – 29 ). It treats
+the two kinds of memory it consolidates in opposite ways. On semantic memory it
+is an explicit service call that never schedules itself, and it refines
+identities under the contract Dream ⁡ ( P u , G u , Δ u ) = ( P u , G ~ u ) , \operatorname{Dream}(P_{u},G_{u};\Delta_{u})=(P_{u},\widetilde{G}_{u}), (12) where Δ u \Delta_{u} is the newly written semantic frontier and G ~ u \widetilde{G}_{u} is the consolidated hypergraph. The evidence store P u P_{u} is returned
+unchanged. On procedural memory it starts in the background once five task
+sessions are pending, and it turns them into skills. Semantic frontier. Each call receives the exact source-chunk identifiers of the batch just
+written, which resolve to the newly written semantic rows. These rows define a
+small frontier Δ u \Delta_{u} , so the cost of consolidation depends on new
+activity rather than on the total size of memory. The invocation schedule of our protocol is in Section A.5 . Candidate generation. Only anchors that are backed by semantic rows and belong to an identity-stable
+type t ∈ 𝒯 safe = { person, organization, location,
+object, concept } t\in\mathcal{T}_{\mathrm{safe}}=\{\text{person, organization, location,
+object, concept}\} are eligible. For each eligible anchor a ∈ 𝒜 Δ a\in\mathcal{A}_{\Delta} backed by a frontier row, AutoDream takes the four nearest entries of the name index, which include a a itself,
+and forms the candidate pairs 𝒞 Δ = { ( a , b ) : a ∈ 𝒜 Δ , b ∈ NN 4 ( a ) ∖ { a } , cos ⁡ ( 𝐞 a , 𝐞 b ) ≥ 0.86 , t a = t b ∈ 𝒯 safe } . \mathcal{C}_{\Delta}=\left\{(a,b):\begin{array}[]{l}a\in\mathcal{A}_{\Delta},\;b\in\operatorname{NN}_{4}(a)\setminus\{a\},\\
+\cos(\mathbf{e}_{a},\mathbf{e}_{b})\geq 0.86,\\
+t_{a}=t_{b}\in\mathcal{T}_{\mathrm{safe}}\end{array}\right\}. (13) Episodic-only anchors are excluded by construction. An LLM decides whether each
+pair denotes the same entity and, if it does, chooses one of the two existing
+names as the canonical representative. Its output is constrained to the
+submitted pair, and invented representatives are rejected. In Figure 3 , steel bottle and stainless steel
+bottle form such a pair. Bounded schedule. Every Dream round verifies at most a fixed number of unseen pairs, and the
+final round also considers the eligible anchors that no earlier round used as a
+source. Explicit negative decisions are cached as the set 𝒩 \mathcal{N} of Algorithm 1 , so later cycles do not pay again to reconsider the same pair. Section A.5 states the caps of the intermediate, final, and
+repair rounds and the cache key. Lossless structural merge. For a confirmed merge a → b a\rightarrow b , the system unions the episodic and
+semantic row identifiers, keeps aliases, sums mention counts, keeps the maximum
+admission score, and rewires every role-typed frame arm to b b . Union, sum, and maximum are commutative and
+associative, so the order of repeated merges does not change the reachable
+evidence. The dropped anchor is removed only after its values and edges have
+been transferred. Semantic Dream never rewrites the memories in the vector database, and it consolidates neither
+episodic-only anchors nor fact nodes. The asymmetry is deliberate. Semantic
+identity can be refined incrementally, whereas event occurrences and their
+citations are kept as observations. AutoDream therefore makes the graph less
+fragmented without creating a textual summary whose embedding could hide the
+details of its inputs. Procedural refinement. For procedural memory, AutoDream refines instead of merging. A distiller judges
+the outcome of each pending session from quotes in its transcript and distills
+experiences e 1 , … , e m e_{1},\ldots,e_{m} , each marked as a lesson worth reusing or a
+mistake worth avoiding. A curator ( Zhang et al., 2026c ) turns these experiences
+into skills in the procedural store P u P P_{u}^{P} , and it can create, edit, or
+delete a skill. An edit can cite the experiences behind it with a quote of the
+text it adds, and a citation is recorded only when that quote checks out, so a
+cited step of a skill can be traced through its experiences to the quoted
+sessions they came from. In Figure 3 , one failed purchase
+yields an experience to avoid and one to reuse, and the curator adds two steps
+to the shopping routine that cite the first and keeps a step that the second
+supports. The distiller’s unclear verdict and the curator’s non-edit verdicts are in Section A.5 . \FloatBarrier 3 Experiments We evaluate MIRIX-2.0 for the three properties it is designed for. Accuracy is
+measured for user memory on conversational recall, document QA, and
+personalized generation ( Section 3.2 ), which mainly exercise semantic
+memory together with the episodic records that ground it, and for agent memory
+on held-out interactive tasks and on
+MetaClaw-Bench, whose tasks span 30 days ( Section 3.3 ), which exercise procedural memory. Efficiency is measured
+as ingestion time, answer latency, and answer tokens for user memory, with
+AutoDream disabled in every timed run, and as training and test tokens for
+agents ( Section 3.4 ). Practicality is built into the protocol itself. One system serves both uses, no model is fine-tuned, the agent
+evaluation covers closed and open backbones, and every graph configuration runs
+under the budgets of Section 2.4 . 3.1 Experimental setup and system variants Default system and ablations. Unless a configuration is explicitly identified otherwise, MIRIX-2.0 denotes the
+full architecture with the provenance hypergraph and AutoDream enabled.
+For the user-memory ablations, M0 uses flat vector memory without the
+graph or AutoDream, like MIRIX-1.0 ( Wang and Chen, 2025 ) , and the tables label it
+MIRIX-1.0. M1 adds graph indexing and retrieval but disables
+AutoDream, and M2 is the full graph plus AutoDream configuration.
+M1 and M2 are configurations of MIRIX-2.0 , not successive releases of the
+method. In M2, semantic AutoDream is invoked by the ingestion driver after
+every five chunks and after the final chunk, outside the critical write path (Section 2.5 and Section A.5 ). It merges eligible entity anchors while preserving
+stored records and episodic occurrences. The conversational tables report all three configurations. The available
+document QA results and graph efficiency measurements use M1 and are labeled
+accordingly; disabling AutoDream there is an experimental choice, not a
+restriction that prevents consolidation of document memories. MemoryCD is
+reported under the system name, but its recorded results do not identify an
+M0, M1, or M2 configuration, so we do not use them to estimate the contribution
+of AutoDream. For agent memory, we evaluate the procedural refinement path,
+in which AutoDream distills sessions into reusable skills whose retrieval is
+independent of the semantic hypergraph. The M0, M1, and M2 comparisons below
+therefore concern user-memory indexing and semantic consolidation, rather
+than a procedural graph ablation. User-memory tasks and baselines. LoCoMo ( Maharana et al., 2024 ) and LongMemEval-S ( Wu et al., 2025 ) test conversational
+recall. SHDocQA, MHDocQA, and DetectiveQA in the MemoryAgentBench
+evaluation ( Hu et al., 2026 ) extend this analysis to factual and
+relational evidence in documents. They are evidence-retrieval tests rather
+than direct personalization tasks. MemoryCD ( Zhang et al., 2026d ) tests whether
+stored user information supports personalized review summarization and
+generation. We compare with mem0, A-Mem, MemoryBank, Graphiti, and HyperMem on
+QA, and with the methods listed in the MemoryCD tables, including
+long-context and RAG baselines, on personalization. Models and scoring. For the user-memory evaluation, the answerer and extractor use gpt-4.1-mini with temperature 0 and seed 42, and the topic extractor
+uses gpt-4.1-nano . MIRIX-2.0 uses text-embedding-3-small ; external
+baselines retain their default embeddings. SHDocQA and MHDocQA use substring
+matching, and DetectiveQA uses letter exact matching. LoCoMo and LongMemEval-S
+use a gpt-4o-mini judge with majority-of-3 voting. MemoryCD uses
+ROUGE-1, ROUGE-L, BLEU-4, and BERTScore-F1. Agent backbones and evaluation
+protocols are specified in Section 3.3 . Differences in accuracy
+or success rate are reported in percentage points. Efficiency and uncertainty. We report total ingestion wall-clock time, mean time to retrieve and answer a
+question, total answer tokens, and graph node and edge counts where available.
+Graph size measures index structure, not stored text length or total storage.
+For interactive agents, we report success, action steps, and training and test
+tokens, with mean and standard deviation over three runs. For LoCoMo, all
+comparisons below use the results in Table 1 ; M0, M1, and M2
+are distinct system configurations, not repeated runs used to estimate
+variance. 3.2 User memory: recall, documents, and personalization Figure 4: Components of MIRIX-2.0 on LoCoMo, its four question types, and LongMemEval-S. The hypergraph (M1) and AutoDream (M2) each add accuracy over flat memory (M0). The hypergraph and AutoDream each improve conversational recall. Figure 4 and Table 1 , with Table 8 in the appendix, compare the M0,
+M1, and M2 configurations under the evaluation protocol described above and show a
+consistent ordering on both conversational benchmarks. On LoCoMo, graph retrieval raises overall accuracy
+from 85.7% for M0 to 88.4% for M1, and semantic AutoDream raises it to
+91.4% for M2. On LongMemEval-S, the corresponding values are 58.8%, 70.0%,
+and 72.6%. The graph increment is thus 2.7 points on LoCoMo and 11.2 points
+on LongMemEval-S, while AutoDream adds 3.0 and 2.6 points, respectively.
+The larger graph increment on LongMemEval-S suggests that evidence organization
+can matter more when flat retrieval has difficulty recovering the relevant
+history. It does not establish which question types account for that gain,
+since a LongMemEval-S category breakdown is not available here. Table 1: LoCoMo accuracy (%) by question type on 1,540 non-adversarial questions. Bold marks the best value in each column. Method Overall Multi-hop Temporal Open Single-hop mem0 82.9 80.5 80.4 66.7 86.6 A-Mem 68.3 68.8 55.5 61.5 73.8 MemoryBank 59.5 70.9 14.6 52.1 73.6 Graphiti 58.4 65.2 37.1 53.1 64.9 HyperMem 91.0 91.1 84.4 76.0 95.2 MIRIX-1.0 (M0) 85.7 83.3 85.0 70.8 88.3 MIRIX-2.0 (M1, graph) 88.4 89.0 86.0 71.9 91.1 MIRIX-2.0 (M2, graph + + dream) 91.4 91.8 89.4 74.0 94.1 Semantic consolidation can help temporal recall without rewriting events. The LoCoMo breakdown is more informative than overall accuracy alone. Moving
+from M0 to M1 improves multi-hop accuracy by 5.7 points, compared with 1.0
+point on temporal questions. Moving from M1 to M2 then improves every
+reported category, including 3.4 points on temporal questions. This pattern is
+consistent with the division of work in the method. N-ary frames connect
+related evidence, while identity consolidation gives retrieval a more coherent
+entry point into records that mention the same entity. Since semantic
+AutoDream preserves fact nodes and episodic occurrences, temporal evidence can
+become easier to reach without collapsing distinct events. This is an
+interpretation of the aggregate results; a direct audit of retrieved records
+and merged anchors would be needed to establish the mechanism for individual
+answers. Figure 5: MIRIX-2.0 against memory baselines on five QA benchmarks. The document tasks use M1. Figure 5 compares MIRIX-2.0 with all memory baselines on the five QA benchmarks. M2
+exceeds HyperMem by 0.4 points overall on LoCoMo and by 14.3 points on
+LongMemEval-S. Its LoCoMo advantage is concentrated in temporal and multi-hop
+questions, with gains of 5.0 and 0.7 points, while HyperMem retains higher
+open-domain and single-hop scores. The evidence therefore supports stronger
+recovery of connected and time-grounded facts, rather than dominance on every
+form of recall. HyperMem’s 91.0% comes from our own run and is lower than the
+92.7% it reports. Section B.1 describes how we ran HyperMem with
+its original settings. Keeping source details improves document QA. Table 8 in the appendix reports M1 on document QA. Its 83.0% on SHDocQA and
+71.0% on MHDocQA exceed HyperMem by 31.0 and 22.0 points. Gains on both tasks
+are consistent with a design that retains source details as well as relational structure. Single-hop questions require the precise fact, while multi-hop
+questions also require connections between supporting records. In
+Sections 2.2 and 2.4 , these requirements
+motivate source-faithful writers and retrieval of original rows alongside
+graph facts. The comparison measures the combined pipeline and does not
+isolate either feature. DetectiveQA exposes a boundary of this advantage. M1 reaches 64.8%, below
+MemoryBank’s 67.6% and HyperMem’s 66.2%. Organizing explicit evidence does
+not by itself guarantee the inference needed to resolve a detective question.
+Without an error analysis, we cannot distinguish missed evidence from failures
+to reason over retrieved evidence. The document results also cannot establish
+an AutoDream benefit, because they evaluate M1 only. Selective user memory supports personalized generation. Table 2 , and Table 9 in the appendix, move from answering factual
+questions to generating text for a particular user. Cross-domain evaluation is especially relevant because useful preferences must transfer from other product
+domains to Home_and_Kitchen. This tests a different role for semantic memory
+from recalling a named event. A useful record must preserve a user’s relevant
+preferences while remaining accessible when the new request has a different
+surface topic. For cross-domain summarization, MIRIX-2.0 has the highest value on all four
+metrics. Its ROUGE-L is .1510, compared with .1430 for the strongest baseline
+on that metric, and its BLEU-4 is .0209, compared with .0162. In the
+single-domain setting it leads on ROUGE-1 and ROUGE-L and ties the highest
+BERTScore, while long-context input has higher BLEU-4. Review generation
+shows the highest reported scores for MIRIX-2.0 in both settings on all four
+metrics, although several margins are small. Together, these results suggest
+that selective user memory can preserve useful information for generation
+without requiring the full history as context. They do not measure factual
+consistency, preference satisfaction, or user approval directly, and the
+available configuration record does not support a MemoryCD-specific claim
+about graph or AutoDream gains. Table 2: Review summarization on MemoryCD (100 Home_and_Kitchen users). Bold marks column maxima. Cross-domain Single-domain Method R-1 R-L B-4 BERT R-1 R-L B-4 BERT Long-context .1493 .1357 .0162 .8745 .1675 .1570 .0249 .8779 RAG .1559 .1430 .0145 .8735 .1670 .1523 .0196 .8759 mem0 .1526 .1420 .0159 .8749 .1593 .1472 .0184 .8767 A-Mem .1567 .1428 .0160 .8746 .1602 .1521 .0184 .8764 MemoryBank .1409 .1291 .0131 .8736 .1584 .1449 .0188 .8760 Graphiti .1534 .1415 .0139 .8741 .1520 .1418 .0172 .8746 MIRIX-2.0 .1603 .1510 .0209 .8754 .1715 .1617 .0234 .8779 3.3 Agent memory: held-out tasks and skills Setup and transfer to held-out tasks. We evaluate procedural memory on ALFWorld ( Shridhar et al., 2021 ) and
+WebShop ( Yao et al., 2022 ) , comparing an agent without memory with
+ReasoningBank ( Ouyang et al., 2026 ) , Agent Workflow Memory
+(AWM) ( Wang et al., 2025e ) , and MIRIX-2.0 . Within each comparison, methods share the
+actor prompt and backbone. ALFWorld uses GPT-6 Luna and GPT-5.6 Luna; WebShop
+uses GPT-6 Luna. Each memory method learns from the same training tasks,
+39 for ALFWorld and 40 for WebShop. Memory is then frozen for evaluation on
+134 held-out ALFWorld episodes with a 50-step cap and 140 WebShop instructions
+with a 15-step cap. Results are averaged over three independent runs.
+The separation between memory learning and evaluation tests reuse of acquired
+procedures on new tasks. This setting exercises the procedural branch of AutoDream
+(Section 2.5 ). Sessions supply lessons to reuse and mistakes to
+avoid, and a curator turns those experiences into skills. Unlike semantic
+consolidation, which preserves the factual records and changes their index,
+procedural refinement changes the instructions available to the actor. The
+experiments evaluate the utility of that combined process; they do not
+separately ablate the outcome judge, experience distiller, or curator. Figure 6: Agent memory on held-out tasks. Success rate, mean and standard deviation over three runs. ALFWorld: useful procedures must generalize across action sequences. Figure 6 , and Table 10 in the appendix, show the highest mean
+overall success among the compared methods for MIRIX-2.0 with both backbones. With GPT-6 Luna it reaches
+76.4%, compared with 69.4% without memory and 73.6% with AWM. With GPT-5.6
+Luna it reaches 61.7%, compared with 54.2% and 58.0%, respectively.
+The gains over no memory are similar, at 7.0 and 7.5 points, but they are not
+uniform across task types ( Figure 7 ). With GPT-6 Luna, Clean improves from 60.2% to
+74.2% and Heat from 47.8% to 73.9%, while Pick, Look, and Pick Two remain
+below the no-memory scores. This suggests that procedures are most useful
+when they supply missing action structure; retrieving a routine can also
+interfere with a task the actor already handles well. The step counts provide a complementary view. Successful episodes require
+13.2 rather than 14.2 steps with GPT-6 Luna and 12.4 rather than 16.1 with
+GPT-5.6 Luna, relative to no memory. This is consistent with more direct
+action sequences, but the successful subsets differ across methods, so these
+are not paired measurements on identical solved tasks. The large success-rate
+standard deviations for MIRIX-2.0 , 6.2 and 14.0 points, also limit the conclusion. It has the highest observed mean, but three runs do not establish a stable
+advantage over AWM. WebShop: procedure quality matters more than memory availability. Table 11 in the appendix reports 37.4% success for MIRIX-2.0 , compared with
+31.9% without memory, 25.7% with ReasoningBank, and 36.0% with AWM.
+ReasoningBank falls below no memory on both interactive benchmarks with
+GPT-6 Luna, showing that adding experience memory is not sufficient to improve
+an actor. In WebShop, MIRIX-2.0 leads the memory methods on Fashion and Beauty,
+ties AWM on Garden and Grocery, and trails AWM on Electronics. A plausible
+interpretation is that reusable constraint checks help some product searches,
+while other searches need more task-specific guidance. The category results
+do not directly identify which learned skills caused those differences. MIRIX-2.0 uses 8.2 steps per episode and 6.3 per successful episode, fewer than
+the other memory methods but slightly more than no memory at 7.9 and 6.2.
+Thus, its benefit is a higher success rate with modest additional interaction,
+not a reduction in steps relative to every baseline. Figure 7: ALFWorld success by task type with GPT-6 Luna, over three runs. MetaClaw-Bench: answer quality and completed artifacts are distinct. Table 3 evaluates agent memory on Part I of
+MetaClaw-Bench ( Xia et al., 2026b ) , which spans 30 days.
+Accuracy is the official mean
+per-question score, which combines binary file checks with partial credit on
+multiple-choice questions, and completion is the completion rate over the 224 file-check
+questions. With GPT-5.2, MIRIX-2.0 improves the official
+mean question score from 44.0% for MetaClaw Skills to 49.2%, and file-check
+completion from 17.1% to 27.7%. The larger completion gain, 10.6 points,
+suggests that reusable procedures can help produce the required artifacts as
+well as improve question scores. With Qwen3.6-35B-A3B, the score gain is
+smaller, from 51.8% to 52.7%, and completion is tied at 30.8%. The benefit
+therefore depends on the backbone and on what the metric measures.
+The GPT-5.2 baselines are reported values from the MetaClaw paper, so this
+comparison is not evidence from a fully controlled rerun. Unlike ALFWorld and
+WebShop, this table does not report variation across independent runs or a
+matched procedural-component ablation. Table 3: Agent memory on MetaClaw-Bench Part I (346 questions). Model Skill module Acc. (%) Compl. (%) GPT-5.2 Baseline 41.1 14.7 MetaClaw Skills 44.0 17.1 MIRIX-2.0 49.2 27.7 Qwen3.6-35B-A3B Baseline 40.3 12.1 MetaClaw Skills 51.8 30.8 MIRIX-2.0 52.7 30.8 3.4 Efficiency: ingestion time, answer latency, and tokens Graph construction moves work into ingestion. Figure 8 a and Table 12 in the appendix show the cost of organizing
+source records before queries arrive. Relative to M0, M1 increases ingestion time by
+3.8 to 4.0 times across the three document tasks. M1 also has higher answer
+latency than M0 on each task, so graph retrieval is not intrinsically cheaper
+than flat retrieval. Its purpose is to improve access to structured evidence,
+with extraction and indexing paid in advance and additional evidence handling
+paid at query time. Against HyperMem, M1 answers faster on all three document tasks
+( Figure 8 b), at 5.45
+versus 10.55 seconds on SHDocQA, 9.01 versus 10.65 on MHDocQA, and 7.24 versus
+13.05 on DetectiveQA. It uses fewer answer tokens on SHDocQA and MHDocQA,
+but more on DetectiveQA, at 1.16M versus 0.35M. The DetectiveQA result shows that lower latency can coexist with higher token use
+and lower accuracy. Latency, token cost, and answer quality therefore need to
+be assessed separately. Figure 8: Cost of user memory: (a) ingestion time and (b) answer time per question. The available timings characterize M1, not the full M2 system. Figure 8 b and Table 12 in the appendix show that M1 also has lower
+answer latency than HyperMem on LoCoMo and LongMemEval-S , completing the five-benchmark latency
+comparison. Its conversational ingestion time is lower as well, unlike the
+document setting. These measurements are consistent with bounded graph access keeping answer
+latency low, but they do not isolate the effects of candidate caps, model
+calls, or execution conditions. M2 adds consolidation calls and can
+change subsequent retrieval behavior. Its total ingestion cost, answer cost,
+and graph reduction must be measured directly before attaching the M1
+latency claims to the full system. Node and edge counts alone likewise do
+not quantify evidence retention or compression. Fewer agent steps do not necessarily mean fewer tokens. Table 4 separates the cost of learning a procedure from the
+cost of applying it, with the token accounting given in Section B.3 . On WebShop, MIRIX-2.0 uses the fewest
+training and test tokens among the memory methods, 1.815M and 4.975M per run,
+while achieving the highest mean success. On ALFWorld, its 3.813M test tokens
+are the highest among the memory methods despite its lower mean step count.
+A retrieved procedure can reduce interaction steps while increasing the
+context processed at each step. Relative to no memory, test tokens rise on
+both benchmarks, so procedural memory should be judged by the resulting
+success and reuse, rather than assumed to save tokens automatically.
+The reported totals do not determine how many future tasks are needed to
+amortize memory learning, because no varying-horizon cost study is included. Table 4: Token use per run and success with GPT-6 Luna, mean ± \pm std over three runs. Bold marks the best of the three memory methods. Benchmark Method Training tokens (M) ↓ \downarrow Test tokens (M) ↓ \downarrow Success rate (%) ↑ \uparrow ALFWorld No memory 0 2.147 ± \pm 0.048 69.4 ± \pm 0.7 ReasoningBank 1.747 ± \pm 0.122 3.351 ± \pm 0.045 66.9 ± \pm 2.8 AWM 2.749 ± \pm 0.059 3.674 ± \pm 0.332 73.6 ± \pm 1.9 MIRIX-2.0 2.253 ± \pm 0.100 3.813 ± \pm 0.490 76.4 ± \pm 6.2 WebShop No memory 0 4.238 ± \pm 0.463 31.9 ± \pm 1.8 ReasoningBank 2.010 ± \pm 0.242 6.620 ± \pm 0.674 25.7 ± \pm 3.8 AWM 1.909 ± \pm 0.127 5.448 ± \pm 0.356 36.0 ± \pm 4.3 MIRIX-2.0 1.815 ± \pm 0.054 4.975 ± \pm 0.340 37.4 ± \pm 2.1 3.5 What the experiments establish The results support the three properties in different measure. Accuracy has
+the broadest support. The M0, M1, and M2 ordering holds on both conversational
+benchmarks, and MIRIX-2.0 leads the compared systems on four of the five QA
+benchmarks, two of them with AutoDream disabled. As procedural memory, it has
+the highest mean success among the compared memory methods on ALFWorld with
+both backbones and on WebShop, and the highest MetaClaw-Bench score with both
+backbones, while the no-memory comparisons show that retrieved experience can
+also hurt. Efficiency holds for answering more than for ingestion. With
+AutoDream disabled, MIRIX-2.0 answers faster than HyperMem on every timed
+benchmark, and on WebShop it uses the fewest training and test tokens among
+the memory methods. Graph construction, however, makes document ingestion 3.8
+to 4.0 times slower than flat memory, and the ALFWorld test tokens of MIRIX-2.0 are
+the highest among the memory methods. Practicality rests on the design and on
+our protocol rather than on a deployment. One store serves both uses, no model
+is fine-tuned, and every graph fact returned to the answerer cites its source
+rows. The tables evaluate complete configurations, so the component explanations in
+this section remain interpretations, and the limitations in Section 5 list the ablations that would test them. The tables also
+do not measure merge precision, source-detail retention, skill provenance
+coverage, or the contribution of the six-writer routing policy, and they do not
+report memory length or user-memory ingestion tokens, for which graph counts
+and answer tokens cannot substitute. 4 Related Work Memory systems for LLM agents. Memory systems for LLM agents keep past interactions outside the model and
+retrieve them when they become
+relevant ( Huang et al., 2026b ; Zhang et al., 2025c ; Wang et al., 2025a ; Guo et al., 2026 ) .
+Early designs rank or decay a memory stream ( Park et al., 2023 ; Zhong et al., 2024 ) or manage memory the way an operating system manages
+storage ( Packer et al., 2023 ; Kang et al., 2025 ; Li et al., 2025 ) . Later systems extract and update
+salient facts ( Chhikara et al., 2025 ) , link notes into an evolving network ( Xu et al., 2025 ) ,
+compress what they store ( Fang et al., 2026a ; Liu et al., 2026a ) , or learn
+memory construction with reinforcement
+learning ( Wang et al., 2025d ; Yan et al., 2026 ) . Graph memories organize
+content around entities and their
+relations ( Bei et al., 2025 ; Rasmussen et al., 2025 ; Gutiérrez et al., 2024 ; Gutiérrez et al., 2025 ; Edge et al., 2024 ; Wu et al., 2026b ) ,
+and hypergraph memories keep n-ary facts
+together ( Luo et al., 2025a ; Yue et al., 2026 ) . Typed designs split memory by
+function, following cognitive accounts of episodic and semantic
+memory ( Tulving, 1985 ; Pink et al., 2025 ) .
+MIRIX ( Wang and Chen, 2025 ) assigns six memory types to dedicated agents, and
+PersonaAgent ( Zhang et al., 2026e ) pairs episodic and semantic memory
+for personalization. Memory stored in model parameters or latent
+states ( Wang et al., 2024b ; Wang et al., 2025b ; Wang et al., 2025c ; Behrouz et al., 2025 ) requires training
+and cannot be used with closed models. Evaluation has moved from recall over
+long conversations ( Maharana et al., 2024 ; Wu et al., 2025 ) to multi-session agentic
+tasks ( Hu et al., 2026 ; He et al., 2026 ) , evolving
+environments ( Ji et al., 2026 ) , lifelong
+personalization ( Zhang et al., 2026d ) , memory audits ( Ma et al., 2026b ) , and
+comparisons of memory substrates ( Huang et al., 2026c ) . MIRIX-2.0 combines the
+typed and the graph directions. Complete typed records remain the system of
+record, a provenance hypergraph serves only as their index, and every graph
+fact cites its source records. Multi-agent systems. Multi-agent systems divide a task among LLM agents that take different
+roles ( Guo et al., 2024 ; Luo et al., 2025b ) , from role-playing and
+conversable agents ( Li et al., 2023 ; Wu et al., 2024 ) to software teams and
+groups of experts ( Hong et al., 2024 ; Qian et al., 2024 ; Chen et al., 2024 ) .
+Agents can debate ( Du et al., 2024 ; Liang et al., 2024 ; Huang and Caragea, 2026 ) ,
+optimize their workflow ( Zhuge et al., 2024 ; Zhang et al., 2025b ) , or
+communicate through latent representations ( Yang et al., 2026 ) . They also
+fail in new ways ( Cemri et al., 2025 ; Huang et al., 2026a ) , and one response keeps
+humans in the loop as
+collaborators ( Zou et al., 2025a ; Zou et al., 2025b ; Wu et al., 2026a ) . Memory
+in these systems mostly serves the collaboration, through shared pools, graphs
+of team trajectories, and sharing across users under access
+control ( Gao and Zhang, 2026 ; Zhang et al., 2025a ; Rezazadeh et al., 2025 ) . MIRIX-2.0 applies the multi-agent design to memory itself. A Meta Memory Manager
+routes each input to the agents of the six memory types, and each agent writes
+only the records of its own type. Self-reflection and memory consolidation. Self-reflection lets an agent improve from feedback on its own behavior without
+updating its
+weights ( Shinn et al., 2023 ; Madaan et al., 2023 ; Park et al., 2023 ; Zhao et al., 2025 ) .
+Experience-driven methods turn such feedback into reusable knowledge, including
+insights ( Zhao et al., 2024 ) , executable skills ( Wang et al., 2024a ) ,
+workflows ( Wang et al., 2025e ) , reasoning
+strategies ( Ouyang et al., 2026 ) , and evolving playbooks and case
+banks ( Suzgun et al., 2026 ; Zhang et al., 2026c ; Fang et al., 2026b ; Zhou et al., 2025 ) .
+Skills can co-evolve with the policy ( Xia et al., 2026a ; Xia et al., 2026b ) , be
+verified and optimized as
+artifacts ( Zhang et al., 2026b ; Ma et al., 2026a ) , or form a
+hypergraph ( Xu et al., 2026 ) , and agents, their harnesses, and their
+memory architectures can improve
+themselves ( Xia et al., 2026d ; Xia et al., 2026c ; Liu et al., 2026b ; Gao et al., 2026 ; Fang et al., 2025 ) .
+Consolidation can also run offline, before queries arrive or while the user is
+inactive ( Lin et al., 2025 ; Fang et al., 2026a ; Xia et al., 2026b ; Ye et al., 2026 ) .
+Rewriting memory carries risks. Consolidated memories can become
+faulty ( Zhang et al., 2026a ) , and a defective skill can contaminate
+the skills distilled after it ( Shang et al., 2026 ) . AutoDream also
+consolidates outside the write path, but it limits what consolidation may
+change. On semantic memory it merges only anchors that denote the same entity
+and never rewrites stored records. On procedural memory it keeps a judged
+outcome, and each experience a skill edit cites, only after checking the
+quoted text. 5 Conclusion We presented MIRIX-2.0 , a multi-agent memory system that keeps complete typed
+records, indexes them with a provenance hypergraph under explicit budgets, and
+runs AutoDream outside the write path to merge duplicate anchors and refine
+skills. It leads the compared systems on four of the five QA benchmarks, two of
+them with AutoDream disabled, reaching 91.4% on LoCoMo and 72.6% on
+LongMemEval-S, and it has the highest value on all four metrics for
+cross-domain review summarization on MemoryCD. On LoCoMo, the hypergraph and
+AutoDream each add accuracy over flat memory. As procedural memory, its
+distilled skills lead the compared memory methods in mean success on ALFWorld
+and WebShop, and with GPT-5.2 they reach 49.2% on MetaClaw-Bench, against
+44.0% reported for the MetaClaw skill library. With AutoDream disabled, MIRIX-2.0 answers each question in less time than HyperMem on all five timed benchmarks,
+and on WebShop its skills cost the fewest tokens among the memory methods. One
+store serves both uses, and the system runs with closed and open models without
+fine-tuning. The results suggest that a memory layer can be
+practical, accurate, and efficient at once when complete records remain the
+system of record, the graph is only a bounded index, and consolidation changes
+how evidence is connected rather than what evidence exists. Limitations. Our ablations add components in groups. They do not isolate n-ary frames,
+cited source rows, occurrence identities, answer-time verification, or the
+judge, distiller, and curator of procedural memory, so the explanations in Section 3 remain interpretations. The user-memory results come from single runs, partly
+scored by an LLM judge, the agent results average three runs with large
+spreads, and some baselines are values reported by their authors. Ethics and Broader Impact Statement MIRIX-2.0 lets assistants and task agents carry what users told them, and what the
+agents learned, from one session to the next. Every graph fact cites the records it was
+extracted from, so an answer can be traced to stored evidence.
+It is intended for assistants that users knowingly choose to use and should
+not be used to build profiles of people without their consent. A user-centric
+memory accumulates personal and possibly sensitive information. MIRIX-2.0 keeps
+sensitive verbatim values in a Knowledge Vault that the hypergraph does not
+index, but this does not replace consent and access control. A deployment
+should let users view, correct, and delete their memories, confine each memory
+to its user ( Rezazadeh et al., 2025 ) , and use model providers or local
+models that meet its privacy requirements, because stored content is sent to
+the model. Memory can also make mistakes
+persistent ( Zhang et al., 2026a ; Shang et al., 2026 ) , and content
+injected into a conversation can be stored and later retrieved as if it were
+trusted. A wrong merge
+changes only the index, and a procedural edit keeps a citation only after its
+quote is checked, but in high-stakes settings learned skills and merged
+identities should still be reviewed by a person and stored memories audited
+periodically ( Ma et al., 2026b ) . All experiments use publicly released
+benchmarks under their licenses. We collected no new data and ran no study with human participants.
+MemoryCD is built from public Amazon product reviews, and we use it as
+released without attempting to identify the reviewers. References Anthropic (2026) Anthropic How Claude remembers your project . Note: Claude Code documentation. https://code.claude.com/docs/en/memory Accessed: 2026-11-07 Cited by: §1 . Behrouz et al. (2025) A. Behrouz, P. Zhong, and V. Mirrokni Titans: learning to memorize at test time . In Advances in Neural Information Processing Systems , Cited by: §1 , §4 . Bei et al. (2025) Y. Bei, W. Zhang, S. Wang, W. Chen, S. Zhou, H. Chen, Y. Li, J. Bu, S. Pan, Y. Yu, I. King, F. Karray, and P. S. Yu Graphs meet AI agents: taxonomy, progress, and future opportunities . arXiv preprint arXiv:2506.18019 . Cited by: §4 . Cemri et al. (2025) M. Cemri, M. Z. Pan, S. Yang, L. A. Agrawal, B. Chopra, R. Tiwari, K. Keutzer, A. Parameswaran, D. Klein, K. Ramchandran, M. Zaharia, J. E. Gonzalez, and I. Stoica Why do multi-agent LLM systems fail? . In Advances in Neural Information Processing Systems, Datasets and Benchmarks Track , Cited by: §4 . Chen et al. (2024) W. Chen, Y. Su, J. Zuo, C. Yang, C. Yuan, C. Chan, H. Yu, Y. Lu, Y. Hung, C. Qian, Y. Qin, X. Cong, R. Xie, Z. Liu, M. Sun, and J. Zhou AgentVerse: facilitating multi-agent collaboration and exploring emergent behaviors . In International Conference on Learning Representations , Cited by: §4 . Chhikara et al. (2025) P. Chhikara, D. Khant, S. Aryan, T. Singh, and D. Yadav Mem0: building production-ready AI agents with scalable long-term memory . In European Conference on Artificial Intelligence , Cited by: §1 , §1 , §4 . Du et al. (2024) Y. Du, S. Li, A. Torralba, J. B. Tenenbaum, and I. Mordatch Improving factuality and reasoning in language models through multiagent debate . In International Conference on Machine Learning , Cited by: §4 . Edge et al. (2024) D. Edge, H. Trinh, N. Cheng, J. Bradley, A. Chao, A. Mody, S. Truitt, D. Metropolitansky, R. O. Ness, and J. Larson From local to global: a graph RAG approach to query-focused summarization . arXiv preprint arXiv:2404.16130 . Cited by: §1 , §4 . Fang et al. (2025) J. Fang, Y. Peng, X. Zhang, Y. Wang, X. Yi, G. Zhang, Y. Xu, B. Wu, S. Liu, Z. Li, Z. Ren, N. Aletras, X. Wang, H. Zhou, and Z. Meng A comprehensive survey of self-evolving AI agents: a new paradigm bridging foundation models and lifelong agentic systems . arXiv preprint arXiv:2508.07407 . Cited by: §4 . Fang et al. (2026a) J. Fang, X. Deng, H. Xu, Z. Jiang, Y. Tang, Z. Xu, S. Deng, Y. Yao, M. Wang, S. Qiao, H. Chen, and N. Zhang LightMem: lightweight and efficient memory-augmented generation . In International Conference on Learning Representations , Cited by: §4 , §4 . Fang et al. (2026b) R. Fang, Y. Liang, X. Wang, J. Wu, S. Qiao, P. Xie, F. Huang, H. Chen, and N. Zhang Memp: exploring agent procedural memory . In Findings of the Association for Computational Linguistics: ACL 2026 , Cited by: §4 . Gao and Zhang (2026) H. Gao and Y. Zhang INMS: memory sharing for large language model based agents . In International Joint Conference on Natural Language Processing and Asia-Pacific Chapter of the Association for Computational Linguistics , Cited by: §4 . Gao et al. (2026) H. Gao, J. Geng, W. Hua, M. Hu, X. Juan, H. Liu, S. Liu, J. Qiu, X. Qi, Y. Wu, H. Wang, H. Xiao, Y. Zhou, S. Zhang, J. Zhang, J. Xiang, Y. Fang, Q. Zhao, D. Liu, Q. Ren, C. Qian, Z. Wang, M. Hu, H. Wang, Q. Wu, H. Ji, and M. Wang A survey of self-evolving agents: what, when, how, and where to evolve on the path to artificial super intelligence . Transactions on Machine Learning Research . Cited by: §4 . Guo et al. (2026) M. Guo, Q. Jiao, X. Liu, J. Pang, R. Yang, N. Xu, L. Che, H. Xue, Z. Wang, X. Cai, J. Luo, J. Deng, X. Ye, J. Qu, W. Gao, J. Gu, C. Zhao, S. Liu, G. Zhang, Z. Liu, S. Wang, W. Xu, D. Li, Z. Shi, W. Yeo, S. Liu, W. Huang, W. Zhang, T. Yang, K. Kim, et al. Seeing, maintaining, and learning: the evolution of multimodal agent memory . arXiv preprint arXiv:2610.19366 . Cited by: §4 . Guo et al. (2024) T. Guo, X. Chen, Y. Wang, R. Chang, S. Pei, N. V. Chawla, O. Wiest, and X. Zhang Large language model based multi-agents: a survey of progress and challenges . In Proceedings of the Thirty-Third International Joint Conference on Artificial Intelligence , Cited by: §4 . Gutiérrez et al. (2024) B. J. Gutiérrez, Y. Shu, Y. Gu, M. Yasunaga, and Y. Su HippoRAG: neurobiologically inspired long-term memory for large language models . In Advances in Neural Information Processing Systems , Cited by: §4 . Gutiérrez et al. (2025) B. J. Gutiérrez, Y. Shu, W. Qi, S. Zhou, and Y. Su From RAG to memory: non-parametric continual learning for large language models . In International Conference on Machine Learning , Cited by: §4 . He et al. (2026) Z. He, Y. Wang, C. Zhi, Y. Hu, T. Chen, L. Yin, Z. Chen, T. A. Wu, S. Ouyang, Z. Wang, J. Pei, J. McAuley, Y. Choi, and A. Pentland MemoryArena: benchmarking agent memory in interdependent multi-session agentic tasks . In International Conference on Machine Learning , Cited by: §1 , §4 . Hong et al. (2024) S. Hong, M. Zhuge, J. Chen, X. Zheng, Y. Cheng, C. Zhang, J. Wang, Z. Wang, S. K. S. Yau, Z. Lin, L. Zhou, C. Ran, L. Xiao, C. Wu, and J. Schmidhuber MetaGPT: meta programming for a multi-agent collaborative framework . In International Conference on Learning Representations , Cited by: §4 . Hu et al. (2026) Y. Hu, Y. Wang, and J. McAuley Evaluating memory in LLM agents via incremental multi-turn interactions . In International Conference on Learning Representations , Cited by: §1 , §1 , §3.1 , §4 . Huang et al. (2026a) L. Huang, H. P. Zou, W. Huang, W. Yang, Y. Han, and P. S. Yu Believed but not said: measuring hidden belief collapse in multi-agent LLM discussions . arXiv preprint arXiv:2610.22138 . Cited by: §4 . Huang and Caragea (2026) W. Huang and C. Caragea MADIAVE: multi-agent debate for implicit attribute value extraction . In Findings of the Association for Computational Linguistics: EACL 2026 , Cited by: §4 . Huang et al. (2026b) W. Huang, W. Zhang, Y. Liang, Y. Bei, Y. Chen, T. Feng, X. Pan, Z. Tan, Y. Wang, T. Wei, S. Wu, R. Xu, L. Yang, R. Yang, W. Yang, C. Yeh, H. Zhang, H. Zhang, S. Zhu, H. P. Zou, W. Zhao, S. Wang, W. Xu, Z. Ke, Z. Hui, D. Li, Y. Wu, L. He, C. Wang, X. Xu, B. Huang, J. Tan, S. Heinecke, H. Wang, C. Xiong, A. A. Metwally, J. Yan, C. Lee, H. Zeng, Y. Xia, X. Wei, A. Payani, Y. Wang, H. Ma, W. Wang, C. Wang, Y. Zhang, X. E. Wang, Y. Zhang, J. You, H. Tong, X. Luo, X. Liu, Y. Sun, W. Wang, J. McAuley, J. Zou, J. Han, P. S. Yu, and K. Shu A survey of agent memory in the second half: towards self-evolving and long-horizon agents . Transactions on Machine Learning Research . Cited by: §1 , §1 , §1 , §4 . Huang et al. (2026c) W. Huang, W. Zhang, Y. Wu, Y. Chen, E. H. Jiang, W. Yang, Y. Yang, H. P. Zou, H. Zhang, Y. N. Wu, H. Wu, K. Chang, P. S. Yu, X. Liu, and A. Caliskan Harness the memory: a holistic evaluation of memory substrates in memory agents . In Advances in Neural Information Processing Systems, Evaluations and Datasets Track , Cited by: §1 , §4 . Ji et al. (2026) H. Ji, K. Xiong, S. Han, P. Xia, S. Qiu, Y. Zhou, J. Liu, J. Li, B. Li, Z. Zheng, C. Xie, and H. Yao ClawArena: benchmarking AI agents in evolving information environments . arXiv preprint arXiv:2604.04202 . Cited by: §4 . Kang et al. (2025) J. Kang, M. Ji, Z. Zhao, and T. Bai Memory OS of AI agent . In Proceedings of the 2025 Conference on Empirical Methods in Natural Language Processing , pp. 25972–25981 . Cited by: §4 . Li et al. (2023) G. Li, H. A. A. K. Hammoud, H. Itani, D. Khizbullin, and B. Ghanem CAMEL: communicative agents for “mind” exploration of large language model society . In Advances in Neural Information Processing Systems , Cited by: §4 . Li et al. (2025) Z. Li, C. Xi, C. Li, D. Chen, B. Chen, S. Song, S. Niu, H. Wang, J. Yang, C. Tang, Q. Yu, J. Zhao, Y. Wang, P. Liu, Z. Lin, P. Wang, J. Huo, T. Chen, K. Chen, K. Li, Z. Tao, H. Lai, H. Wu, B. Tang, Z. Wang, Z. Fan, N. Zhang, L. Zhang, J. Yan, M. Yang, et al. MemOS: a memory OS for AI system . arXiv preprint arXiv:2507.03724 . Cited by: §4 . Liang et al. (2024) T. Liang, Z. He, W. Jiao, X. Wang, Y. Wang, R. Wang, Y. Yang, S. Shi, and Z. Tu Encouraging divergent thinking in large language models through multi-agent debate . In Proceedings of the 2024 Conference on Empirical Methods in Natural Language Processing , Cited by: §4 . Lin et al. (2025) K. Lin, C. Snell, Y. Wang, C. Packer, S. Wooders, I. Stoica, and J. E. Gonzalez Sleep-time compute: beyond inference scaling at test-time . arXiv preprint arXiv:2504.13171 . Cited by: §1 , §4 . Liu et al. (2026a) J. Liu, Y. Su, P. Xia, S. Han, Z. Zheng, C. Xie, M. Ding, and H. Yao SimpleMem: efficient lifelong memory for LLM agents . In International Conference on Machine Learning , Cited by: §4 . Liu et al. (2026b) J. Liu, X. Ye, P. Xia, Z. Zheng, C. Xie, M. Ding, and H. Yao EvolveMem: self-evolving memory architecture via AutoResearch for LLM agents . arXiv preprint arXiv:2605.13941 . Cited by: §4 . Luo et al. (2025a) H. Luo, H. E, G. Chen, Y. Zheng, X. Wu, Y. Guo, Q. Lin, Y. Feng, Z. Kuang, M. Song, Y. Zhu, and L. A. Tuan HyperGraphRAG: retrieval-augmented generation via hypergraph-structured knowledge representation . In Advances in Neural Information Processing Systems , Cited by: §1 , §4 . Luo et al. (2025b) J. Luo, W. Zhang, Y. Yuan, Y. Zhao, J. Yang, Y. Gu, B. Wu, B. Chen, Z. Qiao, Q. Long, R. Tu, X. Luo, W. Ju, Z. Xiao, Y. Wang, M. Xiao, C. Liu, J. Yuan, S. Zhang, Y. Jin, F. Zhang, X. Wu, H. Zhao, D. Tao, P. S. Yu, and M. Zhang Large language model agent: a survey on methodology, applications and challenges . arXiv preprint arXiv:2503.21460 . Cited by: §1 , §4 . Ma et al. (2026a) E. Ma, C. Miao, Y. Chen, J. Yang, L. Fang, K. Zheng, H. Zhang, M. Xu, X. Yu, C. Li, W. Huang, Z. Ren, Y. Du, Z. Shen, X. Liu, P. S. Yu, and Z. Wang SkillNEO: non-elitist evolutionary optimization of agent skills . arXiv preprint arXiv:2610.20926 . Cited by: §4 . Ma et al. (2026b) E. Ma, Y. Zhou, W. Huang, J. Yang, H. Ma, Z. Wang, C. Li, C. Miao, P. S. Yu, and Z. Wang MemAudit: auditing long-term agent memory via hidden user-state recovery . arXiv preprint arXiv:2606.24595 . Cited by: §1 , §4 , Ethics and Broader Impact Statement . Madaan et al. (2023) A. Madaan, N. Tandon, P. Gupta, S. Hallinan, L. Gao, S. Wiegreffe, U. Alon, N. Dziri, S. Prabhumoye, Y. Yang, S. Gupta, B. P. Majumder, K. Hermann, S. Welleck, A. Yazdanbakhsh, and P. Clark Self-Refine: iterative refinement with self-feedback . In Advances in Neural Information Processing Systems , Cited by: §4 . Maharana et al. (2024) A. Maharana, D. Lee, S. Tulyakov, M. Bansal, F. Barbieri, and Y. Fang Evaluating very long-term conversational memory of LLM agents . In Proceedings of the 62nd Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers) , pp. 13851–13870 . Cited by: §1 , §3.1 , §4 . Ouyang et al. (2026) S. Ouyang, J. Yan, I. Hsu, Y. Chen, K. Jiang, Z. Wang, R. Han, L. T. Le, S. Daruki, X. Tang, V. Tirumalashetty, G. Lee, M. Rofouei, H. Lin, J. Han, C. Lee, and T. Pfister ReasoningBank: scaling agent self-evolving with reasoning memory . In International Conference on Learning Representations , Cited by: §1 , §3.3 , §4 . Packer et al. (2023) C. Packer, S. Wooders, K. Lin, V. Fang, S. G. Patil, I. Stoica, and J. E. Gonzalez MemGPT: towards LLMs as operating systems . arXiv preprint arXiv:2310.08560 . Cited by: §1 , §4 . Park et al. (2023) J. S. Park, J. C. O’Brien, C. J. Cai, M. R. Morris, P. Liang, and M. S. Bernstein Generative agents: interactive simulacra of human behavior . In Proceedings of the 36th Annual ACM Symposium on User Interface Software and Technology , Cited by: §4 , §4 . Pink et al. (2025) M. Pink, Q. Wu, V. A. Vo, J. Turek, J. Mu, A. Huth, and M. Toneva Position: episodic memory is the missing piece for long-term LLM agents . arXiv preprint arXiv:2502.06975 . Cited by: §4 . Qian et al. (2024) C. Qian, W. Liu, H. Liu, N. Chen, Y. Dang, J. Li, C. Yang, W. Chen, Y. Su, X. Cong, J. Xu, D. Li, Z. Liu, and M. Sun ChatDev: communicative agents for software development . In Proceedings of the 62nd Annual Meeting of the Association for Computational Linguistics , Cited by: §4 . Rasmussen et al. (2025) P. Rasmussen, P. Paliychuk, T. Beauvais, J. Ryan, and D. Chalef Zep: a temporal knowledge graph architecture for agent memory . arXiv preprint arXiv:2501.13956 . Cited by: §1 , §4 . Rezazadeh et al. (2025) A. Rezazadeh, Z. Li, A. Lou, Y. Zhao, W. Wei, and Y. Bao Collaborative memory: multi-user memory sharing in LLM agents with dynamic access control . arXiv preprint arXiv:2505.18279 . Cited by: §4 , Ethics and Broader Impact Statement . Shang et al. (2026) L. Shang, M. Xu, Y. Sun, T. Xia, L. Hu, L. Xu, and N. Zheng When self-evolution backfires: pre-commit gating against skill contamination in LLM agents . arXiv preprint arXiv:2608.05810 . Cited by: §4 , Ethics and Broader Impact Statement . Shinn et al. (2023) N. Shinn, F. Cassano, A. Gopinath, K. Narasimhan, and S. Yao Reflexion: language agents with verbal reinforcement learning . In Advances in Neural Information Processing Systems , Cited by: §4 . Shridhar et al. (2021) M. Shridhar, X. Yuan, M. Côté, Y. Bisk, A. Trischler, and M. Hausknecht ALFWorld: aligning text and embodied environments for interactive learning . In International Conference on Learning Representations , Cited by: §1 , §3.3 . Suzgun et al. (2026) M. Suzgun, M. Yuksekgonul, F. Bianchi, D. Jurafsky, and J. Zou Dynamic cheatsheet: test-time learning with adaptive memory . In Proceedings of the 19th Conference of the European Chapter of the Association for Computational Linguistics (Volume 1: Long Papers) , pp. 7080–7106 . Cited by: §4 . Tulving (1985) E. Tulving Memory and consciousness. . Canadian Psychology/Psychologie canadienne 26 ( 1 ), pp. 1–12 . Cited by: §4 . Wang et al. (2024a) G. Wang, Y. Xie, Y. Jiang, A. Mandlekar, C. Xiao, Y. Zhu, L. Fan, and A. Anandkumar Voyager: an open-ended embodied agent with large language models . Transactions on Machine Learning Research . Cited by: §4 . Wang and Chen (2025) Y. Wang and X. Chen MIRIX: multi-agent memory system for LLM-based agents . arXiv preprint arXiv:2507.07957 . Cited by: §1 , §3.1 , §4 . Wang et al. (2024b) Y. Wang, Y. Gao, X. Chen, H. Jiang, S. Li, J. Yang, Q. Yin, Z. Li, X. Li, B. Yin, J. Shang, and J. J. McAuley MEMORYLLM: towards self-updatable large language models . In International Conference on Machine Learning , Cited by: §1 , §4 . Wang et al. (2025a) Y. Wang, C. Han, T. Wu, X. He, W. Zhou, N. Sadeq, X. Chen, Z. He, W. Wang, G. Haffari, H. Ji, and J. J. McAuley Towards LifeSpan cognitive systems . Transactions on Machine Learning Research . Cited by: §1 , §4 . Wang et al. (2025b) Y. Wang, D. Krotov, Y. Hu, Y. Gao, W. Zhou, J. McAuley, D. Gutfreund, R. Feris, and Z. He M+: extending MemoryLLM with scalable long-term memory . In International Conference on Machine Learning , Cited by: §1 , §4 . Wang et al. (2025c) Y. Wang, X. Liu, X. Chen, S. O’Brien, J. Wu, and J. McAuley Self-updatable large language models by integrating context into model parameters . In International Conference on Learning Representations , Cited by: §1 , §4 . Wang et al. (2025d) Y. Wang, R. Takanobu, Z. Liang, Y. Mao, Y. Hu, J. McAuley, and X. Wu Mem- α \alpha : learning memory construction via reinforcement learning . arXiv preprint arXiv:2509.25911 . Cited by: §4 . Wang et al. (2025e) Z. Z. Wang, J. Mao, D. Fried, and G. Neubig Agent workflow memory . In Proceedings of the 42nd International Conference on Machine Learning , Cited by: §1 , §1 , §3.3 , §4 . Wu et al. (2025) D. Wu, H. Wang, W. Yu, Y. Zhang, K. Chang, and D. Yu LongMemEval: benchmarking chat assistants on long-term interactive memory . In International Conference on Learning Representations , Cited by: §1 , §3.1 , §4 . Wu et al. (2024) Q. Wu, G. Bansal, J. Zhang, Y. Wu, B. Li, E. Zhu, L. Jiang, X. Zhang, S. Zhang, J. Liu, A. H. Awadallah, R. W. White, D. Burger, and C. Wang AutoGen: enabling next-gen LLM applications via multi-agent conversations . In Conference on Language Modeling , Cited by: §4 . Wu et al. (2026a) Y. Wu, W. Huang, J. Guo, D. Li, R. Jiang, H. P. Zou, C. Miao, S. Li, W. Zhang, W. Ye, Y. Chen, M. Zhang, X. Liu, and P. S. Yu HAS-Bench: evaluating LLM-based human-agent systems under configurable human participation . arXiv preprint arXiv:2607.04329 . Cited by: §4 . Wu et al. (2026b) Z. Wu, H. Zhang, F. Lin, W. Xu, X. Xu, Y. Chen, H. P. Zou, S. Chen, W. Zhang, X. Liu, P. S. Yu, and H. Wang GAM: hierarchical graph-based agentic memory for LLM agents . In Proceedings of the 64th Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers) , pp. 34647–34664 . Cited by: §4 . Xia et al. (2026a) P. Xia, J. Chen, H. Wang, J. Liu, K. Zeng, Y. Wang, S. Han, Y. Zhou, X. Zhao, H. Chen, Z. Zheng, C. Xie, and H. Yao SkillRL: evolving agents via recursive skill-augmented reinforcement learning . In Advances in Neural Information Processing Systems , Cited by: §1 , §4 . Xia et al. (2026b) P. Xia, J. Chen, X. Yang, H. Tu, J. Liu, K. Xiong, S. Han, S. Qiu, H. Ji, Y. Zhou, Z. Zheng, C. Xie, and H. Yao MetaClaw: just talk – an agent that meta-learns and evolves in the wild . arXiv preprint arXiv:2603.17187 . Cited by: §1 , §1 , §3.3 , §4 . Xia et al. (2026c) P. Xia, R. Han, Z. Wang, Y. Chen, Y. Zhuang, Y. Lee, C. Huang, H. Yu, Z. CuiZhu, Y. Ming, H. Yao, B. Gokturk, T. Pfister, and C. Lee RRSI: regularized recursive self-improvement of agent harnesses . arXiv preprint arXiv:2609.24972 . Cited by: §4 . Xia et al. (2026d) P. Xia, K. Zeng, J. Liu, C. Qin, F. Wu, Y. Zhou, C. Xiong, and H. Yao Agent0: unleashing self-evolving agents from zero data via tool-integrated reasoning . In Conference on Language Modeling , Cited by: §4 . Xu et al. (2026) R. Xu, T. Yang, and W. Huang HyperSkill: self-evolving LLM agents via hypergraph-structured skill memory . arXiv preprint arXiv:2608.16114 . Cited by: §4 . Xu et al. (2025) W. Xu, Z. Liang, K. Mei, H. Gao, J. Tan, and Y. Zhang A-MEM: agentic memory for LLM agents . In Advances in Neural Information Processing Systems , Cited by: §4 . Yan et al. (2026) S. Yan, X. Yang, Z. Huang, E. Nie, Z. Ding, Z. Li, X. Ma, J. Bi, K. Kersting, J. Z. Pan, H. Schütze, V. Tresp, and Y. Ma Memory-R1: enhancing large language model agents to manage and utilize memories via reinforcement learning . In Proceedings of the 64th Annual Meeting of the Association for Computational Linguistics , Cited by: §4 . Yang et al. (2026) W. Yang, W. Huang, W. Zhang, Y. Wang, P. S. Yu, and J. Lee XBridge: entity-grounded latent bridge for heterogeneous LLM communication . In Advances in Neural Information Processing Systems , Cited by: §4 . Yao et al. (2022) S. Yao, H. Chen, J. Yang, and K. Narasimhan WebShop: towards scalable real-world web interaction with grounded language agents . In Advances in Neural Information Processing Systems , Cited by: §1 , §3.3 . Ye et al. (2026) C. Ye, Y. Liu, Y. Wang, H. Yu, Y. Zhao, G. Liu, J. McAuley, and J. You Auto-Dreamer: learning offline memory consolidation for language agents . arXiv preprint arXiv:2605.20616 . Cited by: §1 , §1 , §4 . Yue et al. (2026) J. Yue, C. Hu, J. Sheng, Z. Zhou, W. Zhang, T. Liu, L. Guo, and Y. Deng HyperMem: hypergraph memory for long-term conversations . In Proceedings of the 64th Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers) , pp. 35237–35254 . Cited by: §B.1 , §1 , §4 . Zhang et al. (2026a) D. Zhang, Y. Lin, Z. Wu, Y. Sun, B. Li, D. Li, and H. Peng Useful memories become faulty when continuously updated by LLMs . arXiv preprint arXiv:2605.12978 . Cited by: §1 , §4 , Ethics and Broader Impact Statement . Zhang et al. (2025a) G. Zhang, M. Fu, G. Wan, M. Yu, K. Wang, and S. Yan G-Memory: tracing hierarchical memory for multi-agent systems . In Advances in Neural Information Processing Systems , Cited by: §4 . Zhang et al. (2026b) H. Zhang, S. Fan, H. P. Zou, Y. Chen, Z. Wang, J. Zhou, C. Li, W. Huang, Y. Yao, K. Zheng, X. Liu, X. Li, and P. S. Yu CoEvoSkills: self-evolving agent skills via co-evolutionary verification . In Conference on Language Modeling , Cited by: §4 . Zhang et al. (2025b) J. Zhang, J. Xiang, Z. Yu, F. Teng, X. Chen, J. Chen, M. Zhuge, X. Cheng, S. Hong, J. Wang, B. Zheng, B. Liu, Y. Luo, and C. Wu AFlow: automating agentic workflow generation . In International Conference on Learning Representations , Cited by: §4 . Zhang et al. (2026c) Q. Zhang, C. Hu, S. Upasani, B. Ma, F. Hong, V. Kamanuru, J. Rainton, C. Wu, M. Ji, H. Li, U. Thakker, J. Zou, and K. Olukotun Agentic context engineering: evolving contexts for self-improving language models . In International Conference on Learning Representations , Cited by: §1 , §2.5 , §4 . Zhang et al. (2026d) W. Zhang, X. Wei, W. Huang, Z. Hui, C. Wang, M. Gong, and P. S. Yu MemoryCD: benchmarking long-context user memory of LLM agents for lifelong cross-domain personalization . In Findings of the Association for Computational Linguistics: EMNLP 2026 , pp. 38554–38575 . Cited by: §1 , §1 , §1 , §3.1 , §4 . Zhang et al. (2026e) W. Zhang, X. Zhang, C. Zhang, L. Yang, J. Shang, Z. Wei, H. P. Zou, Z. Huang, Z. Wang, Y. Gao, X. Pan, L. Xiong, J. Liu, P. S. Yu, and X. Li PersonaAgent: bridging memory and action for personalized LLM agents . In Findings of the Association for Computational Linguistics: ACL 2026 , Cited by: §1 , §4 . Zhang et al. (2025c) Z. Zhang, X. Bo, C. Ma, R. Li, X. Chen, Q. Dai, J. Zhu, Z. Dong, and J. Wen A survey on the memory mechanism of large language model-based agents . ACM Transactions on Information Systems 43 ( 6 ), pp. 1–47 . Cited by: §4 . Zhao et al. (2024) A. Zhao, D. Huang, Q. Xu, M. Lin, Y. Liu, and G. Huang ExpeL: LLM agents are experiential learners . In Proceedings of the AAAI Conference on Artificial Intelligence , Cited by: §1 , §4 . Zhao et al. (2025) Y. Zhao, X. Luo, W. Zhang, W. Ju, Z. Xiao, P. S. Yu, and M. Zhang MARCO: meta-reflection with cross-referencing for code reasoning . arXiv preprint arXiv:2505.17481 . Cited by: §4 . Zhong et al. (2024) W. Zhong, L. Guo, Q. Gao, H. Ye, and Y. Wang MemoryBank: enhancing large language models with long-term memory . In Proceedings of the AAAI Conference on Artificial Intelligence , Vol. 38 , pp. 19724–19731 . Cited by: §4 . Zhou et al. (2025) H. Zhou, Y. Chen, S. Guo, X. Yan, K. H. Lee, Z. Wang, K. Y. Lee, G. Zhang, K. Shao, L. Yang, and J. Wang Memento: fine-tuning LLM agents without fine-tuning LLMs . arXiv preprint arXiv:2508.16153 . Cited by: §4 . Zhuge et al. (2024) M. Zhuge, W. Wang, L. Kirsch, F. Faccio, D. Khizbullin, and J. Schmidhuber GPTSwarm: language agents as optimizable graphs . In International Conference on Machine Learning , Cited by: §4 . Zou et al. (2025a) H. P. Zou, W. Huang, Y. Wu, J. Guo, Y. Chen, C. Miao, H. Nguyen, Y. Zhou, W. Zhang, L. Fang, H. Zhang, F. Wang, P. Zhang, H. Wang, L. He, Y. Li, D. Li, R. Jiang, X. Liu, and P. S. Yu LLM-based human-agent collaboration and interaction systems: a survey . arXiv preprint arXiv:2505.00753 . Cited by: §4 . Zou et al. (2025b) H. P. Zou, W. Huang, Y. Wu, C. Miao, D. Li, A. Liu, Y. Zhou, Y. Chen, W. Zhang, Y. Li, L. Fang, R. Jiang, and P. S. Yu A call for collaborative intelligence: why human-agent systems should precede AI autonomy . arXiv preprint arXiv:2506.09420 . Cited by: §4 . Appendix A Method details This appendix collects the details of Section 2 that the main text summarizes or leaves out, in the order of its
+subsections. For each part it states the
+constants, schedules, scoring rules, and examples, explains why they are
+designed as they are, and names the step of Algorithm 1 they belong to. A.1 Memory types, routing, and writing The Meta Memory Manager is the first call of the write path
+( Algorithm 1 , line 2 ). The router reads the input and
+selects the memory types it updates. Each selected writer then reads the
+current store P u t − 1 P_{u}^{t-1} and produces a record that line 3 commits to the evidence plane before any graph work begins. Formally, each
+input x t x_{t} is mapped to a subset of six specialized writers, 𝒦 t \displaystyle\mathcal{K}_{t} = R θ ​ ( x t ) , \displaystyle=R_{\theta}(x_{t}), (A.1) m t ( k ) \displaystyle m_{t}^{(k)} = W k ( x t , P u t − 1 ) , k ∈ 𝒦 t , \displaystyle=W_{k}(x_{t},P_{u}^{t-1}),\quad k\in\mathcal{K}_{t}, and each writer owns the schema and update operations of one memory type. Both
+steps of ( A.1 ) are language-model calls, which is why the router
+and the writers carry the ⋆ \star mark in Algorithm 1 . Table 5 lists the six types. Table 5: The six memory types of MIRIX-2.0 and their roles. Memory Primary role Hypergraph indexed Core persistent user and agent state no Episodic time-grounded occurrences yes Semantic durable facts and concepts yes Procedural executable workflows no Resource documents and multimodal artifacts no Knowledge Vault sensitive verbatim values no The separation is functional. Only episodic and semantic memory are indexed by
+the hypergraph, because they hold the event and relational evidence that
+cross-memory traversal needs. The other types keep their direct, type-specific
+retrieval paths. Core memory holds the persistent state of the user and the
+agent, procedural memory holds the skills that Section 2.5 refines,
+resource memory holds documents and multimodal artifacts, and the knowledge
+vault holds sensitive verbatim values. Each of them is read through its own typed path rather than through the graph.
+In Algorithm 1 , the test k ∈ { episodic , semantic } k\in\{\mathrm{episodic},\mathrm{semantic}\} is the only step of the write
+path that depends on whether a record is graph-indexed. In Figure 2 , both user turns are
+routed to the episodic and semantic writers. Source-faithful writing. Before a record reaches the graph extractor, the writer prompts of our runs ask
+the episodic and semantic writers to keep complete lists, names, counts, titles,
+locations, and dates in the record’s details instead of replacing them with a
+topical gist. Episodic writers store the time an event happened rather than the
+time it was mentioned, and they store a planned event with its planned date. Write ordering. The write to the vector database commits before graph construction begins
+(line 3 ). Graph extraction
+is a fail-soft indexing hook, so a graph failure is logged but never rolls back
+a stored memory. The evidence plane is thus the durable system of record rather
+than a side effect of graph construction. A.2 Anchor admission, canonicalization, and frame extraction This part details lines 5 to 9 of Algorithm 1 , which turn a committed episodic or semantic record into the
+anchors and frames of Section 2.3 . Anchor keys and admission. The key κ ⁡ ( n ) \kappa(n) of an anchor name normalizes case, punctuation, articles
+and other function words, word order, and conservative singular and plural
+variants while keeping numbers. In the code it lowercases the name, replaces
+punctuation with spaces, drops a fixed list of eleven articles and function
+words, singularizes tokens of at least four letters, and sorts the remaining
+tokens, so that Mobile App and Mobile Apps share one key. The key
+is deliberately conservative. Numbers and dates are preserved, so 10 Gallons and 20 Gallons stay distinct, and only plural endings are normalized, so Training and Trains stay apart. A
+single admission gate rejects generic filing terms, such as advice , details , information , plan , and tips , and
+dialogue-role pseudo-entities such as user and assistant , and it
+keeps at most 16 anchors for an episodic record and 18 for a semantic one. The
+caps bound the anchor space of a user, and they are sized for the arguments of
+an assertion rather than for a bag of keywords, so that one frame with seven
+arguments does not exhaust them. The gate is the Admit call of Algorithm 1 , and because it runs on the canonical key, one entry such as user also blocks User , Users , and the user . Registry-guided canonicalization. For every extracted entity, approximate nearest-neighbor search retrieves up to four existing anchors of the user whose cosine
+similarity is at least 0.72 0.72 , and one language-model call per record makes a
+conservative same-entity decision for all of its entities. The vector index
+scores a pair by ( 1 + cos ) / 2 (1+\cos)/2 , so the thresholds in the code are 0.86 here
+and 0.93 for AutoDream ( Section A.5 ). The call is instructed
+not to merge different quantities, different days or months, different form or
+model codes, or related but distinct concepts. Canonicalization runs before the admission gate, which is the order Admit ​ ( Canon ⋆ ​ ( Φ ) ) \textsc{Admit}(\textsc{Canon}^{\star}(\Phi)) of Algorithm 1 , so the gate judges canonical names rather than surface forms.
+The candidates come from the anchors the user already has, which is what keeps
+naming consistent as the graph grows and why we call the step registry-guided. Frames, literals, and repair. The extractor behind ( 5 ) is instructed to keep dates, prices,
+counts, durations, and measurements as literals on the frame rather than as
+anchors, so that values such as 7, $420, or three months stay attached to the
+assertion they qualify. A frame is materialized only if its arguments resolve
+to at least two distinct anchors of the user, which is the test | A f | ≥ 2 |A_{f}|\geq 2 of Algorithm 1 . When a deterministic audit finds that the extraction
+misses high-signal source details, such as quoted phrases, numbers, or concrete
+visual content, one bounded repair call may add frames that the source
+supports. The repair cannot remove anything the primary extraction produced.
+The audit compares the words of the rendered frames with the source text. It
+lists the quoted phrases and the numbers of the source that the frames do not
+cover, it treats a source with visual content as uncovered when the frames
+cover less than 45 percent of its content words, and it sends at most twelve
+missing items to the repair call. A missing date alone does not trigger a
+repair, because session dates recur in many records and are already preserved
+by provenance. A missing date is added to a call that a missing quote, number,
+or visual detail already requires. Repair is the Repair ⋆ \textsc{Repair}^{\star} call of
+line 5 , and the frames it adds pass through the same
+canonicalization, admission, and identity rules as the primary ones. A.3 Retrieval budgets, lanes, scores, and fusion This part details the Read procedure of Algorithm 1 , whose steps Section 2.4 introduces. Table 6: Row budgets B q B B_{q}^{B} and B q R B_{q}^{R} per query operator. Operator B q B B_{q}^{B} B q R B_{q}^{R} Single 6 4 Temporal 6 6 Intersection 7 7 List-union 7 9 Count 8 12 Operator budgets. The planner ( 9 ) fixes two row budgets for every query, and Table 6 lists them by operator.
+The budgets grow with the operator, because counting and set construction need
+broader evidence than a single-value lookup. A single-value question needs the
+one row that holds the value, so its cited-row budget is the smallest, whereas a count has to see many members of the set it counts. The evidence a
+question inspects is therefore bounded by its operator and not by the length of
+the history. Anchor entry. Beyond the fifteen anchors that vector recall returns, a relation query adds up
+to sixteen anchors that the question names exactly before the union is scored
+by ( 10 ). Person hubs receive a larger penalty unless a
+relation query names them explicitly. Only the exactly named anchors carry degree
+and predicate information, so the hub and predicate terms act on them alone.
+The two entry routes serve different questions. Vector recall finds the anchors
+whose names paraphrase the question, and exact lookup finds the anchors that a
+relation question names, so that the relation lane can start from the named
+participants rather than from their nearest paraphrases. Two evidence lanes. The lanes follow three rules beyond those of Section 2.4 . In the
+base-recall lane, same-chunk support and immediate temporal neighbors are
+recomputed from the provenance stored in the vector database instead of being duplicated as graph
+bookkeeping edges. In the relation-citation lane, predicate filtering runs
+inside Neo4j before the cap of 240 frames, and when the question names a
+concrete object, only frames that contain it are kept. The base lane is the Rows ​ ( A q ) \textsc{Rows}(A_{q}) term and the relation lane the Adj ​ ( A q , 𝒫 q ) \textsc{Adj}(A_{q},\mathcal{P}_{q}) term of Algorithm 1 . Recomputing
+same-chunk and temporal neighbors from provenance keeps the graph free of edges
+that only restate what the evidence plane already records. Filtering by
+predicate inside the database before the cap means that an explicitly named hub
+with hundreds of incident frames does not trigger a full traversal, and the
+frames that survive the cap are selected by a deterministic order on the frame
+identifier, so which frames pass does not depend on the traversal order of the
+database. Fact scoring. Two details of ( 11 ) complete Section 2.4 . When a
+frame has no extracted event time, the state term s state s_{\mathrm{state}} falls
+back at half weight to the time of the source record, so the frame can still
+compete on time. For intersection questions, a hard shared-object group is preserved before
+these soft refinements, so recency cannot replace evidence that satisfies only
+one side of the intersection. The role term reads the typed roles of a frame,
+and the state term reads the status literal that marks an event as planned or
+completed ( Section 2.3 ), which is how planned events are penalized in count,
+list-union, and temporal questions. Citation-balanced fusion. Rows in each lane are reranked with a shallow vector-rank prior and the lexical
+coverage of the query. Fusion runs separately for episodic and semantic rows
+within the row limit of a request. Near-duplicate episodic paraphrases
+are collapsed only when they share a calendar date, so the same wording on two
+different dates stays separate. Cited rows are filled first because a graph
+fact without the row that supports it would leave the answer unverifiable, and
+the date condition on paraphrase collapse is the retrieval-side counterpart of
+the occurrence identity ( 7 ), which keeps undated
+repetitions apart at write time. A.4 Answer-time verification The Answer procedure of Algorithm 1 belongs to the evaluation
+harness rather than to the memory server, and the rule-based check of Section 2.4 never inspects a reference answer. The check fires when it
+finds explicit uncertainty, a count without a number or one that disagrees with
+a listed count, a temporal answer without a time, an answer number or month that
+is absent from the evidence ledger and the question, ledger evidence with an
+incompatible role, or a planned event in a count question. It also fires on
+every intersection question. The extra search uses a query derived from Π ⁡ ( q ) \Pi(q) , or the question itself for a relation query. Most triggers mark a
+way in which a draft falls short of the evidence it was given or disagrees with
+it. A number or month that appears in neither the ledger nor the question was
+not retrieved, a count that disagrees with a listed count contradicts the
+evidence, and a planned event in a count question would count something that has
+not happened. Intersection questions always trigger the check because they need
+evidence for both sides, and a first retrieval that satisfies one side can look
+complete. The rewrite is line 19 of Algorithm 1 , so the
+procedure adds at most one search and one model call to a question. A.5 AutoDream schedule, candidates, and procedural refinement This part details the SemanticDream and ProceduralDream procedures of Algorithm 1 (lines 22 to 29 ) and expands Section 2.5 . Invocation protocol. Semantic AutoDream is an explicit service call that never schedules itself. In
+our protocol, the ingestion driver invokes AutoDream after every five chunks and
+once after the final chunk. The chunk identifiers of each call resolve to the
+newly written semantic rows, which define the frontier Δ u \Delta_{u} of
+( 12 ), and the eligible anchors backed by those rows are the
+sources 𝒜 Δ \mathcal{A}_{\Delta} of ( 13 ). An intermediate
+call therefore examines only the anchors whose semantic rows the batch just
+wrote, and the final call also considers the eligible anchors that no earlier
+call used as a source. Candidate generation. The identity-stable types 𝒯 safe \mathcal{T}_{\mathrm{safe}} of Section 2.5 are person, organization, location, object, and concept.
+Anchors of the types event, date, content, method, and other are
+excluded deliberately, because merging two of them can collapse distinct occurrences or temporal
+context even when their names are close in embedding space. Both endpoints of a candidate pair must be backed by semantic rows and
+share the same eligible type, and the cosine threshold 0.86 0.86 of
+( 13 ) is the index score 0.93 0.93 under the ( 1 + cos ) / 2 (1+\cos)/2 scale of Section A.2 . Bounded schedule. An intermediate Dream verifies at most 80 unseen pairs from the current semantic
+delta. The final Dream considers the delta together with eligible anchors that
+have never served as a Dream source, and it verifies at most 120 pairs. If that
+round merges anything, one repair round examines only the touched
+representatives and verifies at most 60 more pairs. Explicit negative decisions
+are cached by anchor type, so later cycles do not
+pay again to reconsider the same pair. The cache key hashes the case-folded
+pair in sorted order together with the type, so the
+order in which a pair is encountered does not matter. Only explicit rejections are cached. A pair that a round did not reach within
+its cap is not recorded as rejected, so it becomes a candidate again whenever one of
+its anchors is in a later frontier.
+The intermediate rounds keep the graph consolidated while ingestion proceeds,
+and the final round sweeps up anchors that earlier rounds never used as a source. In Algorithm 1 , the cache is the set 𝒩 \mathcal{N} that line 22 subtracts from the candidate
+pairs, and the per-round caps bound the number of Same ⋆ \textsc{Same}^{\star} calls
+the loop makes. Procedural refinement. Two rules of the procedural path complete Section 2.5 . The distiller
+judges the outcome of each pending session from quotes in its transcript, and an
+outcome whose quotes do not occur in the transcript is downgraded to unclear
+rather than trusted. Besides creating, editing, or deleting a skill, the curator
+can mark an experience as already covered, not worth a skill, or deferred, so it
+can decline an experience without changing the store. The quote check on
+outcomes and the quote check on citations are the procedural counterpart of the
+provenance that the hypergraph keeps for facts. They keep the skill library
+traceable although both Distill ⋆ \textsc{Distill}^{\star} and Curate ⋆ \textsc{Curate}^{\star} in Algorithm 1 are language-model calls. A.6 Invariants, learned decisions, and complexity Hard invariants. Four properties hold regardless of model behavior. 1. Every returned graph fact exposes the identifiers of its source
+memories. 2. Undated episodic occurrences from different memory rows receive
+different frame identities. 3. Retrieval and Dream both run under explicit candidate and output caps. 4. A failed graph write cannot destroy a committed memory, and a graph
+read that raises an error falls back to direct evidence retrieval. Together with Equation 12 , the first and fourth invariants give
+the source fidelity required in Section 2.1 , the third gives
+bounded access, and the second gives temporal identity. Learned and deterministic decisions. Language models route inputs, write typed memories, extract frames, repair
+missing source details, judge semantic identity, and distill and curate
+procedural experience. Together with answer generation, these are the calls
+marked ⋆ \star in Algorithm 1 . Deterministic code owns the
+safety-critical boundaries, namely admissible anchor names, candidate
+allowlists, frame identities, the representation of events and their status,
+provenance attachment, query operators, lane budgets, merge algebra, and
+mutation order. An LLM may propose that two anchors are identical, for instance,
+but it cannot name an anchor outside the retrieved candidate set or delete
+evidence directly. Complexity. Let d d be the number of admitted anchors in one memory, h h the number of
+frames extracted from it, K A K_{A} the anchor-retrieval cap, and K F K_{F} the
+adjacent-frame cap. Ignoring model inference and indexed database lookups,
+writing a memory into the graph costs O ⁡ ( d + h ) O(d+h) . Post-retrieval ranking and
+fusion cost O ⁡ ( K A + K F + K M ) O(K_{A}+K_{F}+K_{M}) , where K M K_{M} is the operator-dependent cited-row
+budget, and the system never materializes an unbounded evidence set from the vector database.
+For a Dream frontier of size | Δ u | |\Delta_{u}| , nearest-neighbor generation costs O ⁡ ( | Δ u | ​ log ⁡ | 𝒜 u | ) O(|\Delta_{u}|\log|\mathcal{A}_{u}|) under the vector index, and LLM verification
+is capped at 80 pairs per intermediate cycle and 180 pairs across the two
+possible final rounds. The constants behind these symbols are the ones of this
+appendix. The admission gate bounds d d by 16 for an episodic record and 18
+for a semantic one ( Section A.2 ), K A K_{A} is the fifteen anchors kept after scoring, K F K_{F} is the cap of 240 frames, and K M K_{M} is B q R B_{q}^{R} , at most 12
+( Section A.3 ). The 180 final pairs are the 120 of the final
+round plus the 60 of its repair round ( Section A.5 ). A.7 Implementation and an example hypergraph Evidence rows are stored in a vector database and the hypergraph in Neo4j. Figure 9 shows part of the hypergraph that MIRIX-2.0 builds for
+LoCoMo conversation conv-26, in which Caroline and Melanie talk from May to
+October 2023. The full graph has 792 anchors, 1,379 frames, and 3,303 role
+edges. The figure keeps the 32 anchors that appear in the most frames, leaving
+out generic duplicates such as Family and kids, together with the 448 frames
+that join at least two of them. The two speakers are the largest hubs, with 650 and 529 frames. Topics that
+one speaker raises gather on that speaker’s side, such as the pride parade and Becoming Nicole for Caroline and pottery and her family for Melanie. The
+94 frames that join only the two speakers lie between the hubs and are drawn in
+gray, and painting and art are reached from both sides. Each frame also keeps role labels,
+literals such as dates, and citations to its source records, which the figure
+leaves out. Through these frames one anchor gathers evidence across sessions.
+Self-Acceptance appears in 13 frames from 10 sessions, which link it to the
+LGBTQ support group, the pride parade, Becoming Nicole , and Caroline’s
+painting Embracing Identity . Figure 9: The 32 anchors with the most frames in the conv-26 hypergraph and the 448 frames that join them. Anchors are colored by type and sized by frame count, and frames take the color of their nearest topic. We built this graph with graph indexing and AutoDream enabled, using Claude
+Haiku 5.5 for extraction and Cohere Embed v4 for embeddings instead of the
+models described in Section 3.1 . Appendix B Additional results This appendix gives the full tables behind Figures 4 , 5 , 6 , 7 and 8 .
+Accuracy and success rates are percentages, and differences are in points. B.1 User memory Table 8 lists the LongMemEval-S accuracy of every system, judged like LoCoMo
+by gpt-4o-mini with majority-of-3 voting. It reports M0, M1, and M2, so it complements the LoCoMo
+ablation of Table 1 . Table 8 gives the results on the three document QA tasks of
+MemoryAgentBench. SHDocQA and MHDocQA ask single-hop and multi-hop questions about
+long documents and use substring matching on 100 questions each, and DetectiveQA uses
+letter exact matching on 71 questions. The document QA runs use M1, with AutoDream disabled by experimental choice. We ran HyperMem ourselves with its original settings unchanged, and all HyperMem
+results in this paper come from these runs. On LoCoMo, our run reaches 91.0%,
+below the 92.7% reported by Yue et al. [2026] . Table 7: LongMemEval-S accuracy (%) on the evaluated 300 questions. Method Accuracy mem0 56.3 A-Mem 45.0 MemoryBank 39.7 Graphiti 23.0 HyperMem 58.3 MIRIX-1.0 (M0) 58.8 MIRIX-2.0 (M1, graph) 70.0 MIRIX-2.0 (M2, graph + + dream) 72.6 Table 8: Document QA accuracy (%). MIRIX-2.0 uses M1, with AutoDream disabled. Method SHDoc MHDoc Detective mem0 48.0 22.0 53.5 A-Mem 14.0 20.0 62.0 MemoryBank 34.0 28.0 67.6 Graphiti 50.0 43.0 54.9 HyperMem 52.0 49.0 66.2 MIRIX-2.0 83.0 71.0 64.8 On LongMemEval-S the graph increment of 11.2 points accounts for most of the
+14.3-point margin over HyperMem. The
+flat configuration M0 reaches 58.8%, close to HyperMem at 58.3% and mem0 at 56.3%,
+while M1 reaches 70.0% and M2 72.6%, 14.3 points above HyperMem. On SHDocQA and MHDocQA, HyperMem is the strongest baseline, and M1 leads it by 31.0
+and 22.0 points. DetectiveQA is the exception.
+MemoryBank leads with 67.6%, followed by HyperMem with 66.2% and M1 with 64.8%.
+A-Mem varies the most across the three document tasks, from 14.0% on SHDocQA to
+62.0% on DetectiveQA. Table 9 completes the MemoryCD results of Table 2 with
+review generation for the same 100 users in the Home_and_Kitchen domain. In both
+MemoryCD tables, cross-domain memory comes from the other three Amazon domains, and
+single-domain memory and testing use the same domain, so the cross-domain setting asks
+whether preferences stored for other products carry over to a new domain. R-1, R-L,
+B-4, and BERT denote ROUGE-1, ROUGE-L, BLEU-4, and BERTScore-F1, higher is better, and
+bold marks column maxima, including ties. Table 9: Review generation on MemoryCD, with the users and domains of Table 2 . Cross-domain Single-domain Method R-1 R-L B-4 BERT R-1 R-L B-4 BERT Long-context .2842 .1434 .0092 .8521 .2865 .1455 .0105 .8520 RAG .2727 .1354 .0070 .8484 .2818 .1407 .0078 .8498 mem0 .2783 .1432 .0087 .8514 .2780 .1391 .0083 .8502 A-Mem .2836 .1434 .0094 .8520 .2857 .1445 .0101 .8517 MemoryBank .2799 .1424 .0073 .8505 .2835 .1424 .0089 .8514 Graphiti .2717 .1379 .0083 .8496 .2808 .1441 .0099 .8512 MIRIX-2.0 .2846 .1491 .0108 .8544 .2868 .1487 .0106 .8539 MIRIX-2.0 has the highest value in every column of both settings, but the margins are
+small. In the cross-domain setting its ROUGE-L of .1491 is .0057 above the next best,
+.1434 for Long-context and A-Mem, and its BLEU-4 of .0108 is .0014 above A-Mem.
+BERTScore spans at most .006 across all systems in either setting. In the
+single-domain setting the margins shrink further, for example .2868 against .2865
+for Long-context on ROUGE-1. B.2 Agent memory Table 10 breaks down the ALFWorld success rates of Figure 6 by task type for both backbones, with the number of held-out episodes of each type in
+parentheses, 134 in total. All is the overall success rate, given as the mean
+and the sample standard deviation over three runs. Average steps are taken over all
+episodes, with a cap of 50 steps, and over successful episodes only, and lower is
+better. For each model, bold marks the best of the three memory methods. Figure 7 plots the GPT-6 Luna rows. Table 10: ALFWorld success by task type (episodes per type in parentheses) and average steps, over three runs. Success rate (%) Avg. steps Model Method Pick (24) Look (18) Clean (31) Heat (23) Cool (21) Pick Two (17) All all succ. GPT-6 Luna No memory 83.3 85.2 60.2 47.8 81.0 64.7 69.4 ± \pm 0.7 25.2 14.2 ReasoningBank 70.8 66.7 65.6 63.8 82.5 49.0 66.9 ± \pm 2.8 26.4 14.7 AWM 77.8 77.8 64.5 75.4 88.9 58.8 73.6 ± \pm 1.9 23.2 13.6 MIRIX-2.0 79.2 83.3 74.2 73.9 85.7 60.8 76.4 ± \pm 6.2 21.9 13.2 GPT-5.6 Luna No memory 73.6 63.0 37.6 50.7 66.7 37.3 54.2 ± \pm 1.1 31.6 16.1 ReasoningBank 75.0 50.0 50.5 53.6 46.0 31.4 52.2 ± \pm 0.7 31.4 14.4 AWM 69.4 61.1 44.1 63.8 65.1 47.1 58.0 ± \pm 2.8 29.9 15.3 MIRIX-2.0 69.4 75.9 54.8 63.8 66.7 39.2 61.7 ± \pm 14.0 26.8 12.4 With GPT-6 Luna, MIRIX-2.0 is the best of the three memory methods on four of the six
+task types, Pick, Look, Clean, and Pick Two, and AWM is ahead on Heat and Cool.
+Against no memory, Clean gains 14.0 points, Heat 26.1, and Cool 4.7, while Pick,
+Look, and Pick Two lose 4.1, 1.9, and 3.9 points.
+With GPT-5.6 Luna, MIRIX-2.0 leads the memory methods on Look, Clean, and Cool and ties
+AWM on Heat at 63.8%, while ReasoningBank is ahead on Pick and AWM on Pick Two. With
+both backbones MIRIX-2.0 takes the fewest steps, 21.9 and 26.8 over all episodes and 13.2
+and 12.4 over successful ones, but its overall standard deviation of 14.0 points with
+GPT-5.6 Luna is the largest in the table. Table 11 gives the same breakdown for WebShop with GPT-6 Luna over the
+five product categories of the 140 test instructions, with a cap of 15 steps. A
+WebShop episode succeeds when its reward is 1, and bold again marks the best of the
+three memory methods. Table 11: WebShop success by product category and average steps with GPT-6 Luna, over three runs. Success rate (%) Avg. steps Method Fashion (30) Beauty (21) Electronics (29) Garden (32) Grocery (28) All all succ. No memory 54.4 31.7 21.8 19.8 32.1 31.9 ± \pm 1.8 7.9 6.2 ReasoningBank 43.3 33.3 12.6 17.7 23.8 25.7 ± \pm 3.8 10.2 6.9 AWM 53.3 31.7 28.7 27.1 38.1 36.0 ± \pm 4.3 9.1 6.9 MIRIX-2.0 57.8 39.7 25.3 27.1 38.1 37.4 ± \pm 2.1 8.2 6.3 MIRIX-2.0 has the highest overall success, 37.4% against 36.0% for AWM and 31.9%
+without memory, and the smallest spread among the memory methods, 2.1 points. Its margins over AWM are 4.5 points on Fashion and 8.0 on Beauty. It matches AWM on
+Garden and Grocery, at 27.1% and 38.1%, and trails it by 3.4 points on Electronics. ReasoningBank falls below no memory overall, as it does on ALFWorld with both
+backbones, and on four of the five categories. All three memory methods take more
+steps over all episodes than no memory, 8.2 to 10.2 against 7.9, and MIRIX-2.0 takes the
+fewest of the three. B.3 Costs Table 12 gives the measurements behind Figure 8 . Ingest is the
+total wall-clock time in seconds, and Ans./q is the mean time to retrieve and answer
+one question. Answer tokens sum input and output over all questions, where K and M
+denote thousands and millions. Graph size counts Neo4j nodes and edges and excludes
+the evidence store. M0 builds no graph, and for HyperMem the column names its index type instead of a size. None of these measurements includes
+AutoDream, so they characterize M1 and not the full M2 system. Table 12: Cost of memory for HyperMem, M0, and M1, all without AutoDream. Benchmark Method Ingest (s) Ans./q (s) Ans. tok. Graph (nodes/edges) SHDoc HyperMem 5,665 10.55 3.79M hypergraph MIRIX-1.0 (M0) 6,227 3.76 763K none MIRIX-2.0 (M1) 23,784 5.45 1.40M 29,341 / 33,526 MHDoc HyperMem 11,031 10.65 3.06M hypergraph MIRIX-1.0 (M0) 13,792 7.46 1.23M none MIRIX-2.0 (M1) 55,301 9.01 1.33M 49,046 / 55,288 Detective HyperMem 11,653 13.05 0.35M hypergraph MIRIX-1.0 (M0) 10,321 5.11 706K none MIRIX-2.0 (M1) 39,491 7.24 1.16M 36,987 / 46,651 LoCoMo HyperMem 69,467 9.70 16.5M hypergraph MIRIX-2.0 (M1) 21,416 5.46 15.7M 23,820 / 32,394 LongMemEval-S HyperMem 170,224 10.73 4.10M hypergraph MIRIX-2.0 (M1) 70,626 10.10 4.02M 181,131 / 205,428 Table 12 shows where graph construction costs time. On the three document tasks, M1
+ingests 3.8 to 4.0 times more slowly than M0 and 3.4 to 5.0 times more slowly than
+HyperMem. On the conversational benchmarks the order reverses, and M1 needs 21,416 s
+for LoCoMo against 69,467 s for HyperMem and 70,626 s for LongMemEval-S against
+170,224 s. Answering is faster for M1 than for HyperMem on all five benchmarks, by between 0.63 s per question on LongMemEval-S and 5.81 s on DetectiveQA, although M0 answers
+the document questions faster still. M1 uses fewer answer tokens than HyperMem on four
+benchmarks and more on DetectiveQA, 1.16M against 0.35M. Its graphs range from 23,820
+nodes and 32,394 edges for LoCoMo to 181,131 nodes and 205,428 edges for
+LongMemEval-S. For Table 4 , training covers actor interactions and memory
+learning, and testing covers actor interactions and memory retrieval on all test
+tasks, including unsuccessful ones. Counts include LLM input and output tokens, with
+reasoning tokens in the output and cached tokens in the input, and exclude embedding
+tokens. No memory skips training. Experimental support, please view the build logs for errors. Generated by L A T E xml . Instructions for reporting errors We are continuing to improve HTML versions of papers, and your feedback helps enhance accessibility and mobile
+      support. To report errors in the HTML that will help us improve conversion and rendering, choose any of the
+      methods listed below: Click the "Report Issue" ( ) button, located in the page header. Tip: You can select the relevant text first, to include it in your report. Our team has already identified the following issues . We appreciate your time reviewing and reporting rendering errors we
+      may not have found yet. Your efforts will help us improve the HTML versions for all readers, because disability
+      should not be a barrier to accessing research. Thank you for your continued support in championing open access for
+      all. Have a free development cycle? Help support accessibility at arXiv! Our collaborators at LaTeXML maintain a list of packages that need conversion , and welcome developer contributions . We gratefully acknowledge support from our major funders , member institutions , ,
+        and all contributors. About · Help · Contact · Subscribe · Copyright · Privacy · Accessibility · Operational Status (opens in new tab)

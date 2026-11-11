@@ -1,0 +1,738 @@
+PhysioWave-T: Token-Efficient Wavelet Foundation Models for Biosignals Skip to main content Report GitHub Issue × Title: Content selection saved. Describe the issue below: Description: Submit without GitHub Submit in GitHub Why HTML? Report Issue Back to Abstract Download PDF Contents Reading mode Colour theme Abstract I Introduction II Related Work II-A Physiological Foundation Models II-B Multiscale Representations and Heterogeneous Inputs II-C Multimodal Physiological Fusion III PhysioWave-T Architecture III-A Routes and Modular Front Ends III-B Learnable Wavelet Decomposition III-B 1 Adaptive Wavelet Selector III-B 2 Analysis and Soft Gating III-B 3 Cross-Scale Feature Fusion III-C Dynamic Scale Folding III-D Tokenization and Sequence Modeling IV Pre-training, Adaptation, and Multimodal Fusion IV-A Self-Supervised Pre-training IV-B Downstream Adaptation IV-C Reliability-Aware Multimodal Fusion V Experiments and Results V-A Datasets and Training Settings V-B EEG Results V-C ECG Results V-D sEMG Results V-E Multimodal Fusion V-F Ablation Study VI Analysis of Learned Representations VI-A Spatial Structure in Channel Embeddings VI-B Modality-Specific Spectral Adaptation VI-C Scale Allocation Across Sleep Stages VII Discussion VIII Conclusion References License: CC BY 4.0 arXiv:2611.08969v1 [cs.AI] 06 Nov 2026 PhysioWave-T: Token-Efficient Wavelet Foundation Models for Biosignals Yanlong Chen Simone Benatti Luca Benini Cuntai Guan and Yawei Li † † thanks: Y. Chen and Y. Li are with the School
+of Electrical and Electronic Engineering, Nanyang Technological University,
+Singapore 639798, and were previously with the Integrated Systems
+Laboratory, ETH Zürich, 8092 Zürich, Switzerland. E-mail: yanlong.chen@ntu.edu.sg ; yawei.li@ntu.edu.sg .
+S. Benatti is with the Department of Engineering
+“Enzo Ferrari” (DIEF), University of Modena and Reggio Emilia,
+41125 Modena, Italy. E-mail: simone.benatti@unimore.it .
+L. Benini is with the Integrated Systems Laboratory,
+ETH Zürich, 8092 Zürich, Switzerland, and also with the Department of
+Electrical, Electronic and Information Engineering “Guglielmo Marconi” (DEI),
+University of Bologna, 40136 Bologna, Italy. E-mail: lbenini@iis.ee.ethz.ch .
+C. Guan is with the College of Computing and Data Science, Nanyang Technological University,
+Singapore 639798. E-mail: CTGuan@ntu.edu.sg .
+Corresponding author: Yawei Li. Abstract We present PhysioWave-T, a token-efficient wavelet foundation-model family for
+electroencephalography (EEG), electrocardiography (ECG), and surface
+electromyography (sEMG). Dynamic scale folding recombines the J + 1 J{+}1 wavelet
+subbands before tokenization, compressing the sequence from ( J + 1 ) ​ C ​ S (J{+}1)CS to C ​ S CS tokens for J J decomposition levels, C C channels, and S S temporal patches.
+Route-specific wavelet front ends and learned channel-name embeddings let one
+Transformer per modality accommodate diverse channel counts and sampling rates,
+while unseen configurations reuse the pre-trained backbone via a lightweight
+front end. Together, these components scale PhysioWave to EEG: we pre-train a
+30M-parameter EEG foundation model on over 15M windows spanning 19 to 128
+channels, alongside ECG (30M) and sEMG (12M) encoders. Across four EEG routes,
+folding cuts Transformer latency by 4.0–7.2 × \times and peak memory by
+6.8–12.7 × \times over scale expansion without accuracy loss. The EEG encoder
+leads eight of nine metrics against BENDR, BIOT, LaBraM, and EEGPT, and
+surpasses LUNA-L on wearable seizure detection with fewer parameters.
+Reliability-aware latent fusion (RALF) then integrates summary tokens from the
+independently pre-trained encoders using per-sample reliability weights. On
+SeizeIT2, fusion raises event sensitivity at 11 false alarms/h from 61.4 % to
+74.4 % with RALF, while RALF boosts
+window-level AUPRC from 0.321 to 0.399 over the best unimodal model and
+outperforms weighted-logit and concatenation fusion in AUPRC across all six
+training variants. PhysioWave-T also sets new state-of-the-art sEMG accuracies and
+the highest macro-F1 on PTB-XL Super and Chapman–Shaoxing, establishing an
+efficient, extensible foundation for biosignal representation learning. Code
+and models are available at https://github.com/ForeverBlue816/PhysioWave . Index Terms: Biosignal foundation models, self-supervised learning,
+token efficiency, heterogeneous acquisition, multimodal fusion. I Introduction Physiological signals reflect the underlying dynamics of the
+human body across diverse temporal scales, yet their acquisition hardware and
+recording protocols are far from uniform. Across clinical and consumer settings,
+EEG spans two-channel wearables to 128-channel scalp arrays; ECG ranges from
+single-lead ambulatory patches to clinical twelve-lead systems; and sEMG is
+captured by wristbands, forearm arrays, and high-density grids, each governed by
+a distinct sampling rate and sensor geometry. A truly reusable representation
+must capture multiscale physiological structure while flexibly accommodating this
+hardware diversity, yet these two desiderata pull directly against each other.
+Wavelet decompositions are well suited to non-stationary biosignals, but exposing
+every scale to a Transformer incurs a steep quadratic cost: a J J -level
+decomposition of C C channels and S S patches yields ( J + 1 ) ​ C ​ S (J{+}1)CS tokens, causing
+channel density, window duration, and decomposition depth to lengthen the token
+sequence in tandem. Mapping every recording onto a single fixed input layout
+sidesteps this variability, but intermediate heuristics such as channel
+selection, padding, or resampling inevitably discard acquisition-specific
+information along the way. Our prior works, WaveFormer [ 1 ] and PhysioWave [ 2 ] , learn multiscale representations of ECG
+and sEMG through adaptive wavelet selection, soft gating, cross-scale feature
+aggregation, and frequency-guided masked pre-training. Nevertheless, three design choices in PhysioWave limit how far this paradigm scales. Its
+tokenizer expanded every wavelet scale into a separate token row, and each
+encoder was constrained to a single fixed input configuration. Both limitations
+are most severe for EEG, whose clinical montages vary widely across datasets and
+whose dense electrode arrays rapidly multiply the token count. PhysioWave’s multimodal experiments
+relied on an external pre-trained backbone and combined modalities using fixed
+learned weights that could not adapt to the signal quality of individual samples.
+These bottlenecks raise three central questions that anchor this work:
+how to retain multiscale time-frequency information without multiplying tokens,
+how to share a single architecture across heterogeneous acquisition setups, and
+how to fuse modalities whose reliability varies across recordings. PhysioWave-T addresses the first two questions by decoupling acquisition-specific
+processing from representation learning. Each acquisition route, defined by a
+channel count and sampling rate, receives a dedicated wavelet front end and
+sampling-rate-specific patch projection, while sharing a single Transformer
+backbone and a name-based channel vocabulary across the modality. Within each
+front end, dynamic scale folding recombines wavelet subbands prior to
+tokenization using weights predicted from local subband statistics and refined
+by learned synthesis filters. Consequently, the backbone processes C ​ S CS rather
+than ( J + 1 ) ​ C ​ S (J{+}1)CS tokens regardless of decomposition depth: deeper analysis
+enriches individual tokens instead of multiplying sequence length. Because
+folding contains no channel-specific parameters, it transfers unchanged across
+montages; an unseen downstream configuration requires only attaching a
+lightweight front end to the frozen or fine-tuned backbone and appending any
+new sensor names to the vocabulary. These mechanisms allow PhysioWave to scale to EEG, yielding a unified EEG
+foundation model as a central contribution of this work. Without coercing
+recordings into a common montage, we pre-train a 30M-parameter encoder on over
+15 M four-second windows spanning clinical, research, brain–computer
+interface, and high-density corpora (19–128 channels at 256 and 512 Hz).
+Across four EEG routes, scale folding reduces Transformer latency by
+4.0–7.2 × \times and peak memory by 6.8–12.7 × \times over scale expansion,
+cutting per-batch memory on 128-channel recordings from ∼ 32 {\sim}32 GB to
+2.5 GB. Against BENDR, BIOT, LaBraM, and EEGPT, our encoder leads on eight of
+nine metrics across sleep staging, P300, and error-related negativity
+detection—including on Sleep-EDFx, whose 100 Hz derivations are unseen
+during pre-training. On two-channel behind-the-ear seizure detection, it reaches
+61.4 % sensitivity at ≤ 11 {\leq}11 false alarms per hour, outperforming LUNA-L
+with 25.4 M versus 40.4 M parameters. Pre-training also boosts label
+efficiency: using just 10 % of KaggleERN labels, the encoder surpasses a
+fully supervised scratch model. Finally, the learned representations capture
+intrinsic physiology: channel embeddings recover scalp topography without
+coordinate supervision, and the slowest wavelet scale’s weight progressively
+increases from wakefulness to deep sleep. For the third question, reliability-aware latent fusion (RALF) combines this EEG
+encoder with independently pre-trained ECG and sEMG encoders, without joint
+multimodal pre-training. Each encoder contributes four summary tokens. A
+per-sample reliability score gates that modality’s contribution to attention
+and the residual unimodal prediction, and missing modalities are masked
+explicitly. On SeizeIT2, with simultaneous wearable EEG, ECG, and EMG, RALF
+raises event sensitivity at 11 false alarms per hour from 61.4 % to 78.9 %
+and window-level AUPRC from 0.321 to 0.399 relative to the best EEG
+model. All six training variants exceed weighted-logit and concatenation fusion
+in AUPRC, most clearly on ECG-containing combinations. RALF also retains an
+AUPRC of at least 0.33 under every tested single-modality corruption. Relative
+to PhysioWave, the contributions are: • Token-efficient multiscale modeling. Dynamic scale folding
+shortens the sequence by a factor of J + 1 J{+}1 while retaining adaptive wavelet
+analysis. We quantify its effects on accuracy, latency, memory, and
+computation. • An EEG foundation model across acquisition configurations. Route-specific front ends and extensible channel vocabularies let one shared
+30M-parameter backbone learn from heterogeneous montages and transfer to
+unseen ones, including two-channel wearable EEG. • Reliability-aware multimodal prediction. RALF fuses compact
+modality summaries using sample-specific reliability estimates. We evaluate
+it on seizure detection under complete, missing, and corrupted inputs. Fig. 1: Overview of PhysioWave-T, shown for EEG. (a) Channel count and sampling
+rate select a route-specific front end. (b) Adaptive wavelet decomposition and
+dynamic scale folding produce one C × T C\times T signal. (c) Spectral importance
+of clean-view tokens selects masked patches, zeroed before the online front
+end. (d) A shared Transformer and two MLP heads reconstruct raw and
+folded-wavelet patches against stop-gradient targets. II Related Work II-A Physiological Foundation Models Following BERT [ 3 ] and MAE [ 4 ] , masked
+reconstruction and predictive learning have produced transferable EEG
+representations. BENDR [ 5 ] and Brant [ 6 ] established contrastive and predictive pre-training. BIOT tokenizes
+channel-wise spectral patches [ 7 ] , LaBraM predicts discrete
+neural codes [ 8 ] , EEGPT combines masked reconstruction with
+spatiotemporal alignment [ 9 ] , and CBraMod separates spatial and
+temporal interactions through criss-cross attention [ 10 ] .
+Beyond EEG, ST-MEM [ 11 ] , HuBERT-ECG [ 12 ] ,
+and ECG-FM [ 13 ] apply masked modeling or self-distillation to
+ECG, and large wristband datasets support sEMG models for movement and
+interaction [ 14 , 15 ] . Generic time-series
+models such as MOMENT [ 16 ] and UniTS [ 17 ] pursue broader transfer. These models differ mainly in their tokenization and
+pre-training targets. PhysioWave-T instead addresses the interface between
+acquisition and representation: configuration-specific processing precedes a
+shared token space, and multiscale analysis does not lengthen the backbone
+sequence. II-B Multiscale Representations and Heterogeneous Inputs Wavelets localize signal structure in time and
+frequency [ 18 , 19 ] . Best-basis
+selection [ 20 ] and coefficient
+shrinkage [ 21 ] adapt this representation to signal
+structure or noise, and neural wavelet operators make its filters
+trainable [ 22 ] . WaveFormer [ 1 ] introduced
+soft wavelet selection for sEMG, and PhysioWave [ 2 ] paired
+learnable wavelet analysis with frequency-guided pre-training for ECG and sEMG.
+However, PhysioWave allocated a separate token row to every band. PhysioWave-T retains these analysis components but folds the subbands before tokenization,
+so decomposition depth no longer lengthens the sequence. Generalizing classical best-basis selection, the fold replaces discrete wavelet-packet tree search with a learned, continuous scale mixture. Heterogeneous acquisition poses a separate challenge. Perceiver
+architectures compress variable inputs into latent
+arrays [ 23 ] , mixture-of-experts models route tokens
+among specialized subnetworks [ 24 , 25 ] ,
+and channel-independent designs process each channel
+separately [ 26 ] . In EEG, name-based embeddings identify
+electrodes [ 8 , 9 ] , graph models encode spatial
+adjacency [ 27 ] , and LUNA [ 28 ] maps variable
+electrode sets to a fixed set of latent queries. PhysioWave-T selects a front end
+deterministically from acquisition metadata rather than learning token-level
+routing. It also extends name-based identity to ECG leads and sEMG electrode
+sites, adding vocabulary entries during downstream adaptation. II-C Multimodal Physiological Fusion Combining biosignals improves prediction when modalities carry complementary
+information, yet acquisition failures rarely affect all sensors equally.
+Even available modalities may differ substantially in their signal quality.
+Latent and bottleneck fusion restrict cross-modal interaction to compact
+summaries [ 23 , 29 ] , avoiding attention
+over every unimodal token. RALF follows this design and adds a sample-specific
+reliability estimate for each modality, supervised by corruption severity,
+while explicit masks handle absent inputs. III PhysioWave-T Architecture PhysioWave-T is built on a simple principle: acquisition-specific processing
+happens before tokenization, and representation learning happens after it.
+Route-specific front ends absorb differences in channel count and sampling
+rate, mapping every recording into a common token space in which one
+Transformer per modality learns shared physiological structure. These front
+ends retain PhysioWave’s learnable wavelet analysis [ 2 ] but differ in two respects: they fold the wavelet scales into one signal before
+tokenization, and they attach an explicit identity to every channel. The first
+change keeps the sequence short, and the second lets the same backbone
+recognize sensors across configurations. Concretely, Fig. 1 traces a window X ∈ ℝ C × T X\in\mathbb{R}^{C\times T} , with C C channels and T T samples, through the
+encoder. The front end first decomposes each channel into J J detail subbands
+and one approximation, then folds these J + 1 J{+}1 bands back into a single signal X ~ ∈ ℝ C × T \tilde{X}\in\mathbb{R}^{C\times T} with the shape of the input.
+Fixed-duration patches of X ~ \tilde{X} are projected into tokens, to which
+learned channel-name embeddings and sinusoidal position embeddings are added.
+With S S patches per channel, the Transformer receives C ​ S C\,S tokens, whereas
+PhysioWave’s scale expansion produces ( J + 1 ) ​ C ​ S (J{+}1)\,C\,S . Decomposition depth
+therefore enriches the content of each token without lengthening the sequence,
+an advantage that grows with the number of channels and matters most for dense
+EEG arrays. The following subsections describe each stage in turn. III-A Routes and Modular Front Ends Physiological corpora rarely share a single input format, and forcing them into
+one would require dropping channels, padding, or resampling. PhysioWave-T instead
+groups recordings into routes . A route r = ( C r , f r ) r=(C_{r},f_{r}) is defined by a
+channel count and a sampling rate, both read from recording metadata rather
+than predicted. Components tied to these quantities remain
+specific: each route has a wavelet front end ℱ r \mathcal{F}_{r} whose per-channel
+analysis filters and gates can specialize to the sensors of that configuration,
+and each sampling rate has a patch embedding 𝒫 f \mathcal{P}_{f} . Components that
+should generalize across configurations, namely the channel vocabulary, the
+position code, and the Transformer, are shared by all routes of a modality: Z = Transformer ⁡ ( 𝒫 f r ​ ( ℱ r ​ ( X ) ) + E ch + E pos ) . Z=\mathrm{Transformer}\big(\mathcal{P}_{f_{r}}(\mathcal{F}_{r}(X))+E_{\mathrm{ch}}+E_{\mathrm{pos}}\big). (1) Defining patches by physical duration τ \tau ensures that each token spans the same temporal window across all sampling rates, aligning tokens from heterogeneous routes onto a common temporal footing. During
+pre-training, the routes cover 19–128 EEG channels at 256 or 512 Hz, 1–12
+ECG leads at 250 or 500 Hz, and 16–64 sEMG channels at 2 kHz; the pretrained corpus is listed in Table I . This architectural separation also governs how the encoder adapts after
+pre-training.
+Because the front end is fully convolutional, it accepts any window whose duration is
+an integer multiple of the patch duration. A downstream task sampled at a
+pre-training rate reuses the corresponding patch embedding, and if it also
+matches a route’s channel count and channel-slot convention, it reuses that
+route’s front end as well. Any other configuration receives a newly
+instantiated front end and patch embedding for its ( C , f ) (C,f) , attached to the
+transferred backbone. In both cases, channel names supply the sensor identities
+that connect the new input to what the backbone has already learned
+(Section III-D ). Fig. 2: Soft-gated wavelet analysis. Channel-specific gates blend the upsampled subbands with the running approximation and detail states. III-B Learnable Wavelet Decomposition The analysis stage follows PhysioWave and is summarized here to establish the notation used for folding. Each decomposition level combines adaptive basis
+selection, analysis with soft gating, and cross-scale feature fusion, whose outputs form the subbands later recombined by scale folding. III-B 1 Adaptive Wavelet Selector The front end maintains M M learnable analysis-filter pairs { ( k m lo , k m hi ) } m = 1 M \{(k_{m}^{\mathrm{lo}},k_{m}^{\mathrm{hi}})\}_{m=1}^{M} , each with K K taps per
+channel, so that no single wavelet family must fit every signal. The pairs are
+initialized from named discrete wavelets, such as db6 and sym4 , resampled to length K K and ℓ 1 \ell_{1} -normalized. At level ℓ \ell , a shared selector pools the current approximation over time, and a
+compact MLP followed by a softmax predicts input-dependent mixture weights: π ( ℓ ) \displaystyle\pi^{(\ell)} = Softmax ⁡ ( MLP ⁡ ( AvgPool ⁡ ( a ( ℓ ) ) ) ) ∈ ℝ M , \displaystyle=\mathrm{Softmax}\big(\mathrm{MLP}(\mathrm{AvgPool}(a^{(\ell)}))\big)\in\mathbb{R}^{M}, (2) k p , ( ℓ ) \displaystyle k^{p,(\ell)} = ∑ m = 1 M π m ( ℓ ) ​ k m p , p ∈ { lo , hi } . \displaystyle=\sum_{m=1}^{M}\pi_{m}^{(\ell)}\,k_{m}^{p},\qquad p\in\{\mathrm{lo},\mathrm{hi}\}. (3) The mixed filters serve as the low- and high-pass filters for analysis at that
+level. The selector and filter bank share parameters across levels, while the
+mixture weights adapt to the current approximation, allowing level-specific
+basis choices. The taps are optimized jointly with the rest of the encoder
+during pre-training. We reserve α \alpha for the distinct scale-folding weights
+introduced in Section III-C . III-B 2 Analysis and Soft Gating Let ↓ 2 \downarrow_{2} and ↑ 2 \uparrow_{2} denote decimation and nearest-neighbor
+upsampling by two. Each stage halves the temporal resolution while retaining
+low- and high-frequency content. Starting from a ( 0 ) = X a^{(0)}=X and d ( 0 ) = 0 d^{(0)}=0 ,
+each channel is filtered and decimated into the next level: a c ( ℓ + 1 ) \displaystyle a_{c}^{(\ell+1)} = ↓ 2 ( a c ( ℓ ) ∗ k lo , ( ℓ ) ) , \displaystyle=\downarrow_{2}\!\big(a_{c}^{(\ell)}*k^{\mathrm{lo},(\ell)}\big), (4) d c ( ℓ + 1 ) \displaystyle d_{c}^{(\ell+1)} = ↓ 2 ( a c ( ℓ ) ∗ k hi , ( ℓ ) ) . \displaystyle=\downarrow_{2}\!\big(a_{c}^{(\ell)}*k^{\mathrm{hi},(\ell)}\big). The subbands are upsampled to the current resolution and blended through a
+per-channel gate G c ( ℓ ) ∈ [ 0 , 1 ] G_{c}^{(\ell)}\in[0,1] (Fig. 2 ). Multi-head
+attention over pooled channel statistics, followed by a sigmoid, predicts this
+gate: a ^ c ( ℓ ) \displaystyle\hat{a}_{c}^{(\ell)} = G c ( ℓ ) a c ( ℓ ) + ( 1 − G c ( ℓ ) ) ↑ 2 a c ( ℓ + 1 ) , \displaystyle=G_{c}^{(\ell)}\,a_{c}^{(\ell)}+\big(1-G_{c}^{(\ell)}\big)\uparrow_{2}\!a_{c}^{(\ell+1)}, (5) d ^ c ( ℓ ) \displaystyle\hat{d}_{c}^{(\ell)} = G c ( ℓ ) d c ( ℓ ) + ( 1 − G c ( ℓ ) ) ↑ 2 d c ( ℓ + 1 ) . \displaystyle=G_{c}^{(\ell)}\,d_{c}^{(\ell)}+\big(1-G_{c}^{(\ell)}\big)\uparrow_{2}\!d_{c}^{(\ell+1)}. (6) Unlike a fixed skip connection, this blending learns the trade-off between
+current-level context and decomposed features, mitigating artifacts from naive
+upsampling. Through channel-specific weights, the front end modulates this contribution per channel and input on the fly. Fig. 3: Cross-scale channel-aggregation feed-forward network (CAFFN). The current approximation–detail pair is refined through convolution, channel aggregation, and attention to shallower-level features. III-B 3 Cross-Scale Feature Fusion At each level ℓ \ell , the gated approximation and detail features are
+concatenated along the channel axis into a 2 ​ C × T 2C\times T map and processed by a
+cross-scale channel-aggregation feed-forward network (CAFFN;
+Fig. 3 ). CAFFN first refines this map locally: pointwise and
+depthwise convolutions mix information across the approximation–detail pair
+and along time, and channel aggregation with a learnable residual scale ρ \rho produces U ( ℓ ) U^{(\ell)} . The current level then attends to the refined maps of
+all shallower levels, with U ( ℓ ) U^{(\ell)} providing the queries and { Y ( i ) } i < ℓ \{Y^{(i)}\}_{i<\ell} the keys and values: Y ( ℓ ) = U ( ℓ ) + β ​ Attention ​ ( U ( ℓ ) , { Y ( i ) } i < ℓ ) , Y^{(\ell)}=U^{(\ell)}+\beta\,\mathrm{Attention}\big(U^{(\ell)},\{Y^{(i)}\}_{i<\ell}\big), (7) where the learnable scalar β \beta balances current-level information against
+finer-scale context. This fusion lets each subband draw on patterns already captured at finer resolutions, transforming otherwise isolated bands into cohesive, scale-aware features. The refined map Y ( ℓ ) Y^{(\ell)} is then split back into its approximation and
+detail halves, a ( ℓ ) , d ( ℓ ) ∈ ℝ C × T a^{(\ell)},d^{(\ell)}\in\mathbb{R}^{C\times T} , and
+decomposition continues from the approximation. After J J levels, the detail
+subbands of every level and the final approximation are collected on a common
+temporal grid: Spec ⁡ ( X ) = [ d ( 1 ) , d ( 2 ) , … , d ( J ) , a ( J ) ] ∈ ℝ ( J + 1 ) ​ C × T . \mathrm{Spec}(X)=\big[d^{(1)},d^{(2)},\ldots,d^{(J)},a^{(J)}\big]\in\mathbb{R}^{(J+1)C\times T}. (8) Each block of C C rows in Spec ⁡ ( X ) \mathrm{Spec}(X) thus carries one frequency band
+across all channels. PhysioWave tokenized this ( J + 1 ) ​ C × T (J{+}1)C\times T map directly;
+PhysioWave-T instead recombines its bands before tokenization, as described next. III-C Dynamic Scale Folding Directly tokenizing Spec ⁡ ( X ) \mathrm{Spec}(X) creates a separate sequence for every
+subband of every channel, multiplying the token count by J + 1 J{+}1 and making
+dense EEG arrays expensive. Dynamic scale folding instead recombines these
+subbands before tokenization. For b s ∈ ℝ C × T b_{s}\in\mathbb{R}^{C\times T} , the s s -th
+subband, s = 1 , … , J + 1 s=1,\ldots,J{+}1 , the folded representation is b ¯ \displaystyle\bar{b} = 1 J + 1 ​ ∑ s = 1 J + 1 b s , \displaystyle=\tfrac{1}{J+1}\sum_{s=1}^{J+1}b_{s}, (9) X ~ \displaystyle\tilde{X} = b ¯ + γ ⁡ ( ∑ s = 1 J + 1 α s ⊙ ( g s ∗ b s ) − b ¯ ) . \displaystyle=\bar{b}+\gamma\Big(\sum_{s=1}^{J+1}\alpha_{s}\odot\big(g_{s}*b_{s}\big)-\bar{b}\Big). (10) Here, g s g_{s} is a short depthwise synthesis filter initialized to a delta, and γ \gamma is a learnable scalar initialized at 0.1 0.1 . The weights satisfy α s ∈ [ 0 , 1 ] \alpha_{s}\in[0,1] and ∑ s α s = 1 \sum_{s}\alpha_{s}=1 . The mean b ¯ \bar{b} provides a reference
+representation, with the residual branch learning scale-dependent corrections.
+Delta-initialized filters and uniform weights make the initial fold an exact
+average of the subbands, a neutral starting point. The weights are predicted for each channel and each time block of one patch
+duration. Each subband is summarized by log root-mean-square amplitude, the
+entropy of its normalized squared amplitudes, and the logarithm of one plus its
+kurtosis. These statistics are normalized across scales and passed through a
+shared two-layer perceptron with 16 hidden units and a GELU activation. Its logits
+are combined with a learnable scale prior: α = Softmax ( θ + MLP ( stats ( b 1 : J + 1 ) ) ) . \alpha=\mathrm{Softmax}\big(\theta+\mathrm{MLP}(\mathrm{stats}(b_{1:J+1}))\big). (11) The output layer and scale-prior logits start at zero, yielding uniform initial
+weights. This soft selection is related to best-basis selection [ 20 ] ,
+whose entropy-based criterion is fixed; here, the criterion is learned.
+A KL ( α ∥ u ) \mathrm{KL}(\alpha\,\|\,u) penalty toward the uniform distribution, weighted
+by 10 − 3 10^{-3} , discourages concentration on a single band. The predictor is shared
+across channels, and g s g_{s} , θ \theta , and γ \gamma have no channel index. Folding
+therefore introduces no channel-shaped parameters and can be transferred across
+montages. Folding reduces the token count from ( J + 1 ) ​ C ​ S (J{+}1)\,C\,S to C ​ S C\,S , a fourfold
+reduction for the three-level EEG decomposition. At fixed model width, the
+quadratic attention term is consequently reduced by ( J + 1 ) 2 (J{+}1)^{2} ; end-to-end
+savings also depend on linear projections and front-end computation. Because X ~ \tilde{X} retains the shape of X X , the front end remains a replaceable
+interface to the shared backbone. III-D Tokenization and Sequence Modeling The folded signal is divided into S = T / ( τ ​ f r ) S=T/(\tau f_{r}) patches per channel, and the
+sampling-rate-specific embedding 𝒫 f r \mathcal{P}_{f_{r}} projects each patch to
+width D D . The result is a channel-major sequence of C ​ S C\,S tokens, independent
+of decomposition depth, in which token c ​ S + p c\,S+p corresponds to channel c c and
+temporal patch p p . Channel identity. Because routes differ in which sensors occupy which
+input slots, each token must also carry the identity of its sensor. Each
+modality therefore maintains a vocabulary of sensor names, covering EEG
+electrodes, ECG leads, and sEMG sites on wristbands, forearm arrays, and grids.
+A learned table E ∈ ℝ | V | × D c E\in\mathbb{R}^{|V|\times D_{c}} assigns each name an
+embedding, whose normalized projection is added to every token of that channel: E ch ​ [ c ] = tanh ⁡ ( g ) ​ W ch ​ Norm ​ ( E ⁡ [ name ⁡ ( c ) ] ) . E_{\mathrm{ch}}[c]=\tanh(g)\,W_{\mathrm{ch}}\,\mathrm{Norm}\big(E[\mathrm{name}(c)]\big). (12) The scalar gate g g starts at zero, so channel identity enters gradually during
+training. A name unseen during pre-training receives a new row, initialized from
+the unknown-name embedding and learned during downstream adaptation, while known
+names keep their pre-trained embeddings. Input slots follow the route
+convention, ensuring that per-channel filters, name embeddings, and positional
+codes refer to the same sensor. Position and backbone. A two-dimensional sinusoidal code over channel
+and patch indices is added to the tokens, and rotary position
+embeddings encode relative offsets inside each attention
+layer. The full C ​ S C\,S sequence is processed by a stack of pre-normalized
+Transformer blocks with RMS
+normalization [ 30 ] , query–key normalization, and gated
+feed-forward units. The resulting representations Z Z serve pre-training,
+downstream prediction, and multimodal fusion alike, and the backbone and
+channel vocabulary are transferred across all tasks of a modality. IV Pre-training, Adaptation, and Multimodal Fusion The EEG, ECG, and sEMG encoders share one pre-training objective but are
+trained independently, each on the corpora of its own modality. A pre-trained
+encoder can then be adapted to a downstream configuration or combined with the
+other two through reliability-aware latent fusion. IV-A Self-Supervised Pre-training Pre-training extends PhysioWave’s masked reconstruction in two ways: masking
+acts on the raw input, and the encoder reconstructs two complementary targets
+(Fig. 1 (c)–(d)). Masking tokens alone would not suffice for
+this front end, because convolution and cross-scale fusion mix neighboring
+samples before tokenization, leaving hidden content accessible through adjacent
+features. Each window is therefore processed in two views. The clean view
+supplies reconstruction targets and mask-selection scores, while the online
+view zeros the selected raw-signal patches before the front end, so their
+samples never enter the online features. After tokenization, the masked
+positions are replaced by a learned mask token. Patch selection follows
+PhysioWave’s frequency-guided strategy: spectral importance e e is computed from
+the summed magnitude spectrum along the clean-view token sequence and combined
+with uniform noise z z as s = 0.6 ​ e + 0.4 ​ z s=0.6\,e+0.4\,z . The highest-scoring 70 % of
+valid tokens are masked, so spectrally dominant patches are hidden most often
+and must be inferred from context. For ECG, the six limb leads within a
+temporal patch are masked together, since their linear dependencies would
+otherwise leak the hidden content, and precordial leads are masked
+individually. Unavailable channel slots are excluded from both mask selection
+and reconstruction scoring. Fig. 4: Masked reconstruction on four EEG routes spanning 19–128 channels,
+with 70 % of patches masked. (a) Raw-EEG head. (b) Folded-wavelet head.
+Columns show the target, masked input, reconstruction, and absolute error on
+masked patches; r r is the masked-patch correlation. Each row shows the
+median-NMSE validation window of its route, with target-derived color limits. Fig. 5: Single-channel views of the windows in
+Fig. 4 : F4, P8, F4, and E40, respectively.
+Targets are gray; predictions and absolute errors are shown on masked
+patches. Correlation and normalized mean squared error (NMSE) are evaluated
+on masked samples. Two shallow decoders per sampling rate then predict the masked patches in two
+spaces. The spectral target is the clean front-end output, detached from the
+gradient graph and normalized per patch; the raw target is the preprocessed
+signal. Training minimizes ℒ = \displaystyle\mathcal{L}=\; 0.5 ​ MSE ​ ( P ^ spec , sg ⁡ [ P ~ ] ) \displaystyle 0.5\,\mathrm{MSE}\big(\hat{P}_{\mathrm{spec}},\mathrm{sg}[\tilde{P}]\big) + 0.5 ​ SmoothL1 ​ ( P ^ raw , P ) \displaystyle+0.5\,\mathrm{SmoothL1}\big(\hat{P}_{\mathrm{raw}},P\big) + 10 − 3 KL ( α ∥ u ) , \displaystyle+10^{-3}\,\mathrm{KL}(\alpha\,\|\,u), (13) where both reconstruction losses are evaluated on masked valid tokens, sg ⁡ [ ⋅ ] \mathrm{sg}[\cdot] denotes stop-gradient, and the last term regularizes the
+folding weights in ( 11 ). The spectral target trains prediction in
+the learned representation, the raw target anchors it to the measured signal,
+and the stop-gradient prevents target-side updates within a training step. Fig. 4 shows what the two heads recover on all four
+EEG routes, from 19-channel TUEG at 256 Hz to 128-channel HBN at 512 Hz. For
+each route, we select the validation window with median NMSE and mask 70 % of
+its patches before the front end. Masked-patch correlations range from 0.79 to
+0.89 for the raw-EEG head and from 0.75 to 0.88 for the folded-wavelet head,
+with one shared backbone serving all four route-specific front ends.
+Single-channel traces from the same windows (Fig. 5 ) show
+that predictions recover waveform structure across masked spans of up to three
+consecutive seconds, reaching correlations of 0.93 and 0.96 on the selected
+M3CV and HBN channels. The TUEG channel is harder ( r = 0.52 r=0.52 ), although its
+window-level correlation is 0.79, indicating that reconstruction difficulty
+varies across channels within one recording. Each corpus is assigned to a compatible acquisition route rather than forced
+into a single modality-wide layout. To prevent large datasets from dominating
+pre-training, corpora are sampled with probability P ⁡ ( d ) ∝ n d 0.5 P(d)\propto n_{d}^{0.5} for a
+corpus of n d n_{d} windows, while per-device batch sizes scale inversely with the
+route token count. During preprocessing, recordings are standardized to common
+physical units and, where necessary, resampled to the target route rate via
+anti-aliased polyphase filtering. Channels are then mapped to their named slots
+and each window is normalized, without applying any additional band-pass
+filtering. IV-B Downstream Adaptation A downstream task specifies its channel count, sampling rate, and sensor names.
+The Transformer, channel embedding table, projection, and identity gate are
+always transferred from the modality checkpoint. Front ends and patch
+embeddings are transferred when the configuration matches a pre-training route,
+as for PTB-XL on the 12-lead ECG route, and are newly initialized otherwise.
+Mean-pooled tokens feed a two-layer prediction head, and we evaluate three
+adaptation modes. Fine-tune optimizes all parameters with layer-wise
+learning-rate decay in the Transformer. Probe freezes transferred
+components and trains only the head and any newly introduced front-end or
+adapter parameters. Scratch trains the same architecture from random
+initialization, isolating the contribution of pre-training under each task
+protocol. IV-C Reliability-Aware Multimodal Fusion Fig. 6: Reliability-aware latent fusion (RALF) of 4-s EEG, ECG, and EMG windows. Reliability scores gate tokens and weight unimodal predictions. Orange symbols denote training losses; the trace shows seizure probability over a 60-s test excerpt with a 0.5 threshold. PhysioWave combines unimodal logits with one learned weight per modality. These
+weights are fixed after training, so they cannot reflect the degradation of a
+particular sensor in a particular window. Reliability-aware latent fusion
+(RALF; Fig. 6 ) fuses compact modality summaries and estimates
+their reliability for every window. An attention pool with q = 4 q=4 learnable
+queries reduces each encoder’s token sequence to four summary tokens, and n f = 8 n_{f}=8 learnable fusion tokens attend to their concatenation through two
+cross-attention layers before being pooled and classified. The fusion module
+thus receives a fixed number of tokens per available modality, independent of
+window length and channel count, although encoder and pooling costs still scale
+with the input sequence. For each modality, a sigmoid head predicts a reliability r m ∈ ( 0 , 1 ) r_{m}\in(0,1) from its
+summary tokens. This score gates the modality’s attention keys and values and
+also weights a residual contribution from its unimodal logits: 𝐳 = 𝐳 fused + 1 2 ​ ∑ m ∈ ℳ r m ​ 𝐳 m ∑ m ∈ ℳ r m , \mathbf{z}=\mathbf{z}_{\mathrm{fused}}+\frac{1}{2}\,\frac{\sum_{m\in\mathcal{M}}r_{m}\,\mathbf{z}_{m}}{\sum_{m\in\mathcal{M}}r_{m}}, (14) where ℳ \mathcal{M} is the set of available modalities and 𝐳 m \mathbf{z}_{m} is the
+output of a modality-specific prediction head. Normalization keeps the residual
+scale consistent across modality subsets, and the denominator is clamped below
+at 10 − 6 10^{-6} for numerical stability. Reliability therefore shapes both the
+cross-modal interaction and the unimodal evidence. Because available subsets may
+vary between items in a batch, absent modalities are excluded by attention masks
+and omitted from ( 14 ); inputs with no available modality are
+rejected. During training, each modality is corrupted with probability 0.5 0.5 before its
+encoder by additive noise, baseline drift, saturation, bad channels, or temporal
+dropout. A sampled severity σ m ∈ [ 0 , 1 ] \sigma_{m}\in[0,1] defines the reliability target 1 − σ m 1-\sigma_{m} , directly supervising quality estimation. Random modality dropping
+further creates a subset view, whose prediction is encouraged to agree with the
+full-set prediction. The objective is ℒ = \displaystyle\mathcal{L}=\; CE ⁡ ( 𝐳 , y ) + 0.2 ​ ∑ m ∈ ℳ CE ⁡ ( 𝐳 m , y ) \displaystyle\mathrm{CE}(\mathbf{z},y)+0.2\sum_{m\in\mathcal{M}}\mathrm{CE}(\mathbf{z}_{m},y) + ∑ m ∈ ℳ ( r m − ( 1 − σ m ) ) 2 \displaystyle+\sum_{m\in\mathcal{M}}\big(r_{m}-(1-\sigma_{m})\big)^{2} + KL sym ( 𝐳 subset ∥ 𝐳 ) , \displaystyle+\mathrm{KL}_{\mathrm{sym}}\big(\mathbf{z}^{\mathrm{subset}}\,\|\,\mathbf{z}\big), (15) where the symmetric KL term compares the class distributions of the two logit
+vectors. The framework permits frozen, fine-tuned, or randomly initialized
+encoders; the seizure-detection experiments use frozen encoders, connected to
+the wearable acquisition configurations through task-specific front ends and
+adapters. V Experiments and Results We first evaluate transfer across EEG, ECG, and sEMG tasks, then test whether
+their representations can be combined for wearable seizure detection under
+missing or corrupted inputs. EEG ablations isolate the contribution and
+computational cost of the proposed components. TABLE I: Pre-training corpora and input configurations.
+The route ( C , f ) (C,f) gives channel count and sampling rate in Hz.
+Counts refer to processed training windows. Modality Corpus Route ( C , f ) (C,f) Windows TUEG [ 31 ] (19, 256) 13,710,516 HBN [ 32 ] (128, 512) 1,352,818 FACED [ 33 ] (32, 512) 129,268 TDBRAIN [ 34 ] (32, 512) 86,991 M3CV [ 35 ] (64, 256) 81,895 PhysioNet MI [ 36 ] (64, 256) 36,933 EEG HGD [ 37 ] (128, 512) 23,074 PulseDB [ 38 ] (1, 250) 4,992,774 Icentia11k [ 39 ] (1, 250) 1,650,343 MIMIC-IV-ECG [ 40 ] (12, 500) 748,592 CODE-15% [ 41 ] (12, 500) 123,202 SPH [ 42 ] (12, 500) 24,856 MedalCare-XL [ 43 ] (12, 500) 15,446 ECG Georgia [ 44 ] (12, 500) 9,750 emg2qwerty [ 45 ] (16, 2000) 2,359,161 emg2pose [ 14 ] (16, 2000) 1,203,781 CEMHSEY 8 × 8 8{\times}8 [ 46 ] (64, 2000) 662,710 CEMHSEY 5 × 13 5{\times}13 [ 46 ] (64, 2000) 453,239 Hyser [ 47 ] (64, 2000) 274,188 sEMG putEMG [ 48 ] (24, 2000) 153,124 TABLE II: EEG classification: balanced accuracy (BAC), Cohen’s kappa,
+weighted F1 (W-F1), and AUROC. Our values are three-seed means; evaluation
+splits are specified in the text. Bold purple : highest reported value; underline : second highest. Sleep-EDFx PhysioNet-P300 KaggleERN Method Params BAC Kappa W-F1 BAC Kappa AUROC BAC Kappa AUROC BENDR Front. Hum. Neurosci.’21 157M 0.6655 0.6659 0.7507 0.6114 0.2227 0.6588 0.5672 0.1461 0.6030 BIOT NeurIPS’23 3.2M 0.6622 0.6461 0.7415 0.5485 0.0968 0.5308 0.5118 0.0297 0.5495 LaBraM ICLR’24 5.8M 0.6771 0.6710 0.7592 0.6477 0.2935 0.7068 0.5439 0.0944 0.5693 EEGPT NeurIPS’24 25M 0.6917 0.6857 0.7654 0.6502 0.2999 0.7168 0.5837 0.1882 0.6621 PhysioWave-T (scratch) 30M 0.6924 0.7363 0.8043 0.6512 0.2337 0.7194 0.5704 0.1409 0.6001 PhysioWave-T (probe) 30M 0.6654 0.7200 0.7897 0.6612 0.2665 0.7266 0.5369 0.0670 0.5703 PhysioWave-T (fine-tune) 30M 0.7060 0.7365 0.8092 0.6706 0.2975 0.7370 0.6171 0.2059 0.6632 V-A Datasets and Training Settings Pre-training data. Each recording is assigned to a front-end route according to its channel count
+and sampling rate. Table I summarizes the input
+configurations and available window counts. EEG pre-training uses 15.4 M
+four-second windows from clinical recordings in TUEG [ 31 ] ,
+research recordings in TDBRAIN [ 34 ] and FACED [ 33 ] ,
+BCI recordings in M3CV [ 35 ] and PhysioNet MI [ 36 ] ,
+and high-density recordings in HBN [ 32 ] and
+HGD [ 37 ] . ECG pre-training uses 7.6 M ten-second windows spanning 12-lead recordings
+from MIMIC-IV-ECG [ 40 ] , CODE-15% [ 41 ] ,
+SPH [ 42 ] , and Georgia [ 44 ] ,
+synthetic ECGs from MedalCare-XL [ 43 ] , and
+single-lead recordings from PulseDB [ 38 ] and
+Icentia11k [ 39 ] . The sEMG encoder uses 5.1 M one-second
+windows from 16-electrode wristbands
+(emg2qwerty [ 45 ] and
+emg2pose [ 14 ] ), 24-channel forearm recordings
+(putEMG [ 48 ] ), and 64-channel inputs extracted from
+high-density arrays (CEMHSEY [ 46 ] and
+Hyser [ 47 ] ). Compared with PhysioWave, these corpora add
+single-lead ECG and several sEMG configurations, while EEG pre-training is new. Optimization. All encoders use the objective in Section IV-A , a
+70 % mask ratio, and AdamW with β 1 = 0.9 \beta_{1}=0.9 , β 2 = 0.98 \beta_{2}=0.98 , and
+weight decay 0.01 0.01 . A linear warm-up precedes cosine learning-rate decay,
+and training uses mixed precision. Corpora are sampled with temperature 0.5 0.5 ; route-specific batch sizes give approximately equal token counts per
+step. EEG and ECG encoders are trained for 60 epochs and the sEMG encoder
+for 40 epochs on NVIDIA A100 GPUs. Peak device memory is 26 GB for
+128-channel EEG, 19 GB for ECG, and 16 GB for 64-channel sEMG under these
+training configurations. Learning rates and warm-up lengths are set per
+modality, and the complete hyperparameters are provided in the released
+configuration files. Evaluation and statistical reporting. We evaluate three adaptation modes defined in
+Section IV-B : fine-tuning all parameters with
+layer-wise learning-rate decay, probing with transferred components frozen,
+and training the same architecture from scratch. Hyperparameters and
+checkpoints are selected using validation data, with balanced accuracy or
+Cohen’s kappa for multi-class tasks and AUROC for binary and multi-label
+tasks. All performance results from experiments conducted in this study,
+including ablations and rerun baselines, are arithmetic means over three
+independent random seeds.
+Values quoted from previous work retain the original studies’ aggregation
+and evaluation protocols. Benchmarks use subject-disjoint splits unless a
+task-specific protocol is stated below. For multi-label ECG tasks,
+decision thresholds are selected on validation data and then fixed for
+record-level test evaluation. V-B EEG Results We evaluate three tasks following the exact evaluation protocol of
+EEGPT [ 9 ] : five-stage sleep staging on
+Sleep-EDFx [ 49 ] , target detection on
+PhysioNet-P300 [ 50 ] , and error-related negativity
+detection on KaggleERN [ 51 ] . Table II compares PhysioWave-T with BENDR [ 5 ] , BIOT [ 7 ] ,
+LaBraM [ 8 ] , and EEGPT under the same subject-disjoint
+cross-validation folds, with baseline results cited directly from [ 9 ] . Fine-tuned PhysioWave-T achieves the highest value on eight of nine metrics, and the
+margins are largest where the baselines are weakest. On Sleep-EDFx, its Fpz-Cz
+and Pz-Oz derivations at 100 Hz match no pre-training route or vocabulary
+entry, so the front end and both channel embeddings are learned downstream.
+Even so, PhysioWave-T raises kappa from 0.686 to 0.737 and weighted F1 from 76.5 %
+to 80.9 % over EEGPT. The scratch model alone already reaches a kappa of
+0.736, which indicates that the multiscale front end itself suits sleep
+staging, a task defined by band-limited rhythms; Section VI-C shows the fold shifting weight toward the slowest scale in deep sleep. On
+KaggleERN, PhysioWave-T improves balanced accuracy by 3.3 points and kappa by 0.018
+over EEGPT, the largest balanced-accuracy gain among the three tasks. On
+PhysioNet-P300, balanced accuracy and AUROC each rise by 2.0 points, while kappa
+is within 0.003 of EEGPT. The adaptation modes show that tasks draw on pre-training in different ways.
+On PhysioNet-P300, the frozen encoder already exceeds every baseline in
+balanced accuracy and AUROC, and fine-tuning adds only 0.9 points, so the
+pre-trained representation captures the P300 response largely as is. KaggleERN
+behaves differently: probing falls 3.4 points below scratch, yet fine-tuning
+exceeds scratch by 4.7 balanced-accuracy and 6.3 AUROC points. The pre-trained
+weights therefore contain information relevant to error-related negativity, but
+backbone adaptation is needed to expose it. On Sleep-EDFx, pre-training adds
+1.4 balanced-accuracy points over scratch with nearly unchanged kappa,
+consistent with the strong contribution of our architecture. TABLE III: ECG classification: macro-F1 and macro-AUROC in %.
+Our results are means over three seeds; baselines are quoted from PhysioWave. Bold purple : highest reported value; underline : second highest. PTB-XL Super CPSC 2018 Chapman Method Params F1 AUC F1 AUC F1 AUC MERL ICML’24 11M 48.1 91.9 72.8 92.6 — 87.9 MaeFE TIM’23 9M 64.7 88.6 71.6 94.5 — — OpenECG-SimCLR arXiv’25 11M 46.9 91.5 73.1 92.4 52.3 95.1 OpenECG-BYOL arXiv’25 11M 47.7 91.1 72.8 92.6 51.5 94.8 OpenECG-MAE arXiv’25 11M 48.1 90.9 74.5 93.2 50.8 94.2 PhysioWave-S NeurIPS’25 5M 65.8 92.7 71.6 95.5 52.1 96.4 PhysioWave-B NeurIPS’25 15M 64.5 93.4 72.5 95.9 53.8 97.2 PhysioWave-L NeurIPS’25 37M 66.7 94.6 73.1 96.1 54.8 98.3 PhysioWave-T (scratch) 30M 66.9 87.7 64.4 92.5 55.8 98.5 PhysioWave-T (probe) 30M 64.6 85.6 58.7 89.5 53.4 95.7 PhysioWave-T (fine-tune) 30M 70.9 90.3 73.1 94.2 56.7 99.4 V-C ECG Results ECG evaluation covers the five diagnostic superclasses of
+PTB-XL [ 52 ] , the nine classes of
+CPSC 2018 [ 53 ] , and Chapman–Shaoxing [ 54 ] .
+All three datasets consist of 12-lead recordings at 500 Hz, enabling direct
+transfer of the corresponding front end. Following the exact data splits and
+evaluation protocol of PhysioWave [ 2 ] ,
+Table III reports macro-F1 and macro-AUROC alongside the
+baseline results cited from PhysioWave. PhysioWave-T achieves the highest macro-F1 on PTB-XL Super and Chapman–Shaoxing,
+70.9 % and 56.7 %, with fewer parameters than PhysioWave-L (30 M versus
+37 M). On PTB-XL Super, the margin is 4.2 points over PhysioWave-L and 6.2
+points over MaeFE, and Chapman–Shaoxing also yields the highest macro-AUROC,
+99.4 %. On CPSC 2018, macro-F1 ties PhysioWave-L and OpenECG-SimCLR at
+73.1 %, 1.4 points below OpenECG-MAE. The two metrics diverge on PTB-XL Super
+and CPSC 2018, where PhysioWave-L keeps the higher macro-AUROC. Macro-F1 is
+measured at the operating threshold and weights every class equally, whereas
+macro-AUROC summarizes ranking across all thresholds. The pattern therefore
+indicates that PhysioWave-T makes more balanced decisions across diagnostic classes,
+while PhysioWave-L ranks records slightly better on these two datasets. In the
+five-class, single-label PTB-XL task, the same encoder reaches 73.9 %
+accuracy. Pre-training improves every ECG metric over scratch, with the largest benefit on
+CPSC 2018 and the smallest on Chapman–Shaoxing. CPSC 2018 gains 8.7 macro-F1
+and 1.7 AUROC points, PTB-XL Super gains 4.0 and 2.6, and Chapman–Shaoxing,
+where scratch already reaches 98.5 % AUROC, gains 0.9 on both. Five-class
+PTB-XL accuracy rises by 3.4 points. The frozen encoder retains 95–96 % of
+fine-tuned AUROC on all three multi-label benchmarks, but its share of
+fine-tuned macro-F1 varies more widely: about 80 % on CPSC 2018, compared with
+91 % on PTB-XL Super and 94 % on Chapman–Shaoxing. The pre-trained
+representation thus already orders records by diagnosis, and fine-tuning mainly
+improves the threshold-level decisions captured by macro-F1, most visibly on the
+nine-class CPSC 2018 task. V-D sEMG Results The sEMG benchmarks test transfer to two configurations absent from
+pre-training: the eight-electrode, 200 Hz EPN-612
+wristband [ 55 ] and the 28-electrode, 2 kHz GRABMyo
+array [ 56 ] . Both receive a new front end, while the
+pre-trained backbone and channel vocabulary are retained. EPN-612 follows
+PhysioWave’s user-dependent protocol, with baseline values quoted from that
+paper [ 2 ] . GRABMyo trains on sessions 1–2 and tests on
+session 3, and all baselines are rerun on this split with three seeds. As
+Table IV shows, PhysioWave-T achieves the highest accuracy and
+macro-F1 on both benchmarks with 12 M parameters, about one third of
+PhysioWave-L. On EPN-612, its 94.80 % accuracy exceeds PhysioWave-L by 0.30
+points; on GRABMyo, accuracy and macro-F1 reach 89.78 % and 89.74 %, 1.25
+and 1.37 points above PhysioWave-L. The generic time-series models trail by a
+wider margin on GRABMyo, where PhysioWave-T exceeds MOMENT by 7.11 points with
+roughly one thirtieth of its parameters and OTiS [ 57 ] by
+10.40 points. The two protocols reveal different roles for pre-training. Under EPN-612’s
+user-dependent protocol, scratch training already reaches 94.34 %, and
+fine-tuning adds only 0.46 points, since training and test data come from the
+same users. GRABMyo instead tests generalization across recording sessions,
+where electrode re-placement and changing skin contact shift the signal
+distribution. Here scratch drops to 85.16 %, while the frozen encoder reaches
+87.41 %, matching PhysioWave-B, and fine-tuning adds a further 2.37 points.
+Pre-training thus contributes most where the downstream data alone cannot cover
+session variability. Probing is less effective on EPN-612, falling 4.45 points
+below scratch. This gap coincides with a spectral mismatch: the 200 Hz
+wristband retains content only below 100 Hz, whereas the pre-trained sEMG
+front ends emphasize roughly 100 to 200 Hz (Section VI-B ),
+so the frozen backbone receives inputs outside its pre-training range until
+fine-tuning adapts it. TABLE IV: sEMG gesture recognition: accuracy and macro-F1 in %.
+Our runs are means over three seeds; EPN-612 baselines retain their published values. Bold purple : highest reported value; underline : second highest. EPN-612 GRABMyo Method Params Acc. F1 Acc. F1 MOMENT ICML’24 385M 90.87 90.16 82.67 82.19 OTiS arXiv’24 45M 87.55 88.03 79.38 78.80 PhysioWave-S NeurIPS’25 5M 93.12 93.40 85.26 85.03 PhysioWave-B NeurIPS’25 15M 93.68 93.91 87.40 87.16 PhysioWave-L NeurIPS’25 37M 94.50 94.56 88.53 88.37 PhysioWave-T (scratch) 12M 94.34 94.34 85.16 85.13 PhysioWave-T (probe) 12M 89.89 89.88 87.41 87.44 PhysioWave-T (fine-tune) 12M 94.80 94.79 89.78 89.74 V-E Multimodal Fusion Fig. 7: Seizure detection on SeizeIT2 (official split, 29 test patients,
+2,912 h, 181 seizures). (a) Event-level sensitivity against false alarms
+per hour for the three fusion rules over the frozen PhysioWave-T encoders and for
+each EEG-only encoder at its better of frozen and fine-tuned; the dotted line
+is the 11 false alarms per hour of the dataset paper’s SVM. (b) Frozen and
+fine-tuned EEG encoders at ≤ \leq 11 false alarms per hour, with encoder size.
+(c) RALF’s predicted reliability on clean inputs and with one modality
+corrupted at severity 0.7; the ringed point is the corrupted modality.
+(d) Window-level AUPRC of every modality subset. The RALF line is the
+original training configuration; the shaded band in (a) and (d) is the
+min–max over six RALF training variants, the original and five
+learning-rate and schedule settings. SeizeIT2 [ 58 ] records behind-the-ear EEG, ECG, and EMG
+simultaneously and tests whether the independently pre-trained encoders can be
+combined for wearable seizure monitoring. RALF fuses the three frozen PhysioWave-T encoders and is compared with concatenation and PhysioWave’s weighted-logit
+fusion over the same encoders, while LUNA [ 28 ] ,
+LaBraM [ 8 ] , and EEGPT [ 9 ] serve as
+single-modality EEG references. We report window-level AUPRC and event-level
+sensitivity against false alarms per hour, and remove modalities or corrupt one
+at a time with noise, bad channels, baseline drift, saturation, or dropout at
+severity 0.7 (Fig. 7 ). The EEG branch alone is a
+demanding transfer target: its two behind-the-ear channels match no
+pre-training route and receive a new front end. Fine-tuned, PhysioWave-T reaches
+61.4 % sensitivity at ≤ \leq 11 false alarms per hour, ahead of LUNA-L
+(60.9 %), LaBraM (58.0 %), and EEGPT (42.4 %), with 25.4 M parameters
+against LUNA-L’s 40.4 M. Frozen, PhysioWave-T and LUNA-L are nearly tied at
+54.5 % and 54.6 %, and EEGPT is the only encoder that loses sensitivity when
+fine-tuned (Fig. 7 b), so adaptation to so sparse a
+montage depends on a backbone that tolerates it. Adding ECG and EMG changes the picture substantially. With frozen encoders,
+fusion lifts event sensitivity at 11 false alarms per hour—the operating point
+of the dataset paper’s SVM baseline—from 61.4 % for fine-tuned PhysioWave-T alone
+to 74.4 % with RALF and 78.9 % with weighted-logit fusion, exceeding any
+EEG-only encoder by at least 13 points. Seizures therefore leave complementary
+signatures across the three modalities, consistent with the ictal cardiac and
+motor changes accompanying many events. Yet the fusion rule governs how
+effectively this evidence is exploited: on window-level AUPRC (the validation
+selection metric), RALF reaches 0.399 against 0.372 for weighted-logit fusion
+and 0.347 for concatenation, and all six RALF training variants outperform both
+whenever EEG and ECG are jointly present (0.384–0.414 on EEG+ECG and the
+complete set). Sample-level reliability estimation also pays off under strict
+alarm budgets, the regime that matters most for ambulatory monitoring: at 2
+false alarms per hour, RALF detects 32.0 % of seizures, versus 26.7 % for
+weighted-logit fusion. The reliability scores explain this behavior. On clean inputs, RALF assigns
+0.92, 0.85, and 0.91 to EEG, ECG, and EMG, and corrupting one modality lowers
+only its own score, to 0.24–0.65, as expected from modality-local reliability
+heads. The drop tracks how much signal survives: bad channels, drift,
+saturation, dropout, and EMG noise, which swamps EMG’s broadband content, push
+reliability to 0.24–0.33, whereas noise on EEG or ECG leaves their dominant
+rhythms visible and lowers it only to 0.63–0.65. Predictions degrade
+correspondingly little. ECG noise costs 0.004 AUPRC, EMG dropout or noise
+leaves it essentially at the clean value of 0.399, so RALF does not rely on EMG
+when that signal is compromised, and AUPRC stays at or above 0.33 under every
+tested corruption. V-F Ablation Study Table V tests six aspects of the EEG encoder on
+PhysioNet-P300 and KaggleERN. All values are means over three seeds.
+The full, randomly initialized, and frozen models correspond to the
+fine-tune, scratch, and probe settings in Table II .
+Each architectural ablation changes one component while retaining the
+other settings and validation procedure. Label-efficiency comparisons
+vary supervision, with a matched scratch condition at 10 % labels.
+Electrode dropout is applied only at test time, with affected channels
+zeroed and marked absent. Δ \Delta denotes the average change across
+the four metrics relative to the full model, in percentage points. TABLE V: EEG ablations on PhysioNet-P300 and KaggleERN, averaged over three seeds.
+Metrics are percentages. Δ \Delta is the mean change across the four metrics
+relative to the full model; darker shading indicates a larger decrease. P300 KaggleERN Variant BAC AUROC BAC AUROC 𝚫 \boldsymbol{\Delta} PhysioWave-T (full) 67.1 73.7 61.7 66.3 — Scale folding (vs. dynamic fold) Scale expansion 66.8 73.4 61.4 66.0 − 0.3 -0.3 Static uniform fold ( α = u \alpha{=}u ) 65.6 72.0 60.2 64.5 − 1.6 -1.6 w/o synthesis filters ( g s = δ g_{s}{=}\delta ) 66.4 73.0 61.0 65.6 − 0.7 -0.7 Pre-training and adaptation w/o pre-training 65.1 71.9 57.0 60.0 − 3.7 -3.7 Frozen encoder 66.1 72.7 53.7 57.0 − 4.8 -4.8 Tune top-2 blocks 66.0 72.4 57.9 61.6 − 2.7 -2.7 Tune top-4 blocks 65.9 72.2 59.8 64.1 − 1.7 -1.7 Channel identity w/o channel enc. ( g = 0 g{=}0 ) 64.5 70.9 60.8 65.2 − 1.8 -1.8 Shuffled channel names 64.1 70.5 60.6 65.0 − 2.1 -2.1 Readout (vs. mean pooling) Temporal head [ 9 ] 63.4 69.9 60.9 65.4 − 2.3 -2.3 Attentive stat. pooling 65.4 71.6 61.3 66.0 − 1.1 -1.1 Label efficiency 25 % labels 64.2 70.1 59.6 63.8 − 2.8 -2.8 10 % labels 62.6 68.0 57.8 61.2 − 4.8 -4.8 10 % labels, w/o pre-train. 60.4 65.2 53.1 55.4 − 8.7 -8.7 Missing electrodes 25 % dropped 64.6 70.6 60.4 64.7 − 2.1 -2.1 50 % dropped 62.9 68.6 58.3 62.2 − 4.2 -4.2 Scale folding. Scale expansion feeds all J + 1 J{+}1 bands to the backbone as separate token
+rows, giving the Transformer direct access to every subband at four times the
+sequence length. The dynamic fold scores 0.3 points higher on average with a
+quarter of the tokens, so compressing the scales before tokenization loses
+nothing that the backbone could have recovered from the longer sequence. How
+the scales are combined does matter, however. A static uniform fold drops the
+average by 1.6 points and falls 1.3 points below scale expansion, so a plain
+average of the subbands discards information that the expanded representation
+preserves. Of the 1.6-point gap between the uniform and dynamic folds, the
+learned synthesis filters account for 0.7 points, since replacing every g s g_{s} with a delta costs that much, and the data-dependent weights α \alpha account
+for the remaining 0.9. Both components are therefore needed to match and then
+exceed scale expansion, and the full fold achieves this with a predictor
+shared across channels. Fig. 8 quantifies the cost side on one A100 in bf16
+with matched route-specific batch sizes. Across the four EEG routes, folding
+reduces Transformer latency by 4.0–7.2 × \times , peak memory by
+6.8–12.7 × \times , and FLOPs by 4.3–5.5 × \times . Memory shrinks more than
+FLOPs because the attention maps, whose size grows quadratically with sequence
+length, dominate activation memory; latency shrinks less than memory because
+the front end and the linear projections keep their cost. All three savings
+grow with token count and peak on the 128-channel route, where a batch needs
+about 32 GB without folding and 2.5 GB with it in this profiling setup.
+These figures use matched batch sizes and therefore differ from the
+pre-training memory reported in Section V-A . The fold itself,
+including its subband statistics and weighting network, accounts for only
+1.5–2.6 % of the forward pass, so its accuracy benefit comes at negligible
+cost. Fig. 8: EEG encoder efficiency on one A100 in bf16, averaged over three seeds. (a) Latency per window. (b) Peak memory per batch. (c) Savings versus token count. Pre-training and adaptation. Removing pre-training lowers the four-metric average by 3.7 points, with the
+loss concentrated on KaggleERN, where balanced accuracy and AUROC fall by 4.7
+and 6.3 points. The adaptation ladder shows why the two tasks differ. On
+PhysioNet-P300, the frozen encoder is within one balanced-accuracy point of
+full fine-tuning, and tuning the top two or four blocks changes little, so the
+pre-trained representation already separates target from non-target responses.
+On KaggleERN, the frozen encoder reaches only 53.7 %, below the 57.0 % of
+the scratch model, and balanced accuracy climbs monotonically with the number
+of tuned blocks: 57.9 % with two, 59.8 % with four, and 61.7 % with the
+full backbone. Error-related negativity is a brief, low-amplitude deflection
+embedded in ongoing frontocentral activity, and pre-training on four-second
+windows of clinical EEG does not isolate it on its own. The pre-trained weights
+nonetheless provide the better starting point, since fine-tuning from them ends
+4.7 points above training from scratch. Channel identity. Setting the channel-encoding gate to zero in ( 12 ) lowers the
+average score by 1.8 points, and shuffling channel names lowers it by 2.1. The
+second number is the more informative one: the shuffled model keeps the same
+embedding parameters and receives spatial information that is simply wrong,
+and it performs worse than a model given no spatial information at all. The
+benefit of correct identity therefore comes from the scalp geometry the
+embeddings encode (Section VI-A ), not from added
+capacity. The losses concentrate on PhysioNet-P300, where removing channel
+encoding costs 2.6 balanced-accuracy and 2.8 AUROC points, compared with 0.9
+and 1.1 on KaggleERN. The P300 response has a well-defined parietal
+distribution, so knowing which electrode produced each token helps locate it;
+the error-related negativity is spatially more diffuse, and the task relies
+less on electrode identity. Readout. Mean pooling outperforms the EEGPT temporal head by 2.3 points and attentive
+statistics pooling by 1.1 points on average, with the temporal head losing 3.7
+balanced-accuracy points on PhysioNet-P300. Both alternatives add trainable
+readout capacity on top of the backbone, and both hurt. Under full fine-tuning,
+the backbone can already arrange its tokens so that a simple average is
+linearly separable, and the extra readout parameters mainly add variance on
+datasets of this size. The temporal head, designed for probing a frozen
+encoder in EEGPT, is the more complex of the two and suffers most. Label efficiency. Reducing supervision to 10 % of the labels costs the pre-trained encoder 4.8
+points on average, against 8.7 points for the matched scratch model, so
+pre-training roughly halves the loss from scarce labels. The absolute numbers
+on KaggleERN are more telling: with 10 % of the labels, the pre-trained
+encoder already exceeds the scratch model trained on all labels, by 0.8
+balanced-accuracy and 1.2 AUROC points, and with 25 % the margins widen to
+2.6 and 3.8 points. One tenth of the annotations is therefore enough to match
+full-data training from scratch on this task. The effect is weaker on
+PhysioNet-P300, where the scratch model is itself strong; there, 25 % of the
+labels bring the pre-trained encoder within 0.9 balanced-accuracy points of
+full-data scratch. Missing electrodes. Dropping 25 % and 50 % of the electrodes at test time, without imputation
+or retraining, lowers the average score by 2.1 and 4.2 points, so performance
+degrades gradually and in proportion to the electrodes removed. With a quarter
+of the electrodes missing, KaggleERN balanced accuracy remains 60.4 %, still
+above EEGPT with the full montage (58.4 %), and with half missing it nearly
+matches that baseline at 58.3 % and still exceeds the scratch model with every
+electrode (57.0 %). Because absent slots are masked and the remaining channels
+keep their name embeddings, the encoder continues to interpret the electrodes it
+receives without any adaptation to the reduced montage. VI Analysis of Learned Representations We examine the trained encoders through their spectral responses, scale allocation,
+channel embeddings, and reconstructions. Together, these analyses connect the
+architecture to the signal structure captured during learning. All analyses use
+trained checkpoints without additional optimization. VI-A Spatial Structure in Channel Embeddings Fig. 9: Spatial structure in channel embeddings. (a) Embedding similarity versus geodesic scalp distance, with an untrained table for comparison. (b) Electrode-centered similarity maps; links mark the five nearest neighbors. Channel identities enter the model only as learned name embeddings
+(( 12 )), with no access to electrode coordinates. We test whether
+these embeddings nevertheless encode scalp geometry by relating their pairwise
+cosine similarities to geodesic electrode distances (Fig. 9 a).
+For the 130 electrodes of the 10-5 system and the 128 EGI HydroCel positions,
+the Spearman correlations are ρ = − 0.19 \rho=-0.19 and − 0.25 -0.25 , more than twelve
+standard deviations from the permutation-null mean ( p < 0.001 p<0.001 over 2,000
+draws), whereas the untrained table shows no association ( ρ = 0.01 \rho=0.01 ). The
+structure is even clearer locally. The five nearest neighbors of each electrode
+in embedding space lie at a mean angular distance of 56 ∘ on the scalp for
+10-5 names and 44 ∘ for EGI, compared with 84–88 ∘ after name
+shuffling, and the electrode-centered maps for Fz, Cz, Pz, Oz, T7, and T8
+(Fig. 9 b) show similarity concentrated around each reference
+site. Because volume conduction makes neighboring electrodes record overlapping
+mixtures of the same sources, pre-training on raw signals is enough for the
+vocabulary to recover scalp topology from names alone. This learned geometry
+also explains the ablation result in Section V-F , where shuffling
+channel names costs more than removing channel encoding entirely. VI-B Modality-Specific Spectral Adaptation Fig. 10: Spectral adaptation of the wavelet front ends. (a) Level-one analysis responses before and after pre-training, with physiological bands and − 3 -3 dB cutoffs. (b) Selector weights at levels 1–3. (c) Low-pass cutoff changes. All front ends start from the same uniformly mixed filter bank, so any
+difference after pre-training is learned from the signals themselves
+(Fig. 10 a). The level-one responses move toward the frequency
+range that carries each modality’s characteristic activity: the QRS range for
+12-lead ECG, roughly 100 to 200 Hz for high-density sEMG, where surface EMG
+concentrates its power, and the γ \gamma range in the high-pass branch of the
+19-channel EEG route. The sEMG front ends also widen their low-pass branch, with − 3 -3 dB cutoffs rising from 125 Hz at initialization to 356–418 Hz. At
+2 kHz, the initial cutoff would have assigned most of the sEMG band to the
+first detail subband; the widened passband keeps it in the approximation that
+feeds deeper levels, so the decomposition can resolve muscle activity at
+several scales. This adaptation also explains the weak probing result on the
+200 Hz EPN-612 wristband (Section V-D ), whose content lies
+largely below the range the pre-trained sEMG filters emphasize. Basis selection becomes more decisive with depth (Fig. 10 b). At
+level one, every route keeps a mixture over its five candidate wavelets, whereas
+at level three the weights concentrate on a single basis within each modality’s
+bank. Fine resolutions contain heterogeneous transients that benefit from a
+blend of wavelet shapes, while the smoother coarse approximations are described
+well by one basis, and the selector learns this division without supervision. VI-C Scale Allocation Across Sleep Stages Fig. 11: Scale allocation across sleep stages. (a) Stage-wise folding weights with 95 % subject-level confidence intervals. (b) Within-subject changes relative to wake. (c) Slowest-scale weight versus δ \delta -band power share. Rows show Fpz-Cz and Pz-Oz. Sleep staging offers a direct test of whether the folding weights track
+physiology, since sleep stages are defined largely by their dominant rhythms.
+We analyze the encoder fine-tuned on Sleep-EDFx over 37,902 thirty-second
+windows from 14 test subjects, grouping the weights by expert-annotated stage
+(Fig. 11 a). The folding network receives only
+signal-derived subband statistics and is never told the stage, yet the weight
+of the slowest scale, a 3 a_{3} (below 6.25 Hz), rises steadily from wake to N3 and
+returns toward its wake value in REM. This trajectory mirrors the
+electrophysiology of sleep: slow-wave activity dominates N3, whereas REM EEG
+resembles the low-amplitude, mixed-frequency activity of wake. Within subjects
+(Fig. 11 b), the wake-to-N3 increase holds in all 13
+subjects with both stages on Pz-Oz (Wilcoxon p = 2.4 × 10 − 4 p=2.4\times 10^{-4} ) and in 10 of
+13 on Fpz-Cz ( p = 0.048 p=0.048 ), so the effect is consistent across individuals. The two derivations nonetheless receive different scale mixtures from the same
+shared network. At the window level (Fig. 11 c), the
+slowest-scale weight correlates positively with δ \delta -band power share on
+Pz-Oz ( ρ = 0.21 \rho=0.21 ) but negatively on Fpz-Cz ( ρ = − 0.22 \rho=-0.22 ). Fpz-Cz also records
+ocular activity, whose low-frequency power rises with eye movements during wake
+and REM, so δ \delta -band power on this derivation is not a clean marker of
+slow-wave sleep. The fold follows the sleep stage on both derivations while
+responding differently to their raw low-frequency power, showing that it
+allocates scales according to what the low-frequency content represents on
+each derivation. VII Discussion PhysioWave-T rests on one organizing principle: everything that depends on how a
+signal was acquired is handled before tokenization, and everything that
+depends on what it contains is learned afterward by a shared backbone. This is
+why a single 30 M-parameter EEG encoder can learn from 19- to 128-channel
+montages and then transfer to a two-channel wearable, and why decomposition
+depth becomes a choice about the content of each token instead of the length
+of the sequence. The analyses show that the efficiency costs nothing in
+physiological meaning: identically initialized front ends settle on the QRS,
+100–200 Hz, and γ \gamma ranges for their modalities, the folding weights
+track sleep stages without stage labels, and the channel vocabulary recovers
+scalp topology from electrode names alone, which makes coordinates an
+unnecessary input and lets the same identity mechanism cover ECG leads and
+sEMG sites. The experiments also clarify when pre-training matters and how to use it. Its
+benefit is smallest where downstream data already cover the test conditions
+and largest under distribution shift and label scarcity, as in inter-session
+sEMG and KaggleERN, where a tenth of the labels match full-data training from
+scratch. Some tasks are served by the frozen representation, whereas subtle
+responses such as error-related negativity require adapting the backbone, so
+probing first and fine-tuning when needed is the natural recipe. For
+multimodal monitoring, RALF shows that per-sample reliability pays off when
+artifact-prone ECG must be weighed against EEG and at strict false-alarm
+budgets, and its scores fall in proportion to how much signal a corruption
+leaves. The corruptions studied here are synthetic; prospective recordings
+with natural sensor failures, joint multimodal pre-training, and new routes for
+modalities such as photoplethysmography are the next steps. VIII Conclusion PhysioWave-T shows that a biosignal foundation model can accommodate heterogeneous
+acquisition without paying for it in sequence length. Route-specific wavelet
+front ends and name-based channel embeddings let one backbone per modality
+learn from any sensor configuration, dynamic scale folding keeps multiscale
+analysis within C ​ S C\,S tokens, and the resulting EEG, ECG, and sEMG encoders
+lead the compared models across sleep staging, event-related potentials,
+cardiac diagnosis, and gesture recognition while cutting Transformer memory by
+up to an order of magnitude. Reliability-aware fusion extends them to
+multimodal seizure detection under missing and corrupted inputs, and new
+acquisition setups attach to the released backbones with a new front end
+instead of a new model. Acknowledgments This research was supported by NTU Nanyang Assistant Professor Startup Grant 025661-00021:Efficient Signal Processing Algorithms and Hardware for Accelerated Machine Learning. PhysioWave was partly supported by the EU Horizon Europe projects IntelliMan
+(grant agreement 101070136) and HAL4SDV (grant agreement 101139789), the PNRR MUR
+project ECS00000033 ECOSISTER.
+The authors thank Cineca (Italy)
+and CSCS (Switzerland) for GPU computing resources and operational support. References [1] Y. Chen, M. Orlandi, P. M. Rapa, S. Benatti, L. Benini, and Y. Li (2025) WaveFormer: a lightweight transformer model for semg-based gesture recognition . In 2025 12th International IEEE/EMBS Conference on Neural Engineering (NER) , pp. 977–982 . Cited by: §I , §II-B . [2] Y. Chen, M. Orlandi, P. Rapa, S. Benatti, L. Benini, and Y. Li (2026) Physiowave: a multi-scale wavelet-transformer for physiological signal representation . Advances in Neural Information Processing Systems 38 , pp. 169357–169399 . Cited by: §I , §II-B , §III , §V-C , §V-D . [3] J. Devlin, M. Chang, K. Lee, and K. Toutanova (2019) Bert: pre-training of deep bidirectional transformers for language understanding . In Proceedings of the 2019 conference of the North American chapter of the association for computational linguistics: human language technologies, volume 1 (long and short papers) , pp. 4171–4186 . Cited by: §II-A . [4] K. He, X. Chen, S. Xie, Y. Li, P. Dollár, and R. Girshick (2022) Masked autoencoders are scalable vision learners . In 2022 IEEE/CVF conference on computer vision and pattern recognition (CVPR) , pp. 15979–15988 . Cited by: §II-A . [5] D. Kostas, S. Aroca-Ouellette, and F. Rudzicz (2021) BENDR: using transformers and a contrastive self-supervised learning task to learn from massive amounts of eeg data . Frontiers in Human Neuroscience 15 , pp. 653659 . Cited by: §II-A , §V-B . [6] D. Zhang, Z. Yuan, Y. Yang, J. Chen, J. Wang, and Y. Li (2023) Brant: foundation model for intracranial neural signal . Advances in Neural Information Processing Systems 36 , pp. 26304–26321 . Cited by: §II-A . [7] C. Yang, M. Westover, and J. Sun (2023) Biot: biosignal transformer for cross-data learning in the wild . Advances in Neural Information Processing Systems 36 , pp. 78240–78260 . Cited by: §II-A , §V-B . [8] W. Jiang, L. Zhao, and B. Lu (2024) Large brain model for learning generic representations with tremendous eeg data in bci . In International Conference on Learning Representations , Vol. 2024 , pp. 16405–16426 . Cited by: §II-A , §II-B , §V-B , §V-E . [9] G. Wang, W. Liu, Y. He, C. Xu, L. Ma, and H. Li (2024) Eegpt: pretrained transformer for universal and reliable representation of eeg signals . Advances in Neural Information Processing Systems 37 , pp. 39249–39280 . Cited by: §II-A , §II-B , §V-B , §V-E , TABLE V . [10] J. Wang, S. Zhao, Z. Luo, Y. Zhou, H. Jiang, S. Li, T. Li, and G. Pan (2025) Cbramod: a criss-cross brain foundation model for eeg decoding . In International conference on learning representations , Vol. 2025 , pp. 75310–75346 . Cited by: §II-A . [11] Y. Na, M. Park, Y. Tae, and S. Joo (2024) Guiding masked representation learning to capture spatio-temporal relationship of electrocardiogram . In International conference on learning representations , Vol. 2024 , pp. 15012–15035 . Cited by: §II-A . [12] E. Coppola, M. Savardi, M. Massussi, M. Adamo, M. Metra, and A. Signoroni (2024) HuBERT-ecg as a self-supervised foundation model for broad and scalable cardiac applications . medRxiv , pp. 2024–11 . Cited by: §II-A . [13] K. McKeen, S. Masood, A. Toma, B. Rubin, and B. Wang (2025) Ecg-fm: an open electrocardiogram foundation model . JAMIA open 8 ( 5 ), pp. ooaf122 . Cited by: §II-A . [14] S. Salter, R. Warren, C. Schlager, A. Spurr, S. Han, R. Bhasin, Y. Cai, P. Walkington, A. Bolarinwa, R. Wang, et al. (2024) Emg2pose: a large and diverse benchmark for surface electromyographic hand pose estimation . Advances in Neural Information Processing Systems 37 , pp. 55703–55728 . Cited by: §II-A , §V-A , TABLE I . [15] P. Kaifosh and T. R. Reardon (2025) A generic non-invasive neuromotor interface for human-computer interaction . Nature 645 ( 8081 ), pp. 702–711 . Cited by: §II-A . [16] M. Goswami, K. Szafer, A. Choudhry, Y. Cai, S. Li, and A. Dubrawski (2024) Moment: a family of open time-series foundation models . arXiv preprint arXiv:2402.03885 . Cited by: §II-A . [17] S. Gao, T. Koker, O. Queen, T. Hartvigsen, T. Tsiligkaridis, and M. Zitnik (2024) Units: a unified multi-task time series model . Advances in Neural Information Processing Systems 37 , pp. 140589–140631 . Cited by: §II-A . [18] S. G. Mallat (1989) A theory for multiresolution signal decomposition: the wavelet representation . IEEE transactions on pattern analysis and machine intelligence 11 ( 7 ), pp. 674–693 . Cited by: §II-B . [19] I. Daubechies (1992) Ten lectures on wavelets . SIAM . Cited by: §II-B . [20] R. R. Coifman and M. V. Wickerhauser (1992) Entropy-based algorithms for best basis selection . IEEE Transactions on information theory 38 ( 2 ), pp. 713–718 . Cited by: §II-B , §III-C . [21] D. L. Donoho (1995) De-noising by soft-thresholding . IEEE transactions on information theory 41 ( 3 ), pp. 613–627 . Cited by: §II-B . [22] Q. Li, L. Shen, S. Guo, and Z. Lai (2020) Wavelet integrated cnns for noise-robust image classification . In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition , pp. 7245–7254 . Cited by: §II-B . [23] A. Jaegle, F. Gimeno, A. Brock, O. Vinyals, A. Zisserman, and J. Carreira (2021) Perceiver: general perception with iterative attention . In International conference on machine learning , pp. 4651–4664 . Cited by: §II-B , §II-C . [24] N. Shazeer, A. Mirhoseini, K. Maziarz, A. Davis, Q. Le, G. Hinton, and J. Dean (2017) Outrageously large neural networks: the sparsely-gated mixture-of-experts layer . arXiv preprint arXiv:1701.06538 . Cited by: §II-B . [25] W. Fedus, B. Zoph, and N. Shazeer (2022) Switch transformers: scaling to trillion parameter models with simple and efficient sparsity . Journal of Machine Learning Research 23 ( 120 ), pp. 1–39 . Cited by: §II-B . [26] Y. Nie, N. H. Nguyen, P. Sinthong, and J. Kalagnanam (2022) A time series is worth 64 words: long-term forecasting with transformers . arXiv preprint arXiv:2211.14730 . Cited by: §II-B . [27] A. Demir, T. Koike-Akino, Y. Wang, M. Haruna, and D. Erdogmus (2021) EEG-gnn: graph neural networks for classification of electroencephalogram (eeg) signals . In 2021 43rd Annual International Conference of the IEEE Engineering in Medicine & Biology Society (EMBC) , pp. 1061–1067 . Cited by: §II-B . [28] B. Döner, T. M. Ingolfsson, L. Benini, and Y. Li (2026) LUNA: efficient and topology-agnostic foundation model for eeg signal analysis . Advances in Neural Information Processing Systems 38 , pp. 70682–70708 . Cited by: §II-B , §V-E . [29] A. Nagrani, S. Yang, A. Arnab, A. Jansen, C. Schmid, and C. Sun (2021) Attention bottlenecks for multimodal fusion . Advances in neural information processing systems 34 , pp. 14200–14213 . Cited by: §II-C . [30] B. Zhang and R. Sennrich (2019) Root mean square layer normalization . Advances in neural information processing systems 32 . Cited by: §III-D . [31] I. Obeid and J. Picone (2016) The temple university hospital eeg data corpus . Frontiers in neuroscience 10 , pp. 196 . Cited by: §V-A , TABLE I . [32] L. M. Alexander, J. Escalera, L. Ai, C. Andreotti, K. Febre, A. Mangone, N. Vega-Potler, N. Langer, A. Alexander, M. Kovacs, et al. (2017) An open resource for transdiagnostic research in pediatric mental health and learning disorders . Scientific data 4 ( 1 ), pp. 170181 . Cited by: §V-A , TABLE I . [33] J. Chen, X. Wang, C. Huang, X. Hu, X. Shen, and D. Zhang (2023) A large finer-grained affective computing eeg dataset . Scientific Data 10 ( 1 ), pp. 740 . Cited by: §V-A , TABLE I . [34] H. Van Dijk, G. Van Wingen, D. Denys, S. Olbrich, R. Van Ruth, and M. Arns (2022) The two decades brainclinics research archive for insights in neurophysiology (tdbrain) database . Scientific data 9 ( 1 ), pp. 333 . Cited by: §V-A , TABLE I . [35] G. Huang, Z. Hu, W. Chen, S. Zhang, Z. Liang, L. Li, L. Zhang, and Z. Zhang (2022) M3CV: a multi-subject, multi-session, and multi-task database for eeg-based biometrics challenge . NeuroImage 264 , pp. 119666 . Cited by: §V-A , TABLE I . [36] G. Schalk, D. J. McFarland, T. Hinterberger, N. Birbaumer, and J. R. Wolpaw (2009) EEG motor movement/imagery dataset . Retrieved November 18 , pp. 2011 . Cited by: §V-A , TABLE I . [37] R. T. Schirrmeister, J. T. Springenberg, L. D. J. Fiederer, M. Glasstetter, K. Eggensperger, M. Tangermann, F. Hutter, W. Burgard, and T. Ball (2017) Deep learning with convolutional neural networks for eeg decoding and visualization . Human brain mapping 38 ( 11 ), pp. 5391–5420 . Cited by: §V-A , TABLE I . [38] W. Wang, P. Mohseni, K. L. Kilgore, and L. Najafizadeh (2023) PulseDB: a large, cleaned dataset based on mimic-iii and vitaldb for benchmarking cuff-less blood pressure estimation methods . Frontiers in Digital Health 4 , pp. 1090854 . Cited by: §V-A , TABLE I . [39] S. Tan, G. Androz, A. Chamseddine, P. Fecteau, A. Courville, Y. Bengio, and J. P. Cohen (2019) Icentia11k: an unsupervised representation learning dataset for arrhythmia subtype discovery . arXiv preprint arXiv:1910.09570 . Cited by: §V-A , TABLE I . [40] B. Gow, T. Pollard, L. A. Nathanson, A. Johnson, B. Moody, C. Fernandes, N. Greenbaum, J. W. Waks, P. Eslami, T. Carbonati, et al. (2023) Mimic-iv-ecg-diagnostic electrocardiogram matched subset . Type: dataset . Cited by: §V-A , TABLE I . [41] A. H. Ribeiro, G. M. Paixão, E. M. Lima, M. H. Ribeiro, M. M. Pinto Filho, P. R. Gomes, D. M. Oliveira, W. Meira Jr, T. B. Schon, and A. L. P. Ribeiro (2021) CODE-15%: a large scale annotated dataset of 12-lead ecgs . Zenodo, Jun 9 ( 597 ), pp. 598 . Cited by: §V-A , TABLE I . [42] H. Liu, D. Chen, D. Chen, X. Zhang, H. Li, L. Bian, M. Shu, and Y. Wang (2022) A large-scale multi-label 12-lead electrocardiogram database with standardized diagnostic statements . Scientific data 9 ( 1 ), pp. 272 . Cited by: §V-A , TABLE I . [43] K. Gillette, M. A. Gsell, C. Nagel, J. Bender, B. Winkler, S. E. Williams, M. Bär, T. Schäffter, O. Dössel, G. Plank, et al. (2023) MedalCare-xl: 16,900 healthy and pathological synthetic 12 lead ecgs from electrophysiological simulations . Scientific Data 10 ( 1 ), pp. 531 . Cited by: §V-A , TABLE I . [44] E. A. Perez Alday, A. Gu, A. J Shah, C. Robichaux, A. Ian Wong, C. Liu, F. Liu, A. Bahrami Rad, A. Elola, S. Seyedi, et al. (2020) Classification of 12-lead ecgs: the physionet/computing in cardiology challenge 2020 . Physiological measurement 41 ( 12 ), pp. 124003 . Cited by: §V-A , TABLE I . [45] V. Sivakumar, J. Seely, A. Du, S. R. Bittner, A. Berenzweig, A. Bolarinwa, A. Gramfort, and M. I. Mandel (2024) Emg2qwerty: a large dataset with baselines for touch typing using surface electromyography . Advances in Neural Information Processing Systems 37 , pp. 91373–91389 . Cited by: §V-A , TABLE I . [46] S. Yang, C. Chen, D. Li, and X. Zhu (2025) A consecutive multi-day high-density surface electromyography dataset comprising 7 grasps and 11 gestures . Scientific Data 12 ( 1 ), pp. 1420 . Cited by: §V-A , TABLE I , TABLE I . [47] X. Jiang, X. Liu, J. Fan, X. Ye, C. Dai, E. A. Clancy, M. Akay, and W. Chen (2021) Open access dataset, toolbox and benchmark processing results of high-density surface electromyogram recordings . IEEE Transactions on Neural Systems and Rehabilitation Engineering 29 , pp. 1035–1046 . Cited by: §V-A , TABLE I . [48] P. Kaczmarek, T. Mańkowski, and J. Tomczyński (2019) PutEMG—a surface electromyography hand gesture recognition dataset . Sensors 19 ( 16 ), pp. 3548 . Cited by: §V-A , TABLE I . [49] B. Kemp, A. H. Zwinderman, B. Tuk, H. A. Kamphuisen, and J. J. Oberye (2000) Analysis of a sleep-dependent neuronal feedback loop: the slow-wave microcontinuity of the eeg . IEEE Transactions on Biomedical Engineering 47 ( 9 ), pp. 1185–1194 . Cited by: §V-B . [50] L. Citi, R. Poli, and C. Cinel (2010) Documenting, modelling and exploiting p300 amplitude changes due to variable target delays in donchin’s speller . Journal of Neural Engineering 7 ( 5 ), pp. 056006 . Cited by: §V-B . [51] P. Margaux, M. Emmanuel, D. Sébastien, B. Olivier, and M. Jérémie (2012) Objective and subjective evaluation of online error correction during p300-based spelling . Advances in Human-Computer Interaction 2012 ( 1 ), pp. 578295 . Cited by: §V-B . [52] P. Wagner, N. Strodthoff, R. Bousseljot, D. Kreiseler, F. I. Lunze, W. Samek, and T. Schaeffter (2020) PTB-xl, a large publicly available electrocardiography dataset . Scientific data 7 ( 1 ), pp. 154 . Cited by: §V-C . [53] F. Liu, C. Liu, L. Zhao, X. Zhang, X. Wu, X. Xu, Y. Liu, C. Ma, S. Wei, Z. He, et al. (2018) An open access database for evaluating the algorithms of electrocardiogram rhythm and morphology abnormality detection . Journal of Medical Imaging and Health Informatics 8 ( 7 ), pp. 1368–1373 . Cited by: §V-C . [54] J. Zheng, J. Zhang, S. Danioko, H. Yao, H. Guo, and C. Rakovski (2020) A 12-lead electrocardiogram database for arrhythmia research covering more than 10,000 patients . Scientific data 7 ( 1 ), pp. 48 . Cited by: §V-C . [55] M. E. Benalcazar, L. Barona, L. Valdivieso, X. Aguas, and J. Zea (2020) EMG-EPN-612 Dataset . Note: ZenodoVersion 2.1, dataset External Links: Document , Link Cited by: §V-D . [56] A. Pradhan, J. He, and N. Jiang (2022) Multi-day dataset of forearm and wrist electromyogram for hand gesture recognition and biometrics . Scientific data 9 ( 1 ), pp. 733 . Cited by: §V-D . [57] Ö. Turgut, P. Müller, M. J. Menten, and D. Rueckert (2024) Towards generalisable time series understanding across domains . arXiv preprint arXiv:2410.07299 . Cited by: §V-D . [58] M. Bhagubai, C. Chatzichristos, L. Swinnen, J. Macea, J. Zhang, L. Lagae, K. Jansen, A. Schulze-Bonhage, F. Sales, B. Mahler, et al. (2025) SeizeIT2: wearable dataset of patients with focal epilepsy . Scientific Data 12 ( 1 ), pp. 1228 . Cited by: §V-E . Experimental support, please view the build logs for errors. Generated by L A T E xml . Instructions for reporting errors We are continuing to improve HTML versions of papers, and your feedback helps enhance accessibility and mobile
+      support. To report errors in the HTML that will help us improve conversion and rendering, choose any of the
+      methods listed below: Click the "Report Issue" ( ) button, located in the page header. Tip: You can select the relevant text first, to include it in your report. Our team has already identified the following issues . We appreciate your time reviewing and reporting rendering errors we
+      may not have found yet. Your efforts will help us improve the HTML versions for all readers, because disability
+      should not be a barrier to accessing research. Thank you for your continued support in championing open access for
+      all. Have a free development cycle? Help support accessibility at arXiv! Our collaborators at LaTeXML maintain a list of packages that need conversion , and welcome developer contributions . We gratefully acknowledge support from our major funders , member institutions , ,
+        and all contributors. About · Help · Contact · Subscribe · Copyright · Privacy · Accessibility · Operational Status (opens in new tab)
