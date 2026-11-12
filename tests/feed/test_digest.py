@@ -145,6 +145,32 @@ def test_status_bulletin_has_its_own_daily_feed_entry_and_newest_index_without_p
     assert atom.findtext("a:updated", namespaces=ns) == NEXT + "T12:00:00Z"
 
 
+def test_paper_supplement_does_not_redisplay_superseded_status_bulletin(tmp_path):
+    root = make_daily_repo(tmp_path)
+    status = record_daily_status(root)
+    status_path = root / "data/feed/daily-status.json"
+    snapshot = status_path.read_bytes()
+    publish_day(root, DAY, now=DAY + "T12:00:00Z", allow_status=True)
+    manifest = root / "site/daily" / f"{DAY}.json"
+    original = json.loads(manifest.read_text())
+    assert original["kind"] == "daily_status"
+
+    accept_daily(root)
+    publish_day(root, DAY, now=NEXT + "T14:00:00Z")
+
+    supplemented = json.loads(manifest.read_text())
+    assert len(supplemented["items"]) == 1
+    assert supplemented.get("kind", "daily") == "daily"
+    assert supplemented["published_at"] == original["published_at"]
+    assert supplemented["sources"] == original["sources"]
+    assert status_path.read_bytes() == snapshot
+    for name in ("index.html", f"{DAY}.html"):
+        html = (root / "site/daily" / name).read_text()
+        assert status["reason_zh"] not in html
+        assert status["reason_en"] not in html
+        assert 'id="publication-status"' not in html
+
+
 @pytest.mark.parametrize("change", ["addition", "summary"])
 def test_daily_update_preserves_first_publication_and_updates_timestamp_only_on_change(tmp_path, change):
     root = make_daily_repo(tmp_path)

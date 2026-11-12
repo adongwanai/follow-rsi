@@ -1,0 +1,1082 @@
+One Table, Many Queries: Benchmarking Generalist Tabular ModelsAcross Generation, Imputation, and Prediction Skip to main content Report GitHub Issue × Title: Content selection saved. Describe the issue below: Description: Submit without GitHub Submit in GitHub Why HTML? Report Issue Back to Abstract Download PDF Contents Reading mode Colour theme Abstract 1 Introduction 2 Preliminaries 2.1 Definition 2.2 Dataset Construction 3 Evaluation Metrics 3.1 Common-support rank protocol 3.2 Redundancy and retained axes 4 Task Rank Analysis 4.1 Objective and Method Training protocol. 4.2 Results and Discussion Imputation–prediction. Generation–imputation. Generation–prediction. 5 From Rank Alignment to Causal Transfer Experimental setup and evaluation. 5.1 Single-addition effect (SAE) Direct supervision gives the largest gains. Generation provides broadly positive auxiliary effects. Prediction can improve the downstream utility of generated data. 5.2 Cross-addition effect (CAE) Objective interactions depend on context. 5.3 Objective-arm Pareto profiles 6 Fixed-Method Generality Performance rankings depend on the capability axis. Joint profiles expose different bottlenecks and trade-offs. Specialist portfolios retain a fidelity advantage. Implications for foundation models. 7 Conclusion 8 Limitations and Future Work Scope and comparability. Objective effects and their mechanisms. Directions for unified models. References A Dataset Construction Details A.1 Construction Objective and Overall Pipeline A.2 Literature-Driven Candidate Dataset Pool A.3 Data Parsing and Hard Filtering Column types and target columns. Size constraints. A.4 Dataset Meta-Feature Representation Sampling and failure handling. Landmarking. A.5 Meta-Feature Cleaning and Normalization A.6 PCA Representation, Clustering, and Representative Selection PCA representation. Clustering and representative datasets. Same-source version suppression. A.7 Final Benchmark, Data Splits, and Structural Evaluation Set OpenML evaluation set. Fixed train–test split. Structural causal model evaluation set. A.8 Complete Dataset Inventory B Methods and Quality Metric Collection B.1 Method capabilities B.2 Quality metric collection B.2.1 Generation B.2.2 Imputation B.2.3 Prediction C Metric-Space Audit: Protocol and Results C.1 Audit protocol: common-support ranks before correlations C.2 From correlation blocks to redundancy clusters Generation. Imputation. Prediction. C.3 Construct-specific stress tests C.4 Reliability qualifies every redundancy claim C.5 Compressed, but not one-dimensional D Task Rank Analysis Details D.1 Task Settings and Shared Support Input units. Metric direction. Common method pool. D.2 Computing Axis-Pair Correlations Cell-wise alignment. Within-dataset percentile ranks. Axis aggregation. Pooled Spearman correlation. D.3 Leave-One-Method-Out Influence Diagnostics D.4 Cross-Task Axis-Level Correlations and LOMO Stability Imputation and classification prediction (I × \times P-cls). Imputation and regression prediction (I × \times P-reg). Generation and imputation (G × \times I). Generation and classification prediction (G × \times P-cls). Generation and regression prediction (G × \times P-reg). D.5 Complete Leave-One-Method-Out Grids E Controlled Transfer: Protocol and Additional Diagnostics E.1 Seven-arm member-complete construction E.2 Uncertainty and robustness E.3 Utility scope and backbone heterogeneity E.4 Conditional interactions E.5 Complete-block Pareto analysis E.6 Additional support checks F Fixed-Method Generality: Protocol and Additional Diagnostics F.1 Strict estimands and fixed-specialist baselines F.2 Cross-task profile geometry and controls F.3 Portfolio and operational diagnostics Specialist portfolios. F.4 Interpretation rules G Implementation Details G.1 Baseline configurations and evaluation protocol Configuration policy. Training and validation. Randomization and evaluation settings. Foundation-model query interfaces. Resource allocation and environment. G.2 Controlled-transfer implementation Interventions and fitting. Evaluation draws and analysis. H Related Work Task-specific models and benchmarks. Generalist and foundation models. Evaluation and task relations. License: CC BY 4.0 arXiv:2611.13001v1 [cs.LG] 08 Nov 2026 One Table, Many Queries: Benchmarking Generalist Tabular Models Across Generation, Imputation, and Prediction Yuanrui Wang Kaifang Li Xuanyue Li Ziyun Li Yan Lu Affiliation: StableAI Affiliation: Tsinghua University Affiliation: Beijing University of Posts and Telecommunications Affiliation: Southeast University Email: wangyuanrui@stable-ai.cn Peng Cui Affiliation: StableAI Affiliation: Tsinghua University Abstract Generation, imputation, and prediction query different aspects of the same
+tabular distribution, but are usually evaluated separately. This leaves
+unclear which capabilities they share, how their training objectives
+interact, and whether one model can perform all three well. We introduce the
+One Table Benchmark ( OTBench ), spanning 56 datasets, 46 registered methods,
+and 20 capability axes under aligned data splits and explicit task
+contracts. We compare task ranks on aligned support, train five backbones under all
+seven non-empty objective combinations on five datasets with three seeds,
+and contrast fixed-model profiles with specialist portfolios. Rank comparisons connect imputation and
+prediction through numerical recovery and dependence preservation, and link
+generation to both through predictive utility; distributional fidelity
+follows different, sometimes opposing, rankings. Objective interventions
+show the largest pooled gains from including the recipient’s own objective. Generation has
+the broadest coverage of positive pooled auxiliary effects, while prediction shows
+potential to improve imputation and synthetic-data utility, with responses
+that vary across backbones. Cross-addition effects reveal that objective
+benefits need not add and depend on the objectives already present.
+Fixed-model comparisons expose corresponding utility–fidelity trade-offs:
+some generalists surpass specialist portfolios on utility, while fidelity
+continues to favor specialization. Frozen foundation models show strong
+prediction and numerical point imputation, together with promising synthetic-data
+utility, highlighting their potential across all three tasks. These findings
+motivate unified tabular models that share useful conditional information
+while improving categorical reconstruction and faithful joint sampling.
+Code is available at https://github.com/limix-ldm-ai/OTBench . 1 1 footnotetext: Equal contribution. 2 2 footnotetext: Corresponding authors. 1 Introduction Generation, imputation, and prediction use different aspects of the same
+tabular distribution. Generation produces complete records, imputation
+recovers missing features from observed information, and prediction infers
+a designated target. Each task has its own benchmarks and modeling
+traditions ( Yang et al., 2024 ; Khan et al., 2025 ; Erickson et al., 2025 ) , yet their common
+statistical foundation suggests opportunities for sharing learned
+capabilities. Understanding these relationships matters for building models
+that can serve several uses of a table, and for deciding when a task should
+benefit from training on another. The conditional-query view makes this connection explicit: generation
+queries the joint distribution, while imputation and prediction query
+feature and target conditionals. Models increasingly support several of
+these interfaces ( Ivanov et al., 2019 ; Jolicoeur-Martineau et al., 2024 ; Zhang and others, 2025 ) , but existing task-wise
+evaluations provide limited insight into which capabilities are shared.
+Appendix reviews related benchmarks and generalist
+models. Similar rankings may reflect useful common information without showing
+whether one training objective helps another. Conversely, objectives that
+help separately may provide overlapping or competing benefits when combined.
+We therefore study three questions: which capabilities co-occur across tasks,
+how objective additions and combinations affect a recipient task, and
+whether one fixed model can offer a competitive three-task profile. We introduce the One Table Benchmark ( OTBench ), a unified platform for these
+comparisons. It covers 56 datasets, 46 registered methods, and 20 semantic
+capability axes. A common outer
+train–test split aligns the data populations across tasks, while explicit
+information-access and missingness contracts preserve each task’s meaning.
+Metric analysis separates point accuracy, distributional fidelity,
+dependence preservation, predictive quality, and downstream utility, so that
+cross-task relationships can be located at the level of capabilities.
+Figure summarizes the benchmark workflow. Figure 1: OTBench overview. (a) Benchmark datasets and fixed train–test splits shared across tasks.
+(b) Query contracts specify the observed and queried cells for generation,
+imputation, and prediction.
+(c) Complementary analyses assess rank alignment, causal transfer under
+matched objective interventions, and fixed-method generality.
+Imputation is target-observed for rank alignment (MCAR, 30% missingness)
+and fixed-method generality (averaged over 12 settings), and target-hidden
+for causal transfer.
+(d) The reusable suite bundles benchmark definitions, evaluation protocols,
+code, and configurations. We first compare task ranks on aligned method–dataset support
+(Section ). Imputation and prediction agree most
+consistently through numerical recovery, dependence preservation, and
+predictive utility. Generation connects to both through the predictive
+utility of synthetic data, whereas distributional fidelity has different,
+sometimes opposing, rank relationships. This suggests that the information
+needed for useful conditional queries can be shared even when broader
+distributional criteria favor different methods. To examine objective contributions under controlled changes, we train five
+backbones under all seven non-empty combinations of generation, imputation,
+and prediction on five datasets with three seeds and declared inference
+policies (Section ). Single-addition effects (SAE) measure the gain
+from enabling one objective; cross-addition effects (CAE) measure whether
+two objectives contribute additively. Recipient self-inclusion yields
+the largest pooled gains. Generation has broadly positive pooled auxiliary
+effects, while prediction shows potential to improve imputation and
+synthetic-data utility. These pooled auxiliary responses are descriptive and backbone-dependent.
+CAE reveals sub-additivity and context dependence on the benchmark rank scale: useful individual
+objectives need not yield additive joint gains. Finally, fixed-model profiles and comparisons with declared specialist
+portfolios connect these relationships to practical model choice
+(Section ). Fidelity and utility favor different profiles;
+no fixed identity leads throughout. Recent tabular foundation
+models ( Zhang and others, 2026 ; Qu et al., 2026 ; Grinsztajn and others, 2026 ) achieve strong prediction and numerical
+point imputation without single-dataset fine-tuning, and their generation
+is competitive on downstream utility. These results reveal potential for
+unified foundation models, while motivating better categorical
+reconstruction and faithful joint sampling. Our contributions are: • A conditional-query benchmark that aligns datasets and capability
+axes across generation, imputation, and prediction while preserving
+task-specific information and evaluation contracts; • Complementary rank comparisons, matched objective interventions,
+and fixed-model profile experiments that distinguish shared
+capabilities, objective interactions, and practical generality; • Empirical findings on utility-centered task relationships,
+non-additive objective effects, and the potential of foundation models
+to support all three tasks. 2 Preliminaries 2.1 Definition Table 1: The three tabular tasks expressed as probabilistic queries. Task Observed O O Queried Q Q Target distribution Generation ∅ \varnothing 𝒱 \mathcal{V} ℙ ⁡ ( Z ) \mathbb{P}(Z) Imputation ( ℐ ∖ M ) ∪ T C (\mathcal{I}\setminus M)\cup T_{C} M M ℙ ⁡ ( Z M ∣ Z O ; C ) \mathbb{P}(Z_{M}\mid Z_{O};C) Prediction ℐ \mathcal{I} { p + 1 } \{p+1\} ℙ ⁡ ( Y ∣ X ; C ) \mathbb{P}(Y\mid X;C) To compare methods within a common probabilistic framework, we formulate generation, imputation, and prediction as queries to the same joint distribution over a table. Let a complete row be Z = ( X 1 , … , X p , Y ) ∈ 𝒵 := ( ∏ j = 1 𝒳 j ) × 𝒴 Z=(X_{1},\ldots,X_{p},Y)\in\mathcal{Z}:=\bigl(\prod_{j=1}\mathcal{X}_{j}\bigr)\times\mathcal{Y} , where X = ( X 1 , … , X p ) X=(X_{1},\ldots,X_{p}) denotes the features, Y Y denotes the supervised target, and 𝒵 \mathcal{Z} is the Cartesian product of their domains. Each variable may be continuous or discrete. We denote the unknown joint distribution of Z Z by ℙ \mathbb{P} .
+Let ℐ = { 1 , … , p } \mathcal{I}=\{1,\ldots,p\} and 𝒱 = ℐ ∪ { p + 1 } \mathcal{V}=\mathcal{I}\cup\{p+1\} , with Z p + 1 = Y Z_{p+1}=Y . We represent each task as q = ( O , Q , C ) q=(O,Q,C) , where O , Q ⊆ 𝒱 O,Q\subseteq\mathcal{V} , O ∩ Q = ∅ O\cap Q=\varnothing , and C C specifies the task protocol. Given fitted parameters θ ^ \hat{\theta} , the model approximates ℙ ⁡ ( Z Q ∣ Z O ; C ) \mathbb{P}(Z_{Q}\mid Z_{O};C) by ℙ ^ θ ^ ​ ( Z Q ∣ Z O ; C ) \widehat{\mathbb{P}}_{\hat{\theta}}(Z_{Q}\mid Z_{O};C) . Table summarizes the observed variables, queried variables, and target distribution for each task.
+For imputation, M ⊆ ℐ M\subseteq\mathcal{I} denotes the masked feature set, with T C = { p + 1 } T_{C}=\{p+1\} when the target is visible under protocol C C and T C = ∅ T_{C}=\varnothing otherwise. 2.2 Dataset Construction Before evaluating any method, we construct a 56-dataset benchmark from 492
+OpenML datasets ( Vanschoren et al., 2013 ) reported across 24 studies. We apply prespecified feasibility filters,
+then use method-independent descriptors for PCA and k k -means ( Jolliffe, 2002 ; Lloyd, 1982 ) .
+The nearest nonduplicate candidate to each of 50 centroids forms the OpenML track, while six
+TabStruct structural-causal-model datasets ( Jiang et al., 2026 ) form a separate structural track.
+Dataset selection does not use results from any evaluated method.
+All tasks share a fixed train–test split, and model fitting, preprocessing, schema estimation, and model selection use the training split only.
+Appendix details sources, matching, filtering,
+descriptors, clustering, duplicate suppression, aggregate benchmark
+composition, the fixed split, and the separate SCM track. 3 Evaluation Metrics 3.1 Common-support rank protocol Let x s , m , k x_{s,m,k} be the replicate-averaged value of metric k k for method m m in stratum s s . We orient it using ϕ k ​ ( x ) ∈ { x , − x , − | x − a k | } \phi_{k}(x)\in\{x,-x,-|x-a_{k}|\} for higher-is-better,
+error, or target-proximity metrics. For collection c c with members 𝒦 c \mathcal{K}_{c} , let ℳ s , c \mathcal{M}_{s,c} contain methods with observations for every member: r s , m , k = prank m ∈ ℳ s , c ⁡ ( ϕ k ​ ( x s , m , k ) ) , S s , m , c = 1 | 𝒦 c | ​ ∑ k ∈ 𝒦 c r s , m , k . r_{s,m,k}=\operatorname{prank}_{m\in\mathcal{M}_{s,c}}\!\left(\phi_{k}(x_{s,m,k})\right),\qquad S_{s,m,c}=\frac{1}{|\mathcal{K}_{c}|}\sum_{k\in\mathcal{K}_{c}}r_{s,m,k}. (1) Ties receive the average percentile rank, and S s , m , c S_{s,m,c} requires all declared members.
+A metric pair c = { i , j } c=\{i,j\} is used to audit redundancy; a retained axis c c defines an axis score.
+Both use the same orientation and common support within separate protocol
+strata; full details are in Appendix .
+All subsequent analyses keep the same fixed member set 𝒦 c \mathcal{K}_{c} and the
+same member-complete, equal-weight aggregation rule. Their ranking reference
+populations remain analysis-specific: for example, Task Rank Analysis ranks
+within a task pair’s aligned common-method support, whereas Controlled
+Transfer ranks within the seven objective arms. 3.2 Redundancy and retained axes Table 2: Metric-space redundancy by task. Cohort Metrics Clusters PCs PCA mass (PC1) Generation 29 17 5 80% (53%) Imputation 10 8 3 74% (41%) Prediction (cls.) 10 4 2 88% (75%) Prediction (reg.) 5 2 1 86% (86%) Redundancy occurs in every task but varies in extent: generation retains the richest
+local structure, whereas prediction shows the greatest compression
+(Table ). PCA shows stronger global
+compression, but a shared latent direction does not imply that two metrics are
+substitutable. The audit therefore informs axis construction without mechanically determining it.
+We merge only aligned metrics that share an estimand, preserve distinct or opposing
+quantities, and keep the components of diagnostic bundles available for separate
+reporting. This yields 20 semantic
+axes; protocol strata remain separate rather than being counted as new
+constructs. Table records
+their exact membership; Appendix gives the task-specific
+rationales alongside Figures – . Axis scores remain
+separate rather than forming a universal score. Where applicable, our metric definitions follow established constructions.
+Marginal-shape errors combine per-column two-sample KS statistics for
+numerical variables ( Smirnov, 1948 ) with categorical total-variation
+distances. We also use C2ST ( Lopez-Paz and Oquab, 2017 ) ; α \alpha -precision, β \beta -recall, and
+authenticity ( Alaa et al., 2022 ) ; a mixed-type k k -way query workload
+adapted from discrete marginal queries ( McKenna et al., 2019 ) ; and a TSTR
+gap adapted from the TSTR protocol ( Esteban et al., 2017 ) . The privacy
+axis combines benchmark-defined closest-record diagnostics based on Gower
+distance ( Gower, 1971 ) , a distance-based membership diagnostic
+motivated by membership-inference attacks and low-FPR reporting ( Shokri et al., 2017 ; Carlini et al., 2022 ) , and a legacy δ \delta -presence-inspired diagnostic ( Nergiz et al., 2007 ) ; none constitutes
+a privacy guarantee. The imputation distribution axes use Jensen–Shannon
+divergence ( Lin, 1991 ) and the 1-Wasserstein
+distance ( Villani, 2009 ) . Classification evaluation includes
+balanced accuracy and MCC ( Brodersen et al., 2010 ; Matthews, 1975 ) ,
+ROC-AUC and average precision ( Hanley and McNeil, 1982 ; Davis and Goadrich, 2006 ) ,
+proper scores ( Brier, 1950 ; Good, 1952 ) , and calibration
+and selective-prediction measures ( Naeini et al., 2015 ; Guo et al., 2017 ; Geifman et al., 2019 ) . Table 3: Retained capability axes and exact metric membership. Within an axis, direction-aligned metrics are equally averaged after
+within-protocol ranking (Equation ); diagnostic bundle
+components remain reportable. Task Retained axes (member metrics) G Fidelity : numerical_ks_error , shape_error , one_way_error , two_way_error , three_way_error ; C2ST : gbdt_c2st_auroc , logistic_c2st_auroc ; α \alpha -precision : alpha_precision ; association : mixed_association_error , mixed_association_similarity ; TSTR gap : tstr_gap ; global-utility compromise : global_utility_ratio , beta_recall_coverage , authenticity ; privacy-risk diagnostics : mean_min_euclidean_dcr , normalized_median_gower_dcr , distance_mia_auroc , distance_mia_tpr_at_1pct_fpr , delta_presence . I numerical point accuracy : macro_nmae , macro_nrmse ; categorical point accuracy : categorical_balanced_accuracy , categorical_macro_f1 ; categorical distribution : categorical_jsd ; numerical distribution : numeric_wasserstein1 ; association : association_matrix_error ; downstream utility gap : utility_gap . P (cls.) hard-decision performance : accuracy , balanced_accuracy , macro_f1 , mcc ; proper scores : brier_score , log_loss ; ranking/selective risk : roc_auc , average_precision , aurc ; calibration : ece . P (reg.) squared-error family : r2 , nrmse , rmse ; mean absolute error : mae ; median error : median_absolute_error . 4 Task Rank Analysis 4.1 Objective and Method To characterize cross-task alignment among existing methods, we compare their
+relative rankings across generation (G), imputation (I), and prediction (P).
+Consistent rankings would indicate that the evaluated capabilities covary
+across tasks, whereas axis-dependent or conflicting rankings would show that
+cross-task performance cannot be adequately summarized by a single score. Training protocol. Cross-task rank analysis requires a method to support multiple tasks. We
+therefore select models with benchmark interfaces for at least two of G, I,
+and P; Table 7 lists the methods and their
+supported tasks. Each model follows its default training or adaptation
+protocol, including its prescribed pretrained or in-context route where
+applicable. Dataset-specific fitting and adaptation use the training split
+of each OTBench dataset, and evaluation uses its held-out test split.
+The same outer split is shared across tasks, so task comparisons do not
+change the underlying training and test populations.
+Appendix gives the model configurations. For each task pair a a and b b , we identify the common method pool ℳ a ​ b \mathcal{M}_{ab} , align metric directions, average scores over seeds or
+replicates, and analyze classification and regression separately.
+Imputation uses the target-observed, missing-completely-at-random (MCAR)
+setting ( Rubin, 1976 ) with a missing rate of 0.3 0.3 . Capability-axis scores follow the common-support rank protocol in
+Section . For each axis pair c , c c,c and dataset d d , we retain methods in ℳ a ​ b \mathcal{M}_{ab} for which all
+declared members of both axes are valid. We orient the metrics and compute percentile
+ranks on this aligned method set, then aggregate the member ranks
+according to Equation . The ranking
+reference set is specific to each task pair and axis pair. We compute one pooled Spearman correlation ( Spearman, 1904 ) over the
+aligned dataset–method units.
+To assess sensitivity to method-pool composition, we perform leave-one-method-out (LOMO) analysis by removing each method in turn and recomputing the aligned support, within-dataset ranks, axis scores, and pooled correlation.
+An axis pair is LOMO-direction-preserving only when every effective deletion preserves
+the sign of the full-pool correlation; deletions that change no valid unit are
+excluded from this diagnostic.
+Appendix gives the full construction. 4.2 Results and Discussion Figure 2: Cross-task rank consistency across retained capability axes. Each cell reports the pooled Spearman correlation between member-complete
+capability-axis scores computed over the same aligned dataset–method
+support. Red and blue indicate positive and negative correlations.
+ marks axis pairs for which at least one effective
+single-method deletion changes the sign of the full-pool correlation or
+produces zero correlation. G, I, P-cls, and P-reg denote generation,
+imputation, classification prediction, and regression prediction. Cross-task rank agreement depends on the capability axes being compared
+(Figure ). No uniform correspondence holds across
+all tasks and evaluation dimensions. Imputation–prediction. Imputation and prediction show selective rank agreement, with 13 of the 24 classification axis pairs and 14 of the 18 regression pairs preserving direction under LOMO.
+Across both prediction settings, numerical point accuracy, association, and downstream utility gap have positive, direction-preserving correlations with every prediction axis.
+The distributional axes show a different pattern.
+Numerical distribution maintains positive agreement with all three regression axes, but neither distribution axis has a direction-preserving relationship with classification performance. Recovering values for individual records and preserving variable relationships can retain information useful for target prediction.
+This is consistent with our intuition that learned statistical dependencies can support both imputation and prediction.
+Matching marginal value distributions emphasizes a different property of the completed data, which helps explain its less uniform correspondence with prediction.
+The connection is more direct for downstream utility gap because it evaluates completion quality through predictive performance.
+Together, these results locate the shared performance of imputation and prediction in numerical recovery, dependence preservation, and predictive utility.
+For unified models, this suggests a focus on learning relationships that support both missing-feature recovery and target prediction, including when the target itself is unavailable as conditioning information. Generation–imputation. Generation and imputation have the highest proportion of LOMO-direction-preserving relationships among the task pairs, with 36 of the 42 axis pairs preserving direction.
+TSTR gap and global-utility compromise show positive, direction-preserving correlations with all six imputation axes.
+Privacy-risk diagnostics show negative, direction-preserving correlations with every imputation axis except numerical distribution. TSTR gap measures the preservation of target-specific predictive utility relative to predictors trained on real data.
+Its positive rank correlations indicate that generation methods whose synthetic data better preserve this utility also tend to rank higher on imputation.
+This is consistent with our intuition that learned variable dependencies can support both useful data generation and missing-value recovery.
+Fidelity and C2ST assess marginal and low-order statistical similarity and real–synthetic distinguishability, respectively, and their correlations with imputation axes vary in sign.
+Thus, both tasks can use dependencies among table variables, but a method that ranks highly on generation metrics does not necessarily lead on imputation.
+Whether its advantage carries over depends on how effectively the learned relationships support recovery of missing values from observed information. Generation–prediction. For generation and prediction, 17 of the 28 classification axis pairs and 9 of the 21 regression axis pairs preserve direction under LOMO.
+Fidelity and C2ST show negative, direction-preserving correlations with all four classification axes, whereas TSTR gap and global-utility compromise show positive, direction-preserving correlations with all classification and regression axes. This contrast in correlation signs distinguishes the statistical similarity of synthetic data from their predictive utility.
+Prediction relies on conditional information relevant to a specified target, while generation evaluation also examines other distributional properties whose importance to that target can vary.
+The shared focus of TSTR gap and the prediction axes on target-related information helps explain their positive rank agreement.
+These results connect generation and prediction through the preservation of target-specific predictive utility.
+Future work could explicitly model target-relevant dependencies in generation and assess their effects on predictive utility and distributional fidelity. 5 From Rank Alignment to Causal Transfer Section characterizes relationships among tasks
+through the agreement of method rankings on matched capability axes. This
+reveals which capabilities tend to co-occur across methods, but leaves open
+how the tasks contribute to one another within a model: architectures,
+training protocols, and objective combinations vary together in those
+comparisons. To examine these relationships under controlled changes, we ask
+whether adding an objective improves another recipient task, and whether
+objectives combine additively within a shared model. We call this experiment causal transfer : matched interventions on the enabled objectives
+complement the observational evidence from task ranks. Experimental setup and evaluation. We train Gaussian Copula ( Patki et al., 2016 ) , Forest-VP Joint ( Jolicoeur-Martineau et al., 2024 ) ,
+TabDiff ( Shi et al., 2025 ) , TabSyn ( Zhang et al., 2024 ) , and TabDDPM ( Kotelnikov et al., 2023 ) under all seven non-empty objective arms 𝒞 = { G , I , P , G ​ I , G ​ P , I ​ P , G ​ I ​ P } \mathcal{C}=\{G,I,P,GI,GP,IP,GIP\} .
+The study uses five datasets—JapaneseVowels, cleveland,
+credit_card_clients_default, website_phishing, and MiamiHousing2016—and
+training seeds { 0 , 1 , 2 } \{0,1,2\} , yielding 525 backbone–dataset–seed–arm systems.
+The first four datasets are classification problems and the last is
+regression. We use the fixed OTBench training and test splits, hold the
+configured training budget fixed across arms within each backbone, and
+sample enabled objectives uniformly during fitting. G scores all table
+variables; I reconstructs randomly selected features with the target hidden;
+P predicts the target from the features. The neural pipelines reserve an
+internal validation split from the training data, and TabSyn shares an
+objective-independent VAE across the seven arms of each dataset–seed block. Each trained system is evaluated on all three tasks. Generation produces as
+many synthetic rows as the outer training split; TSTR fits a predictor on
+these rows and evaluates it on held-out real data, with a real-trained
+predictor as reference. Imputation evaluates held-out feature recovery under
+MCAR, MAR, MNAR, and mixed missingness at rates { 0.1 , 0.3 , 0.5 } \{0.1,0.3,0.5\} , using three
+completed-table draws per fixed, method-independent mask and keeping the
+target hidden. Prediction evaluates held-out targets, aggregating three
+conditional draws for the four diffusion-based backbones; Gaussian Copula
+uses its native Monte Carlo query. Comparisons match backbone, dataset,
+training seed, and atomic evaluation setting. Within each matched block, we
+orient each metric so that higher is better, normalize its seven-arm ranks
+to [ 0 , 1 ] [0,1] , and average member ranks within each capability axis. Every member
+must be finite for all seven arms. Imputation contrasts are formed separately
+for each mechanism–rate setting before equally weighted aggregation;
+classification and regression axes remain separate. Intervals use 2,000
+crossed backbone–dataset bootstrap draws with seed resampling. Appendix gives the splits, training configurations, sampling budgets, and unavailable
+outcomes; Appendix specifies matching and uncertainty. 5.1 Single-addition effect (SAE) Let S A , a S_{A,a} denote the normalized score on recipient axis a a for objective
+arm A A , suppressing the matched block indices. For source objective s s ,
+recipient task t t , and remaining task u u , the single-addition effect is SAE s → t , a = 1 2 ​ [ ( S s ​ t , a − S t , a ) + ( S s ​ t ​ u , a − S t ​ u , a ) ] , { s , t , u } = { G , I , P } . \operatorname{SAE}_{s\rightarrow t,a}=\frac{1}{2}\left[(S_{st,a}-S_{t,a})+(S_{stu,a}-S_{tu,a})\right],\qquad\{s,t,u\}=\{G,I,P\}. (2) It averages the gain from adding s s when u u is absent and present, with the
+recipient objective included on both sides. A positive value indicates an
+improvement on the recipient axis. For self-inclusion , the added
+objective and recipient coincide: we instead average its addition to the
+three non-empty arms formed from the other two objectives. No empty training
+arm is required. For the diffusion-based backbones, I/P inference uses clean
+observed features ( x 0 x_{0} ) when that recipient objective is enabled and the x t x_{t} conditioning path otherwise; Gaussian Copula always uses native
+conditioning. Off-diagonal SAE therefore fixes the recipient’s inference
+rule, whereas I/P self-inclusion compares complete training–inference
+systems. Generation inference is fixed throughout. Figure 3: Single-addition effects across capability axes. Panels (a)–(c) show generation, imputation, and prediction recipients;
+columns identify the added objective. Values are normalized seven-arm
+rank changes. Self-inclusion cells compare adding the recipient’s own
+objective; off-diagonal cells hold its inference rule fixed.
+Stars mark the complete robustness criterion in
+Appendix . The privacy-risk diagnostic is omitted
+from this quality-focused display but retained in the full tables. Direct supervision gives the largest gains. Self-inclusion is positive on all 19 displayed axes and exceeds both
+auxiliary-objective effects on each axis (Figure ).
+Its effects range from .122 .122 to .445 .445 for generation, .159 .159 to .317 .317 for
+imputation, and .098 .098 to .456 .456 for prediction. Thus, explicitly training for
+the recipient is the strongest direct intervention in this study. This
+supports including the desired task’s own objective as a first priority;
+it does not imply that a singleton arm always outperforms every joint arm. Generation provides broadly positive auxiliary effects. Beyond self-inclusion, G has the broadest positive coverage: its pooled SAE
+is positive on all six imputation axes and five of seven prediction axes.
+The exceptions are regression squared error and mean absolute error.
+Generation requires fitting values across the joint table distribution,
+which may encourage representations of dependencies useful to several
+conditional queries. Its broad modeling scope offers a possible explanation
+for this pattern, rather than evidence that generation is intrinsically the
+hardest task or uniformly beneficial. Both G and P improve the pooled means on every imputation axis. P has the
+larger effect on four of six axes, including numerical point accuracy
+( .080 .080 versus .007 .007 ) and association ( .105 .105 versus .082 .082 ); G is stronger
+on the two distributional axes. One possible explanation concerns the
+heterogeneity of reconstruction targets. Some features are weakly
+predictable from the observed variables, so their reconstruction losses can
+provide limited conditional signal. I trains on smaller queried subsets,
+where such features may account for a larger share of the update than in G,
+which scores the whole row. P concentrates supervision on a designated
+prediction target and may supply a more consistent conditional learning
+signal that also helps feature recovery. These are hypotheses about the
+observed pattern; we do not measure feature predictability or gradient
+alignment, and a supervised target need not be fully predictable. Prediction can improve the downstream utility of generated data. Adding P to G produces a larger positive response on the normalized
+TSTR-gap score ( .092 .092 ) than on the global-utility composite ( − .008 -.008 ), motivating the closer view in
+Figure . TSTR evaluates a central use of
+synthetic data: training predictors that generalize to real records.
+A higher TSTR-gap score means a gap closer to the real-trained reference,
+not a change of the same magnitude in raw predictive accuracy.
+Four of five backbones have positive P → \rightarrow G TSTR-gap rank effects, with
+Forest-VP Joint the exception ( − .033 -.033 ). The pooled interval remains wide
+( [ − .041 , .225 ] [-.041,.225] ). Auxiliary per-column diagnostics also suggest a stronger
+response at the designated target than across all columns, although the
+paired localization contrasts are inconclusive. Prediction-oriented
+supervision is therefore a promising strategy for improving synthetic-data
+utility, with benefits that depend on the backbone and evaluation axis.
+The off-diagonal patterns here are descriptive: none meets the complete
+cross-backbone robustness criterion, which is reported alongside the
+uncertainty estimates rather than used to discard their differing responses. Figure 4: Prediction-to-generation utility effects. Diamonds and intervals show pooled SAE and 95% bootstrap intervals;
+colored markers show backbone means. Retained generation axes and
+auxiliary scope-matched per-column diagnostics use separate
+multiplicity families. Target localization is assessed by direct paired
+contrasts, not by comparing whether separate intervals cross zero. 5.2 Cross-addition effect (CAE) To measure whether objectives combine additively, we define the cross-addition effect for added objectives s , t s,t and anchor u u : CAE s × t | u , a = ( S s ​ t ​ u , a − S s ​ u , a ) − ( S t ​ u , a − S u , a ) , { s , t , u } = { G , I , P } . \operatorname{CAE}_{s\times t\mid u,a}=(S_{stu,a}-S_{su,a})-(S_{tu,a}-S_{u,a}),\qquad\{s,t,u\}=\{G,I,P\}. (3) Here the recipient is determined by axis a a and may differ from the anchor.
+A positive CAE means that the score increment from adding t t is larger
+when s s is already present (complementarity); a negative CAE means that its increment is smaller
+(sub-additivity). A zero value is consistent with additive effects on this
+rank scale. Sub-additivity does not require either added objective to be
+harmful on its own. Figure 5: Cross-addition effects conditional on an anchor objective. Panels (a)–(c) report generation, imputation, and prediction recipient
+axes. Columns are G × I | P G\times I\mid P , G × P | I G\times P\mid I , and I × P | G I\times P\mid G . Positive and negative values indicate complementarity
+and sub-additivity on the normalized seven-arm rank scale. Stars mark
+the complete robustness criterion; blanks denote unavailable estimates.
+I/P interactions that toggle the recipient objective also include its
+conditioning-policy switch. Objective interactions depend on context. Figure shows sub-additivity for G × I | P G\times I\mid P across all six non-privacy generation axes and all six
+imputation axes, and for G × P | I G\times P\mid I across all seven prediction axes.
+Seven G–I effects meet the full robustness criterion. With G as the anchor, I × P | G I\times P\mid G instead has positive means on all six imputation and five
+of seven prediction axes, consistent with the P → \rightarrow I SAE pattern;
+however, these intervals cross zero. Joint gains therefore depend on the
+recipient and objective context. Shared information may yield overlap or
+complementarity, while fixed budgets may create update or capacity
+competition. These mechanisms remain hypotheses, and I/P interactions that
+toggle the recipient also include its conditioning-policy switch. 5.3 Objective-arm Pareto profiles CAE describes interactions on individual capability axes. We next examine
+the resulting three-task trade-offs among the seven training arms.
+Figure uses available coordinates across
+all five backbones: within each block, retained axes and imputation settings
+must be scored for all seven arms. Settings are averaged within axes, then
+retained non-privacy axes are equally weighted; seeds, datasets within each
+backbone, and backbones are averaged successively. Different blocks may
+retain different axes. All three task coordinates are oriented so that higher is better. An arm exactly dominates another if it is no worse on any coordinate and
+strictly better on at least one. Material dominance requires no loss
+on any coordinate and a gain of at least ϵ = .05 \epsilon=.05 on at least one.
+The exact frontier and material frontier consist of arms not
+dominated by any other candidate under the respective rule. Both are
+computed jointly in ( G , I , P ) (G,I,P) , rather than separately in pairwise
+projections. Figure 6: Three-task trade-offs among objective arms. Upper panels project one joint ( G , I , P ) (G,I,P) frontier; color shows the third
+coordinate. Black outlines and orange halos mark exact and material
+frontiers. Lower bars show bootstrap membership frequencies. This
+available-coordinate analysis has 75 candidate blocks, with G/I/P
+coordinates on 70/69/75 blocks; it does not impose identical retained
+axes across backbones. Frequencies describe resampling stability. The exact and material frontiers both contain { G , G ​ I , G ​ P , I ​ P , G ​ I ​ P } \{G,GI,GP,IP,GIP\} .
+In the pooled estimates, GP has the strongest generation coordinate, IP the
+strongest imputation coordinate, and GIP the strongest prediction coordinate.
+GIP combines high I/P scores with a lower G coordinate than GP, and
+has 94 % 94\% exact-frontier bootstrap membership. This is a competitive
+compromise, rather than universal superiority. Support also matters: the
+complete-block analysis (47 blocks) retains only { G ​ I , G ​ P , G ​ I ​ P } \{GI,GP,GIP\} (Appendix ). These objective-arm trade-offs lead to
+the next section’s comparison of fixed, deployable method identities with
+specialist portfolios. 6 Fixed-Method Generality We now compare fixed model identities across tasks and ask when one
+generalist is competitive with a specialist portfolio. Each method retains
+the same identity across datasets, capability axes, and missingness
+settings. Comparisons preserve the task contracts and percentile composites
+in Equation ; no method switches identities to
+assemble an oracle. Performance rankings depend on the capability axis. Figure reports the fraction of contract-compatible fixed
+specialists beaten by each generalist, averaged over paired datasets with
+half credit for ties. Imputation comparisons are computed separately in each
+of the twelve target-observed mechanism–rate settings before averaging.
+These fractions describe relative position, not raw accuracy. Generation shows a clear separation between distributional fidelity and
+predictive utility: Gaussian Copula leads fidelity, C2ST, and α \alpha -precision, Forest-VP Joint leads association, and TabPFN-3 leads the
+TSTR-gap axis and global-utility composite. Imputation is similarly divided:
+TabPFN-3 leads numerical point accuracy, TabICLv2 leads numerical
+distribution, association, and utility preservation, and TabSyn leads both
+categorical axes. LimiX-2 leads every displayed prediction axis.
+Thus, competence on one criterion does not imply a matching advantage on
+other criteria, even within the same task. Figure 7: A generalist’s advantage is capability-specific. Cells are mean fractions of fixed specialists beaten on each axis.
+Panels show (a) generation, (b) imputation averaged over twelve separately
+evaluated settings, and (c) prediction. Columns are not pooled into a
+leaderboard. Joint profiles expose different bottlenecks and trade-offs. Figure (a)–(c) connects each method’s
+G, I, and P coordinates under three prespecified profiles. Numerical fidelity
+combines generation fidelity, numerical imputation point accuracy, and
+regression squared error; categorical fidelity substitutes categorical
+imputation point accuracy and classification hard decisions; downstream
+utility combines generation TSTR, imputation utility preservation, and
+classification hard decisions. Each profile uses its own common dataset
+cohort. Its percentile-composite coordinates differ from the
+specialist-beating fractions in Figure . High prediction and numerical imputation can coexist with weaker generation
+fidelity, while several generative methods show the opposite imbalance.
+Categorical reconstruction introduces another bottleneck, and the utility
+profile produces a different, often more balanced ordering. These contrasts
+show why a single cross-task average would obscure useful distinctions.
+The practical Pareto frontier ( ϵ = .05 \epsilon=.05 ) contains LimiX-2 and TabDDPM
+for numerical fidelity; Gaussian Copula, TabDDPM, TabDiff, and TabPFN-3 for
+categorical fidelity; and LimiX-2, TabDDPM, TabICLv2, and TabPFN-3 for utility.
+No fixed identity is uniformly best across the three profiles. Figure 8: Fixed identities show profile-dependent deployment
+trade-offs. Panels (a)–(c) connect G, I, and P percentiles for numerical
+fidelity, categorical fidelity, and utility on 12, 3, and 26 common
+datasets. Green and yellow rows indicate practical and exact-only
+frontiers. Panels (d)–(f) show generalist-minus-fixed-portfolio gaps in
+worst-task percentile on 11, 3, and 26 common datasets, with bootstrap
+intervals and a gray ± .05 \pm.05 band. Positive gaps favor the generalist. Specialist portfolios retain a fidelity advantage. Figure (d)–(f) compares each generalist
+with one declared specialist triple per profile
+(Appendix ), using paired differences in worst-task
+percentile. The numerical-fidelity portfolio outperforms every generalist.
+The categorical portfolio also has higher mean performance throughout:
+generalist-minus-portfolio gaps range from − .396 -.396 to − .261 -.261 , with all
+bootstrap intervals below zero, although this cohort contains only three
+datasets. Utility yields a different conclusion. TabICLv2 exceeds its
+portfolio by .157 .157 ( 95 % 95\% CI [ .078 , .229 ] [.078,.229] ) and TabPFN-3 by .142 .142 ( [ .051 , .227 ] [.051,.227] ). LimiX-2’s interval spans zero, while the remaining methods
+have negative mean gaps. Generalist deployment is therefore most competitive
+for the evaluated utility profile; fidelity-oriented workloads continue to
+benefit from specialization. Appendix gives the
+setting-specific comparisons and statistical diagnostics. Implications for foundation models. LimiX-2, TabICLv2, and TabPFN-3 achieve strong numerical point imputation
+and prediction without single-dataset fine-tuning, while their generation is
+more competitive on utility than fidelity. LimiX-2 includes masked-feature
+reconstruction, whereas TabICLv2 and TabPFN-3 reuse pretrained predictors
+through conditional imputation
+extensions ( Zhang and others, 2026 ; Qu et al., 2026 ; Grinsztajn and others, 2026 ; Prior Labs, 2026 ) . Categorical
+reconstruction on the common profile cohort and faithful joint generation
+remain limitations. Amid rapid progress and growing interest in tabular
+foundation models, these findings highlight their potential across all three
+tasks. We hope our results encourage foundation-model researchers to develop
+a unified model that excels at generation, imputation, and prediction. 7 Conclusion OTBench provides a common setting for studying how generation, imputation,
+and prediction relate through their capabilities, training objectives, and
+fixed-model performance. Task-rank comparisons connect imputation and
+prediction through numerical recovery and dependence preservation, and link
+generation to both through predictive utility. Distributional fidelity
+follows different relationships, so task competence cannot be inferred from
+one criterion alone. Matched objective interventions show the largest pooled gains from recipient
+self-inclusion and suggest backbone-dependent auxiliary benefits from
+generation and prediction. Their
+benefits need not add: joint outcomes depend on the recipient and the
+objectives already present. Fixed-model profiles further show why utility
+and fidelity can favor different generalist or specialist choices. Foundation models already demonstrate strong prediction and numerical point
+imputation without dataset-specific fine-tuning, together with promising
+synthetic-data utility. Amid rapid progress in this field, these findings
+highlight their potential across all three tasks. We hope OTBench encourages
+researchers to develop foundation models that excel at generation,
+imputation, and prediction, including reliable categorical reconstruction
+and faithful joint sampling. 8 Limitations and Future Work Scope and comparability. Our conclusions depend on the capability axes, information contracts, and
+available method–dataset support. Rank alignment describes capability
+co-occurrence, rather than identifying objective transfer. In particular,
+the rank study’s target-observed imputation and the controlled study’s
+target-hidden imputation provide complementary evidence under different
+contracts. Profile and portfolio comparisons also use different common
+cohorts; the categorical profile contains only three datasets. Cross-task
+imputation coordinates average twelve settings and do not replace
+setting-specific evaluation. Objective effects and their mechanisms. The factorial study covers five backbones and five datasets, with only one
+regression dataset and some unavailable evaluations. Auxiliary single-addition effects remain
+exploratory and heterogeneous across backbones. SAE and CAE quantify changes
+on a normalized rank scale; they do not identify the mechanisms behind those
+changes. I/P self-inclusion and some interaction comparisons can also change
+the conditioning policy, while fixed training budgets redistribute updates
+among objectives. Objective overlap, update allocation, capacity competition,
+and gradient interference therefore require separate interventions. Directions for unified models. The frozen foundation-model results establish the capabilities of the
+evaluated inference systems, without isolating the contribution of
+pretraining, representations, or decoders. Matched pretraining and inference
+ablations are needed before attributing categorical or generation gaps to
+specific backbone properties. Future work should broaden the dataset and
+model populations, separate training from inference effects, and test how
+categorical reconstruction and joint sampling can improve alongside
+prediction. AI Use Statement We used AI tools to assist with manuscript drafting and editing, figure
+preparation, and LaTeX formatting. The authors are responsible for the final
+manuscript and its scientific claims. Reproducibility Statement To facilitate reproducibility, we describe the task definitions in
+Section and the evaluation and aggregation
+protocols in Section .
+Dataset sources, selection criteria, data splits, and preprocessing
+procedures are detailed in Appendix .
+Baseline configurations, hyperparameter settings and selection rules,
+random seeds, and computational resources are provided in
+Appendix .
+Metric definitions and result aggregation procedures are specified in
+Appendices and , with
+analysis-specific protocols in
+Appendices – .
+Benchmark source code, method configurations, and evaluation routines are
+publicly available at https://github.com/limix-ldm-ai/OTBench . Ethics Statement This study evaluates tabular learning methods using publicly available
+datasets under their respective licenses and terms of use.
+We do not collect additional personal data or attempt to identify
+individuals in the datasets.
+We recognize that synthetic data may retain sensitive information
+from the training data, and that empirical privacy evaluations do not
+constitute formal privacy guarantees.
+Furthermore, aggregate benchmark performance does not establish
+fairness across demographic groups or suitability for deployment in
+high-stakes settings.
+Any downstream use should therefore be accompanied by
+application-specific assessments of privacy, fairness, and reliability. References Alaa et al. (2022) A. Alaa, B. van Breugel, E. Saveliev, and M. van der Schaar How faithful is your synthetic data? sample-level metrics for evaluating and auditing generative models . In Proceedings of the 39th International Conference on Machine Learning , Proceedings of Machine Learning Research , Vol. 162 , pp. 290–320 . External Links: Link Cited by: Table 8 , §3.2 . Alcobaça et al. (2020) E. D. Alcobaça, F. Siqueira, A. Rivolli, L. P. F. Garcia, J. T. Oliva, and A. C. P. L. F. de Carvalho MFE: towards reproducible meta-feature extraction . Journal of Machine Learning Research 21 ( 111 ), pp. 1–5 . External Links: Link Cited by: §A.4 . Borisov et al. (2023) V. Borisov, K. Seßler, T. Leemann, M. Pawelczyk, and G. Kasneci Language models are realistic tabular data generators . In International Conference on Learning Representations , Cited by: Table 7 , Appendix H . Bravo (2025) J. Bravo NRGBoost: energy-based generative boosted trees . In International Conference on Learning Representations , External Links: Link Cited by: Table 7 . Breiman et al. (1984) L. Breiman, J. H. Friedman, R. A. Olshen, and C. J. Stone Classification and regression trees . Wadsworth . Cited by: §A.4 . Breiman (2001) L. Breiman Random forests . Machine Learning 45 , pp. 5–32 . External Links: Document Cited by: §A.4 , Table 7 , §F.1 . Brier (1950) G. W. Brier Verification of forecasts expressed in terms of probability . Monthly Weather Review 78 ( 1 ), pp. 1–3 . External Links: Document Cited by: §3.2 . Brodersen et al. (2010) K. H. Brodersen, C. S. Ong, K. E. Stephan, and J. M. Buhmann The balanced accuracy and its posterior distribution . In International Conference on Pattern Recognition , pp. 3121–3124 . External Links: Document Cited by: §3.2 . Carlini et al. (2022) N. Carlini, S. Chien, M. Nasr, S. Song, A. Terzis, and F. Tramèr Membership inference attacks from first principles . In IEEE Symposium on Security and Privacy , pp. 1897–1914 . External Links: Document Cited by: Table 8 , §3.2 . Chawla et al. (2002) N. V. Chawla, K. W. Bowyer, L. O. Hall, and W. P. Kegelmeyer SMOTE: synthetic minority over-sampling technique . Journal of Artificial Intelligence Research 16 , pp. 321–357 . External Links: Document , Link Cited by: Table 7 . Chen and Guestrin (2016) T. Chen and C. Guestrin XGBoost: a scalable tree boosting system . In ACM SIGKDD International Conference on Knowledge Discovery and Data Mining , Cited by: Table 7 , Appendix H . Cover and Hart (1967) T. M. Cover and P. E. Hart Nearest neighbor pattern classification . IEEE Transactions on Information Theory 13 ( 1 ), pp. 21–27 . External Links: Document Cited by: §A.4 . Cramér (1946) H. Cramér Mathematical methods of statistics . Princeton University Press . Cited by: Appendix C . Davis and Goadrich (2006) J. Davis and M. Goadrich The relationship between precision-recall and ROC curves . In International Conference on Machine Learning , pp. 233–240 . External Links: Document Cited by: §3.2 . Du et al. (2024) T. Du, L. Melis, and T. Wang ReMasker: imputing tabular data with masked autoencoding . In International Conference on Learning Representations , External Links: Link Cited by: Table 4 , Table 7 , §F.1 . Du and Li (2025) Y. Du and N. Li Systematic assessment of tabular data synthesis . In ACM SIGSAC Conference on Computer and Communications Security , pp. 2414–2428 . External Links: Document , Link Cited by: Table 4 . Duan et al. (2020) T. Duan, A. Anand, D. Y. Ding, K. K. Thai, S. Basu, A. Ng, and A. Schuler NGBoost: natural gradient boosting for probabilistic prediction . In Proceedings of the 37th International Conference on Machine Learning , Proceedings of Machine Learning Research , Vol. 119 , pp. 2690–2700 . External Links: Link Cited by: Table 7 . Durkan et al. (2019) C. Durkan, A. Bekasov, I. Murray, and G. Papamakarios Neural spline flows . In Advances in Neural Information Processing Systems , Vol. 32 . External Links: Link Cited by: Table 7 . Efron (1979) B. Efron Bootstrap methods: another look at the jackknife . The Annals of Statistics 7 ( 1 ), pp. 1–26 . External Links: Document Cited by: Table 7 , §C.1 , §E.2 . Erickson et al. (2025) N. Erickson, L. Purucker, A. Tschalzev, D. Holzmüller, P. Desai, D. Salinas, and F. Hutter TabArena: a living benchmark for machine learning on tabular data . In Advances in Neural Information Processing Systems , Vol. 38 . External Links: Link Cited by: Table 4 , Appendix H , §1 . Esteban et al. (2017) C. Esteban, S. L. Hyland, and G. Rätsch Real-valued (medical) time series generation with recurrent conditional GANs . arXiv preprint arXiv:1706.02633 . External Links: Link Cited by: Table 8 , §3.2 . Feitelberg et al. (2025) J. Feitelberg, D. Saha, K. Choi, Z. Ahmad, A. Agarwal, and R. Dwivedi TabImpute: accurate and fast zero-shot missing-data imputation with a pre-trained transformer . arXiv preprint arXiv:2510.02625 . External Links: Link Cited by: Table 4 , Table 7 . Geifman et al. (2019) Y. Geifman, G. Uziel, and R. El-Yaniv Bias-reduced uncertainty estimation for deep neural classifiers . In International Conference on Learning Representations , External Links: Link Cited by: Table 10 , §3.2 . Gneiting and Raftery (2007) T. Gneiting and A. E. Raftery Strictly proper scoring rules, prediction, and estimation . Journal of the American Statistical Association 102 ( 477 ), pp. 359–378 . External Links: Link Cited by: Table 10 . Good (1952) I. J. Good Rational decisions . Journal of the Royal Statistical Society: Series B 14 ( 1 ), pp. 107–114 . Cited by: §3.2 . Gorishniy et al. (2025) Y. Gorishniy, A. Kotelnikov, and A. Babenko TabM: advancing tabular deep learning with parameter-efficient ensembling . In International Conference on Learning Representations , External Links: Link Cited by: Table 7 , §F.1 . Gorishniy et al. (2021) Y. Gorishniy, I. Rubachev, V. Khrulkov, and A. Babenko Revisiting deep learning models for tabular data . In Advances in Neural Information Processing Systems , Vol. 34 . External Links: Link Cited by: Table 7 . Gower (1971) J. C. Gower A general coefficient of similarity and some of its properties . Biometrics 27 ( 4 ), pp. 857–871 . External Links: Document Cited by: §3.2 . Grinsztajn et al. (2026) L. Grinsztajn et al. TabPFN-3: technical report . arXiv preprint arXiv:2605.13986 . External Links: Link Cited by: Table 7 , §G.1 , Appendix H , §1 , §6 . Grinsztajn et al. (2022) L. Grinsztajn, E. Oyallon, and G. Varoquaux Why do tree-based models still outperform deep learning on typical tabular data? . In Advances in Neural Information Processing Systems , Vol. 35 . External Links: Link Cited by: Table 4 , Appendix H . Guo et al. (2017) C. Guo, G. Pleiss, Y. Sun, and K. Q. Weinberger On calibration of modern neural networks . In Proceedings of the 34th International Conference on Machine Learning , Proceedings of Machine Learning Research , Vol. 70 , pp. 1321–1330 . External Links: Link Cited by: Table 10 , §3.2 . Han et al. (2022) X. Han, H. Zheng, and M. Zhou CARD: classification and regression diffusion models . In Advances in Neural Information Processing Systems , Vol. 35 . External Links: Link Cited by: Table 4 , Table 7 . Hanley and McNeil (1982) J. A. Hanley and B. J. McNeil The meaning and use of the area under a receiver operating characteristic (ROC) curve . Radiology 143 ( 1 ), pp. 29–36 . External Links: Document Cited by: §3.2 . Hoerl and Kennard (1970) A. E. Hoerl and R. W. Kennard Ridge regression: biased estimation for nonorthogonal problems . Technometrics 12 ( 1 ), pp. 55–67 . External Links: Document Cited by: §A.4 , Table 7 . Hollmann et al. (2023) N. Hollmann, S. Müller, K. Eggensperger, and F. Hutter TabPFN: a transformer that solves small tabular classification problems in a second . In International Conference on Learning Representations , Cited by: Appendix H . Holm (1979) S. Holm A simple sequentially rejective multiple test procedure . Scandinavian Journal of Statistics 6 ( 2 ), pp. 65–70 . Cited by: §E.2 . Hopkins and Skellam (1954) B. Hopkins and J. G. Skellam A new method for determining the type of distribution of plant individuals . Annals of Botany 18 ( 2 ), pp. 213–227 . External Links: Document Cited by: §A.4 . Ivanov et al. (2019) O. Ivanov, M. Figurnov, and D. Vetrov Variational autoencoder with arbitrary conditioning . In International Conference on Learning Representations , Cited by: Appendix H , Appendix H , §1 . Jarrett et al. (2022) D. Jarrett, B. C. Cebere, T. Liu, A. Curth, and M. van der Schaar HyperImpute: generalized iterative imputation with automatic model selection . In Proceedings of the 39th International Conference on Machine Learning , Proceedings of Machine Learning Research , Vol. 162 , pp. 9916–9937 . External Links: Link Cited by: Table 4 , Table 7 . Jiang et al. (2026) X. Jiang, N. Simidjievski, and M. Jamnik TabStruct: measuring structural fidelity of tabular data . In International Conference on Learning Representations , External Links: Link Cited by: §A.7 , Table 4 , §2.2 . Jolicoeur-Martineau et al. (2024) A. Jolicoeur-Martineau, K. Fatras, and T. Kachman Generating and imputing tabular data via diffusion and flow-based gradient-boosted trees . In Proceedings of the 27th International Conference on Artificial Intelligence and Statistics , Proceedings of Machine Learning Research , Vol. 238 , pp. 1288–1296 . External Links: Link Cited by: Table 4 , Table 7 , Table 7 , Appendix H , Appendix H , §1 , §5 . Jolliffe (2002) I. T. Jolliffe Principal component analysis . 2 edition , Springer . External Links: Document Cited by: §A.6 , §C.5 , §2.2 . Kaiser (1960) H. F. Kaiser The application of electronic computers to factor analysis . Educational and Psychological Measurement 20 ( 1 ), pp. 141–151 . External Links: Document Cited by: §C.5 . Ke et al. (2017) G. Ke, Q. Meng, T. Finley, T. Wang, W. Chen, W. Ma, Q. Ye, and T. Liu LightGBM: a highly efficient gradient boosting decision tree . In Advances in Neural Information Processing Systems , Vol. 30 . Cited by: Table 7 , §F.1 . Khan et al. (2025) F. A. Khan, D. Herasymuk, N. Protsiv, and J. Stoyanovich Still more shades of null: an evaluation suite for responsible missing value imputation . Proceedings of the VLDB Endowment 18 ( 9 ), pp. 2899–2913 . External Links: Document Cited by: Table 4 , Appendix H , §1 . Kotelnikov et al. (2023) A. Kotelnikov, D. Baranchuk, I. Rubachev, and A. Babenko TabDDPM: modelling tabular data with diffusion models . In International Conference on Machine Learning , Cited by: Table 4 , Table 7 , Appendix H , §5 . Lautrup et al. (2025) A. D. Lautrup, T. Hyrup, A. Zimek, and P. Schneider-Kamp SynthEval: a framework for detailed utility and privacy evaluation of tabular synthetic data . Data Mining and Knowledge Discovery 39 ( 1 ). External Links: Document , Link Cited by: Table 4 . Lin (1991) J. Lin Divergence measures based on the shannon entropy . IEEE Transactions on Information Theory 37 ( 1 ), pp. 145–151 . External Links: Document Cited by: §3.2 . Liu et al. (2025) S. Liu, H. Cai, Q. Zhou, H. Yin, T. Zhou, J. Jiang, and H. Ye TALENT: a tabular analytics and learning toolbox . Journal of Machine Learning Research 26 ( 226 ), pp. 1–16 . External Links: Link Cited by: Table 4 , Appendix H . Lloyd (1982) S. P. Lloyd Least squares quantization in PCM . IEEE Transactions on Information Theory 28 ( 2 ), pp. 129–137 . External Links: Document Cited by: §A.6 , §2.2 . Lopez-Paz and Oquab (2017) D. Lopez-Paz and M. Oquab Revisiting classifier two-sample tests . In International Conference on Learning Representations , External Links: Link Cited by: Table 8 , §3.2 . Margeloiu et al. (2024) A. Margeloiu, X. Jiang, N. Simidjievski, and M. Jamnik TabEBM: a tabular data augmentation method with distinct class-specific energy-based models . In Advances in Neural Information Processing Systems , Vol. 37 . External Links: Link Cited by: Table 7 . Matthews (1975) B. W. Matthews Comparison of the predicted and observed secondary structure of T4 phage lysozyme . Biochimica et Biophysica Acta 405 ( 2 ), pp. 442–451 . External Links: Document Cited by: §3.2 . McElfresh et al. (2023) D. McElfresh, S. Khandagale, J. Valverde, V. Prasad, G. Ramakrishnan, M. Goldblum, and C. White When do neural nets outperform boosted trees on tabular data? . In Advances in Neural Information Processing Systems , Vol. 36 . External Links: Link Cited by: Table 4 , Appendix H . McInnes et al. (2018) L. McInnes, J. Healy, and J. Melville UMAP: uniform manifold approximation and projection for dimension reduction . arXiv preprint arXiv:1802.03426 . External Links: Link Cited by: §A.6 . McKenna et al. (2019) R. McKenna, D. Sheldon, and G. Miklau Graphical-model based estimation and inference for differential privacy . In Proceedings of the 36th International Conference on Machine Learning , Proceedings of Machine Learning Research , Vol. 97 , pp. 4435–4444 . External Links: Link Cited by: Table 8 , §3.2 . Naeini et al. (2015) M. P. Naeini, G. F. Cooper, and M. Hauskrecht Obtaining well calibrated probabilities using bayesian binning . In AAAI Conference on Artificial Intelligence , Cited by: §3.2 . Nergiz et al. (2007) M. E. Nergiz, M. Atzori, and C. Clifton Hiding the presence of individuals from shared databases . In ACM SIGMOD International Conference on Management of Data , pp. 665–676 . External Links: Document Cited by: §3.2 . Ouyang et al. (2023) Y. Ouyang, L. Xie, C. Li, and G. Cheng MissDiff: training diffusion models on tabular data with missing values . arXiv preprint arXiv:2307.00467 . External Links: Link Cited by: Table 4 . Owen and Eckles (2012) A. B. Owen and D. Eckles Bootstrapping data arrays of arbitrary order . The Annals of Applied Statistics 6 ( 3 ), pp. 895–927 . External Links: Document Cited by: §E.2 . Patki et al. (2016) N. Patki, R. Wedge, and K. Veeramachaneni The synthetic data vault . In IEEE International Conference on Data Science and Advanced Analytics , pp. 399–410 . External Links: Document Cited by: Table 7 , §5 . Pearson (1905) K. Pearson On the general theory of skew correlation and non-linear regression . Dulau and Company . External Links: Link Cited by: Appendix C . Pedregosa et al. (2011) F. Pedregosa, G. Varoquaux, A. Gramfort, V. Michel, B. Thirion, O. Grisel, M. Blondel, P. Prettenhofer, R. Weiss, V. Dubourg, J. Vanderplas, A. Passos, D. Cournapeau, M. Brucher, M. Perrot, and É. Duchesnay Scikit-learn: machine learning in python . Journal of Machine Learning Research 12 , pp. 2825–2830 . External Links: Link Cited by: §A.5 , Table 7 , Table 7 . Pfahringer et al. (2000) B. Pfahringer, H. Bensusan, and C. G. Giraud-Carrier Meta-learning by landmarking various learning algorithms . In Proceedings of the Seventeenth International Conference on Machine Learning , pp. 743–750 . Cited by: §A.1 , §A.4 . Prior Labs (2026) Prior Labs tabpfn-extensions: community extensions for TabPFN . Note: GitHub repository External Links: Link Cited by: Table 7 , §G.1 , Appendix H , §6 . Prokhorenkova et al. (2018) L. Prokhorenkova, G. Gusev, A. Vorobev, A. V. Dorogush, and A. Gulin CatBoost: unbiased boosting with categorical features . In Advances in Neural Information Processing Systems , Cited by: Table 7 , §F.1 , Appendix H . Qian et al. (2023) Z. Qian, R. Davis, and M. van der Schaar Synthcity: a benchmark framework for diverse use cases of tabular synthetic data . In Advances in Neural Information Processing Systems , Vol. 36 . External Links: Document , Link Cited by: Table 4 , Table 7 . Qu et al. (2026) J. Qu, D. Holzmüller, G. Varoquaux, and M. Le Morvan TabICLv2: a better, faster, scalable, and open tabular foundation model . In International Conference on Machine Learning , External Links: Link Cited by: Table 7 , §G.1 , Appendix H , §1 , §6 . Rousseeuw (1987) P. J. Rousseeuw Silhouettes: a graphical aid to the interpretation and validation of cluster analysis . Journal of Computational and Applied Mathematics 20 , pp. 53–65 . External Links: Document Cited by: §A.4 . Rubachev et al. (2025) I. Rubachev, N. Kartashev, Y. Gorishniy, and A. Babenko TabReD: analyzing pitfalls and filling the gaps in tabular deep learning benchmarks . In International Conference on Learning Representations , External Links: Link Cited by: Table 4 . Rubin (1976) D. B. Rubin Inference and missing data . Biometrika 63 ( 3 ), pp. 581–592 . External Links: Document Cited by: §4.1 . SDV (2026) SDV SDMetrics documentation . Note: Accessed 2026-09-26; exact benchmark adaptation documented in the metric dictionary External Links: Link Cited by: Table 8 . Senane et al. (2024) Z. Senane, A. Karlsson, L. Cao, O. Smirnov, C. Zhang, S. Asadi, H. Kjellström, G. E. Henter, and R. Tu Causality for tabular data synthesis: a high-order structure causal benchmark framework . arXiv preprint arXiv:2406.08311 . External Links: Link Cited by: Table 4 . Shi et al. (2025) J. Shi, M. Xu, H. Hua, H. Zhang, S. Ermon, and J. Leskovec TabDiff: a mixed-type diffusion model for tabular data generation . In International Conference on Learning Representations , External Links: Link Cited by: Table 4 , Table 7 , Appendix H , §5 . Shimizu et al. (2011) S. Shimizu, T. Inazumi, Y. Sogawa, A. Hyvärinen, Y. Kawahara, T. Washio, P. O. Hoyer, and K. Bollen DirectLiNGAM: a direct method for learning a linear non-gaussian structural equation model . Journal of Machine Learning Research 12 , pp. 1225–1248 . External Links: Link Cited by: Table 7 . Shokri et al. (2017) R. Shokri, M. Stronati, C. Song, and V. Shmatikov Membership inference attacks against machine learning models . In IEEE Symposium on Security and Privacy , pp. 3–18 . External Links: Document Cited by: §3.2 . Shrout and Fleiss (1979) P. E. Shrout and J. L. Fleiss Intraclass correlations: uses in assessing rater reliability . Psychological Bulletin 86 ( 2 ), pp. 420–428 . External Links: Document Cited by: §C.4 . Simonetto et al. (2024) T. Simonetto, S. Ghamizi, and M. Cordy TabularBench: benchmarking adversarial robustness for tabular deep learning in real-world use-cases . In Advances in Neural Information Processing Systems , Vol. 37 . External Links: Document , Link Cited by: Table 4 . Smirnov (1948) N. Smirnov Table for estimating the goodness of fit of empirical distributions . The Annals of Mathematical Statistics 19 ( 2 ), pp. 279–281 . External Links: Document Cited by: §3.2 . Spearman (1904) C. Spearman The proof and measurement of association between two things . The American Journal of Psychology 15 ( 1 ), pp. 72–101 . External Links: Document Cited by: §4.1 . Standley et al. (2020) T. Standley, A. R. Zamir, D. Chen, L. Guibas, J. Malik, and S. Savarese Which tasks should be learned together in multi-task learning? . In International Conference on Machine Learning , Vol. 119 , pp. 9120–9132 . External Links: Link Cited by: Appendix H . Stekhoven and Bühlmann (2012) D. J. Stekhoven and P. Bühlmann MissForest—non-parametric missing value imputation for mixed-type data . Bioinformatics 28 ( 1 ), pp. 112–118 . Cited by: Table 7 , §F.1 , Appendix H . Torgo et al. (2013) L. Torgo, R. P. Ribeiro, B. Pfahringer, and P. Branco SMOTE for regression . In Progress in Artificial Intelligence , pp. 378–389 . External Links: Document , Link Cited by: Table 7 . Troyanskaya et al. (2001) O. Troyanskaya, M. Cantor, G. Sherlock, P. Brown, T. Hastie, R. Tibshirani, D. Botstein, and R. B. Altman Missing value estimation methods for DNA microarrays . Bioinformatics 17 ( 6 ), pp. 520–525 . External Links: Document Cited by: Table 7 , §F.1 . van Buuren and Groothuis-Oudshoorn (2011) S. van Buuren and K. Groothuis-Oudshoorn mice: multivariate imputation by chained equations in R . Journal of Statistical Software 45 ( 3 ), pp. 1–67 . Cited by: Table 7 , §F.1 , Appendix H . Vanschoren et al. (2013) J. Vanschoren, J. N. van Rijn, B. Bischl, and L. Torgo OpenML: networked science in machine learning . ACM SIGKDD Explorations Newsletter 15 ( 2 ), pp. 49–60 . External Links: Document Cited by: §A.2 , §2.2 . Villaizán-Vallelado et al. (2025) M. Villaizán-Vallelado, M. Salvatori, C. Segura, and I. Arapakis Diffusion models for tabular data imputation and synthetic data generation . ACM Transactions on Knowledge Discovery from Data 19 ( 6 ). External Links: Document , Link Cited by: Table 4 . Villani (2009) C. Villani Optimal transport: old and new . Springer . External Links: Document Cited by: §3.2 . Watson et al. (2023) D. S. Watson, K. Blesch, J. Kapar, and M. N. Wright Adversarial random forests for density estimation and generative modeling . In Proceedings of the 26th International Conference on Artificial Intelligence and Statistics , Proceedings of Machine Learning Research , Vol. 206 . External Links: Link Cited by: Table 7 , §F.1 . Wilcoxon (1945) F. Wilcoxon Individual comparisons by ranking methods . Biometrics Bulletin 1 ( 6 ), pp. 80–83 . External Links: Document Cited by: §E.2 . Xu et al. (2019) L. Xu, M. Skoularidou, A. Cuesta-Infante, and K. Veeramachaneni Modeling tabular data using conditional GAN . In Advances in Neural Information Processing Systems , Vol. 32 . External Links: Link Cited by: Table 7 , Appendix H . Yang et al. (2024) S. C. Yang, B. Eaves, M. Schmidt, K. Swanson, and P. Shafto Structured evaluation of synthetic tabular data . arXiv preprint arXiv:2403.10424 . External Links: Link Cited by: Table 4 , Appendix H , §1 . Ye et al. (2024) H. Ye, S. Liu, H. Cai, Q. Zhou, and D. Zhan A closer look at deep learning methods on tabular datasets . arXiv preprint arXiv:2407.00956 . External Links: Link Cited by: Table 4 , Appendix H . Zhang et al. (2025) H. Zhang, L. Fang, Q. Wu, and P. S. Yu DiffPuter: empowering diffusion models for missing data imputation . In International Conference on Learning Representations , External Links: Link Cited by: Table 4 , Table 7 , §F.1 . Zhang et al. (2024) H. Zhang, J. Zhang, B. Srinivasan, Z. Shen, X. Qin, C. Faloutsos, H. Rangwala, and G. Karypis Mixed-type tabular data synthesis with score-based diffusion in latent space . In International Conference on Learning Representations , Cited by: Table 7 , Appendix H , §5 . Zhang et al. (2025) X. Zhang et al. LimiX: unleashing structured-data modeling capability for generalist intelligence . arXiv preprint arXiv:2509.03505 . External Links: Link Cited by: Appendix H , §1 . Zhang et al. (2026) X. Zhang et al. LimiX-2: a contextual mechanism network towards general structured-data intelligence . arXiv preprint arXiv:2609.17488 . External Links: Link Cited by: Table 7 , §G.1 , Appendix H , §1 , §6 . Zheng and Charoenphakdee (2022) S. Zheng and N. Charoenphakdee Diffusion models for missing value imputation in tabular data . In NeurIPS Workshop on Table Representation Learning , External Links: Link Cited by: Table 4 , Table 7 . Appendix A Dataset Construction Details A.1 Construction Objective and Overall Pipeline The benchmark supports prediction, missing-value imputation, and data generation under a controlled computational budget. Evaluating every candidate dataset would be costly and would overrepresent sources with multiple versions and groups of structurally similar datasets.
+We therefore select representative datasets using only method-independent dataset properties and fixed landmarking statistics ( Pfahringer et al., 2000 ) .
+All selection rules and configurations are specified before method evaluation begins, so no evaluated method’s performance influences dataset selection.
+Figure summarizes the construction process, from the literature-derived candidate pool to the two final evaluation sets. 24 literature source groups Candidate dataset discovery 492 OpenML datasets Version and task verification File and size constraints 100 ≤ N ≤ 10 100\leq N\leq 10 , P ≤ 160 P\leq 160 , N ​ P ≤ 10 NP\leq 10 377 eligible datasets From 469 complete files 113 raw meta-features Groups A/B/C/D: 9 / 68 / 16 / 20 9/68/16/20 Cleaning and normalization 113 → \rightarrow 72 dimensions PCA representation 41 components (99.1%) k k -means clustering k = 50 k=50 , n_init=10 50 OpenML datasets Nearest eligible dataset to each centroid Same-source suppression 31 candidates blocked Complete benchmark 56 datasets 6 TabStruct SCM datasets Independent structural track Figure 9: Dataset construction pipeline.
+The OpenML track uses prespecified size constraints, a meta-feature
+representation, and clustering to obtain 50 representative datasets.
+The 6 SCM datasets form a separate structural evaluation track. A.2 Literature-Driven Candidate Dataset Pool We identify candidate datasets from 24 deduplicated literature source groups.
+These sources cover general tabular prediction benchmarks as well as specialized studies of missing-value imputation, data generation, structural fidelity, and robustness.
+Table lists these sources.
+ForestDiffusion covers both generation and imputation and is counted once; the two relevant TALENT studies form one source group.
+Literature sources define only the candidate pool and do not determine the weights used for representative selection. After normalizing dataset names and common aliases, we resolve dataset identities using Dataset IDs reported in papers or official configurations, Task IDs that can be mapped to specific versions, frozen identifiers in official benchmark suites, and metadata that agree in dataset name, size, task type, and original source.
+We merge references to the same Dataset ID across studies while retaining all source attributions.
+Records with the same name but different Dataset IDs, versions, or sizes are not merged automatically.
+This process yields 492 datasets with unambiguous OpenML Dataset IDs ( Vanschoren et al., 2013 ) . Table 4: The 24 deduplicated literature source groups used to construct the candidate dataset pool. Category Literature sources Imputation and cross-task studies Shades-of-Null ( Khan et al., 2025 ) ; TabImpute ( Feitelberg et al., 2025 ) ; ForestDiffusion ( Jolicoeur-Martineau et al., 2024 ) ; DiffPuter ( Zhang et al., 2025 ) ; TabCSDI ( Zheng and Charoenphakdee, 2022 ) ; MissDiff ( Ouyang et al., 2023 ) ; ReMasker ( Du et al., 2024 ) ; HyperImpute ( Jarrett et al., 2022 ) ; TabGenDDPM ( Villaizán-Vallelado et al., 2025 ) . Generation and structural evaluation TabStruct ( Jiang et al., 2026 ) ; Systematic Assessment of Tabular Data Synthesis ( Du and Li, 2025 ) ; Synthcity ( Qian et al., 2023 ) ; Structured Evaluation of Synthetic Tabular Data ( Yang et al., 2024 ) ; CauTabBench ( Senane et al., 2024 ) ; SynthEval ( Lautrup et al., 2025 ) ; TabDDPM ( Kotelnikov et al., 2023 ) ; TabDiff ( Shi et al., 2025 ) . Prediction and robustness TabArena ( Erickson et al., 2025 ) ; TALENT ( Liu et al., 2025 ; Ye et al., 2024 ) ; TabZilla ( McElfresh et al., 2023 ) ; Why Trees ( Grinsztajn et al., 2022 ) ; TabReD ( Rubachev et al., 2025 ) ; CARD ( Han et al., 2022 ) ; TabularBench ( Simonetto et al., 2024 ) . A.3 Data Parsing and Hard Filtering Column types and target columns. Variable types follow the ARFF header rather than the appearance of the values. Nominal attributes are treated as categorical variables, whereas numeric , real , and integer attributes are treated as numerical variables. A string attribute is treated as categorical only when its cardinality does not exceed min ⁡ ( 50 , 0.2 ​ N i ) \min(50,0.2N_{i}) . Other free-text fields and all date / relational attributes are removed. Thus, P i P_{i} counts usable features after removing target columns and unsupported fields, rather than raw CSV columns. We use the OpenML default_target_attribute field to identify the target whenever available. If this field is missing, the target is inferred in order from common names, including class , label , target , y , and outcome , or from a low-cardinality final column. Such cases are marked by target_inferred . A numerical final column is inferred as a classification target only when it has between 2 and 30 unique values and the sample size is at least 20 times the number of unique values. For multi-target datasets, only the first target is used to compute prediction-related meta-features, while the original number of targets is retained. Size constraints. To keep evaluation within a common computational budget, we impose the following constraints on each dataset 𝒟 i \mathcal{D}_{i} : 100 ≤ N i ≤ 100,000 , P i ≤ 160 , N i ​ P i ≤ 10 . 100\leq N_{i}\leq 100{,}000,\qquad P_{i}\leq 160,\qquad N_{i}P_{i}\leq 10. (4) The 492 source entries yield 469 datasets for size screening.
+The size constraints exclude 92 datasets, leaving 377 candidates.
+Figure (a) shows the filtering outcome in sample-size–feature-count space. (a) Hard-filtering boundaries and selected datasets. (b) PCA cumulative explained variance. Forty-one components reach the 99% threshold. Figure 10: Dataset size constraints and PCA dimensionality reduction. In the left panel, gray points denote datasets removed by the size constraints, blue points denote eligible but unselected candidates, and red points denote the selected datasets. A.4 Dataset Meta-Feature Representation We recompute 113 meta-features for each candidate dataset using a unified local extractor.
+The extractor includes reproducible PyMFE statistics ( Alcobaça et al., 2020 ) and standard clustering diagnostics ( Hopkins and Skellam, 1954 ; Rousseeuw, 1987 ) .
+The four meta-feature groups serve only for interpretation and post hoc diagnostics; we assign no manual group weights.
+Table 5 reports the original counts and lists all dimensions retained after cleaning. Table 5: Composition of the candidate-dataset meta-features and all 72 dimensions retained after cleaning. Group Original Retained Retained meta-features A 9 9 cat_feature_ratio ; frac_binary_features ; frac_numeric_lowcard ; log_attr_to_inst ; log_n_features ; log_n_samples ; max_log_cat_cardinality ; mean_log_cat_cardinality ; mean_numeric_unique_ratio . B 68 29 duplicate_row_ratio ; frac_bounded_01 ; frac_continuous_cols ; frac_heavy_tail ; frac_integer_valued ; frac_multimodal ; frac_nonneg ; frac_outlier_rows ; frac_skewed ; hopkins ; kmeans_silhouette_max ; mean_n_modes ; pymfe_attr_conc.mean ; pymfe_attr_conc.sd ; pymfe_attr_ent.mean ; pymfe_attr_ent.sd ; pymfe_cor.mean ; pymfe_cor.sd ; pymfe_frac_bin ; pymfe_frac_norm ; pymfe_frac_outliers ; pymfe_kurtosis.mean ; pymfe_kurtosis.sd ; pymfe_nr_cor_attr ; pymfe_skewness.mean ; pymfe_skewness.sd ; pymfe_sparsity.mean ; pymfe_sparsity.sd ; zero_ratio . C 16 16 cat_num_association ; frac_cols_with_missing ; frac_rows_with_missing ; frac_strong_cor_pairs ; max_abs_cor ; max_col_missing_ratio ; max_norm_mutual_info ; mean_abs_cor ; mean_missing_per_missing_row ; mean_norm_mutual_info ; missing_cell_ratio ; missing_mar_score ; missing_pattern_count_log ; missing_pattern_entropy ; pca_dims_95_ratio ; top_eigen_ratio . D 20 18 class_entropy_norm ; class_imbalance_log ; is_binary ; is_multiclass ; is_regression ; lm_best ; lm_knn ; lm_linear ; lm_rf ; lm_tree ; log_n_classes ; minority_class_ratio ; n_targets_log ; noise_level ; nonlinearity_gain ; target_skew_abs ; target_unique_ratio ; tree_vs_knn . Total 113 72 – Sampling and failure handling. Dataset size, missingness rates, missingness patterns, and the duplicate-row ratio are computed on the full dataset.
+Other computationally expensive statistics use a random sample of at most 10,000 records.
+For meta-feature computation, we impute missing numerical values with the median and fill entirely missing numerical columns with 0.
+Missing categorical values are encoded as __missing__ .
+These operations apply only to meta-feature computation and leave the original data unchanged.
+Failures are handled separately in the PyMFE, clustering-structure, dependency-structure, and landmarking modules.
+If a module fails, only its dimensions are marked as missing. Landmarking. Following the landmarking principle ( Pfahringer et al., 2000 ) , we characterize target predictability with four fixed lightweight models: a logistic/ridge linear model, a depth-3 decision tree, 5-nearest neighbors, and a random forest with 100 trees ( Hoerl and Kennard, 1970 ; Breiman et al., 1984 ; Cover and Hart, 1967 ; Breiman, 2001 ) . Within each fold, numerical features are median-imputed and standardized. Categorical features are constant-imputed and one-hot encoded, with at most 20 categories retained per column. We remove records with missing targets and, for classification, classes with fewer than 6 samples. If more than 5,000 records remain, 5,000 are sampled without replacement using random seed 0, followed by three-fold cross-validation. This limit applies only to auxiliary meta-feature computation; the final dataset is not truncated. For a K K -class classification task and a regression task, respectively, the scores are s cls = clip ⁡ ( BalAcc − 1 / K 1 − 1 / K , 0 , 1 ) , s reg = clip ⁡ ( R , 0 , 1 ) . s_{\mathrm{cls}}=\operatorname{clip}\!\left(\frac{\operatorname{BalAcc}-1/K}{1-1/K},0,1\right),\qquad s_{\mathrm{reg}}=\operatorname{clip}(R,0,1). (5) These scores describe the dataset’s target structure and exclude the performance of all methods evaluated in this paper. A.5 Meta-Feature Cleaning and Normalization Of the raw meta-features, 28 PyMFE statistics depend directly on the original measurement units, including means, standard deviations, extrema, covariances, and raw eigenvalues.
+Another 11 PyMFE counts or ratios duplicate the logarithmic or proportional representations in group A.
+The features has_target and target_missing_ratio are nearly constant in the current candidate pool.
+Removing these 41 dimensions leaves 72 meta-features.
+We apply no further within-group correlation pruning.
+PCA summarizes the remaining correlated variation in a lower-dimensional representation. For datasets without an identified target, missing group-D meta-features are imputed using the corresponding median over datasets with valid targets.
+All other missing values are imputed using the median of the corresponding dimension over the full candidate pool.
+Any meta-feature with more than 20% missing values would also be removed during preprocessing. Meta-features with at most two observed unique values are standardized using a z z -score. All other dimensions are mapped to a standard normal distribution by a QuantileTransformer ( Pedregosa et al., 2011 ) fitted with at most 200 quantiles, then clipped to [ − 3.5 , 3.5 ] [-3.5,3.5] : h ~ i ​ j = clip ⁡ [ Φ ⁡ ( F ^ j ​ ( h i ​ j ) ) , − 3.5 , 3.5 ] , \widetilde{h}_{ij}=\operatorname{clip}\!\left[\Phi\!\left(\widehat{F}_{j}(h_{ij})\right),-3.5,3.5\right], (6) where F ^ j \widehat{F}_{j} denotes the quantile map fitted with at most 200 empirical quantiles. Of the 72 retained dimensions, 69 use quantile normalization and 3 binary task-type indicators use z z -score standardization. A.6 PCA Representation, Clustering, and Representative Selection PCA representation. Let H ∈ ℝ H\in\mathbb{R} denote the standardized candidate-dataset matrix. We fit PCA ( Jolliffe, 2002 ) without whitening and choose the smallest dimension q q satisfying q = min ⁡ { r : ∑ j = 1 λ j ∑ j = 1 λ j ≥ 0.99 } . q=\min\left\{r:\frac{\sum_{j=1}\lambda_{j}}{\sum_{j=1}\lambda_{j}}\geq 0.99\right\}. (7) This gives q = 41 q=41 and 99.0726% cumulative explained variance. The 41 principal components (PCs) are linear combinations of the 72 meta-features, not a subset of 41 original features. Figure (b) plots the cumulative explained variance against the number of PCs and marks the 41-component cutoff required to reach the 99% threshold. Clustering and representative datasets. Let 𝐞 i ∈ ℝ \mathbf{e}_{i}\in\mathbb{R} denote the PCA coordinates of dataset 𝒟 i \mathcal{D}_{i} . We apply k k -means ( Lloyd, 1982 ) in this space with k = 50 k=50 , n_init = 10 =10 , and random seed 0. The clustering objective is min ⁡ ∑ i = 1 { a i } , { 𝝁 c } ⁡ ‖ 𝐞 i − 𝝁 a i ‖ 2 . \min_{\{a_{i}\},\{\bm{\mu}_{c}\}}\sum_{i=1}\left\|\mathbf{e}_{i}-\bm{\mu}_{a_{i}}\right\|_{2}. (8) Clusters are processed in decreasing order of size. Within each cluster, we select the candidate nearest to the centroid among those allowed by the same-source rule. Let ℰ c \mathcal{E}_{c} denote the set of eligible nonduplicate candidates when cluster c c is processed. The selected representative is 𝒟 c = arg ⁡ min 𝒟 i ∈ C c ∩ ℰ c ⁡ ‖ 𝐞 i − 𝝁 c ‖ 2 . \mathcal{D}_{c}=\arg\min_{\mathcal{D}_{i}\in C_{c}\cap\mathcal{E}_{c}}\left\|\mathbf{e}_{i}-\bm{\mu}_{c}\right\|_{2}. (9) The representative is an observed candidate dataset; the synthetic centroid cannot be evaluated directly. Same-source version suppression. Dataset names are converted to lowercase and stripped of nonalphanumeric characters. Two datasets are marked as potential versions of the same source if their normalized names are identical, or if the shorter normalized name has at least 5 characters and is a prefix of the other, provided that their sample counts differ by no more than a factor of 1.5. After one version is selected, other versions from the same source cannot represent later clusters. This procedure excludes 31 potential duplicates and selects one representative from each of the 50 clusters. Figure shows a two-dimensional UMAP projection ( McInnes et al., 2018 ) of the candidate datasets and selected representatives. Figure 11: Two-dimensional UMAP projection of the candidate datasets and selected representatives. Colors denote k k -means clusters, with the palette reused across clusters, and black circles mark the selected representative of each cluster. UMAP is used only for visualization; PCA, clustering, and representative selection are all performed in the high-dimensional space. A.7 Final Benchmark, Data Splits, and Structural Evaluation Set OpenML evaluation set. The 50 selected OpenML-hosted datasets comprise 26 binary-classification, 9 multiclass-classification, and 15 regression datasets. By source type, 40 datasets are real-world or derived from real-world data, 9 are synthetic, simulated, or manually constructed, and 1 combines real and synthetic data. Task type and source type are separate classification schemes. The datasets contain 106–53,940 samples and 4–126 features. The largest table has 690,000 cells, and 8 datasets contain native missing values. Fixed train–test split. Dataset selection is completed before the final train–test split. Let 𝒟 i = { z i ​ j } j = 1 \mathcal{D}_{i}=\{z_{ij}\}_{j=1} have sample-index set I i = { 1 , … , N i } I_{i}=\{1,\ldots,N_{i}\} . We define: 𝒟 i , train = { z i ​ j : j ∈ I i , train } , \displaystyle\mathcal{D}_{i,\mathrm{train}}=\{z_{ij}:j\in I_{i,\mathrm{train}}\},\qquad 𝒟 i , test = { z i ​ j : j ∈ I i , test } , \displaystyle\mathcal{D}_{i,\mathrm{test}}=\{z_{ij}:j\in I_{i,\mathrm{test}}\}, (10) I i , train ∩ I i , test = ∅ , \displaystyle I_{i,\mathrm{train}}\cap I_{i,\mathrm{test}}=\varnothing,\qquad I i , train ∪ I i , test = I i . \displaystyle I_{i,\mathrm{train}}\cup I_{i,\mathrm{test}}=I_{i}. By default, the data are split once in an 80%/20% ratio. Classification datasets are stratified by the target whenever class counts permit. Generation, imputation, and prediction share the same fixed split. All model parameters, value domains, category sets, and normalization statistics are determined only from the training set. Methods that require validation data create an internal split from the training set, while the test set is reserved for final held-out evaluation. Structural causal model evaluation set. In addition to the OpenML evaluation set, we include the six structural causal model datasets used by TabStruct ( Jiang et al., 2026 ) : Hailfinder, Healthcare, Insurance, Magic-Irri, Mehra, and Sangiovese. Their data-generating mechanisms or variable-dependence structures are specified in advance, allowing controlled evaluation of structural recovery. These datasets are excluded from the clustering of the OpenML candidate pool and are reported separately as the structural evaluation set. A.8 Complete Dataset Inventory Table 6 summarizes the complete 50-dataset OpenML
+evaluation set and the six-dataset structural evaluation set, including their
+task types, sample and feature counts, variable composition, and class
+statistics where applicable. Table 6: Complete inventory of the 56 benchmark datasets. N N combines
+the fixed training and test splits; D D excludes the target. Num., Cat.,
+and ID give the numbers of numerical, categorical, and identifier columns.
+Class counts and class-size ranges apply only to classification datasets. Dataset Source OML ID Task N N D D N / D N/D Num. Cat. ID Cls. Class min Class max adult-census OpenML 1119 Cls. 32,561 15 2170.73 6 8 1 2 7,841 24,720 allbp OpenML 40707 Cls. 3,772 29 130.07 6 23 0 3 14 3,609 Amazon_employee_access OpenML 46905 Cls. 32,769 9 3641.00 0 9 0 2 1,897 30,872 appendicitis_test OpenML 45589 Cls. 106 7 15.14 7 0 0 2 21 85 Australian OpenML 40981 Cls. 690 14 49.29 6 8 0 2 307 383 auto_price OpenML 745 Cls. 159 15 10.60 14 1 0 2 54 105 avocado_sales OpenML 43927 Reg. 18,249 13 1403.77 11 2 0 – – – bank32nh OpenML 833 Cls. 8,192 32 256.00 32 0 0 2 2,543 5,649 BNG-echoMonths OpenML 1199 Reg. 17,496 9 1944.00 6 3 0 – – – Brazilian_houses OpenML 44062 Reg. 10,692 11 972.00 8 3 0 – – – car_evaluation OpenML 43921 Cls. 1,728 6 288.00 0 6 0 4 65 1,210 cleveland OpenML 786 Cls. 303 13 23.31 6 7 0 2 139 164 colleges OpenML 42727 Reg. 7,063 45 156.96 32 12 1 – – – CPMP-2015-regression OpenML 41700 Reg. 2,108 25 84.32 23 2 0 – – – cpu_act OpenML 45029 Reg. 8,192 21 390.10 21 0 0 – – – credit_card_clients_default OpenML 46919 Cls. 30,000 23 1304.35 20 3 0 2 6,636 23,364 delta_ailerons OpenML 803 Cls. 7,129 5 1425.80 5 0 0 2 3,346 3,783 diamonds OpenML 46923 Reg. 53,940 9 5993.33 6 3 0 – – – E-CommereShippingData OpenML 46924 Cls. 10,999 10 1099.90 6 4 0 2 4,436 6,563 FICO-HELOC-cleaned OpenML 45554 Cls. 9,871 23 429.17 21 2 0 2 4,735 5,136 FOREX_audjpy-hour-High OpenML 41718 Cls. 43,825 10 4382.50 10 0 0 2 21,254 22,571 healthcare_insurance_expenses OpenML 46931 Reg. 1,338 6 223.00 3 3 0 – – – heloc OpenML 45026 Cls. 10,000 22 454.55 22 0 0 2 5,000 5,000 houses OpenML 46934 Reg. 20,640 8 2580.00 8 0 0 – – – JapaneseVowels OpenML 976 Cls. 9,961 14 711.50 14 0 0 2 1,614 8,347 jungle_chess_2pcs_raw_endgame_complete OpenML 41027 Cls. 44,819 6 7469.83 6 0 0 3 4,335 23,062 kc1 OpenML 1067 Cls. 2,109 21 100.43 21 0 0 2 326 1,783 KDDCup09_upselling OpenML 44186 Cls. 5,128 49 104.65 34 15 0 2 2,564 2,564 kr-vs-kp OpenML 3 Cls. 3,196 36 88.78 0 36 0 2 1,527 1,669 MiamiHousing2016 OpenML 43093 Reg. 13,932 16 870.75 16 0 0 – – – MiceProtein OpenML 40966 Cls. 1,080 81 13.33 77 3 1 8 105 150 mushroom OpenML 43923 Cls. 12,960 8 1620.00 0 8 0 5 2 4,320 ozone-level-8hr OpenML 1487 Cls. 2,534 72 35.19 72 0 0 2 160 2,374 pendigits OpenML 42857 Cls. 10,992 16 687.00 16 0 0 9 6 3,566 Performance-Prediction OpenML 43812 Cls. 1,340 19 70.53 19 0 0 2 509 831 planning-relax OpenML 1490 Cls. 182 12 15.17 12 0 0 2 52 130 primary-tumor OpenML 1003 Cls. 339 17 19.94 0 17 0 2 84 255 puma8NH OpenML 816 Cls. 8,192 8 1024.00 8 0 0 2 4,078 4,114 pwLinear OpenML 721 Cls. 200 10 20.00 10 0 0 2 97 103 qsar-biodeg OpenML 1494 Cls. 1,055 41 25.73 41 0 0 2 356 699 QSAR_fish_toxicity OpenML 46954 Reg. 907 6 151.17 6 0 0 – – – SolarPower OpenML 42328 Reg. 204 4 51.00 4 0 0 – – – steel-plates-fault OpenML 40982 Cls. 1,941 27 71.89 27 0 0 7 55 673 stock_fardamento02 OpenML 42545 Reg. 6,277 6 1046.17 5 1 0 – – – us_crime OpenML 42730 Reg. 1,994 126 15.83 126 0 0 – – – vehicle OpenML 994 Cls. 846 18 47.00 18 0 0 2 218 628 website_phishing OpenML 46963 Cls. 1,353 9 150.33 0 9 0 3 103 702 wine OpenML 44091 Cls. 2,554 11 232.18 11 0 0 2 1,277 1,277 wine_quality OpenML 44136 Reg. 6,497 11 590.64 11 0 0 – – – WineDataset OpenML 43571 Cls. 178 13 13.69 13 0 0 3 48 71 hailfinder TabStruct – Cls. 20,000 55 363.64 0 55 0 3 4,988 8,993 healthcare TabStruct – Reg. 20,000 6 3333.33 3 3 0 – – – insurance TabStruct – Cls. 20,000 26 769.23 0 26 0 4 367 11,176 magic-irri TabStruct – Reg. 20,000 63 317.46 63 0 0 – – – mehra TabStruct – Reg. 20,000 23 869.57 17 6 0 – – – sangiovese TabStruct – Cls. 20,000 14 1428.57 14 0 0 16 1,164 1,359 Appendix B Methods and Quality Metric Collection This appendix lists the selected method identities and the quality metrics
+displayed in Figures and . The collection
+contains 20 generation, 10 imputation, and 15 prediction metrics.
+The 20 retained semantic axes and their 42 metric members are specified
+separately in Table . B.1 Method capabilities Table 7 lists 45 selected method identities,
+including benchmark controls. G, I, and P denote generation, imputation, and
+prediction. Support refers to the implemented benchmark interface, including
+conditional or adaptation routes. Methods with the same configuration share
+one cell. Table 7: Selected methods grouped by benchmark capability. Each method is cited separately; symbols indicate supported and unsupported interfaces. Methods G I P ForestDiffusion-VP (joint) ( Jolicoeur-Martineau et al., 2024 ) ; Gaussian copula ( Patki et al., 2016 ) ; GReaT ( Borisov et al., 2023 ) ; LimiX-2 ( Zhang and others, 2026 ) ; TabDDPM ( Kotelnikov et al., 2023 ) ; TabDiff ( Shi et al., 2025 ) ; TabICLv2 ( Qu et al., 2026 ) ; TabPFN-3 + unsupervised ( Grinsztajn and others, 2026 ; Prior Labs, 2026 ) ; TabSyn ( Zhang et al., 2024 ) . ✓ \checkmark ✓ \checkmark ✓ \checkmark ForestDiffusion-VP (label-conditioned) ( Jolicoeur-Martineau et al., 2024 ) . ✓ \checkmark ✓ \checkmark × \times ARF ( Watson et al., 2023 ) ; Bayesian network ( Qian et al., 2023 ) ; CTGAN ( Xu et al., 2019 ) ; Independent marginals; NFlow ( Durkan et al., 2019 ; Qian et al., 2023 ) ; NRGBoost ( Bravo, 2025 ) ; SCM (DirectLiNGAM) ( Shimizu et al., 2011 ) ; SMOTE ( Chawla et al., 2002 ) ; SMOTE-NC ( Chawla et al., 2002 ) ; SMOTER-style interpolation ( Torgo et al., 2013 ) ; TabEBM ( Margeloiu et al., 2024 ) ; Training-row bootstrap ( Efron, 1979 ) ; TVAE ( Xu et al., 2019 ) . ✓ \checkmark × \times × \times DiffPuter ( Zhang et al., 2025 ) ; HyperImpute ( Jarrett et al., 2022 ) ; kNN imputation ( Troyanskaya et al., 2001 ; Pedregosa et al., 2011 ) ; Mean/mode imputation ( Pedregosa et al., 2011 ) ; Median/mode imputation ( Pedregosa et al., 2011 ) ; MICE ( van Buuren and Groothuis-Oudshoorn, 2011 ) ; MissForest ( Stekhoven and Bühlmann, 2012 ) ; ReMasker ( Du et al., 2024 ) ; TabCSDI ( Zheng and Charoenphakdee, 2022 ) ; TabImpute ( Feitelberg et al., 2025 ) . × \times ✓ \checkmark × \times CARD ( Han et al., 2022 ) ; CatBoost ( Prokhorenkova et al., 2018 ) ; FT-Transformer ( Gorishniy et al., 2021 ) ; LightGBM ( Ke et al., 2017 ) ; LightGBM-Quantile ( Ke et al., 2017 ) ; Logistic regression ( Pedregosa et al., 2011 ) ; MLP ( Pedregosa et al., 2011 ) ; NGBoost ( Duan et al., 2020 ) ; Random forest ( Breiman, 2001 ) ; Ridge regression ( Hoerl and Kennard, 1970 ; Pedregosa et al., 2011 ) ; TabM ( Gorishniy et al., 2025 ) ; XGBoost ( Chen and Guestrin, 2016 ) . × \times × \times ✓ \checkmark MICE and MissForest denote the benchmark implementations.
+ Independent marginals is a benchmark-defined control
+that samples each column independently from its empirical training marginal
+( methods/independent_marginal/adapter.py ).
+The analysis alias map assigns historical TabICL outputs to the displayed
+TabICLv2 identity. B.2 Quality metric collection The tables summarize each metric. Each stored key consists of a family
+prefix and a leaf name. Arrows indicate the ranking preference: ↑ \uparrow larger, ↓ \downarrow smaller, and → a \rightarrow a closer to a a .
+Superscript D denotes a paired replicate diagnostic. Privacy diagnostics do
+not constitute privacy guarantees. B.2.1 Generation Metrics compare real and synthetic tables. Table 8: Generation quality metric collection (20 metrics). Metric (exact leaf) Core meaning generation.fidelity.* ( SDV, 2026 ) categorical_tvd_error ↓ \downarrow Mismatch in categorical marginal distributions. mixed_association_error ↓ \downarrow Mismatch in pairwise association strengths across mixed column types. numerical_ks_error ↓ \downarrow Mismatch in numerical marginal distributions. pairwise_trend_error ↓ \downarrow Mismatch in signed numerical trends and categorical joint distributions. shape_error ↓ \downarrow Overall numerical and categorical marginal mismatch. generation.distinguishability.* ( Lopez-Paz and Oquab, 2017 ) gbdt_c2st_auroc → 0.5 \rightarrow 0.5 Real-versus-synthetic discrimination by gradient-boosted trees. logistic_c2st_auroc → 0.5 \rightarrow 0.5 Real-versus-synthetic discrimination by logistic regression. generation.query.* ( McKenna et al., 2019 ) one_way_error ↓ \downarrow Real-versus-synthetic discrepancy in one-column query answers. two_way_error ↓ \downarrow Real-versus-synthetic discrepancy in two-column query answers. three_way_error ↓ \downarrow Real-versus-synthetic discrepancy in three-column query answers. generation.support.* ( Alaa et al., 2022 ) alpha_precision ↑ \uparrow Fidelity of synthetic samples to real-data support. authenticity ↑ \uparrow Synthetic novelty under the benchmark’s real-row-based proxy. beta_recall_coverage ↑ \uparrow Coverage of real-data support by synthetic samples. generation.utility.* ( Esteban et al., 2017 ) global_utility_ratio ↑ \uparrow Synthetic-to-real predictive utility across column targets. tstr_gap → 0 \rightarrow 0 Target-prediction utility gap between synthetic-trained and real-trained models. generation.memorization.* exact_copy_rate ↓ \downarrow Frequency of exact training-record copies in synthetic data. generation.privacy.* ( Carlini et al., 2022 ) delta_presence ↓ \downarrow Cluster-level training-versus-synthetic presence discrepancy; a noncanonical benchmark diagnostic. distance_mia_auroc → 0.5 \rightarrow 0.5 Distance-based discrimination of training members from held-out nonmembers. distance_mia_tpr_at_1pct_fpr ↓ \downarrow Membership-attack sensitivity at a 1% false-positive rate. mean_min_euclidean_dcr ↑ \uparrow Euclidean separation between synthetic records and their nearest training records. B.2.2 Imputation Metrics describe masked-feature recovery in the target-observed setting. Table 9: Imputation quality metric collection (10 metrics). Metric (exact leaf) Core meaning imputation.point.* categorical_balanced_accuracy ↑ \uparrow Class-balanced accuracy of recovered categorical values. categorical_macro_f1 ↑ \uparrow Class-balanced precision and recall of recovered categorical values. macro_nmae ↓ \downarrow Normalized absolute error of numerical reconstruction. macro_nrmse ↓ \downarrow Normalized numerical reconstruction error, emphasizing larger errors. imputation.structure.* association_matrix_error ↓ \downarrow Relative distortion of pairwise dependence. categorical_jsd ↓ \downarrow Symmetric discrepancy in categorical value distributions. forward_kl ↓ \downarrow Directional mismatch from true to imputed value distributions. numeric_wasserstein1 ↓ \downarrow Normalized discrepancy in numerical value distributions. imputation.downstream.* utility_gap → 0 \rightarrow 0 Change in downstream predictive utility after imputation. imputation.robustness.* missingness_shift_degradation ↓ \downarrow Worst reconstruction degradation under changing missingness conditions. B.2.3 Prediction The collection distinguishes classification (10 metrics) from point regression (5 metrics). Table 10: Prediction quality metric collection (15 metrics). Metric (exact leaf) Core meaning prediction.classification.* accuracy ↑ \uparrow Fraction of correctly classified examples. average_precision ↑ \uparrow Precision-recall quality of probability-based class rankings. balanced_accuracy ↑ \uparrow Classification accuracy weighted equally across classes. macro_f1 ↑ \uparrow Balance of precision and recall, weighted equally across classes. mcc ↑ \uparrow Correlation between predicted and true class labels. roc_auc ↑ \uparrow Class discrimination across decision thresholds. prediction.calibration.* ( Geifman et al., 2019 ; Gneiting and Raftery, 2007 ; Guo et al., 2017 ) aurc ↓ \downarrow Prediction error as low-confidence cases are progressively withheld. brier_score ↓ \downarrow Squared discrepancy between class probabilities and observed outcomes. ece ↓ \downarrow Mismatch between predictive confidence and observed accuracy. log_loss ↓ \downarrow Probabilistic prediction error that penalizes confidently incorrect predictions. prediction.regression.* mae ↓ \downarrow Average absolute prediction error in target units. median_absolute_error ↓ \downarrow Typical absolute prediction error, less sensitive to outliers. nrmse ↓ \downarrow Prediction error relative to training-target variability. r2 ↑ \uparrow Prediction quality relative to a test-mean baseline. rmse ↓ \downarrow Prediction error in target units, emphasizing large residuals. Appendix C Metric-Space Audit: Protocol and Results Section defines the common-support rank protocol and the
+criteria for retaining capability axes. Table in the main text specifies their exact metric membership. This appendix
+describes the audit protocol and task-specific evidence for these choices.
+Appendix defines the metrics displayed in the two rank-correlation figures. For both generation and imputation, the mixed-type association matrix uses | r | |r| for numerical–numerical pairs, Cramér’s V V for
+categorical–categorical pairs ( Cramér, 1946 ) , and the
+correlation ratio η \eta for mixed pairs ( Pearson, 1905 ) . The two
+tasks use different scalar summaries of this shared representation:
+generation reports the mean absolute difference over comparable off-diagonal
+pairs and its complement, whereas imputation reports the relative Frobenius
+distance. The metrics compare the same pairwise dependence representation but are not
+numerically interchangeable. C.1 Audit protocol: common-support ranks before correlations After constructing the ranks in Equation , the
+pairwise audit retains only cells in which both quantities are observed,
+discards strata in which either metric is constant, requires at least three
+methods per stratum and at least 30 paired cells over six datasets, and
+computes the Pearson correlation of the pooled rank pairs (the
+Spearman-equivalent construction used by the audit). The catalog sets a k = 0.5 a_{k}=0.5 for C2ST and distance-MIA AUROC and a k = 0 a_{k}=0 for utility gaps. The
+catalog marks normalized median Gower DCR as neutral; analyses that require a
+direction use the explicit provisional target-one transform − | x − 1 | -|x-1| and do
+not promote it to confirmatory privacy evidence. For the spectral audit, c c is the fixed metric cohort.
+The strata are dataset for generation, dataset–missingness setting–rate–
+contract for imputation, and dataset–task type for prediction. Confidence
+intervals use 500 bootstrap resamples ( Efron, 1979 ) with whole
+datasets as the resampling units. For relationships with finite confidence intervals, we call a pair a redundancy candidate only when its oriented correlation satisfies ρ ≥ 0.85 \rho\geq 0.85 and the 95% dataset-bootstrap lower bound is at least 0.70 0.70 .
+Conversely, ρ ≤ − 0.50 \rho\leq-0.50 with an upper bound at most − 0.20 -0.20 marks a stable
+trade-off. These thresholds inform, but do not replace, semantic judgment.
+For the cluster counts in Table , we apply
+average linkage to 1 − | ρ | 1-|\rho| and cut at 0.15 0.15 . This absolute-correlation
+clustering detects both duplicate orderings and two-sided trade-offs; only the
+former can be pruned. The heatmap ordering instead uses signed distance 1 − ρ 1-\rho so that opposing directions remain visually separate.
+The orderings in
+Figures and display the empirical
+blocks; adjacency alone does not justify merging metrics. Figures and show the larger generation metric space separately from imputation and
+prediction to keep individual rank correlations legible. Figure 12: Generation rank-correlation geometry (main metric-audit
+view). Each cell reports the Pearson correlation ρ \rho of common-support,
+within-dataset percentile ranks after orienting values so that larger is
+better, rounded to two decimals. Red denotes aligned method orderings and
+blue denotes trade-offs; average-linkage ordering uses distance 1 − ρ 1-\rho .
+The map shows a dense marginal/query-fidelity block, while
+utility and β \beta -recall align with one another but oppose authenticity
+and distance-to-training diagnostics. White denotes correlation near
+zero. Figure 13: Rank-correlation geometry for imputation and prediction. Cell values report oriented rank correlation ρ \rho , rounded to two
+decimals, under the same common-support construction and color scale as
+Figure . Imputation contains tight
+numerical- and categorical-point-accuracy pairs but separates
+distributional, association, and utility quantities. Classification
+retains distinct hard-decision, proper-score, ranking/selective-risk, and
+calibration views despite broad shared signal. Regression exhibits an
+almost rank-equivalent squared-error block while retaining distinct
+absolute-error summaries. C.2 From correlation blocks to redundancy clusters Figures and inform metric selection.
+Within each task, a positive block supports pooling
+only when its metrics share an estimand; weakly aligned metrics are not pruned
+and can share a named construct only as reportable complementary probes;
+mixed-sign blocks are retained as explicit trade-offs. The following
+decisions account for each pooled family and retained direction in
+Table . Generation. The full 29-metric quality audit yields 17 local correlation clusters, the
+largest number among the three tasks. Figure shows the fixed 20-metric core; the full audit additionally evaluates alternate
+parameterizations and validity guards. The five marginal/query-fidelity metrics form
+the clearest positive block: pairwise correlations range from 0.823 0.823 to 0.990 0.990 , and eight of ten pairs pass the conservative redundancy rule. An
+equivalent shape metric brings the cluster to six.
+By contrast, the two C2ST variants are only moderately
+aligned ( ρ = 0.599 \rho=0.599 ), so linear and nonlinear distinguishability remain
+separate, reportable probes within the named C2ST axis rather than statistical
+substitutes. We pool the dense marginal/query block into fidelity , but
+keep α \alpha -precision, association recovery, and TSTR separate because
+support, dependence, and transfer are not interchangeable with marginal
+fidelity. Four removable generation metrics are exact alternative
+parameterizations; semantic review identifies only five additional metrics
+as substantive reductions. A signed cluster requires separate treatment. Global utility
+and β \beta -recall align ( ρ = 0.872 \rho=0.872 ), whereas authenticity opposes both
+global utility ( ρ = − 0.881 \rho=-0.881 ) and β \beta -recall ( ρ = − 0.973 \rho=-0.973 ). Absolute
+correlation therefore places them nearby, but they measure opposite ends of a
+support–novelty trade-off and each must remain reportable. The privacy metrics
+also resist reduction: mean-min Euclidean DCR has correlations of 0.464 0.464 , 0.630 0.630 , and 0.720 0.720 with MIA TPR@1%, MIA AUROC, and delta presence. We group
+these as privacy-risk diagnostics because they provide complementary
+views of record proximity, membership inference, and group-presence
+disclosure, rather than estimates of one interchangeable quantity. None is
+a privacy guarantee, and exact-copy rate remains a separate memorization
+guardrail. These decisions yield the seven generation axes in
+Table . Imputation. The imputation panel of
+Figure contains ten quality
+metrics in eight clusters, six of them singletons. The only stable
+substitutions are numerical NMAE–NRMSE ( ρ = 0.947 \rho=0.947 , 95% CI [ 0.931 , 0.959 ] [0.931,0.959] ) and categorical balanced accuracy–macro-F1 ( ρ = 0.925 \rho=0.925 , [ 0.899 , 0.949 ] [0.899,0.949] ). Point accuracy therefore does not subsume distribution
+matching, association recovery, or downstream utility. Missingness-shift
+degradation is nearly orthogonal to all level metrics, but constant imputers
+can appear artificially robust because their overall performance is already at
+a floor; we retain it as a paired diagnostic rather than a standalone ranking
+axis. Draw-level quantities likewise remain diagnostic rather than entering
+the reduced headline registry. Accordingly, Table averages only the two point-recovery pairs and retains distribution,
+association, and utility as separate headline axes. Prediction. The prediction panels in
+Figure show four observed
+clusters among the ten classification metrics. Hard-decision correlations
+range from 0.882 0.882 to 0.971 0.971 ; Brier score and log loss correlate at 0.951 0.951 ;
+and correlations among ROC–AUC, average precision, and AURC range from 0.909 0.909 to 0.943 0.943 .
+Accordingly, Table pools hard decisions, proper scores,
+and ranking/selective risk within their respective axes, while ECE remains a
+singleton because calibration is not equivalent to discrimination, proper
+scoring, or selective prediction. In regression, R R , NRMSE, and RMSE
+induce almost identical method orderings ( ρ > 0.999 \rho>0.999 ), MAE joins this block at
+the 0.85 0.85 cut, and median absolute error remains separate. We nevertheless
+report MAE independently because mean absolute and squared error encode
+different loss functionals. Cluster membership indicates similar rankings
+but does not make the estimands interchangeable. This yields four classification and
+three regression axes in Table . C.3 Construct-specific stress tests Controlled synthetic examples illustrate how selected metrics respond to
+specific perturbations.
+Independently shuffling columns preserves their marginal distributions while
+disrupting associations; replaying training rows can improve apparent fidelity
+while worsening memorization diagnostics; marginal-only imputation can
+approximate univariate distributions without accurately recovering individual
+entries or joint structure; and monotone probability rescaling can alter
+calibration without changing ranking. In these examples, marginal fidelity,
+dependence, memorization, point recovery, and calibration metrics respond
+differently to the imposed perturbations. C.4 Reliability qualifies every redundancy claim Measurement noise can obscure correlation structure or create apparent
+structure. Figure therefore reports dataset-
+blocked rank ICC ( Shrout and Fleiss, 1979 ) alongside two operational quantities. The separated-pair
+fraction counts method pairs whose replicate-mean difference exceeds 1.96 1.96 times the seed-level standard error of the difference; this threshold describes resolving power
+and is not a significance test. Top-method agreement is the mean Jaccard overlap of
+the best-method sets across replicate pairs. These summaries measure different properties: even a highly repeatable
+metric may identify different winners when several methods perform similarly. Among selected direction-defined generation
+components, rank ICCs range from 0.592 0.592 to 0.963 0.963 . MIA TPR@1% and MIA AUROC form the low end at 0.592 0.592 and 0.674 0.674 ,
+and winner agreement can be as low as 0.161 0.161 . These values support
+retaining component-level privacy diagnostics alongside their summary.
+For classification, correcting correlations by the three-seed test–retest
+reliabilities merges hard-decision, proper-score, and ranking metrics at the
+same 0.85 0.85 cut, while ECE remains separate. We treat this correction as a sensitivity
+analysis rather than a mechanical selection rule: it supports one broad
+predictive-quality factor plus a distinct calibration direction. Figure 14: Reliability and operational discrimination (auxiliary
+metric-audit view). Each point is a direction-defined, informative catalog
+metric from generation or prediction with at least 20 repeated cells across
+at least eight datasets. The dashed line is a visual reference at rank
+ICC = 0.80 =0.80 ; the shaded region lies below it. Left: the fraction of
+repeated method pairs separated by more than 1.96 1.96 times the seed-level
+standard error of their difference. Right: agreement of top-method sets
+across replicate pairs. Repeatability, pairwise
+resolving power, and winner stability are related but non-equivalent
+properties. C.5 Compressed, but not one-dimensional The PCA audit ( Jolliffe, 2002 ) uses each task’s full quality cohort. The Kaiser rule ( Kaiser, 1960 ) retains
+five generation components
+(80% cumulative variance; PC1 53%), three imputation components (74%; 41%),
+two classification components (88%; 75%), and one regression component
+(86%; 86%). These counts are smaller than the corresponding 17 / 8 / 4 / 2 17/8/4/2 local clusters because PCA captures shared variation rather than
+pairwise substitutability. A dominant quality factor can
+coexist with a scientifically important low-variance direction such as
+calibration or typical absolute error. Figure shows a complementary spectrum for the fixed
+core cohorts used in the heatmaps. The
+participation-ratio effective rank is 3.15 3.15 for the ten imputation-core
+metrics and 2.87 2.87 for the twenty generation-core metrics; reaching 90%
+spectrum mass requires five and eight components, respectively.
+Classification and point regression are more compressed ( 1.55 1.55 and 1.28 1.28 ),
+consistent with the tight blocks in
+Figure . These values
+describe a correlation spectrum, not performance. Because pairwise
+correlations can use different common-support cells, the assembled matrix need
+not be positive semidefinite; negative eigenvalues are clipped only for this
+descriptive spectrum. Compression does not imply one-dimensionality: the retained semantic axes preserve stable trade-offs and
+distinct estimands that a purely spectral summary would blend. Using the retained axis counts ( 7 , 6 , 4 , 3 ) (7,6,4,3) only as dimensionality budgets, the
+corresponding leading eigenspaces retain 88.22 % 88.22\% , 95.46 % 95.46\% , 96.49 % 96.49\% , and 99.99 % 99.99\% of the nonnegative spectrum for generation, imputation,
+classification, and regression. These are optimal same-dimensional spectral
+upper bounds, not the mass captured by the particular semantic composites.
+For the latter, let R + R_{+} denote the nonnegative-eigenvalue reconstruction of
+the correlation matrix and let W W encode the equal-weight composite members.
+We report the reconstruction fraction 𝒞 ⁡ ( W ) = tr ⁡ [ R + ​ W ​ ( W ​ R + ​ W ) ​ W ​ R + ] tr ⁡ ( R + ) , \mathcal{C}(W)=\frac{\operatorname{tr}\!\left[R_{+}W(WR_{+}W)WR_{+}\right]}{\operatorname{tr}(R_{+})}, (11) where ( ⋅ ) (\cdot) is the Moore–Penrose inverse. The final composite spans
+retain 79.65 % 79.65\% , 86.21 % 86.21\% , 96.40 % 96.40\% , and 99.99 % 99.99\% , respectively. The
+generation value is necessarily partial: normalized median Gower DCR is
+neutral and therefore absent from R + R_{+} , so only the direction-defined members
+of the privacy-risk diagnostics axis enter this projection. Figure 15: Residual effective dimensionality (auxiliary
+metric-audit view). Left: participation-ratio effective rank, ( ∑ j λ j ) / ∑ j λ j (\sum_{j}\lambda_{j})/\sum_{j}\lambda_{j} , using the nonnegative-clipped
+correlation spectrum. Right: cumulative spectrum mass, with 80% and
+90% guides. A cohort is shown only when every metric pair satisfies the
+common-support criteria stated above. “Imputation core” and
+“Imputation draws” use the target-observed contract; feature-only
+imputation is analyzed separately. The eight-metric draws spectrum
+summarizes additional distributional metrics. Generation SCM reports
+four structural/association quantities for the six SCM datasets,
+separately from the twenty-metric generation core. The curves summarize
+within-cohort compression. Appendix D Task Rank Analysis Details This appendix details the procedure and aligned support for the cross-task rank analysis in Section .
+We compare method rankings across generation (G), imputation (I), classification prediction (P-cls), and regression prediction (P-reg).
+For each task pair, we restrict the analysis to the common method pool and recompute within-dataset ranks on the aligned support.
+This controls for differences in method availability, dataset difficulty, and metric scale. D.1 Task Settings and Shared Support Input units. The input table for each task is indexed by ( d , m ) (d,m) , where d d denotes a
+dataset and m m denotes a method. Each column contains one evaluation metric
+for that task. Raw records are first grouped using the declared
+seed/replicate fields and then averaged after metric orientation.
+Prediction datasets are separated into P-cls and P-reg according to task type. For imputation, we use
+the target-observed MCAR setting with a missing rate of 0.3 0.3 . Metric direction. We orient metrics with a clear optimization direction so that higher values indicate better performance.
+We negate metrics for which lower values are better, use − | x | -|x| for metrics whose ideal value is 0 0 , and use − | x − 0.5 | -|x-0.5| for metrics whose ideal value is 0.5 0.5 .
+Neutral diagnostics retain their stored direction.
+For these diagnostics, a correlation sign describes the relation to the stored direction; it does not by itself indicate better or worse performance. Common method pool. For tasks a a and b b , the common method pool is defined as ℳ a ​ b = ℳ a ∩ ℳ b \mathcal{M}_{ab}=\mathcal{M}_{a}\cap\mathcal{M}_{b} .
+Classification and regression use the same candidate intersections for I–P and G–P, but are analyzed independently on their respective dataset subsets.
+Table reports the task-family candidate pools.
+We align support separately for each axis pair, retaining only dataset–method
+units with valid values for all declared members on both sides. Table 11: Candidate method pools and member-complete aligned support for
+each task pair. “Datasets” and n n give the axis-pair ranges of
+effective datasets and valid ( dataset , method ) (\text{dataset},\text{method}) units,
+respectively. Task pair Candidate pool Datasets Range of n n Candidate methods I × \times P-cls 9 13–38 92–287 Forest-VP Joint, Gaussian Copula, GReaT, LimiX-2, TabDDPM, TabDiff, TabICLv2, TabPFN-3, TabSyn I × \times P-reg 9 6–18 44–139 Forest-VP Joint, Gaussian Copula, GReaT, LimiX-2, TabDDPM, TabDiff, TabICLv2, TabPFN-3, TabSyn G × \times I 10 12–56 98–482 Forest-VP, Forest-VP Joint, Gaussian Copula, GReaT, LimiX-2, TabDDPM, TabDiff, TabICLv2, TabPFN-3, TabSyn G × \times P-cls 9 30–38 246–300 Forest-VP Joint, Gaussian Copula, GReaT, LimiX-2, TabDDPM, TabDiff, TabICLv2, TabPFN-3, TabSyn G × \times P-reg 9 18 138–141 Forest-VP Joint, Gaussian Copula, GReaT, LimiX-2, TabDDPM, TabDiff, TabICLv2, TabPFN-3, TabSyn D.2 Computing Axis-Pair Correlations Cell-wise alignment. For capability axes ( c , c ) (c,c) from tasks ( a , b ) (a,b) , let 𝒦 c \mathcal{K}_{c} and 𝒦 c \mathcal{K}_{c} denote their fixed member-metric sets. We define the
+aligned support for this axis pair as 𝒮 c ​ c = { ( d , m ) : m ∈ ℳ a ​ b , ⋀ k ∈ 𝒦 c v d ​ m ​ k is valid , ⋀ ℓ ∈ 𝒦 c v d ​ m ​ ℓ is valid } . \mathcal{S}_{cc}=\left\{(d,m):m\in\mathcal{M}_{ab},\;\bigwedge_{k\in\mathcal{K}_{c}}v_{dmk}\ \text{is valid},\;\bigwedge_{\ell\in\mathcal{K}_{c}}v_{dm\ell}\ \text{is valid}\right\}. (12) Thus, a ( d , m ) (d,m) unit is retained only when all declared members are valid on
+both sides. We construct 𝒮 c ​ c \mathcal{S}_{cc} independently for every
+axis pair rather than imposing complete support across all retained axes. Within-dataset percentile ranks. Let ℳ d , c ​ c = { m : ( d , m ) ∈ 𝒮 c ​ c } \mathcal{M}_{d,cc}=\{m:(d,m)\in\mathcal{S}_{cc}\} .
+Every member metric on both sides is ranked over this same method set: r d , m , k = rank avg ⁡ ( v d , m , k ; { v d , m , k : m ∈ ℳ d , c ​ c } ) | ℳ d , c ​ c | ∈ ( 0 , 1 ] . r_{d,m,k}=\frac{\operatorname{rank}_{\mathrm{avg}}\!\left(v_{d,m,k};\{v_{d,m,k}:m\in\mathcal{M}_{d,cc}\}\right)}{|\mathcal{M}_{d,cc}|}\in(0,1]. (13) Methods with identical metric values receive the average of the ranks
+they occupy. Percentile ranks are normalized by the size of the aligned method
+set and therefore lie in ( 0 , 1 ] (0,1] , with the smallest possible value equal to 1 / | ℳ d , c ​ c | 1/|\mathcal{M}_{d,cc}| . Axis aggregation. Following Equation , the axis score is the
+equal-weight mean of the declared member percentile ranks: a d , m , c = 1 | 𝒦 c | ​ ∑ k ∈ 𝒦 c r d , m , k . a_{d,m,c}=\frac{1}{|\mathcal{K}_{c}|}\sum_{k\in\mathcal{K}_{c}}r_{d,m,k}. (14) The member set is fixed at 𝒦 c \mathcal{K}_{c} , and no additional standardization
+is applied after ranking. Member-complete alignment ensures that each axis
+score includes all its declared members. Pooled Spearman correlation. After constructing the axis scores, we compute ρ c ​ c = Spearman ⁡ ( { a d , m , c : ( d , m ) ∈ 𝒮 c ​ c } , { a d , m , c : ( d , m ) ∈ 𝒮 c ​ c } ) \rho_{cc}=\operatorname{Spearman}\left(\{a_{d,m,c}:(d,m)\in\mathcal{S}_{cc}\},\{a_{d,m,c}:(d,m)\in\mathcal{S}_{cc}\}\right) (15) over all units in 𝒮 c ​ c \mathcal{S}_{cc} . This is a single correlation over
+the pooled dataset–method units; we do not first compute a correlation within
+each dataset and then average correlations across datasets. A correlation is
+left undefined when fewer than 10 paired units remain. D.3 Leave-One-Method-Out Influence Diagnostics For every method u ∈ ℳ a ​ b u\in\mathcal{M}_{ab} , define the reduced method pool ℳ a ​ b = ℳ a ​ b ∖ { u } \mathcal{M}_{ab}=\mathcal{M}_{ab}\setminus\{u\} . After each removal,
+we recompute the aligned support, within-dataset percentile
+ranks, axis scores, and final correlation ρ c ​ c \rho_{cc} . A deletion
+is a no-op when it changes no valid unit for that axis pair. Let ℰ c ​ c \mathcal{E}_{cc} contain the effective deletions with finite
+recomputations. The LOMO sensitivity range and span are ℛ c ​ c = [ min u ∈ ℰ c ​ c ⁡ ρ c ​ c , max u ∈ ℰ c ​ c ⁡ ρ c ​ c ] , Δ c ​ c = max u ∈ ℰ c ​ c ⁡ ρ c ​ c − min u ∈ ℰ c ​ c ⁡ ρ c ​ c . \mathcal{R}_{cc}=\left[\min_{u\in\mathcal{E}_{cc}}\rho_{cc},\max_{u\in\mathcal{E}_{cc}}\rho_{cc}\right],\qquad\Delta_{cc}=\max_{u\in\mathcal{E}_{cc}}\rho_{cc}-\min_{u\in\mathcal{E}_{cc}}\rho_{cc}. (16) An axis pair is called LOMO-direction-preserving when every effective
+recomputation has the same sign as its full-pool correlation. No-op deletions
+are excluded from the sign-agreement denominator and the effective deletion
+count. A dagger () marks axis pairs for which an effective
+deletion changes sign or produces zero correlation. The LOMO range is an influence
+diagnostic for the composition of the method pool, not a confidence interval
+or a significance test. D.4 Cross-Task Axis-Level Correlations and LOMO Stability Imputation and classification prediction (I × \times P-cls). Among the 24 axis pairs, 13 are LOMO-direction-preserving. Numerical point
+accuracy, association, and downstream utility gap have positive,
+direction-preserving correlations with all four classification axes.
+Categorical point accuracy has this relation only with hard-decision
+performance; neither distribution axis has a direction-preserving
+classification relation. Figure 16: Axis-pair LOMO diagnostics for I × \times P-cls. From upper left to lower right, the panels show the pooled Spearman correlation for the full method pool, the median correlation across valid, effective single-method deletions, the LOMO span, and the fraction of effective deletions preserving the full-pool sign. Red and blue denote positive and negative correlations; sequential blue encodes the latter two diagnostics. A dagger () marks axis pairs for which at least one effective deletion changes sign or produces zero correlation. Each deletion requires realigning support, reranking within datasets, and recomputing axis scores; no-op deletions are excluded from the effective denominator. LOMO ranges are sensitivity diagnostics, not confidence intervals. Imputation and regression prediction (I × \times P-reg). Fourteen of the 18 axis pairs are LOMO-direction-preserving. Numerical point
+accuracy, numerical distribution, association, and downstream utility gap have
+positive, direction-preserving correlations with all three regression axes.
+Categorical point accuracy also preserves a positive direction with
+squared error and mean absolute error, but not median error; categorical
+distribution is direction-unstable for all three. Figure 17: Axis-pair LOMO diagnostics for I × \times P-reg. From upper left to lower right, the panels show the pooled Spearman correlation for the full method pool, the median correlation across valid, effective single-method deletions, the LOMO span, and the fraction of effective deletions preserving the full-pool sign. Red and blue denote positive and negative correlations; sequential blue encodes the latter two diagnostics. A dagger () marks axis pairs for which at least one effective deletion changes sign or produces zero correlation. Each deletion requires realigning support, reranking within datasets, and recomputing axis scores; no-op deletions are excluded from the effective denominator. LOMO ranges are sensitivity diagnostics, not confidence intervals. Generation and imputation (G × \times I). Of the 42 G × \times I pairs, 36 are LOMO-direction-preserving. TSTR gap and
+global-utility compromise are positive for all six imputation axes.
+Privacy-risk diagnostics are negative for five axes; numerical distribution is the exception. Fidelity preserves direction for five pairs, C2ST for four,
+and both α \alpha -precision and association for five; their signs remain
+axis-specific. Figure 18: Axis-pair LOMO diagnostics for G × \times I. From upper left to lower right, the panels show the pooled Spearman correlation for the full method pool, the median correlation across valid, effective single-method deletions, the LOMO span, and the fraction of effective deletions preserving the full-pool sign. Red and blue denote positive and negative correlations; sequential blue encodes the latter two diagnostics. A dagger () marks axis pairs for which at least one effective deletion changes sign or produces zero correlation. Each deletion requires realigning support, reranking within datasets, and recomputing axis scores; no-op deletions are excluded from the effective denominator. LOMO ranges are sensitivity diagnostics, not confidence intervals. Generation and classification prediction (G × \times P-cls). Seventeen of the 28 pairs are LOMO-direction-preserving. Fidelity and C2ST
+are negative with all four classification axes, while TSTR gap and
+global-utility compromise are positive with all four. Privacy-risk
+diagnostics also have positive, direction-preserving correlations with proper
+scores. All α \alpha -precision and association pairs are
+direction-unstable. Figure 19: Axis-pair LOMO diagnostics for G × \times P-cls. From upper left to lower right, the panels show the pooled Spearman correlation for the full method pool, the median correlation across valid, effective single-method deletions, the LOMO span, and the fraction of effective deletions preserving the full-pool sign. Red and blue denote positive and negative correlations; sequential blue encodes the latter two diagnostics. A dagger () marks axis pairs for which at least one effective deletion changes sign or produces zero correlation. Each deletion requires realigning support, reranking within datasets, and recomputing axis scores; no-op deletions are excluded from the effective denominator. LOMO ranges are sensitivity diagnostics, not confidence intervals. Generation and regression prediction (G × \times P-reg). Nine of the 21 pairs are LOMO-direction-preserving. TSTR gap and
+global-utility compromise are positive with all three regression axes.
+Fidelity and C2ST are negative only against squared error, while α \alpha -precision is positive only against median error. Every association
+and privacy-risk pair is direction-unstable. Figure 20: Axis-pair LOMO diagnostics for G × \times P-reg. From upper left to lower right, the panels show the pooled Spearman correlation for the full method pool, the median correlation across valid, effective single-method deletions, the LOMO span, and the fraction of effective deletions preserving the full-pool sign. Red and blue denote positive and negative correlations; sequential blue encodes the latter two diagnostics. A dagger () marks axis pairs for which at least one effective deletion changes sign or produces zero correlation. Each deletion requires realigning support, reranking within datasets, and recomputing axis scores; no-op deletions are excluded from the effective denominator. LOMO ranges are sensitivity diagnostics, not confidence intervals. D.5 Complete Leave-One-Method-Out Grids Figures – show the complete correlation grids for the full candidate pool and every LOMO recomputation.
+Each task pair occupies two pages for legibility.
+Each cell contains the pooled correlation coefficient.
+The grids identify which method removals account for changes in direction or large LOMO spans. Figure 21: Complete leave-one-method-out results for I × \times P-cls (part 1 of 2). The “Full method pool” panel is the baseline; every other panel removes the named method. Each cell reports the pooled Spearman correlation. Red and blue denote positive and negative correlations. Support alignment, within-dataset ranks, and capability-axis scores are recomputed for every panel. Figure 22: Complete leave-one-method-out results for I × \times P-cls (part 2 of 2), continuing Figure . The encoding and recomputation procedure are unchanged. A panel can match the baseline when the named deletion is a no-op for that axis pair; these deletions are excluded from the sign-agreement denominator. Figure 23: Complete leave-one-method-out results for I × \times P-reg (part 1 of 2). The “Full method pool” panel is the baseline; every other panel removes the named method. Each cell reports the pooled Spearman correlation. Red and blue denote positive and negative correlations. Support alignment, within-dataset ranks, and capability-axis scores are recomputed for every panel. Figure 24: Complete leave-one-method-out results for I × \times P-reg (part 2 of 2), continuing Figure . The encoding and recomputation procedure are unchanged. A panel can match the baseline when the named deletion is a no-op for that axis pair; these deletions are excluded from the sign-agreement denominator. Figure 25: Complete leave-one-method-out results for G × \times I (part 1 of 2). The “Full method pool” panel is the baseline; every other panel removes the named method. Each cell reports the pooled Spearman correlation. Red and blue denote positive and negative correlations. Support alignment, within-dataset ranks, and capability-axis scores are recomputed for every panel. Figure 26: Complete leave-one-method-out results for G × \times I (part 2 of 2), continuing Figure . The encoding and recomputation procedure are unchanged. A panel can match the baseline when the named deletion is a no-op for that axis pair; these deletions are excluded from the sign-agreement denominator. Figure 27: Complete leave-one-method-out results for G × \times P-cls (part 1 of 2). The “Full method pool” panel is the baseline; every other panel removes the named method. Each cell reports the pooled Spearman correlation. Red and blue denote positive and negative correlations. Support alignment, within-dataset ranks, and capability-axis scores are recomputed for every panel. Figure 28: Complete leave-one-method-out results for G × \times P-cls (part 2 of 2), continuing Figure . The encoding and recomputation procedure are unchanged. A panel can match the baseline when the named deletion is a no-op for that axis pair; these deletions are excluded from the sign-agreement denominator. Figure 29: Complete leave-one-method-out results for G × \times P-reg (part 1 of 2). The “Full method pool” panel is the baseline; every other panel removes the named method. Each cell reports the pooled Spearman correlation. Red and blue denote positive and negative correlations. Support alignment, within-dataset ranks, and capability-axis scores are recomputed for every panel. Figure 30: Complete leave-one-method-out results for G × \times P-reg (part 2 of 2), continuing Figure . The encoding and recomputation procedure are unchanged. A panel can match the baseline when the named deletion is a no-op for that axis pair; these deletions are excluded from the sign-agreement denominator. Appendix E Controlled Transfer: Protocol and Additional Diagnostics This section expands the matched-objective study in Section .
+It specifies complete-member matching, inference policies, uncertainty,
+backbone heterogeneity, conditional interactions, and objective-arm Pareto
+frontiers. The implementation and re-evaluation inventory appear in
+Appendix . E.1 Seven-arm member-complete construction The intervention unit is a fixed backbone–dataset–training-seed block, with
+arms 𝒞 = { G , I , P , G ​ I , G ​ P , I ​ P , G ​ I ​ P } \mathcal{C}=\{G,I,P,GI,GP,IP,GIP\} . JapaneseVowels, cleveland,
+credit_card_clients_default, and website_phishing are classification
+datasets; MiamiHousing2016 is the only regression dataset. Table gives their OpenML identifiers and fixed splits. Within each atomic setting,
+we orient every metric member and assign average-tie ranks across exactly the
+seven arms, normalized to [ 0 , 1 ] [0,1] . Members receive equal weight within an
+axis, which is formed only when every declared member is finite for every
+arm. Imputation mechanism and rate remain separate through ranking and
+matching; setting-level contrasts are then averaged with equal weight.
+Structural applicability follows the task contract. Complete-member support
+is required within a backbone, not across an identical rectangle of all
+backbones, datasets, and seeds. The causal population comprises Gaussian Copula, Forest-VP Joint, TabDiff,
+TabSyn, and TabDDPM. Forest-VP Joint uses native query-masked trees: unqueried
+tasks contribute neither gradients nor Hessians. GReaT is excluded from the
+factorial contrasts. For the four diffusion-based backbones, I and P
+recipients use clean observed features ( x 0 x_{0} ) when their objective is enabled
+and the x t x_{t} conditioning path otherwise. Gaussian Copula uses its native
+Gaussian conditional query in every arm. Recipient-conditioned contrasts
+hold the relevant rule fixed on both sides.
+Generation inference is fixed across arms. I/P self-inclusion and cross-arm
+Pareto comparisons additionally involve the policy switch in the four
+selector-based adapters. In G × I | P G\times I\mid P , generation and prediction
+rules remain fixed, but the I rule changes in those adapters when I is
+toggled; I-side interactions therefore cannot be attributed solely to
+changes in the training loss. E.2 Uncertainty and robustness Intervals use 2,000 crossed-bootstrap draws ( Efron, 1979 ; Owen and Eckles, 2012 ) ,
+resampling backbones and datasets and then seeds within selected blocks,
+with all arms paired. Two-sided Wilcoxon diagnostics ( Wilcoxon, 1945 ) use backbone–dataset means and receive Holm adjustment ( Holm, 1979 ) within each analysis family. A robust marker requires a bootstrap interval
+excluding zero, adjusted p < .05 p<.05 , magnitude at least .05 .05 rank units,
+all five backbones represented, at least two datasets, and non-zero
+backbone-specific means sharing one sign. Dataset-sign and
+leave-one-backbone summaries are diagnostics rather than additional gate
+conditions. The analysis reports 40 off-diagonal estimates, of which 28 meet the
+support requirement; none passes the full gate. Of 20 self-inclusion
+estimates, 14 are support-eligible and 11 are robustly positive. Generation
+passes on fidelity, C2ST, α \alpha -precision, association, TSTR, and global
+utility. Imputation passes on association, categorical point accuracy,
+categorical distribution, numerical point accuracy, and downstream utility.
+Generation self-inclusion holds inference fixed. I/P self-inclusion also
+selects the inference policy in the four selector-based adapters and is a
+system-level comparison. Probability-based classification axes have only four
+backbones because TabDiff lacks probability outputs, while regression has
+only one dataset; neither group meets the full confirmatory support rule. E.3 Utility scope and backbone heterogeneity For P → \rightarrow G, retained TSTR is 0.092 ​ [ − 0.041 , 0.225 ] 0.092\;[-0.041,0.225] and global
+utility is − 0.008 ​ [ − 0.048 , 0.036 ] -0.008\;[-0.048,0.036] . A separate scope-matched per-column
+family yields target, all-column, and non-target effects of .069 .069 , − .019 -.019 ,
+and − .017 -.017 . The direct paired localization contrasts remain unresolved:
+target-minus-all is 0.088 ​ [ − 0.072 , 0.260 ] 0.088\;[-0.072,0.260] , and target-minus-non-target is 0.086 ​ [ − 0.110 , 0.278 ] 0.086\;[-0.110,0.278] ; both have Holm-adjusted p = .133 p=.133 .
+Figure shows the backbone variation behind pooled
+estimates rather than treating target alignment as an established mechanism. Figure 31: Backbone heterogeneity in recipient-conditioned
+transfer. Each cell is a backbone-specific matched rank change for one
+source–recipient axis. Columns GC, FVP, TD, TS, and TDD denote Gaussian
+Copula, Forest-VP Joint, TabDiff, TabSyn, and TabDDPM, respectively.
+These descriptive panels show variation behind
+pooled estimates and do not define an extra family of primary claims. Imputation mechanism and rate remain atomic throughout ranking and matching.
+All 144 setting-specific off-diagonal estimates fail the full robustness
+gate. Blank cells denote unavailable evaluations rather than zero effects. Figure 32: Transfer into imputation across missingness settings. Panels add G or P to an I recipient under its fixed clean-observation
+protocol. Each mechanism–rate setting is matched separately before
+equally weighted aggregation. Missing outcomes are left blank. E.4 Conditional interactions Of 60 anchor-conditional interaction estimates, 42 meet the support rule and
+seven pass the gate, all negative G × I | P G\times I\mid P effects:
+generation association ( − .315 -.315 ), C2ST ( − .393 -.393 ), fidelity ( − .468 -.468 ), and
+global utility ( − .154 -.154 ), and imputation association ( − .391 -.391 ), numerical
+point accuracy ( − .475 -.475 ), and utility gap ( − .284 -.284 ).
+These describe sub-additivity under the implemented anchored systems, not
+independent harm from G or I or an identified optimization mechanism.
+Generation-side comparisons hold their evaluation rule fixed; I-side
+interactions additionally include the change in conditioning policy.
+None of the 14 support-eligible GIP-versus-singleton gaps (20 reported
+estimates) establishes a robust universal advantage or tax. E.5 Complete-block Pareto analysis The candidates are the seven arms. A task coordinate averages its declared
+applicable semantic axes equally; the privacy-risk diagnostic is not part of
+the G quality coordinate. I first averages all twelve mechanism–rate scores
+within each axis. The primary block analysis retains a backbone’s
+training-seed block only when every applicable G/I/P axis and all twelve I
+settings are available for all seven arms. It retains 35 classification
+blocks from four backbones and 12 regression blocks from five backbones.
+TabDiff classification is omitted from this full-axis comparison because its
+probability axes are unavailable. Their joint summary has 47 blocks, with
+seeds, then datasets within each backbone, then backbones equally weighted;
+it is not a common cross-backbone rectangle. Regression conclusions concern
+MiamiHousing2016 alone. Exact dominance requires no loss on any task and a strict gain on one;
+material dominance requires no loss and a gain of at least ϵ = .05 \epsilon=.05 on
+one coordinate. The margin does not permit a .05 .05 loss on another task.
+Frontier membership is computed once in three dimensions, not separately in
+its pairwise projections. For point estimates, the exact and material sets
+coincide: joint { G ​ I , G ​ P , G ​ I ​ P } \{GI,GP,GIP\} , classification { G , G ​ I , G ​ P , G ​ I ​ P } \{G,GI,GP,GIP\} , and regression { G , G ​ I , G ​ P , I ​ P , G ​ I ​ P } \{G,GI,GP,IP,GIP\} .
+The joint exact-frontier bootstrap frequencies are 89.35 % 89.35\% for GI, 95.25 % 95.25\% for GP, and 98.55 % 98.55\% for GIP. These describe stability under
+resampling, not posterior optimality probabilities or significance levels.
+The Pareto bootstrap resamples backbones, then each selected backbone’s own
+datasets and seeds, preserving all-arm pairing. (a) Complete-axis classification: four backbones, 35 blocks. (b) Regression: five backbones, 12 blocks, one dataset. Figure 33: Objective-arm Pareto decompositions. Each subfigure
+shows three projections of one joint ( G , I , P ) (G,I,P) frontier and its bootstrap
+membership frequencies below. Black outlines mark exact-frontier arms;
+orange halos mark the ϵ = .05 \epsilon=.05 material frontier. E.6 Additional support checks The available-coordinate summary in Section retains an axis–setting coordinate when every arm is scored, without
+requiring the remaining axes or settings in that block. This permits
+TabDiff’s classification decision axis without its unavailable probability
+axes. A five-backbone classification check restricted to hard decisions
+retains 44 complete blocks and the frontier { G , G ​ I , G ​ P , G ​ I ​ P } \{G,GI,GP,GIP\} ; allowing
+available coordinates additionally retains IP. The regression frontier is
+unchanged. These checks explain why the main-text view and the stricter
+complete-block analysis need not select identical arms. Appendix F Fixed-Method Generality: Protocol and Additional Diagnostics This section expands the fixed-identity deployment study in
+Section . Following the main-text order, it presents strict
+estimands and specialist references, cross-task profile geometry, and portfolio
+and operational diagnostics. F.1 Strict estimands and fixed-specialist baselines The method analysis uses the 20 semantic axes and 42 metric members specified in
+Table . Replicates are aggregated first; each member is
+oriented and converted to percentile ranks with average ties within its
+protocol instance; and members receive equal weight under the member-complete construction.
+Target-observed and feature-only imputation are never placed in one
+denominator. The primary imputation estimand remains separate for every
+mechanism–rate setting; the cross-task display coordinate is their equally
+weighted mean, without reranking. A fixed specialist keeps one identity across every dataset and axis in its
+profile. Exact dominance is evaluated jointly in the full profile, and
+practical dominance permits an ϵ = 0.05 \epsilon=0.05 tolerance on every coordinate.
+Uncertainty is estimated using 2,000 bootstrap draws of whole datasets. Pairwise
+tests remove numerical ties at 10 10 , use a two-sided Wilcoxon signed-rank
+test, and apply Holm correction within each declared comparison family.
+Frontier frequency is a stability diagnostic, not a probability that a method
+is optimal. The historical per-cell oracle is retained only as an unattainable
+reference. The fixed-specialist pool includes ARF ( Watson et al., 2023 ) ,
+MissForest ( Stekhoven and Bühlmann, 2012 ) , DiffPuter ( Zhang et al., 2025 ) , KNN
+imputation ( Troyanskaya et al., 2001 ) , MICE ( van Buuren and Groothuis-Oudshoorn, 2011 ) , ReMasker ( Du et al., 2024 ) ,
+CatBoost ( Prokhorenkova et al., 2018 ) , TabM ( Gorishniy et al., 2025 ) , LightGBM ( Ke et al., 2017 ) , and
+Random Forest ( Breiman, 2001 ) . Table 12: Fixed specialist reference frontiers. For imputation, x / 12 x/12 is the number of separately evaluated mechanism–rate settings in which
+the method belongs to the indicated frontier; it is not a dataset-support
+count. The provisional generation privacy composite is excluded. Task profile Exact frontier ϵ = 0.05 \epsilon=0.05 frontier Generation, six specified axes ARF ARF Imputation, numerical targets MissForest 12 / 12 12/12 ; DiffPuter 12 / 12 12/12 ;
+KNN Imputer 4 / 12 4/12 ; MICE 1 / 12 1/12 MissForest 12 / 12 12/12 ; DiffPuter 11 / 12 11/12 ;
+KNN Imputer 2 / 12 2/12 Imputation, categorical targets MissForest 11 / 12 11/12 ; MICE 10 / 12 10/12 ;
+DiffPuter 6 / 12 6/12 ; KNN Imputer 2 / 12 2/12 ; ReMasker 2 / 12 2/12 MissForest 11 / 12 11/12 ; MICE 7 / 12 7/12 ; DiffPuter 3 / 12 3/12 Prediction, classification CatBoost; TabM CatBoost; TabM Prediction, regression LightGBM; LightGBM Quantile; Random Forest LightGBM Quantile; Random Forest Figure 34: Strict imputation specialist-frontier stability. The top panel evaluates numerical targets and the bottom panel categorical
+targets. Columns are the twelve target-observed mechanism–rate settings;
+cells give the frequency of membership in the ϵ = 0.05 \epsilon=0.05 fixed-specialist frontier under whole-dataset bootstrap resampling.
+Settings are not pooled when computing the frontier. MissForest is practically stable across all numerical settings, while
+DiffPuter is nearly as persistent; their advantage is therefore not an
+artifact of one missingness regime. Categorical imputation is less uniform:
+MissForest remains the most persistent reference, but MICE and DiffPuter enter
+the frontier in setting-dependent regions. Generation results involving the
+normalized median Gower DCR use the provisional target-one transformation − | x − 1 | -|x-1| and are excluded from confirmatory privacy claims. F.2 Cross-task profile geometry and controls Figure 35: Pairwise projections of the numerical-fidelity profile. From top to bottom, the panels show the G–I, G–P, and I–P projections;
+dominance is always computed jointly in all three coordinates. Blue
+circles are on the practical frontier, yellow squares are exact-only
+frontier points, gray circles are exactly dominated, and arrows show one
+representative dominance certificate. Figure 36: Pairwise projections of the downstream-utility profile. From top to bottom, the panels show the G–I, G–P, and I–P projections;
+symbols follow Figure , and dominance is
+computed in the full three-coordinate profile. The numerical-fidelity exact frontier contains Forest-VP Joint, Gaussian
+Copula, LimiX-2, TabDDPM, TabICLv2, and TabPFN-3, but only LimiX-2 and TabDDPM
+remain after the ϵ = 0.05 \epsilon=0.05 practical margin. The downstream-utility
+exact and practical frontiers both contain LimiX-2, TabDDPM, TabICLv2, and
+TabPFN-3. These sets are computed in three dimensions; the projections above
+are explanatory views rather than separate frontier calculations. Figure 37: Stability of named cross-task dominance relations. Panel (a) is numerical fidelity and panel (b) downstream utility. Rows
+are candidate dominators, columns are dominated methods, and cells give
+the whole-dataset bootstrap frequency of exact
+three-dimensional dominance. “D” marks dominance in the frozen point
+estimate. Figure 38: Generation–prediction controls without an imputation
+coordinate. Panel (a) compares generation fidelity with classification
+hard decisions; panel (b) compares TSTR utility with the same prediction
+axis. These two-dimensional controls avoid the
+aggregated imputation coordinate. F.3 Portfolio and operational diagnostics Figure 39: In-sample relation between fixed generalists and fixed
+specialist portfolios. Panel (a) is numerical fidelity and panel (b)
+downstream utility. Bars partition prespecified specialist triples into
+those that dominate the generalist, are dominated by it, or remain
+incomparable in the joint three-task geometry. This maps available
+trade-offs; it is not a held-out selection result. Specialist portfolios. The specialist portfolios in the bottom row of
+Figure are the following fixed
+generation–imputation–prediction triples: ARF, MissForest, and LightGBM for
+numerical fidelity; ARF, MissForest, and CatBoost for categorical fidelity;
+and ARF, DiffPuter, and Random Forest for downstream utility. Each profile
+uses one declared triple on every dataset in its common cohort.
+Bootstrap intervals summarize the paired gaps over those datasets. Figure 40: Diagnostic quality–cost view. The top panel is
+numerical fidelity and the bottom panel downstream utility. The vertical
+coordinate is worst-task percentile and the horizontal coordinate is
+tri-task inference time under a balanced workload. Stars mark the
+fixed-portfolio cost frontier and diamonds mark generalists. Costs refer to
+the displayed inference workload and serve as an operational diagnostic. F.4 Interpretation rules We use “associated” only for observational rank correlations, “transfers”
+only for matched objective contrasts, “dominates” only for a declared Pareto
+profile, and “portfolio comparison” only for the declared fixed specialist
+triples above. Criterion-overlap rows are retained as controls but
+do not count as independent cross-task evidence. Appendix G Implementation Details This appendix specifies the baseline settings, randomization conventions,
+controlled-transfer configurations, and computational environment.
+For benchmark implementations, method configurations, evaluation code, and
+installation and execution instructions, see the public OTBench repository: https://github.com/limix-ldm-ai/OTBench . G.1 Baseline configurations and evaluation protocol Configuration policy. Each baseline starts from a method-specific TOML configuration, with
+experiment-specific overrides applied before fitting. The benchmark runners
+instantiate these settings directly rather than running a shared external
+hyperparameter search. Table 13 summarizes the
+principal default settings for architecture, optimization, and inference; the
+full method configurations are available in the public OTBench repository . HyperImpute retains
+its native model selection for each column and iteration. Its classifier
+candidates are random forest, logistic regression, XGBoost, CatBoost, and neural
+networks; its regressor candidates are random forest, linear regression,
+XGBoost, CatBoost, and neural networks. It uses ten inner iterations, lazy
+selection, and an optimization threshold of 1,000. It fits each incomplete
+evaluation matrix through its transductive fit_transform interface. Training and validation. The data store supplies the fixed train–test split described in
+Appendix . TabDDPM, TabDiff, and TabSyn use a
+deterministic 10% validation subset of the training rows, selected with seed 0.
+Their training-data view redirects any upstream training-time “test” access to
+this validation subset. XGBoost, LightGBM, CatBoost, NGBoost,
+LightGBM-Quantile, FT-Transformer, TabM, and CARD’s guidance network use a
+20% internal validation split determined by the training seed. FT-Transformer
+and TabM use AdamW and retain the state with the lowest validation loss;
+their patience is 16 epochs. MLP uses scikit-learn’s internal early-stopping
+split. Ridge, logistic regression, and random forest fit their training rows
+without an additional benchmark validation split. Randomization and evaluation settings. The seed set is { 0 , 1 , 2 } \{0,1,2\} . Generation uses the same seed for
+training and sampling. Imputation uses paired seed tuples ( s train , s selection , s mask , s impute ) = ( s , s , s , s ) (s_{\rm train},s_{\rm selection},s_{\rm mask},s_{\rm impute})=(s,s,s,s) for s ∈ { 0 , 1 , 2 } s\in\{0,1,2\} , across MCAR, MAR, MNAR, and mixed MCAR/MAR/MNAR at rates { 0.1 , 0.3 , 0.5 } \{0.1,0.3,0.5\} . Prediction is evaluated separately for each training seed.
+Training seeds and conditional-sampling draws are distinct randomization levels. Table 13: Principal default baseline settings. Learning rates are denoted by LR, weight
+decay by WD, and batch size by B B . Budgets are expressed in the units used by
+each implementation. Full per-method TOML configurations are available in the public OTBench repository . Method Configuration Methods with generation or conditional-query interfaces TabDDPM MLP widths [ 1024 , 2048 , 2048 , 1024 ] [1024,2048,2048,1024] ; time embedding 128; 1,000 diffusion steps; cosine schedule; 100,000 updates, LR 10 10 , WD × 10 5\!\times\!10 , B = 4096 B=4096 ; quantile normalization. TabDiff Two layers, token width 4, one head, factor 32, time width 1,024; 50 sampling steps; 8,000 training epochs, LR 10 10 , EMA 0.997, B = 4096 B=4096 ; main and target-only prediction-guidance models. TabSyn Two-layer, width-4 VAE tokens; latent diffusion width 1,024; VAE 4,000 epochs and diffusion 10,001 epochs, LR 10 10 , B = 4096 B=4096 , patience 500; 50 sampling steps, 20 imputation resampling rounds. Forest-VP / Joint 50 time points, 100 noisy duplicates, 100 trees, depth 7, shrinkage 0.3; histogram trees; RePaint r = 5 r=5 , j = 0.1 j=0.1 ; inference row batches 256 (I) and 1,024 (G). Gaussian copula At most 1,000 marginal quantiles; 100 conditional samples for regression and 200 class-conditional samples. GReaT Training iteration parameter 5; at most 3,000 training rows; completion temperature 0.7, batch 100, maximum length 1,000, and at most 15 retries. CTGAN Generator/discriminator: two hidden layers of width 500; 100 training iterations, one discriminator step, LR 10 10 , WD 10 10 . TVAE Encoder/decoder: three hidden layers of width 500; embedding width 500; 100 training iterations, LR 10 10 , WD 10 10 . NFlow One hidden layer of width 100; rational-quadratic autoregressive transform with permutation; dropout 0.1; 1,000 iterations, LR 10 10 ; at most 2,000 training rows. ARF 30 trees, minimum node size 5, at most ten adversarial iterations, early stopping enabled. Bayesian network Tree structure search with K2 score; structure-learning iteration parameter 1,000; at most 10,000 training rows; 100-bin numerical discretization. SCM generator DirectLiNGAM causal-discovery backend. NRGBoost 200 trees, shrinkage 0.15, at most 256 leaves; 80,000 model samples, 16 chains, burn-in 100. TabEBM 200 SGLD steps, step size 0.1, noise standard deviation 0.01; at most 10,000 context rows; chunked one-hot inference. SMOTE / SMOTE-NC / SMOTER Five neighbors; task-appropriate numerical, mixed-type, or regression interpolation. Independent marginals / training-row bootstrap Empirical per-column sampling / empirical row sampling with replacement. Imputation specialists Mean/mode; median/mode; kNN Numerical mean or median with categorical mode; kNN uses five neighbors. MICE / MissForest Ten chained iterations / at most ten forest iterations with 100 trees and tolerance 10 10 . HyperImpute Five classifier and five regressor candidates; ten inner iterations; model selection by column and iteration; lazy selection threshold 1,000. ReMasker Encoder/decoder depths 6/4, width 32, four heads, MLP ratio 4; 600 epochs, B = 64 B=64 , mask ratio 0.5, 40 warmup epochs, base LR 10 10 , minimum LR 10 10 . TabCSDI Four diffusion layers, 64 channels, four heads; 50 quadratic-schedule steps; 250 epochs, LR × 10 5\!\times\!10 , B = 64 B=64 . DiffPuter Hidden width 1,024; ten EM rounds, 20 internal samples, 50 diffusion steps; at most 10,000 epochs per M-step, LR 10 10 , B = 4096 B=4096 , training-loss patience 500; warm start. TabImpute V2 pretrained weights; context cap 2,048 rows; test-row batch 256; 5,000 distribution bins; one point completion. Prediction specialists Ridge / logistic regression Ridge penalty α = 1 \alpha=1 / inverse regularization C = 1 C=1 ; logistic regression uses at most 1,000 solver iterations. Random forest 300 trees, minimum leaf size 1. XGBoost 500 estimators, depth 6, LR 0.1; row/column fractions 1; early-stopping patience 50. LightGBM 500 estimators, 31 leaves, LR 0.05, minimum child size 20; early-stopping patience 50. CatBoost 500 iterations, depth 6, LR 0.05, leaf L 2 = 3 L_{2}=3 ; early-stopping patience 50. MLP ReLU widths [ 256,128 ] [256,128] , L 2 = 10 L_{2}=10 , initial LR 10 10 ; at most 500 iterations, automatic batch size, patience 20. FT-Transformer / TabM Three blocks; 100 epochs, B = 256 B=256 , patience 16. FT-Transformer: LR 10 10 , WD 10 10 . TabM: width 512, 32 ensemble members, dropout 0.1, LR × 10 2\!\times\!10 , WD 0. CARD 1,000 linear-schedule diffusion steps; backbone width 128; guidance widths [ 100 , 50 ] [100,50] ; guidance/diffusion budgets 1,000 epochs, LR 10 10 ; diffusion B = 32 B=32 , gradient clip 1; guidance patience 50. NGBoost Normal predictive distribution; 500 estimators, LR 0.01, full minibatches, early-stopping patience 50. LightGBM-Quantile 500 estimators, 31 leaves, LR 0.05; quantiles { .025 , .05 , .1 , .25 , .5 , .75 , .9 , .95 , .975 } \{.025,.05,.1,.25,.5,.75,.9,.95,.975\} ; early-stopping patience 50. Pretrained generalists TabPFN-3 + unsupervised V3 default classifier/regressor checkpoints; one estimator/permutation; context cap 50,000; generation temperature 1 and imputation temperature 10 10 ; cached fitting. TabICLv2 Classifier/regressor checkpoints dated 2026-02-12; eight estimators, batch 8, context cap 50,000; imputation temperature 1 and two iterations. LimiX-2 LimiX-2.ckpt ; v2 no-retrieval classification, regression, and MVI configurations; context cap 50,000; prediction temperatures 0.9 (classification) and 1 (regression). Foundation-model query interfaces. We evaluate TabPFN-3, TabICLv2, and LimiX-2 as pretrained inference systems
+without dataset-specific weight fine-tuning ( Grinsztajn and others, 2026 ; Qu et al., 2026 ; Zhang and others, 2026 ) .
+TabPFN-3 uses the tabpfn-extensions conditional sampler for
+generation and imputation ( Prior Labs, 2026 ) , whereas TabICLv2 uses TabICLUnsupervised . LimiX-2 combines native feature imputation with
+sequential conditional generation. Prediction follows each adapter’s declared
+pretrained classification/regression route. A fixed method identity denotes
+the backbone together with its query adapters; it does not imply a shared
+output head. The query implementations are available in the public OTBench repository . Resource allocation and environment. The sharded launcher allocates one
+independent method–dataset worker to each visible GPU and balances datasets
+by ( n train + n test ) ​ p (n_{\rm train}+n_{\rm test})p . Its OpenMP, MKL, and OpenBLAS thread
+defaults are two per worker.
+We use NVIDIA GeForce RTX 5090 GPUs with 32 GB of device memory per GPU. G.2 Controlled-transfer implementation For the underlying benchmark implementations, see the public OTBench repository .
+The controlled study uses the five OpenML datasets in
+Table , training seeds { 0 , 1 , 2 } \{0,1,2\} , five
+backbones, and seven objective arms { G , I , P , G ​ I , G ​ P , I ​ P , G ​ I ​ P } \{G,I,P,GI,GP,IP,GIP\} .
+Axis scores follow the seven-arm member-complete construction in
+Appendix ; availability is assessed within each
+backbone rather than by freezing a common cross-backbone subset. Table 14: Controlled-transfer datasets and train–test splits. Feature counts
+exclude the target. C and R denote classification and regression. Dataset OpenML ID Type Features Train Test JapaneseVowels 976 C 14 7,968 1,993 MiamiHousing2016 43093 R 16 11,145 2,787 cleveland 786 C 13 242 61 credit_card_clients_default 46919 C 23 24,000 6,000 website_phishing 46963 C 9 1,082 271 Interventions and fitting. An enabled query type is sampled uniformly for each neural-training row,
+duplicated forest exposure, or Gaussian-copula optimizer update. G scores
+all variables; P observes the features and scores the target; I selects each
+feature for reconstruction with probability 0.3 0.3 , enforces a nonempty query,
+and hides the target without scoring it. Observed, non-query variables form the conditioning inputs.
+The neural losses are masked to the queried coordinates; the forest objective
+sets unqueried gradients and Hessians to zero. Configurations in
+Table are fixed within each backbone across
+datasets and arms. The three vendored neural pipelines use export protocol v6:
+a deterministic 10% internal holdout is drawn from the outer training
+split using seed 0, and training-time validation uses this holdout. TabSyn
+shares one objective-independent VAE per dataset–seed block across all seven arms. Table 15: Training configurations for the controlled-transfer study. Budgets are backbone-specific and matched across objective arms
+within a dataset–seed block. LR denotes learning rate; WD denotes weight decay. Backbone Architecture and loss Optimizer and configured budget Gaussian Copula Empirical marginals with at most 1,000 stored quantiles;
+joint/conditional Gaussian likelihood for the selected query. Adam, LR 0.03 0.03 , batch 1,024, 2,000 updates; gradient norm clipped at 10. Forest-VP Joint 50 diffusion times; 100 duplicated exposures; query-masked
+multi-output squared-error trees. 100 boosting rounds per time, depth 7, shrinkage 0.3 0.3 , histogram trees;
+one job and one XGBoost thread per worker. TabDDPM MLP widths ( 1024 , 2048 , 2048 , 1024 ) (1024,2048,2048,1024) , time embedding 128, no dropout;
+1,000 diffusion times, cosine noise schedule; masked numerical MSE plus
+multinomial loss. AdamW, LR 10 10 with linear decay, WD × 10 5\!\times\!10 ,
+batch 4,096, 100,000 updates. TabDiff Two layers, token width 4, one head, factor 32, time width 1,024;
+learnable power-mean numerical and log-linear categorical schedules.
+Discrete loss weight 1; continuous weight 1 − e / 8000 1-e/8000 at epoch e e . AdamW, fixed LR 10 10 , WD 0, batch 4,096, 8,000 epochs;
+EMA 0.997 0.997 and final EMA checkpoint; no separate target-only guidance model. TabSyn Shared VAE: two layers, token width 4, one head, factor 32;
+reconstruction plus β \beta -KL. Latent EDM: width 1,024 and query-masked loss. Adam, LR 10 10 , WD 0, batch 4,096; VAE 4,000 epochs;
+latent diffusion 10,001 epochs at fixed LR, saving the final model. TabSyn’s shared VAE selects the checkpoint with the lowest categorical
+cross-entropy on the internal validation set, uses ReduceLROnPlateau
+(factor 0.95 0.95 , patience 10), and initializes β = 10 \beta=10 with decay factor 0.7 0.7 and threshold 10 10 .
+The causal branches bypass TabDiff’s configured plateau LR scheduler and
+TabSyn’s diffusion plateau scheduler and early stopping. TabDiff’s configured steps=8000 denotes epochs; TabDDPM’s steps=100000 denotes
+optimizer updates. Evaluation draws and analysis. Each checkpoint is reused for all three tasks. Generation requests as many
+synthetic rows as the outer training split, with evaluation seed equal to the
+training seed. Imputation uses MCAR, MAR, MNAR, and their mixed mechanism at
+rates { 0.1 , 0.3 , 0.5 } \{0.1,0.3,0.5\} , with the target hidden. Each mechanism–rate–training-seed
+setting produces three completed-table draws under one fixed,
+method-independent mask; the evaluation trial count is this draw count,
+not an additional repetition factor. Selection, masking, and imputation seeds
+equal the training seed. One checkpoint evaluation aggregates three
+conditional target draws for Forest-VP Joint, TabDDPM, TabDiff, and TabSyn;
+the trials and n_samples arguments do not introduce an
+additional nested repetition. Gaussian Copula uses native Monte Carlo
+budgets of 100 draws for regression and 200 for classification.
+Conditional sampling and training randomization are specified separately.
+TabDiff and TabDDPM use one imputation resampling round; TabSyn uses 50 EDM
+steps and 20 resampling rounds; Forest-VP uses RePaint with r = 5 r=5 and j = 0.1 j=0.1 . For Forest-VP Joint, TabDDPM, TabDiff, and TabSyn, the conditioning selector
+follows the training arm: prediction uses clean observed features ( x 0 x_{0} )
+for P , G ​ P , I ​ P , G ​ I ​ P P,GP,IP,GIP and the x t x_{t} conditioning path
+for G , I , G ​ I G,I,GI ; imputation uses clean observed features for I , G ​ I , I ​ P , G ​ I ​ P I,GI,IP,GIP and the x t x_{t} path for G , P , G ​ P G,P,GP . Gaussian Copula does not use this selector:
+it retains native Gaussian conditioning in all arms, including its Cleveland
+imputation re-evaluation. Recipient-conditioned contrasts therefore hold the
+relevant recipient protocol fixed. Generation inference is fixed across
+arms. I/P self-inclusion, imputation-side interactions that toggle I, and
+cross-arm Pareto profiles additionally compare the inference-policy switch
+in the four selector-based adapters. The updated analysis reuses the completed prediction evaluations and replaces
+imputation outcomes with checkpoint-only re-evaluations. Of 270 planned
+imputation cells, 264 completed all twelve mechanism–rate settings,
+producing 3,168 metric artifacts. Six GPU-memory failures remain unavailable:
+Forest-VP Joint GI/credit_card_clients_default/seed 0;
+IP/JapaneseVowels/seeds 1 and 2; IP/MiamiHousing2016/seed 0;
+IP/cleveland/seed 0; and TabDDPM IP/credit_card_clients_default/seed 1.
+The old imputation outcomes for these six cells are excluded rather than
+mixed with the updated protocol. Other unmodified imputation baselines are
+retained. Re-evaluation does not update checkpoints or invoke fitting. Uncertainty is estimated with 2,000 bootstrap draws and base random seed
+20260924; 95% intervals are the 2.5th and 97.5th
+percentiles. Point estimates average available matched settings within each seed block,
+then seeds within each backbone–dataset pair, and finally the pair means.
+Pareto point aggregation instead weights seeds, then datasets within each
+backbone, then backbones equally; its bootstrap resamples backbones and each
+selected backbone’s datasets and seeds, preserving the seven-arm pairing.
+Wilcoxon diagnostics use the backbone–dataset means, with Holm adjustment
+within each analysis family. Appendix H Related Work Task-specific models and benchmarks. Generative tabular models span adversarial and variational approaches such
+as CTGAN and TVAE ( Xu et al., 2019 ) , language-model generators such as
+GReaT ( Borisov et al., 2023 ) , and diffusion methods such as TabDDPM, TabSyn, and
+TabDiff ( Kotelnikov et al., 2023 ; Zhang et al., 2024 ; Shi et al., 2025 ) . Imputation ranges from chained
+equations and random forests ( van Buuren and Groothuis-Oudshoorn, 2011 ; Stekhoven and Bühlmann, 2012 ) to learned conditional
+models ( Ivanov et al., 2019 ; Jolicoeur-Martineau et al., 2024 ) . Prediction combines tree ensembles
+with neural and pretrained models ( Chen and Guestrin, 2016 ; Prokhorenkova et al., 2018 ; Hollmann et al., 2023 ) .
+Benchmark suites including Why Trees, TabZilla, TALENT, and TabArena broaden
+systematic comparisons for prediction ( Grinsztajn et al., 2022 ; McElfresh et al., 2023 ; Liu et al., 2025 ; Ye et al., 2024 ; Erickson et al., 2025 ) .
+These task-wise evaluations establish performance within each problem,
+while leaving open how capability rankings relate across generation,
+imputation, and prediction. Generalist and foundation models. Joint-distribution models can support conditional sampling, while
+arbitrary-conditioning approaches accommodate varied observation
+patterns ( Ivanov et al., 2019 ; Jolicoeur-Martineau et al., 2024 ) . LimiX further motivates multiple
+tabular queries within a shared modeling framework ( Zhang and others, 2025 ) .
+Recent tabular foundation models, including LimiX-2, TabICLv2, and
+TabPFN-3 ( Zhang and others, 2026 ; Qu et al., 2026 ; Grinsztajn and others, 2026 ) , extend the range of pretrained
+systems considered in our benchmark. Conditional-query extensions also
+expose generation and imputation routes ( Prior Labs, 2026 ) .
+These developments motivate distinguishing interface coverage from
+empirical quality under fixed model identities and task contracts. OTBench evaluates this distinction through capability-specific scores and
+joint task profiles, rather than introducing a new model architecture. Evaluation and task relations. Synthetic-data quality depends on which aspects of fidelity, dependence,
+and downstream utility are measured, and metrics can favor conflicting
+properties ( Yang et al., 2024 ; Khan et al., 2025 ) . Multi-task learning also
+studies cooperation and competition among training objectives when deciding
+which tasks to learn together ( Standley et al., 2020 ) . OTBench connects these issues through three complementary experiments.
+Task-rank analysis studies capability co-occurrence on aligned support;
+SAE and CAE measure objective additions and combinations under declared
+training–inference protocols; and fixed-method profiles compare joint task
+performance with specialist portfolios. This separates observational task
+relationships, controlled objective effects, and practical model choice,
+while preserving information-contract and metric distinctions. Experimental support, please view the build logs for errors. Generated by L A T E xml . Instructions for reporting errors We are continuing to improve HTML versions of papers, and your feedback helps enhance accessibility and mobile
+      support. To report errors in the HTML that will help us improve conversion and rendering, choose any of the
+      methods listed below: Click the "Report Issue" ( ) button, located in the page header. Tip: You can select the relevant text first, to include it in your report. Our team has already identified the following issues . We appreciate your time reviewing and reporting rendering errors we
+      may not have found yet. Your efforts will help us improve the HTML versions for all readers, because disability
+      should not be a barrier to accessing research. Thank you for your continued support in championing open access for
+      all. Have a free development cycle? Help support accessibility at arXiv! Our collaborators at LaTeXML maintain a list of packages that need conversion , and welcome developer contributions . We gratefully acknowledge support from our major funders , member institutions , ,
+        and all contributors. About · Help · Contact · Subscribe · Copyright · Privacy · Accessibility · Operational Status (opens in new tab)

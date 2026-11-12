@@ -1,0 +1,1430 @@
+{
+  "reviewed_at": "2026-11-12T06:40:03.686143+00:00",
+  "reviewer": "root primary before reading independent scope ledger",
+  "items": [
+    {
+      "id": "arxiv:2611.14256",
+      "title": "A Cross-Scenario Survey and Analysis of Self-Evolving Multimodal Agents",
+      "source_hash": "5001bd8d6ab7775a90e1e7649c5ad4a31556093ce529826eecaca9537e88f35e",
+      "suggestion": "exclude",
+      "direction": "theory_survey",
+      "reason_zh": "跨场景多模态RSI综述涵盖权重、记忆、工具和提示；未形成Harness演化专项方法/理论评测，按判据不能仅因提及这些组件纳入。",
+      "evidence": [
+        {
+          "location": "Official arXiv abstract",
+          "quote": "Recent work shows that multimodal agents increasingly self-improve without recurring human annotation. However, each self-improvement mechanism is designed and evaluated within a single scenario, leaving its preconditions unverified under cross-scenario transfer. This survey investigates the structural source of asymmetric mechanism transfer across four scenarios: multimodal reasoning, multimodal generation, GUI and Web navigation, and embodied manipulation. We first formalize the self-evolving multimodal agent by four criteria and a differentia of self-reference, and adopt the three-stage self-evolving loop of experience generation, feedback acquisition, and update consolidation as our analytical framework to position the scenarios along ceilings on rollout count and feedback fidelity. Comparing self-evolving with fixed loops within each scenario separates the limitations that the scenario imposes from those inherent in the self-evolving design. We then recast each mechanism as a trade-off that raises a scarce factor by presupposing a task-structural resource, such as output equivalence or checkable outcomes, and judge it portable, conditional, blocked, or redundant across scenarios. We attribute the asymmetry to divergent combinations of scarce factors and resources across opposite transfer directions, and identify the matched-budget measurements that could overturn these still untested verdicts.",
+          "file": "data/feed/raw/maintenance-2026-11-12/source-intake/official-metadata/0001.body",
+          "file_sha256": "586409dfbf163571c723bc74eef7834162b8585976bff9e32019176ee6f861f5"
+        }
+      ],
+      "formal_decision": false,
+      "all_experimental_numbers_recomputed": false
+    },
+    {
+      "id": "arxiv:2611.14492",
+      "title": "ReTrace: Distilling Tool-Using Agents into Planner-Free Workflows",
+      "source_hash": "a5bc69ee116f13c5891914f0fe0227906a77eaad6dd663486062edd2b3c010a8",
+      "suggestion": "borderline",
+      "direction": null,
+      "reason_zh": "ReTrace有训练失败反馈修复及后续新输入复用，但产物是按SOP独立执行、无运行时planner的任务流程；需独立区分它是否仍是Agent自身Harness控制层，或取代Agent的外部任务程序。不能仅凭planner-free排除。",
+      "evidence": [
+        {
+          "location": "S3.SS1.p2",
+          "file": "data/feed/raw/maintenance-2026-11-12/source-intake/scope-fulltexts/2611.14492.html",
+          "file_sha256": "f927fdf1429f6458252b825e3c16fee546938300ee70ca5f7ba94af2c5af0455",
+          "quote": "The output is an executable workflow π \\pi , built once per procedure and reused on new inputs. At run time, code chooses the next step without calling an LLM; this is what we mean by planner-free . Individual tools may still call models. The workflow is Python code on the public benchmarks and a typed graph of steps on Internal , our enterprise dataset."
+        },
+        {
+          "location": "S3.SS2.SSS0.Px3.p1",
+          "file": "data/feed/raw/maintenance-2026-11-12/source-intake/scope-fulltexts/2611.14492.html",
+          "file_sha256": "f927fdf1429f6458252b825e3c16fee546938300ee70ca5f7ba94af2c5af0455",
+          "quote": "An LLM converts the IR into code or the platform’s workflow format. Let h h be the state of a run: the task input plus every tool call and result so far. At each step, the workflow stops if the completion check succeeds; otherwise, it runs the first rule whose guard holds: π ⁡ ( h ) = { stop if ​ χ ​ ( h ) , α j ⋆ ​ ( h ) ​ ( h ) otherwise , \\pi(h)=\\begin{cases}\\texttt{stop}&\\text{if }\\ \\chi(h),\\\\[2.0pt] \\alpha_{j^{\\star}(h)}(h)&\\text{otherwise},\\end{cases} (2) where j ⋆ ​ ( h ) = min ⁡ { j : g j ​ ( h ) ​ holds } j^{\\star}(h)=\\min\\{j:g_{j}(h)\\text{ holds}\\} . The action calls its tool with inputs taken from h h or constants, and the result updates h h . If the completion check fails and no rule applies, the workflow stops as incomplete and never asks an LLM for a step."
+        },
+        {
+          "location": "S3.SS2.SSS0.Px3.p2",
+          "file": "data/feed/raw/maintenance-2026-11-12/source-intake/scope-fulltexts/2611.14492.html",
+          "file_sha256": "f927fdf1429f6458252b825e3c16fee546938300ee70ca5f7ba94af2c5af0455",
+          "quote": "Before deployment, generated code must load and must not be able to make planning calls. On the public benchmarks, candidates may import only approved libraries and run in a sandbox; we reject any candidate that makes a planning call when re-executed on the training inputs and keep the one that reproduces the most recorded steps. On Internal , the platform builds a single workflow graph, which must contain no node that asks a model for the next step. Neither check establishes task correctness (Appendix D ). Where the benchmark can be re-executed offline, the workflow can also be repaired from its failures on training inputs: an LLM revises the code, and the IR is left unchanged (Appendix C )."
+        },
+        {
+          "location": "S4.SS2.p1",
+          "file": "data/feed/raw/maintenance-2026-11-12/source-intake/scope-fulltexts/2611.14492.html",
+          "file_sha256": "f927fdf1429f6458252b825e3c16fee546938300ee70ca5f7ba94af2c5af0455",
+          "quote": "All methods receive the procedure and tool definitions. The original agent , which produced the traces, is the reference for task outcomes and execution costs. Zero-shot gets only these, few-shot also gets k k full traces, and execution-only gets the same traces with the reasoning removed; all three use ReTrace ’s generation prompt but, unlike ReTrace , keep their first valid workflow. Zero-shot and few-shot run on all three datasets. On τ 2 \\tau^{2} -bench and SOP-Bench, we also evaluate AWM ( Wang et al., 2025b ) , which keeps a model that chooses steps at run time, and Skill Factory ( Wang and Lu, 2026 ) , whose generated code we run with inputs supplied directly instead of through its model-based skill selection. On τ 2 \\tau^{2} -bench only, we evaluate the Bayesian partial-order method BPOP ( Li et al., 2026 ) , which learns tool order but cannot produce SOP-Bench’s decision output (Appendix H ). Finally, we repair workflows for up to three rounds using failures on training inputs: ReTrace on both public benchmarks and zero-shot on τ 2 \\tau^{2} -bench , with the same feedback, repair model, and stopping rule within each benchmark (Appendix D )."
+        }
+      ],
+      "formal_decision": false,
+      "all_experimental_numbers_recomputed": false
+    },
+    {
+      "id": "arxiv:2611.14113",
+      "title": "Looking One Step Ahead: An Anticipation-guided Agent for Object State Readout in Videos",
+      "source_hash": "0ec27671f140c391a90ea73ed25cb03cab12035ff79838d1c40acd726e9869f8",
+      "suggestion": "include",
+      "direction": "harness/component",
+      "reason_zh": "LASER用caption反馈定位观察技能指令字段，改写或增建技能；不同video的selection比较决定替换或保留，library跨轮并在后续evaluation复用，模型参数固定。不是单次caption修正。",
+      "evidence": [
+        {
+          "location": "S2.SS1",
+          "file": "data/feed/raw/maintenance-2026-11-12/source-intake/scope-fulltexts/2611.14113.html",
+          "file_sha256": "82720f09f784d9ccf8f72ec1b91dd25993719d98e9e8a8b8e99bc7ae0df7d80e",
+          "quote": "2.1 Observation Skills An observation skill is a structured textual instruction that tells the agent what to inspect about an object and how to describe the visual evidence. Each skill contains six fields: a trigger specifying when the instruction applies, an attribute scope identifying what to inspect, alternative changes suggesting possible next states, visual signs distinguishing those alternatives, observation operations specifying how to check the current image, and expression constraints governing the resulting description. We organize these observation instructions into a skill library ℳ \\mathcal{M} . For each observation, the MLLM selects relevant skills to guide inspection (see Section 2.2 for details). Feedback-guided skill revision updates these instructions using caption feedback (Section 2.4 )."
+        },
+        {
+          "location": "S2.SS4",
+          "file": "data/feed/raw/maintenance-2026-11-12/source-intake/scope-fulltexts/2611.14113.html",
+          "file_sha256": "82720f09f784d9ccf8f72ec1b91dd25993719d98e9e8a8b8e99bc7ae0df7d80e",
+          "quote": "2.4 Feedback-guided Skill Revision Feedback-guided skill revision improves observation instructions using existing reference captions while keeping model parameters fixed. We divide the source videos into a revision set 𝒟 rev \\mathcal{D}_{\\mathrm{rev}} for identifying problems and proposing edits, and a selection set 𝒟 sel \\mathcal{D}_{\\mathrm{sel}} for evaluating those edits. The sets contain different videos to test whether edits generalize beyond the examples that motivate them. In each round, LASER processes the revision videos with the current library. The MLLM compares generated captions with references and examines the corresponding observations, hypotheses, inspection questions, and state records to identify discrepancy sources. The comparison identifies omissions and explicit contradictions; details unmentioned in the reference remain unjudged. When a relevant attribute is never inspected, it examines whether the skill’s trigger or alternative changes fail to direct attention to that attribute. When inspection produces an unsupported value, it examines the visual signs and observation operations. When a supported fact appears in the state record but is missing from the final caption, it examines the expression constraints. For a discrepancy linked to an existing skill, the MLLM proposes an edit to one responsible field; if no skill covers the situation, it proposes a new skill. Each proposal produces a candidate library ℳ ′ \\mathcal{M}^{\\prime} derived independently from the current library ℳ \\mathcal{M} . The MLLM proposes no edit when the available evidence does not identify a responsible instruction. LASER compares each candidate with the current library on 𝒟 sel \\mathcal{D}_{\\mathrm{sel}} . For an example x x , which contains the images, target information, and task instruction, let Y x ∗ Y_{x}^{*} denote its reference caption. The score q q measures agreement between the generated and reference captions, giving the mean caption quality: Q ⁡ ( ℳ ) = 1 | 𝒟 sel | ​ ∑ x ∈ 𝒟 sel q ⁡ ( Caption ⁡ ( x ; ℳ ) , Y x ∗ ) Q(\\mathcal{M})=\\frac{1}{|\\mathcal{D}_{\\mathrm{sel}}|}\\sum_{x\\in\\mathcal{D}_{\\mathrm{sel}}}q\\bigl(\\operatorname{Caption}(x;\\mathcal{M}),Y_{x}^{*}\\bigr) (8) Here, Caption \\operatorname{Caption} returns the description produced by Equation 1 ; references are used for scoring rather than caption generation. To check contradictions, the MLLM extracts explicit facts from each reference caption once and uses the same facts to assess every candidate. An MLLM judge determines whether a generated caption contains a claim incompatible with a reference fact concerning the same object and temporal scope. Omissions, details absent from the reference, and uncertain comparisons do not count as contradictions. The contradiction score X ⁡ ( ℳ ) X(\\mathcal{M}) is the fraction of selection examples containing at least one explicit contradiction. Selection requires an improvement in caption quality without increasing reference contradictions. For a positive quality margin ϵ \\epsilon , the acceptance rule is: Accept ( ℳ ′ ) = [ Q ( ℳ ′ ) − Q ( ℳ ) ≥ ϵ , X ( ℳ ′ ) ≤ X ( ℳ ) ] \\operatorname{Accept}(\\mathcal{M}^{\\prime})=\\mathbf{1}\\!\\left[Q(\\mathcal{M}^{\\prime})-Q(\\mathcal{M})\\geq\\epsilon,\\;X(\\mathcal{M}^{\\prime})\\leq X(\\mathcal{M})\\right] (9) The accepted candidate with the highest caption quality replaces the current library; if none is accepted, the library is retained. The resulting skill library remains fixed during evaluation."
+        },
+        {
+          "location": "S3.SS3",
+          "file": "data/feed/raw/maintenance-2026-11-12/source-intake/scope-fulltexts/2611.14113.html",
+          "file_sha256": "82720f09f784d9ccf8f72ec1b91dd25993719d98e9e8a8b8e99bc7ae0df7d80e",
+          "quote": "3.3 Implementation Details Our backbones MLLMs comprise Qwen3.5-4B, Qwen3.5-9B, and Qwen3.5-35B-A3B ( Qwen Team, 2026 ) , plus Ministral-3-3B ( Liu et al., 2026 ) . The two dense Qwen models each have 32 language layers, with hidden dimensions of 2,560 and 4,096 for the 4B and 9B variants, respectively. The 35B-A3B variant uses 40 language layers with a hidden dimension of 2,048; its mixture-of-experts layers select 8 of 256 routed experts per token and include a shared expert, with an intermediate dimension of 512 for each expert. Ministral-3-3B has 26 language layers with a hidden dimension of 3,072 and a 24-layer vision encoder. We divide the adaptation examples into revision and selection sets at a 4:1 ratio, keeping examples from the same video in one set. For PLM RCap, we uniformly sample eight frames from each target interval; OSCaR uses its three provided frames. At each observation, LASER selects up to three relevant skills and generates up to three alternative next-step changes. Skill adaptation runs for at most five rounds, with up to three candidate libraries evaluated per round. We normalize caption quality scores to [ 0 , 1 ] [0,1] and require an improvement of at least ϵ = 0.005 \\epsilon=0.005 without increasing reference contradictions. Adaptation stops when no candidate satisfies these criteria. All model parameters remain frozen, and the adapted skill library remains fixed during evaluation. For evaluation, we use different metrics for the two benchmarks. For OSCaR, we report BLEU ( Papineni et al., 2002 ) , ROUGE-1, ROUGE-2, and ROUGE-L ( Lin, 2004 ) , with ROUGE-L as the primary metric. For PLM RCap, we use the official language-model-judged reference-caption similarity score ( Cho et al., 2025 ) . Higher values indicate better caption agreement on both tasks. Evaluation references are accessible only to the scorer."
+        }
+      ],
+      "formal_decision": false,
+      "all_experimental_numbers_recomputed": false
+    },
+    {
+      "id": "arxiv:2611.13509",
+      "title": "Mobile AI Factory: Building Specialized Language Models for Your Mobile Device",
+      "source_hash": "07743e830580e087dc1fdf1c73c8646861c3a975d00b9c1213db4db40dc76f91",
+      "suggestion": "exclude",
+      "direction": null,
+      "reason_zh": "专用移动语言模型的数据/训练与压缩流水线，修改对象是模型权重，不是持续演化外部Harness。",
+      "evidence": [
+        {
+          "location": "Official arXiv abstract",
+          "quote": "Small language models (SLMs) running on mobile devices can keep user data private and work without connectivity. But they perform well only when fine-tuned for the target task and sized for the target device, a process that today requires repeated expert tuning. We present {\\it Mobile AI Factory}, an agentic system that builds a fine-tuned, quantized SLM for a given task and phone. Given a task specification and a target phone, an orchestrator LLM chooses whether to tune hyperparameters, mine real data, or generate synthetic examples, while fixed rules roll back changes that hurt accuracy. The factory searches from small to large models across base models and quantizations, adapts its accuracy goal as it searches, and uses real measurements of the target phone across inference engines and backends. We evaluate Mobile AI Factory on ten tasks and four Android phones. On an unseen testset, its on-device models outperform two five-shot frontier models on five tasks, by up to 0.34, and match them on three more. Its search comes within 0.03 of exhaustively training all 27 model variants on an entity extraction task, while using 19$\\times$ less GPU time. Phone measurements also matter: the best configuration changes across phones. Without phone measurements, Claude Opus 5.5, given the full hardware and model specifications, misses the app's requirements in 25\\% of easy and moderate cases and in 60\\% of hard ones. Code is available at: https://github.com/evanly-gh/SLM_Factory.",
+          "file": "data/feed/raw/maintenance-2026-11-12/source-intake/official-metadata/0002.body",
+          "file_sha256": "03a2e8950e5f088d3c3bd72084a60cd29d52bb1e0530bc218549441e9b20bdcf"
+        }
+      ],
+      "formal_decision": false,
+      "all_experimental_numbers_recomputed": false
+    },
+    {
+      "id": "arxiv:2611.13144",
+      "title": "Teaching the Harness: Student-Aware Skill Transfer for LLM Agents",
+      "source_hash": "239f1023660d2e25824998b42adf0929ab341fe69e2f2e481f1c2d5fcb2358d4",
+      "suggestion": "include",
+      "direction": "harness/component",
+      "reason_zh": "SAT教师根据学生失败与诊断probe生成程序性技能指令，开发任务正效用才准入并替换旧技能；教师移除后跨后续任务复用。基础executor固定不否认技能层演化；仅证明已见task family内后续实例，不称任意领域迁移。",
+      "evidence": [
+        {
+          "location": "S3.SS1",
+          "file": "data/feed/raw/maintenance-2026-11-12/source-intake/scope-fulltexts/2611.13144.html",
+          "file_sha256": "ea52df7a4b926358c44a893826b1c0780649fe38ce2cf5e1b8678ba61319aa32",
+          "quote": "3.1 Problem: teaching a fixed learner Let S = ( M s , H ) S=(M_{s},H) denote a learner formed by a student model M s M_{s} and its execution harness H H . For task x x and supplied skills L x L_{x} , the learner produces a trajectory τ ∼ S ⁡ ( x , L x ) \\tau\\sim S(x,L_{x}) , and a verifier returns V ⁡ ( x , τ ) ∈ { 0 , 1 } V(x,\\tau)\\in\\{0,1\\} . A teaching policy π \\pi maps preparation evidence E E to a skill library ℒ = π ⁡ ( E ) \\mathcal{L}=\\pi(E) . After preparation, the teacher leaves and a selector g g chooses which skills accompany each task. Expected performance is J ⁡ ( S , ℒ , g ) = 𝔼 x ∼ 𝒟 τ ∼ S ⁡ ( x , g ⁡ ( x , ℒ ) ) ​ [ V ⁡ ( x , τ ) ] . J(S,\\mathcal{L},g)=\\mathbb{E}_{\\begin{subarray}{c}x\\sim\\mathcal{D}\\\\ \\tau\\sim S(x,g(x,\\mathcal{L}))\\end{subarray}}[V(x,\\tau)]. (1) Teaching aims to raise J J under a finite preparation budget, with later instances drawn from task families seen during preparation. We compare two policies that differ in what the teacher knows about the learner. Both receive the same types of evidence from their own runs: task descriptions, verifier outcomes, execution traces, and development feedback. We write this evidence as E agn E_{\\mathrm{agn}} for the agnostic condition and E E for the aware condition. The aware policy maintains a learner model σ \\sigma and can request diagnostic probes, so it receives E aware = E ∪ { σ , probes } E_{\\mathrm{aware}}=E\\cup\\{\\sigma,\\text{probes}\\} and can predict how this particular student will fail before writing a lesson. Both policies start from the same six generic skills. Our teaching question ( RQ1 ) asks whether J ⁡ ( S , π aware ​ ( E aware ) , g ) J(S,\\pi_{\\mathrm{aware}}(E_{\\mathrm{aware}}),g) exceeds J ⁡ ( S , π agn ​ ( E agn ) , g ) J(S,\\pi_{\\mathrm{agn}}(E_{\\mathrm{agn}}),g) for a fixed learner and selector. Our reuse question ( RQ3 ) fixes the library and varies g g with the teacher absent."
+        },
+        {
+          "location": "S3.SS2",
+          "file": "data/feed/raw/maintenance-2026-11-12/source-intake/scope-fulltexts/2611.13144.html",
+          "file_sha256": "ea52df7a4b926358c44a893826b1c0780649fe38ce2cf5e1b8678ba61319aa32",
+          "quote": "3.2 From student evidence to candidate skills Learner model. The aware teacher maintains a learner model σ \\sigma with two parts. The empirical profile records what the student does. At each round the student attempts a batch of teaching tasks with its current library, and the teacher updates category-level success statistics, failure labels, and notes (Appendix A ). The analytical learner model records why the student fails. Observed failures rarely identify their own cause, so the teacher keeps hypotheses about latent execution constraints. Each hypothesis stores a proposed mechanism, a confidence, supporting evidence, and a status. For example, the teacher may hypothesize that repeated stock queries consume the action budget before all updates finish. The learner model also yields a prediction p ^ σ ​ ( x ) \\hat{p}_{\\sigma}(x) of whether the bare student will solve task x x . We score these predictions with Brier and AUROC on a fixed calibration panel. Controlled probes as hypothesis tests. Passive observation can support several explanations for one failure. An inventory failure may come from misreading the task, missing a deficient item, or running out of actions. SAT therefore makes learner modeling active. The teacher requests probes that vary one supported property within a task family, such as inventory size or file count. The bare student attempts each variant, which is rebuilt with its own verifier. If success falls as size grows, the evidence points to an execution-budget limit and the transition records a sampled boundary. The outcome updates the learner model and steers the teacher toward simpler procedures. Skill generation. The teacher proposes up to three candidate skills per round, each a short natural-language procedure with a target category and applicability metadata (Appendix A ). The aware prompt receives the learner model, weak-category priorities, and probe evidence, while the agnostic prompt receives tasks and failed traces from its own condition. Both forbid copying task-specific answers. Skills are delivered as advice, and the student chooses its own actions."
+        },
+        {
+          "location": "S3.SS3",
+          "file": "data/feed/raw/maintenance-2026-11-12/source-intake/scope-fulltexts/2611.13144.html",
+          "file_sha256": "ea52df7a4b926358c44a893826b1c0780649fe38ce2cf5e1b8678ba61319aa32",
+          "quote": "3.3 Admission and deployment A candidate s s is tested on one to four development tasks P s P_{s} from its category. Each task runs once with the candidate alone and once with an empty library. The estimated standalone utility is U ^ ​ ( s ) = 1 | P s | ​ ∑ x ∈ P s [ Y ⁡ ( x , { s } ) − Y ⁡ ( x , ∅ ) ] , \\widehat{U}(s)=\\frac{1}{|P_{s}|}\\sum_{x\\in P_{s}}\\left[Y(x,\\{s\\})-Y(x,\\varnothing)\\right], (2) where Y Y denotes verifier acceptance. A candidate with positive utility enters the library and may replace a generic skill in its category. The library keeps a small number of active skills per category. After preparation the teacher is removed. We study three selectors g g . Student selection asks the student to choose up to two skills from a metadata menu. Category routing matches the task’s category tag and picks up to two skills by validation utility. Flat injection supplies every active skill. No selector sees test outcomes."
+        }
+      ],
+      "formal_decision": false,
+      "all_experimental_numbers_recomputed": false
+    },
+    {
+      "id": "arxiv:2611.13236",
+      "title": "NCP: Verifier-Guided Optimization of Weight-Space Control Policies",
+      "source_hash": "98bc9f769fad12b050582997893a645f25c80af83f793371e43fdf8d08f5363f",
+      "suggestion": "include",
+      "direction": "harness/generalize",
+      "reason_zh": "NCP持久修改对象是外部带版本规则表和干预程序的准入状态；临时weight-space效果每请求恢复，不是持续训练权重。遥测生成候选并按验证结果准入的框架可收，但真实微基准所有候选被拒，active table未变，不能说已成功自我改进。",
+      "evidence": [
+        {
+          "location": "S3.p10",
+          "file": "data/feed/raw/maintenance-2026-11-12/source-intake/scope-fulltexts/2611.13236.html",
+          "file_sha256": "9f57f71b9853dcb227494d2e31a96a9aff2a313d1e69d70d8733003d70143a08",
+          "quote": "This recurrence defines the control-policy layer of the RSI research program. Its objects are rule proposals, verification evidence, and active-policy transitions. The experiment in Section 7 records a cycle in which the archive grows and the active policy remains unchanged."
+        },
+        {
+          "location": "S4.SS2.p1",
+          "file": "data/feed/raw/maintenance-2026-11-12/source-intake/scope-fulltexts/2611.13236.html",
+          "file_sha256": "9f57f71b9853dcb227494d2e31a96a9aff2a313d1e69d70d8733003d70143a08",
+          "quote": "The table records candidate, active, rejected, expired, and retired states. Promotion requires accepted evidence for the rule’s fingerprint and the current active-table version. Changes to the active policy invalidate evidence measured against an earlier version."
+        },
+        {
+          "location": "S4.SS2.p2",
+          "file": "data/feed/raw/maintenance-2026-11-12/source-intake/scope-fulltexts/2611.13236.html",
+          "file_sha256": "9f57f71b9853dcb227494d2e31a96a9aff2a313d1e69d70d8733003d70143a08",
+          "quote": "Accepted rule definitions persist in the table. Their weight effects remain temporary and are reconstructed during matching requests. The runtime holds a shared model lock, applies the selected program, performs generation using a fresh KV cache, and restores the request-entry weights."
+        },
+        {
+          "location": "S5.SS4.p2",
+          "file": "data/feed/raw/maintenance-2026-11-12/source-intake/scope-fulltexts/2611.13236.html",
+          "file_sha256": "9f57f71b9853dcb227494d2e31a96a9aff2a313d1e69d70d8733003d70143a08",
+          "quote": "The public path is FlowTable.submit(rule) , followed by Verifier.evaluate(rule,table,cases,corpus_tokens) , and then promotion or rejection using the returned evidence. The verifier evaluates the proposed policy and the forced action; promotion checks the accepted flag, fingerprint and active-table version. These interfaces operate on trusted local rule and evidence data. The controller’s step() method assembles this path around the deterministic synthesizer used in the recorded experiment."
+        },
+        {
+          "location": "S6.SS3.p5",
+          "file": "data/feed/raw/maintenance-2026-11-12/source-intake/scope-fulltexts/2611.13236.html",
+          "file_sha256": "9f57f71b9853dcb227494d2e31a96a9aff2a313d1e69d70d8733003d70143a08",
+          "quote": "where E E denotes exact parameter restoration and valid admission provenance. Configured spectral bounds are conjoined with this expression. Accepted candidates become active rules; other evaluated candidates retain their measurements and decision reasons in the archive."
+        },
+        {
+          "location": "S7.SS4.p4",
+          "file": "data/feed/raw/maintenance-2026-11-12/source-intake/scope-fulltexts/2611.13236.html",
+          "file_sha256": "9f57f71b9853dcb227494d2e31a96a9aff2a313d1e69d70d8733003d70143a08",
+          "quote": "The recorded SmolLM run demonstrates the complete candidate-to-decision workflow and archive persistence. Its active-policy transition is Φ t + 1 = Φ t = ∅ \\Phi_{t+1}=\\Phi_{t}=\\varnothing , with three evaluated candidates added to the archive. The controlled promotion fixtures exercise the complementary active-table transition."
+        }
+      ],
+      "formal_decision": false,
+      "all_experimental_numbers_recomputed": false
+    },
+    {
+      "id": "arxiv:2611.14382",
+      "title": "Cognitive Mapping of Learning by Thinking Mechanisms in Large Language Models",
+      "source_hash": "1bd5fa6998f6327bbb494b4cde4b7fe4a32b316d2c830725aa612888f2d1411e",
+      "suggestion": "exclude",
+      "direction": null,
+      "reason_zh": "Learning by Thinking的认知机制概念框架，讨论推理、记忆与训练，不是Harness演化专项理论。",
+      "evidence": [
+        {
+          "location": "Official arXiv abstract",
+          "quote": "Large language models (LLMs) increasingly exhibit capabilities that resemble human Learning by Thinking (LbT), the acquisition of new insight through internal processes such as explanation and reasoning, without new external input. A systematic account of the cognitive mechanisms behind these capabilities, and of their limits, remains underdeveloped. This paper proposes a Cognitive LbT Framework that maps four mechanisms (Reflective Reasoning, Synthetic Memory Formation, Internal Simulation, and Conceptual Self-Organization) onto computational processes in LLMs. Drawing on representative methods, including chain-of-thought prompting, self-consistency, self-reflection, Tree-of-Thoughts search, Self-Instruct, and self-taught reasoning, the analysis argues that selected methods can functionally approximate aspects of these mechanisms and can improve performance on some tasks without additional labeled examples, although this does not always constitute durable learning in model parameters. For example, Self-Instruct generated approximately 52,000 instructions from 175 seed tasks and reported a 33% absolute improvement on Super-NaturalInstructions (Y. Wang et al., 2023). The same mechanisms also produce characteristic failures, including hallucination diffusion, model collapse, concept drift, and high computational cost. These failures are not isolated technical defects but follow from four structural asymmetries between LLMs and human cognition: the identity of generator and monitor, closed learning loops without external grounding, symbolic rather than sensorimotor simulation, and the cost of inference-time computation. The framework yields testable propositions about when LbT in LLMs should succeed or fail and offers a structured basis for designing more reliable autonomous learning systems.",
+          "file": "data/feed/raw/maintenance-2026-11-12/source-intake/official-metadata/0002.body",
+          "file_sha256": "03a2e8950e5f088d3c3bd72084a60cd29d52bb1e0530bc218549441e9b20bdcf"
+        }
+      ],
+      "formal_decision": false,
+      "all_experimental_numbers_recomputed": false
+    },
+    {
+      "id": "arxiv:2611.13615",
+      "title": "Synapse-Control: Making Agent Experience Actionable with Lightweight Runtime Control",
+      "source_hash": "334dcc82d800ef6fb802d934b59dba16ce18efabc8c5e86635a8f60a5c09d725",
+      "suggestion": "exclude",
+      "direction": "experience_world_model",
+      "reason_zh": "Synapse-Control的classifier训练后冻结，domain micro-contract模板固定；运行时更新经验条目、效用和cooldown等PVT状态，未反馈改写控制机制/可执行技能。论文提出的LLM扩展只是未来构建方案。",
+      "evidence": [
+        {
+          "location": "S3.p3",
+          "file": "data/feed/raw/maintenance-2026-11-12/source-intake/scope-fulltexts/2611.13615.html",
+          "file_sha256": "453e6e81b25a7b0fc597433205cae6d22a141feacd6232a2c35951059ebb2be6",
+          "quote": "The execution plane generates task actions, while the control plane evaluates candidate payloads and governs soft-hint delivery. The classifier replaces the generative detector; host verification and lesson updates remain active. Let s t = ⟨ g , w t , e t ⟩ s_{t}=\\langle g,w_{t},e_{t}\\rangle denote the task objective, recent visible execution window, and evidence derived from that window. Deterministic rules extract this evidence from actions and observations: a rejected API call, unchanged reads, or a mismatch between requested and selected options. State construction requires no additional model-generated diagnosis."
+        },
+        {
+          "location": "S3.SS2.SSS0.Px1.p3",
+          "file": "data/feed/raw/maintenance-2026-11-12/source-intake/scope-fulltexts/2611.13615.html",
+          "file_sha256": "453e6e81b25a7b0fc597433205cae6d22a141feacd6232a2c35951059ebb2be6",
+          "quote": "Domain-level authoring defines generic checks and applicability conditions, while task-level binding is automated: WebShop uses five asset families, and AppWorld uses generic assets plus documentation mappings. The authors estimate a few person-hours to define and organize one domain’s templates using the existing adapters and builders. The builder parses documented parameter and return fields, while the adapter binds visible options and local evidence. Delivery and lesson updates run automatically during evaluation, without task-specific rule authoring. Generic entries are maintained with the environment interface version; the actor still supplies task values and composes its program. Figure 5 contrasts a general principle with an actionable check."
+        },
+        {
+          "location": "S3.SS3.SSS0.Px2.p1",
+          "file": "data/feed/raw/maintenance-2026-11-12/source-intake/scope-fulltexts/2611.13615.html",
+          "file_sha256": "453e6e81b25a7b0fc597433205cae6d22a141feacd6232a2c35951059ebb2be6",
+          "quote": "PVT updates historical utility from the host verifier’s assessment of local recovery, using execution evidence rather than benchmark rewards. Let q t ​ ( c ) q_{t}(c) indicate a defined, enabled utility observation. Observed progress gives r t = + 1 r_{t}=+1 ; regression or adoption without progress gives r t = − 1 r_{t}=-1 : u t + 1 ​ ( c ) = { ( 1 − α ) ​ u t ​ ( c ) + α ​ r t ​ ( c ) , q t ​ ( c ) = 1 , u t ​ ( c ) , q t ​ ( c ) = 0 . u_{t+1}(c)=\\begin{cases}(1-\\alpha)u_{t}(c)+\\alpha r_{t}(c),&q_{t}(c)=1,\\\\ u_{t}(c),&q_{t}(c)=0.\\end{cases} (9) Unknown outcomes, ignored advice, and missing adoption evidence leave utility unchanged. Feedback can still advance lifecycle metadata and end a pending episode, separating delivery-state progress from the availability of a utility signal."
+        },
+        {
+          "location": "S4.SS0.SSS0.Px2.p1",
+          "file": "data/feed/raw/maintenance-2026-11-12/source-intake/scope-fulltexts/2611.13615.html",
+          "file_sha256": "453e6e81b25a7b0fc597433205cae6d22a141feacd6232a2c35951059ebb2be6",
+          "quote": "Domain-specific fine-tuning converts Qwen3-32B teacher judgments into a frozen 1.7B suitability classifier. We train the full backbone and classification head with AdamW, BF16 parameters, and FP32 loss logits. The two domain classifiers are trained independently from the same initial checkpoint, using 456 optimizer updates for AppWorld and 450 for WebShop. The reset three-class checkpoints are selected on development data and frozen before final evaluation. Calibrated Helpful probability must exceed 0.90. PVT uses α = 0.5 \\alpha=0.5 , λ = 0.1 \\lambda=0.1 , and a three-step cooldown. Deterministic item identifiers break ranking ties. Training splits, hyperparameters, teacher prompts, and realized sampling distributions appear in Appendix A ."
+        },
+        {
+          "location": "A1.SS1.SSS0.Px1.p1",
+          "file": "data/feed/raw/maintenance-2026-11-12/source-intake/scope-fulltexts/2611.13615.html",
+          "file_sha256": "453e6e81b25a7b0fc597433205cae6d22a141feacd6232a2c35951059ebb2be6",
+          "quote": "A soft-guidance decision follows these steps; hard repair retains the host path: 1. Extract deterministic evidence from the recent window and evaluate necessity; continue the original task if no trigger is present. 2. Admit up to five candidates from the static bank and previously published lessons, rendering their full conditions and checks. 3. Score each state–payload pair with the frozen classifier and apply the probability requirements for its event or periodic trigger. 4. Check PVT feedback, evidence/episode keys, cooldown, and remaining budget; rank eligible candidates using Equation ( 8 ). 5. Deliver at most one next-action hint and charge its tokens; the host verifies the subsequent window and publishes lessons."
+        }
+      ],
+      "formal_decision": false,
+      "all_experimental_numbers_recomputed": false
+    },
+    {
+      "id": "arxiv:2611.14326",
+      "title": "When Should Agents Remember? Falsification-Gated Self-Evolution for LLM Agents",
+      "source_hash": "535defda1d199d301e3a029561e4e5b15f9a9b8681b0d91ba38edf2163821175",
+      "suggestion": "include",
+      "direction": "harness/generalize",
+      "reason_zh": "FGSE限定纳入实现中的bounded prompt/tool-policy patch：执行经验生成带前提的行为修改，target-transfer/反例/回归probe决定提交、缩小前提再试或拒绝，后续任务调用同一修改接口。不能把所有经验条目或事实记忆泛称Harness。形式保证依赖论文假设，不声称无条件安全。",
+      "evidence": [
+        {
+          "location": "S4.SS1.p1",
+          "file": "data/feed/raw/maintenance-2026-11-12/source-intake/scope-fulltexts/2611.14326.html",
+          "file_sha256": "73b30a47759dea36fb245533de62836173c35de94402ffda3661b1860c1e7cfc",
+          "quote": "We propose Falsification-Gated Self-Evolution (FGSE), a verifier-grounded framework for reliable long-term improvement of language agents. Given an episode, FGSE converts the observed success or failure into a structured behavioral hypothesis that specifies its precondition, behavior change, expected effect, and verifier. The hypothesis is applied only temporarily and evaluated on target-transfer probes and falsification probes. It is committed to persistent agent state only when it improves target cases, survives targeted falsification, and preserves previously solved behavior. Hypotheses with localized failures are refined once through precondition narrowing and reevaluated; hypotheses that still fail are rejected. Figure 3 summarizes the pipeline, with probe construction and refinement details provided in Appendix A.2 and Appendix A.3 ."
+        },
+        {
+          "location": "S4.SS2.SSS0.Px5.p2",
+          "file": "data/feed/raw/maintenance-2026-11-12/source-intake/scope-fulltexts/2611.14326.html",
+          "file_sha256": "73b30a47759dea36fb245533de62836173c35de94402ffda3661b1860c1e7cfc",
+          "quote": "The persistent state is updated by Θ t + 1 = { Θ t ⊕ h , 𝖢𝗈𝗆𝗆𝗂𝗍 ⁡ ( h ) = 1 , Θ t , 𝖢𝗈𝗆𝗆𝗂𝗍 ⁡ ( h ) = 0 . \\Theta_{t+1}=\\begin{cases}\\Theta_{t}\\oplus h,&\\mathsf{Commit}(h)=1,\\\\ \\Theta_{t},&\\mathsf{Commit}(h)=0.\\end{cases} (9) A committed hypothesis is stored together with its precondition, behavior change, verifier, evaluated probes, verifier outcomes, and post-commit violation record. Rejected hypotheses are excluded from retrievable memory."
+        },
+        {
+          "location": "S4.SS3.p1",
+          "file": "data/feed/raw/maintenance-2026-11-12/source-intake/scope-fulltexts/2611.14326.html",
+          "file_sha256": "73b30a47759dea36fb245533de62836173c35de94402ffda3661b1860c1e7cfc",
+          "quote": "During future inference, FGSE retrieves committed hypotheses whose preconditions match the current interaction state and whose violation records remain below threshold. Activated hypotheses modify the policy through the same behavior-transformation interface as Eq. ( 4 ). When multiple hypotheses are active, FGSE combines them by normalized precondition scores while preserving a nonzero base-policy contribution. Post-commit violations update a running violation score; hypotheses exceeding the violation threshold are removed from retrieval. The retrieval, combination, and monitoring rules are provided in Appendix A.5 ."
+        },
+        {
+          "location": "A1.SS7.SSS0.Px1.p1",
+          "file": "data/feed/raw/maintenance-2026-11-12/source-intake/scope-fulltexts/2611.14326.html",
+          "file_sha256": "73b30a47759dea36fb245533de62836173c35de94402ffda3661b1860c1e7cfc",
+          "quote": "In implementation, each hypothesis is stored as a schema-constrained JSON object. The precondition field is a natural-language predicate together with a scoring function implemented by a lightweight LLM classifier or rule-based matcher. The behavior field specifies a bounded prompt/tool-policy patch. The expected-effect field specifies a verifier-observable condition, and the verifier field points to the benchmark validator or executable checker. Audits of synthetic healthcare workflows also expose escalation errors under conflicting evidence and brittle routing rules under unseen paraphrases [ Zheng et al., 2026 ] ."
+        },
+        {
+          "location": "A4.SS2.SSS0.Px4.p2",
+          "file": "data/feed/raw/maintenance-2026-11-12/source-intake/scope-fulltexts/2611.14326.html",
+          "file_sha256": "73b30a47759dea36fb245533de62836173c35de94402ffda3661b1860c1e7cfc",
+          "quote": "The default FGSE gate commits the round-trip booking rule and accepts the refined calendar rule after scope narrowing. In the refinement and rejection cases, falsification and regression evidence govern commitment alongside positive target-transfer gain. The refinement case demonstrates the practical value of one-pass scope narrowing: G ^ ​ ( h ) \\widehat{G}(h) decreases moderately from 10.4 % 10.4\\% to 7.6 % 7.6\\% , but P ^ fail ​ ( h ) \\widehat{P}_{\\mathrm{fail}}(h) drops from 18.8 % 18.8\\% to 0.0 % 0.0\\% , and D ^ reg ​ ( h ) \\widehat{D}_{\\mathrm{reg}}(h) drops from 2.7 % 2.7\\% to 0.8 % 0.8\\% . Thus, under the default setting, FGSE preserves useful self-evolution while blocking the main failure modes exposed by falsification and regression probes."
+        }
+      ],
+      "formal_decision": false,
+      "all_experimental_numbers_recomputed": false
+    },
+    {
+      "id": "arxiv:2611.13254",
+      "title": "Dependable Long-Horizon LLM Agents: A Trajectory-Centered Empirical Study of Where Errors Enter and Which Controls Reach Them",
+      "source_hash": "8cdafbe7fc9e654f1cbfb6acd6c39ce09694d2204ad38b5288353107aeb391c5",
+      "suggestion": "exclude",
+      "direction": "evaluation_benchmark",
+      "reason_zh": "长期Agent故障轨迹归因和控制可达性研究；分析已有固定系统的失败，不是反馈演化Harness的专项评测。文中“would have reached”也不是实际干预实验。",
+      "evidence": [
+        {
+          "location": "S1.p5",
+          "file": "data/feed/raw/maintenance-2026-11-12/source-intake/scope-fulltexts/2611.13254.html",
+          "file_sha256": "94372d6c3778b6995b51f3ccf8b760c321fe8be37ac70784aca5f52ead076319",
+          "quote": "That is what this paper does. We define an episode record that ties a candidate fault to its origin, its propagation, its detection and response, and its consequence. Each event is located by operational phase (P0–P7) and state domain (R1–R6), and the record names the control families whose observation and reach would cover the episode (Section 2 ). We wrote the record down as an annotation protocol and applied it to failed trajectories from two public corpora, Who&When ( Zhang et al., 2025b ) and the MAST/MAD traces ( Cemri et al., 2025 ) , reading each trajectory in full (Section 3 ). Three questions: • RQ1. In which phase and state domain do faults enter, how far before the visible symptom, and how does the origin relate to the “decisive step” that the corpus authors labelled? • RQ2. When a run fails, was there evidence in the trajectory that contradicted the error? Did any agent use it? Did detection, when it happened, lead to a response that worked? • RQ3. Which control families would have observed and reached each episode, and how often would restoring the agent’s own state have been enough?"
+        },
+        {
+          "location": "S5.SS1.SSS0.Px4.p1",
+          "file": "data/feed/raw/maintenance-2026-11-12/source-intake/scope-fulltexts/2611.13254.html",
+          "file_sha256": "94372d6c3778b6995b51f3ccf8b760c321fe8be37ac70784aca5f52ead076319",
+          "quote": "“Would have reached” is a judgment about the trace, constrained by the control contracts of Table 10 . It is not a measured intervention. Whether a control would actually have prevented a given failure requires re-running the agents with the control in place, which we have not done."
+        }
+      ],
+      "formal_decision": false,
+      "all_experimental_numbers_recomputed": false
+    },
+    {
+      "id": "arxiv:2611.13034",
+      "title": "RoboACE: Adversarial Co-Evolution for Robot Self-Improvement",
+      "source_hash": "7273662f7d6d75ff55db5a5620b84db44e4e172dbe21d86b91d09fbc3f281677",
+      "suggestion": "include",
+      "direction": "harness/evolve_main",
+      "reason_zh": "RoboACE在冻结模型外共同迭代课程Harness与执行Harness：optimizer依独立运行反馈改提示、工具接口和程序技能，候选经固定快照比较后跨轮保留。课程任务本身不算Harness，纳入的是如何选课和执行的方法工件。不是权重共演化。证据仅单条开发轨迹及LIBERO生态子面板。",
+      "evidence": [
+        {
+          "location": "S3.SS1.p1",
+          "file": "data/feed/raw/maintenance-2026-11-12/source-intake/scope-fulltexts/2611.13034.html",
+          "file_sha256": "e6186f742dde016130e91af0b5d94c7a4dd3c81646aa941f8ded3cd571ebdb06",
+          "quote": "RoboACE takes prior capability evidence and the current pair of harnesses as input and returns revised harnesses together with evidence for the next round. The curriculum harness guides practice selection and construction; the execution harness organizes planning, code skills, and pretrained control. Each contains reusable prompts, skills, tools, interfaces, and agent-readable memory. All foundation-model weights remain frozen. Figure 2 shows how the two sides exchange evidence while updating in alternating phases."
+        },
+        {
+          "location": "S3.SS1.p2",
+          "file": "data/feed/raw/maintenance-2026-11-12/source-intake/scope-fulltexts/2611.13034.html",
+          "file_sha256": "e6186f742dde016130e91af0b5d94c7a4dd3c81646aa941f8ded3cd571ebdb06",
+          "quote": "Each side separates runtime decisions from persistent revision. An independent agent runs its harness to propose practice or attempt a task. An external optimizer examines the resulting evidence, proposes changes, and tests them through further independent runs. We call the accepted harness version Stable and a proposed revision Candidate . A phase can retain its incoming Stable version, and its revision history records the tests and the reasons for adoption or rejection. The Strategic Advisor can review evidence across multiple local updates without taking over these decisions."
+        },
+        {
+          "location": "S3.SS2.p2",
+          "file": "data/feed/raw/maintenance-2026-11-12/source-intake/scope-fulltexts/2611.13034.html",
+          "file_sha256": "e6186f742dde016130e91af0b5d94c7a4dd3c81646aa941f8ded3cd571ebdb06",
+          "quote": "The curriculum optimizer revises how the agent makes these choices. It tests whether a candidate harness supports better use of evidence, maintains coverage, and recovers from failed retrieval or construction. The revised assets persist across future curriculum-agent runs, whose practice choices remain independent. Section 4.4 illustrates this distinction through a revision to evidence-reading guidance and the retrieval interface."
+        },
+        {
+          "location": "S3.SS3.p2",
+          "file": "data/feed/raw/maintenance-2026-11-12/source-intake/scope-fulltexts/2611.13034.html",
+          "file_sha256": "e6186f742dde016130e91af0b5d94c7a4dd3c81646aa941f8ded3cd571ebdb06",
+          "quote": "The execution optimizer diagnoses failures from outcomes, trajectories, public observations, and tool feedback. Diagnosis distinguishes failures of a skill from misleading skill descriptions or inappropriate tool choices, because these require different revisions. Candidate changes are tested through independent agent runs with task definitions, initializations, model settings, and budgets held fixed. Conditions shared by practice and the internal benchmark use the same execution record. Targeted runs diagnose individual mechanisms, while comparisons across the full snapshot inform adoption. The optimizer considers successes, regressions, reuse, and cost before installing Candidate or retaining Stable."
+        },
+        {
+          "location": "S3.SS4.p2",
+          "file": "data/feed/raw/maintenance-2026-11-12/source-intake/scope-fulltexts/2611.13034.html",
+          "file_sha256": "e6186f742dde016130e91af0b5d94c7a4dd3c81646aa941f8ded3cd571ebdb06",
+          "quote": "A diagnosis becomes useful to future agents only when it reaches a deployable prompt, skill description, or retrievable manual. The optimizer checks whether the agent actually receives and uses the revised material. Persistent assets are versioned with each deployment and kept separate from episode workspaces. Appendix A.3 describes this interface. Final evaluation remains outside the loop and does not inform curriculum choices or version selection."
+        },
+        {
+          "location": "S4.SS1.p1",
+          "file": "data/feed/raw/maintenance-2026-11-12/source-intake/scope-fulltexts/2611.13034.html",
+          "file_sha256": "e6186f742dde016130e91af0b5d94c7a4dd3c81646aa941f8ded3cd571ebdb06",
+          "quote": "We instantiated RoboACE with GPT-6.1 (Terra) and pretrained tools including SAM 3 and π 0.5 \\pi_{0.5} control [ 1 ] . The campaign maintained 30 practice conditions and an internal benchmark of up to 40 conditions, with 27 saved round records. Both harnesses received persistent software revisions; no LLM or VLA weights were trained or fine-tuned by this project."
+        },
+        {
+          "location": "S4.SS2.p5",
+          "file": "data/feed/raw/maintenance-2026-11-12/source-intake/scope-fulltexts/2611.13034.html",
+          "file_sha256": "e6186f742dde016130e91af0b5d94c7a4dd3c81646aa941f8ded3cd571ebdb06",
+          "quote": "For our evaluations, each cell contains one designated observation for every assigned condition. Historical prefix observations are retained without choosing the best of repeated attempts. Success rate is the number of confirmed native successes divided by all 200 conditions; timeouts, infrastructure errors, and all other outcomes count as failures. Only complete, independently audited panels are scored. The results characterize one development trajectory and its resulting deployments."
+        }
+      ],
+      "formal_decision": false,
+      "all_experimental_numbers_recomputed": false
+    },
+    {
+      "id": "arxiv:2611.12918",
+      "title": "IntentTwin: Deconfounding Candidate Support and the Oracle-to-Deployment Gap in Offline Web Behavior Prediction",
+      "source_hash": "11a52e46f761425ecc741726c92fc3846781c4ef458f847ae37b829ea72af98a",
+      "suggestion": "exclude",
+      "direction": null,
+      "reason_zh": "审计离线Web行为预测的候选支持泄漏和部署差异；未评估自改Harness闭环。",
+      "evidence": [
+        {
+          "location": "Official arXiv abstract",
+          "quote": "Offline web-behavior benchmarks frequently insert the demonstrated action into a finite candidate set and then measure reranking. We show that this protocol can create a candidate-support confound: when the target is outside training support while all distractors are sampled from that support, support membership identifies the gold action without modeling behavior. We formalize this effect with support-identifiability rate (SIR), construct support-balanced candidate sets, and evaluate a target-free dual-path proposer that combines support retrieval with open-vocabulary DOM/LM proposals. On filtered OPeRA (4,282/469/992 train/dev/test steps), the original protocol has SIR 1.0000 on target-OOV rows and a support-only rule reaches 1.0000 OOV Exact@1. Support balancing reduces SIR to 0.0000; the strongest conditional reranker obtains 0.7214 overall Exact@1, 0.7988 on IV rows, and 0.5668 on OOV rows. The target-free dual-path system reaches Proposal Recall@16 0.6915 and end-to-end Exact@1 0.5212, compared with oracle conditional Exact@1 0.7450. On Mind2Web, the same audit yields SIR 0.2380 and an oracle-to-proposal gap of 0.2125. A 200-row semantic audit labels 0.7150 of exact-key OOV targets as semantically novel, 0.2450 as locator/string variation, and 0.0400 as ambiguous (Cohen's $κ=0.8173$). These measurements show why support composition must be controlled alongside candidate accuracy when offline results are used to reason about deployment.",
+          "file": "data/feed/raw/maintenance-2026-11-12/source-intake/official-metadata/0002.body",
+          "file_sha256": "03a2e8950e5f088d3c3bd72084a60cd29d52bb1e0530bc218549441e9b20bdcf"
+        }
+      ],
+      "formal_decision": false,
+      "all_experimental_numbers_recomputed": false
+    },
+    {
+      "id": "arxiv:2610.39671",
+      "title": "Incentivizing Self-Learning in Large Language Models via Reinforcement Learning",
+      "source_hash": "c6b83d0472637852874561ef92754b3824a28ccc611092abbe144699726929dd",
+      "suggestion": "exclude",
+      "direction": null,
+      "reason_zh": "用强化学习激励模型自学，BookNavigator作为固定辅助；优化模型权重而非反馈改写工具/控制机制。",
+      "evidence": [
+        {
+          "location": "Official arXiv abstract",
+          "quote": "Large language models (LLMs) draw on parametric knowledge and retrieval-augmented generation (RAG) to solve knowledge-intensive tasks. Yet problem solving in unfamiliar domains calls for tightly coupled knowledge acquisition and reasoning, beyond factual retrieval and aggregation or learning solely from a preassembled context. We study self-learning -- autonomously retrieving, studying, and applying knowledge from long-form reference materials on the fly. To investigate this capability, we formulate a textbook-based mathematical problem-solving task. LLMs must navigate textbook exposition, learn and apply relevant principles, and construct proofs for exercises, with reference solutions withheld. We introduce a BookNavigator interface to support this human-inspired study process and incentivize self-learning through reinforcement learning (RL) with fine-grained rewards. Experiments show that our method improves performance across in-domain and out-of-domain textbooks and subjects, raising Intern-S2-Preview-35B's overall proof accuracy from 51.5% to 79.5% and outperforming RL-trained textbook-free and fixed-retrieval baselines. These gains extend to complex long-context benchmarks involving different task types, with improvements over the base model of 1.7 and 2.3 percentage points on BrowseComp-Plus and CL-bench, respectively. Together, these findings suggest that RL can foster a domain-agnostic self-learning strategy, highlighting the potential of self-learning from long-form corpora to strengthen broader problem-solving capabilities on complex, long-context tasks.",
+          "file": "data/feed/raw/maintenance-2026-11-12/source-intake/official-metadata/0001.body",
+          "file_sha256": "586409dfbf163571c723bc74eef7834162b8585976bff9e32019176ee6f861f5"
+        }
+      ],
+      "formal_decision": false,
+      "all_experimental_numbers_recomputed": false
+    },
+    {
+      "id": "arxiv:2611.13028",
+      "title": "GTAGym: Real AAA Game Tasks Environment for Evaluation and Reinforcement Learning",
+      "source_hash": "a5aeffb26239bfeeb38d0c7ee34281b64d98d56bc49f93bcd7dc412cc17f170e",
+      "suggestion": "exclude",
+      "direction": null,
+      "reason_zh": "GTAGym提供游戏任务和RL评测，history compression及交互Harness固定，无持续修改工件证据。",
+      "evidence": [
+        {
+          "location": "Official arXiv abstract",
+          "quote": "AAA games offer a rich testbed for evaluating agent perception, reasoning, and control. However, evaluating whether agents can complete tasks in AAA games is challenging and often human-annotated because task outcomes are often difficult to verify automatically, let alone applying it for Reinforcement Learning (RL). We introduce GTAGym, an environment and framework for evaluation and RL on GTA V tasks. Its evaluation benchmark, GTAVBench, derived from GTA V main-story missions, contains 103 online tasks reconstructed across nine task families, alongside 47 image-based shooting and sniping tasks using GTA V imagery. A web server provides access to the online environment and evaluation interface, supporting parallel testing through screenshots and keyboard-mouse actions with automatic engine-state outcome checks. We evaluate six frontier LLMs on GTAVBench with textual task instructions and on its GTAVBench-AGI branch, where instructions appear only in the first screenshot and a harness automatically compresses interaction history. The best configuration achieves 70.9% overall accuracy in GTAVBench-AGI, yet aerial navigation, evasion and interception remain difficult. GTAGym also provides a scalable generator that samples task parameters within user-specified ranges and option sets under fixed templates, creating batches of 3D and image-based shooting environments for RL with automatic reward and termination signals. LoRA RL of Qwen3.8-27B on generated on-foot navigation tasks improves the in-domain performance and transfers to out-of-domain task categories, and native GTA V tasks from 15% to 23%.",
+          "file": "data/feed/raw/maintenance-2026-11-12/source-intake/official-metadata/0001.body",
+          "file_sha256": "586409dfbf163571c723bc74eef7834162b8585976bff9e32019176ee6f861f5"
+        }
+      ],
+      "formal_decision": false,
+      "all_experimental_numbers_recomputed": false
+    },
+    {
+      "id": "arxiv:2610.40394",
+      "title": "Scaling Mathematical Proof Supervision from Structured Textbooks",
+      "source_hash": "da3d835ba8752bf72b5eb2371420ccd393c7f0cd4071dce9c60036db9b6c14bb",
+      "suggestion": "exclude",
+      "direction": null,
+      "reason_zh": "TOME-Math构建数学证明训练数据并训练模型，优化数据/权重，非Harness演化。",
+      "evidence": [
+        {
+          "location": "Official arXiv abstract",
+          "quote": "Mathematical supervision for language models is typically flattened into isolated problem-solution pairs, discarding the curricular organization and evidential structure of the original sources. We introduce TOME-Math (Textbook-Oriented Mathematical Evidence), a large-scale corpus that converts 2,118 textbooks spanning the core areas of university-level mathematics subjects into approximately 380K structured proof-supervision records while preserving chapter order, proposition-proof links, dependency references, and source provenance. Leveraging these structural signals, we explore curriculum learning across multiple mathematical subjects and characterize scaling patterns with supervision volume and source breadth. At full scale, fine-tuning on TOME-Math raises the unweighted mean score across our held-out evaluations and established public benchmarks by 16.7 percentage points over the base model, while exceeding all three public instruction-data baselines evaluated in aggregate. Our findings highlight structured textbooks as both a scalable source of mathematical supervision and an empirical framework for studying the impact of data organization on mathematical reasoning. We will release the corpus to facilitate further research on structured mathematical supervision.",
+          "file": "data/feed/raw/maintenance-2026-11-12/source-intake/official-metadata/0001.body",
+          "file_sha256": "586409dfbf163571c723bc74eef7834162b8585976bff9e32019176ee6f861f5"
+        }
+      ],
+      "formal_decision": false,
+      "all_experimental_numbers_recomputed": false
+    },
+    {
+      "id": "arxiv:2607.24999",
+      "title": "CogBattery: Human-Referenced Evaluation of Cognitive Task Behavior and Structure in Language Models",
+      "source_hash": "3ed49c0bb0f88c6c1a552d88933f95bac5654ee67d17d784682c72cef2b41c42",
+      "suggestion": "exclude",
+      "direction": null,
+      "reason_zh": "CogBattery为一般模型认知能力评测，无Harness自修改专项。",
+      "evidence": [
+        {
+          "location": "Official arXiv abstract",
+          "quote": "Human cognitive tasks let us compare language models with humans under controlled conditions. Yet a model can reproduce the direction of a human effect while making different errors. CogBattery evaluates 54 open-weight language models on text adaptations of 13 cognitive paradigms, comparing each with human data from its source study. Like humans, models respond more to n-back lures than to controls, yet they make far more false alarms on ordinary non-targets. Most models' reported confidence separates correct from incorrect answers less well than humans' does, and most always choose the same wager, including models that classify accurately. These patterns span many model families. Across tasks, model scores share two dimensions. The first is closely tied to scale, yet larger models are not consistently closer to humans. Predefined cognitive groupings show no reliable predictive advantage over random groupings of the same size. These results show that matching human effect directions does not establish human-like behavior. CogBattery provides condition-level human references for testing errors and confidence reports in new models.",
+          "file": "data/feed/raw/maintenance-2026-11-12/source-intake/official-metadata/0001.body",
+          "file_sha256": "586409dfbf163571c723bc74eef7834162b8585976bff9e32019176ee6f861f5"
+        }
+      ],
+      "formal_decision": false,
+      "all_experimental_numbers_recomputed": false
+    },
+    {
+      "id": "arxiv:2611.10193",
+      "title": "Ensemble Routing for Prompt-Adaptive Cost-Aware LLM Inference",
+      "source_hash": "38c40654cec8c43958f6b5c65f8a501fa9452d7352edf4843a22c1b251626727",
+      "suggestion": "exclude",
+      "direction": null,
+      "reason_zh": "PISA学习ensemble router并在推理时选择组合，未随执行反馈修改且保存外部routing程序。",
+      "evidence": [
+        {
+          "location": "Official arXiv abstract",
+          "quote": "Large language models (LLMs) increasingly support Web-based services that must balance response quality and inference cost across heterogeneous requests. Conventional routing selects one model per prompt, while fixed ensembles cannot adapt their composition and cost to individual requests. We introduce PISA, a prompt-adaptive, cost-aware single-model router, and PISA-E, its extension to ensemble routing. At the core of both methods, PISA combines soft cluster memberships with model-specific predictors to estimate individual model capabilities. Building on these estimates, PISA-E jointly selects ensemble composition and cardinality under an explicit cost--quality preference that can be adjusted at inference time without retraining. A tractable ensemble-success surrogate and efficient candidate selection enable this extension without ensemble-specific training. Across four LLM routing benchmarks under in-distribution (ID) and out-of-distribution (OOD) conditions, PISA achieves the highest macro-average cost--performance hypervolume among the evaluated single-model routers in both settings. Meanwhile, PISA-E achieves the highest macro-average task performance among the evaluated ensemble approaches when prioritizing response quality, surpassing the strongest competitors by 2.09 and 2.87 percentage points under ID and OOD conditions, respectively. At selected lower-cost operating points, it also exceeds the strongest ensemble competitors' macro-average task performance while reducing average inference cost by approximately 36% and 25%, respectively. These results demonstrate the effectiveness of prompt-adaptive capability estimation for both single-model routing and selective ensembling.",
+          "file": "data/feed/raw/maintenance-2026-11-12/source-intake/official-metadata/0001.body",
+          "file_sha256": "586409dfbf163571c723bc74eef7834162b8585976bff9e32019176ee6f861f5"
+        }
+      ],
+      "formal_decision": false,
+      "all_experimental_numbers_recomputed": false
+    },
+    {
+      "id": "arxiv:2603.27343",
+      "title": "WMIP: A Working-Memory-Inspired Programmable Probe of Cumulative State Tracking in Large Language Models",
+      "source_hash": "8207b26c31b11e91a065f58c99c36456093a13b5811313463967c1968b08d460",
+      "suggestion": "exclude",
+      "direction": null,
+      "reason_zh": "WMIP评测prompt内累积状态跟踪，当前上下文状态不等于跨任务Harness演化。",
+      "evidence": [
+        {
+          "location": "Official arXiv abstract",
+          "quote": "Human working memory lets people maintain and update information. Large language models (LLMs) face a related demand when tracking updates within a single prompt without writing out intermediate states, yet existing tests differ in their constraints on written steps. We introduce a working-memory-inspired probe of cumulative state tracking with program-computed answers, 3 to 100 updates, and final-state, intermediate-state, or multi-target queries. It compares protocols on identical items. Across 18 LLMs, accuracy is 84.9% on single-step arithmetic but 31.7% on core items requiring one number after three to seven updates. From 50 updates on, no model exceeds 10% accuracy. Core accuracy reaches 88.0% under a larger budget and instructions to write steps and place the answer on the last line, mainly due to the instruction changes rather than the budget. Core accuracy also correlates positively with public Berkeley Function Calling Leaderboard scores. These findings show that strong single-step arithmetic does not ensure reliable cumulative tracking and that output protocols substantially change measured accuracy. We release the generator, items, scoring code, and responses for reproducible comparisons across depths, query types, and protocols.",
+          "file": "data/feed/raw/maintenance-2026-11-12/source-intake/official-metadata/0001.body",
+          "file_sha256": "586409dfbf163571c723bc74eef7834162b8585976bff9e32019176ee6f861f5"
+        }
+      ],
+      "formal_decision": false,
+      "all_experimental_numbers_recomputed": false
+    },
+    {
+      "id": "arxiv:2611.14210",
+      "title": "Tree-Ising: Repairing Language Models with Bit-Level Ising Edits",
+      "source_hash": "8036a000cb70035af5da38aee82d5a9d2f2973128a00dd38b285b144ae62388d",
+      "suggestion": "exclude",
+      "direction": null,
+      "reason_zh": "Tree-Ising用bit-level edit修复模型参数，非外部Harness。",
+      "evidence": [
+        {
+          "location": "Official arXiv abstract",
+          "quote": "Weight-space programming, introduced in recent MIT work by Takehi et al., enables a frontier LLM agent to read a network's weights and write a repair. Their GPT-6 Astra agent corrected the reasoning loops of Qwen3.5-0.8B without gradients, using 158 agent turns, 89.7 million tokens, and 50 forward-pass requests. Our method, Tree-Ising, casts this repair as a sparse discrete optimization problem over the model's own BF16 weights. Forward statistics define an objective that weakens a loop direction, strengthens a concluding direction, and preserves the layer's output on productive tokens. Within a state-tree representation, where lossless BF16 storage acts as a special case, the admissible edits are sign flips and exponent shifts that preserve all shared group exponents and mantissas. We decompose this objective exactly into independent QUBO (Ising) problems, one per output row, which we solve on a GPU using simulated annealing or quantum-inspired simulated bifurcation. On the agent's two layers, Tree-Ising achieves 54.6% on MATH-500, outperforming the agent's edit (51.7%) under the same evaluation protocol, while the base model scores 7.9% as reported. The simulated bifurcation solver yields a statistically indistinguishable repair at 55.1%. Both solvers outperform the agent edit across all five math benchmarks, with statistically significant improvements on MATH-500 and GSM8K after correcting for multiple comparisons. Our approach modifies 13% to 17% fewer weights and reduces BF16 bit flips by a factor of 2.2 to 2.3. It requires only four forward-pass requests and zero LLM tokens, with the annealing recipe costing about $0.90 in GPU time. On Qwen3.5-2B, with layers and dose selected using only the base model, the same recipe increases greedy GSM8K accuracy from 21.6% to 69.4%. As a proof of concept, we execute an eight-variable repair subproblem using QAOA on an IBM Heron processor.",
+          "file": "data/feed/raw/maintenance-2026-11-12/source-intake/official-metadata/0001.body",
+          "file_sha256": "586409dfbf163571c723bc74eef7834162b8585976bff9e32019176ee6f861f5"
+        }
+      ],
+      "formal_decision": false,
+      "all_experimental_numbers_recomputed": false
+    },
+    {
+      "id": "arxiv:2611.14033",
+      "title": "Few-Step Streaming Video Generation via Condition Shifting",
+      "source_hash": "14946d25f94fd83a16427bfb91538cc8fe5a35a971cf7ef19b646df3084b48a0",
+      "suggestion": "exclude",
+      "direction": null,
+      "reason_zh": "少步流式视频生成模型及condition shifting，非Agent Harness。",
+      "evidence": [
+        {
+          "location": "Official arXiv abstract",
+          "quote": "Few-step sampling reduces the cost of streaming video generation. Distribution Matching Distillation (DMD) supervises few-step generators with a separate fake-score network, which adds training memory and computation and must track the evolving generator. We extend APEX to streaming video by using condition shifting to estimate the velocity field of the generated distribution within the generator. The original text condition selects generation, while a shifted condition selects fake estimation using the same parameters. This removes the independent fake network while retaining S2-Avatar's frozen reference teacher, Self-Replay Forcing, and perceptual regularization. We evaluate APEX on 180-second videos using three backbone evaluations per block and a one-step spatial Refiner, with a 70-case human study and a 320-case StreamAV-Bench comparison. Compared with S2-Avatar, APEX achieves higher video instruction fulfillment on the Progressive track (3.856 versus 3.831) and higher visual aesthetics across both tracks (0.641898 versus 0.632606). Human raters favor APEX most strongly on instruction following, with +30.0% net preference, followed by consistency and video quality at +4.3% each. Motion quality favors S2-Avatar, audiovisual synchronization is predominantly tied, and usability is unchanged. Separate measurements under matched training settings show 4.4% lower peak allocated GPU memory per GPU and 9.2% shorter mean iteration time than DMD.",
+          "file": "data/feed/raw/maintenance-2026-11-12/source-intake/official-metadata/0001.body",
+          "file_sha256": "586409dfbf163571c723bc74eef7834162b8585976bff9e32019176ee6f861f5"
+        }
+      ],
+      "formal_decision": false,
+      "all_experimental_numbers_recomputed": false
+    },
+    {
+      "id": "arxiv:2611.14320",
+      "title": "Don't Just Trust Your Memory: Evidence-Linked Memory Reduces Memory-Induced Degradation in LLM Agents",
+      "source_hash": "0fd8290e1a3567a2c9ecb9fb7a88d408de54347ad784534b22e18b5e4cf76ab8",
+      "suggestion": "exclude",
+      "direction": "experience_world_model",
+      "reason_zh": "WikiTrace预先写入并冻结evidence-linked经验，test只读检索；每次生成insight后不更新或删除，没有反馈改写记忆管理机制的闭环。",
+      "evidence": [
+        {
+          "location": "S3.SS1.p2",
+          "file": "data/feed/raw/maintenance-2026-11-12/source-intake/scope-fulltexts/2611.14320.html",
+          "file_sha256": "a726f2ac0fdc858ed4c5a42042a4edfd09548f1b04a6579725d960d66192877b",
+          "quote": "We construct memory ℳ \\mathcal{M} from this corpus before any test task runs, with no additional run to validate an individual memory item. Once constructed, the memory remains fixed and read-only for an agent solving new tasks. Our objective is to improve task performance through experience reuse while limiting memory-induced degradation on tasks the agent solves without memory."
+        }
+      ],
+      "formal_decision": false,
+      "all_experimental_numbers_recomputed": false
+    },
+    {
+      "id": "arxiv:2611.12426",
+      "title": "dNaViT: Discrete Codes are General-Purpose Visual Representations",
+      "source_hash": "d9c84dc53900bb37a4ae89a255d5dc10622d40698a3318f99b54fad94dc52ca5",
+      "suggestion": "exclude",
+      "direction": null,
+      "reason_zh": "dNaViT离散视觉表征和模型训练，非Harness。",
+      "evidence": [
+        {
+          "location": "Official arXiv abstract",
+          "quote": "Discrete autoregressive modeling, notably through next-token prediction, has become a cornerstone of modern language models. Extending this paradigm to vision allows visual and language models to converge on a unified framework, thereby fostering shared methodology and infrastructure. This work investigates a central question: how far can a finite discrete vocabulary go in representing the richness of the visual world? We present dNaViT, a Discrete Native-resolution Vision Transformer that produces discrete visual primitives analogous to language tokens. Built upon a frozen pretrained encoder, dNaViT applies lightweight residual modulation with a dual-branch objective to inject reconstruction-aware cues into semantic features. By leveraging grouped product quantization, it scales discrete capacity without inflating spatial sequence lengths, while a balanced training recipe maintains both semantic and pixel-level information. Consequently, dNaViT functions as a versatile discrete visual tokenizer, enabling unified encoding across downstream tasks alongside high-fidelity image decoding. Extensive evaluations show that dNaViT matches or exceeds task-specific baselines across 12 visual understanding benchmarks, 4 generation benchmarks, and an image editing benchmark. These findings demonstrate that a compact discrete vocabulary can serve as a universal visual currency and unlock the full potential of fully unified, native multimodal methodology.",
+          "file": "data/feed/raw/maintenance-2026-11-12/source-intake/official-metadata/0001.body",
+          "file_sha256": "586409dfbf163571c723bc74eef7834162b8585976bff9e32019176ee6f861f5"
+        }
+      ],
+      "formal_decision": false,
+      "all_experimental_numbers_recomputed": false
+    },
+    {
+      "id": "arxiv:2611.13001",
+      "title": "One Table, Many Queries: Benchmarking Generalist Tabular Models Across Generation, Imputation, and Prediction",
+      "source_hash": "3d64b33d95d20b4b55191620cadb73f702bd0d1284313da16cae234f2c7e0241",
+      "suggestion": "exclude",
+      "direction": null,
+      "reason_zh": "通用表格模型生成、填补和预测评测，非Harness自进化专项。",
+      "evidence": [
+        {
+          "location": "Official arXiv abstract",
+          "quote": "Generation, imputation, and prediction query different aspects of the same tabular distribution, but are usually evaluated separately. This leaves unclear which capabilities they share, how their training objectives interact, and whether one model can perform all three well. We introduce the One Table Benchmark (\\ours{}), spanning 56 datasets, 46 registered methods, and 20 capability axes under aligned data splits and explicit task contracts. We compare task ranks on aligned support, train five backbones under all seven non-empty objective combinations on five datasets with three seeds, and contrast fixed-model profiles with specialist portfolios. Rank comparisons connect imputation and prediction through numerical recovery and dependence preservation, and link generation to both through predictive utility; distributional fidelity follows different, sometimes opposing, rankings. Objective interventions show the largest pooled gains from including the recipient's own objective. Generation has the broadest coverage of positive pooled auxiliary effects, while prediction shows potential to improve imputation and synthetic-data utility, with responses that vary across backbones. Cross-addition effects reveal that objective benefits need not add and depend on the objectives already present. Fixed-model comparisons expose corresponding utility--fidelity trade-offs: some generalists surpass specialist portfolios on utility, while fidelity continues to favor specialization. Frozen foundation models show strong prediction and numerical point imputation, together with promising synthetic-data utility, highlighting their potential across all three tasks. These findings motivate unified tabular models that share useful conditional information while improving categorical reconstruction and faithful joint sampling.",
+          "file": "data/feed/raw/maintenance-2026-11-12/source-intake/official-metadata/0001.body",
+          "file_sha256": "586409dfbf163571c723bc74eef7834162b8585976bff9e32019176ee6f861f5"
+        }
+      ],
+      "formal_decision": false,
+      "all_experimental_numbers_recomputed": false
+    },
+    {
+      "id": "arxiv:2611.14309",
+      "title": "MMDM: Measuring Massive Multitask Decision Making",
+      "source_hash": "1ee2c531d89fe228909740bd77f8008dd21d118d74c0dc7ed81bb03ff090223d",
+      "suggestion": "exclude",
+      "direction": null,
+      "reason_zh": "MMDM一般多任务决策能力基准，未提供Harness演化专项实验。",
+      "evidence": [
+        {
+          "location": "Official arXiv abstract",
+          "quote": "System-1 Decision Models directly make structured probabilistic decisions over query-specified options given a state in a single forward pass, without autoregressively generating reasoning trajectories or textual responses. Recent evaluations cover diverse tasks but often rely on existing benchmarks, where prior exposure to test material can obscure generalization. Moreover, real-world decision making often involves long contexts, large option spaces, and complex logical dependencies, challenges that existing benchmarks do not adequately capture together. Thus, we introduce MMDM (Massive Multitask Decision Making), a benchmark of 5,448 high-quality questions across 16 task categories, combining newly constructed tasks with source-grounded recompositions and rewrites for single-select, multi-select, and soft-label decision making in fresh contexts. It covers realistic scenarios such as agent state tracking, tool and skill selection, preference judgments, and rubric scoring, with option spaces ranging from 2 to 1,024 and inputs extending to 64,817 tokens. With MMDM, we conduct a comprehensive quantitative evaluation of 28 decision models, showing that many perform well on common knowledge yet struggle with interdependent options, constrained decisions, and multi-select tasks. For example, Perplexity Decider-V1.2 reaches 78.75% Hard Single-select Accuracy on world knowledge, but only 53.95% on option logic and 47.95% on constraint planning, while the best Hard Multi-select Accuracy across all models is 36.81%. These results highlight joint reasoning, constraint-aware selection, and complete multi-select recovery as key priorities for decision model development, with MMDM providing a testbed for measuring this progress.",
+          "file": "data/feed/raw/maintenance-2026-11-12/source-intake/official-metadata/0001.body",
+          "file_sha256": "586409dfbf163571c723bc74eef7834162b8585976bff9e32019176ee6f861f5"
+        }
+      ],
+      "formal_decision": false,
+      "all_experimental_numbers_recomputed": false
+    },
+    {
+      "id": "arxiv:2611.12177",
+      "title": "Embodied First Exam",
+      "source_hash": "9565825987fb5fc10c91ab39d687c36eee4e20bf2ede4ca4a0f5035f00343519",
+      "suggestion": "exclude",
+      "direction": null,
+      "reason_zh": "一般具身能力考试与benchmark，不是自改Harness评测。",
+      "evidence": [
+        {
+          "location": "Official arXiv abstract",
+          "quote": "Early successes on agentic robotics point to a potential paradigm shift toward using coding agents to control robots. Existing robotics benchmarks are built around visuomotor policy learning, leaving it open whether coding agents can reliably control diverse robots under physical-world constraints. We therefore introduce the Embodied First Exam, a unified, comprehensive, and agent-native evaluation framework where coding agents can choose their own control approach: direct control, code to control, or train a policy to control. We hope it serves as a first exam for coding agents before they enter the physical world, with 1,156 tasks in 35 suites on 47 robots, including 9 new suites that go beyond pick-and-place to spatial puzzles, dexterous manipulation, multi-robot interaction, dynamic whole-body control, and sim-to-sim engineering. Each task can be run in up to three evaluation settings. The Standard Setting mimics the real world: the agent receives only sensor observations and, by default, cannot reset the environment. Its Realtime variant keeps the environment running while the agent reasons. The Privileged Setting gives the agent access to the full simulator state and unlimited resets, allowing it to search for an oracle solution for training purposes. Success rates in this setting serve as an approximate upper bound. On the 456 core tasks, the strongest of eight agents, GPT-6 Astra in Codex, achieves a success rate of 34% in the Standard Setting, leaving much room for improvement. To see where agents fail, we label the stage at which failed attempts go wrong and compare failures across agents, settings, and stage categories.",
+          "file": "data/feed/raw/maintenance-2026-11-12/source-intake/official-metadata/0001.body",
+          "file_sha256": "586409dfbf163571c723bc74eef7834162b8585976bff9e32019176ee6f861f5"
+        }
+      ],
+      "formal_decision": false,
+      "all_experimental_numbers_recomputed": false
+    },
+    {
+      "id": "arxiv:2611.11166",
+      "title": "DexForesight: Grounding Dexterous Policies with Implicit Spatial Foresight",
+      "source_hash": "89a7105411b6c338a0937354201ba16df56ac2f0bb55f0bf0cc7009d4621e160",
+      "suggestion": "exclude",
+      "direction": null,
+      "reason_zh": "DexForesight通过隐式空间预测训练机器人策略，优化神经模型。",
+      "evidence": [
+        {
+          "location": "Official arXiv abstract",
+          "quote": "Dexterous manipulation requires rich spatial foresight over both the surrounding scene and the robot hand. Existing world-action models often acquire such predictive knowledge through explicit future prediction. We introduce DexForesight, a framework that learns spatial foresight implicitly by injecting dynamics-aware world representations into the latent space of a dexterous policy. During training, DexForesight learns an action-conditioned spatial world model from offline scene depth, kinematic hand geometry, and demonstration trajectories. The world model predicts 3D hand-point motion and visual feature changes, capturing both articulated hand dynamics and scene changes under demonstrated actions, including the motion of fingers occluded from the cameras. We then freeze the world model and align policy queries with its predictive world queries, transferring the learned spatial dynamics into policy latents and using them to condition action generation. At deployment, only the policy is retained, operating on RGB observations, language, and robot state without depth input or explicit future prediction. On 11 DexJoCo simulation tasks, DexForesight improves the overall success rate of the base policy from 49.4% to 60.5%. On three real-robot dexterous manipulation tasks, DexForesight achieves 58.3% success, compared with 50.0% for the strongest baseline. Project page https://dexforesight.github.io/",
+          "file": "data/feed/raw/maintenance-2026-11-12/source-intake/official-metadata/0001.body",
+          "file_sha256": "586409dfbf163571c723bc74eef7834162b8585976bff9e32019176ee6f861f5"
+        }
+      ],
+      "formal_decision": false,
+      "all_experimental_numbers_recomputed": false
+    },
+    {
+      "id": "arxiv:2611.10649",
+      "title": "MACaQ: Fast, Model Agnostic Calibrated Quantization for Low-Precision Weights and Activations",
+      "source_hash": "05d84c8be96534a078a6b88390ce55a926000703688b8a2a6d8552fd4e57a11c",
+      "suggestion": "exclude",
+      "direction": null,
+      "reason_zh": "MACaQ低精度权重/激活量化校准，非Harness。",
+      "evidence": [
+        {
+          "location": "Official arXiv abstract",
+          "quote": "Weight-activation quantization can reduce the memory and compute cost of neural-network inference, but recent methods often require expensive optimization and architecture-specific propagation of basis transforms across layers. We introduce MACaQ, an MXFP4 W4A4 post-training quantization method that treats every linear layer independently. MACaQ applies a per-channel scale and a block-Hadamard transform online to each layer's activations, while absorbing the corresponding inverse transforms into its weights. Retaining these transforms online avoids cross-layer dependencies and enables a simple streaming implementation of the quantization process, in which only one layer must reside in memory at a time. To improve over round-to-nearest quantization, we introduce Flip-Refinement, a Hessian-aware coordinate-descent procedure that greedily moves individual FP4 codes to adjacent representable values. Despite executing the activation transforms at inference time, MACaQ adds only 2.3% end-to-end overhead over pure MXFP4 on Qwen3-32B in vLLM. MACaQ reaches lower perplexity than DuQuant++ and MR-GPTQ, and already matches their best perplexity on Llama-3-8B in 11 times less quantization time. We further apply MACaQ without architecture-specific modifications to an image diffusion model, illustrating the generality of its layer-local design and show quantization of a 122B parameter model in 64 minutes, using only 32.5GB GPU RAM.",
+          "file": "data/feed/raw/maintenance-2026-11-12/source-intake/official-metadata/0001.body",
+          "file_sha256": "586409dfbf163571c723bc74eef7834162b8585976bff9e32019176ee6f861f5"
+        }
+      ],
+      "formal_decision": false,
+      "all_experimental_numbers_recomputed": false
+    },
+    {
+      "id": "arxiv:2611.07464",
+      "title": "FINCOSMOS: An Open-World Evaluation Paradigm for Agents in Finance",
+      "source_hash": "0df93c5bdc3cc0e9d8cd2bfcf7d56aa7538f36ff5ea713e4122b8f567231ca08",
+      "suggestion": "exclude",
+      "direction": "evaluation_benchmark",
+      "reason_zh": "FINCOSMOS为金融通用Agent评测，跨session改变的是记忆内容、交易记录和交付规范；没有明确自身Harness方法工件的自动修改/准入，不能将acquires skills字样当证据。",
+      "evidence": [
+        {
+          "location": "Official arXiv abstract",
+          "quote": "Language agents increasingly work for users on the open Web, and finance is where trusting them is hardest. The data must come from the Web, the strategy lives in the user's head, and correctness depends on time, so an agent can fail silently: a strategy the user never asked for, unverified data, or a backtest that uses the future yields a report as convincing as a correct one. Existing benchmarks close the world somewhere, fixing the task, the data, or the timeline, and thereby remove these failures instead of measuring them. We introduce FINCOSMOS, an open-world evaluation paradigm for agents doing financial work. A simulated user holds a hidden strategy sampled from a compositional grammar and reveals it only when asked. The agent receives no data, so it must acquire data from the Web, build its own backtest under a data cutoff, and deliver verifiable results. Grading needs no reference answer. Programs verify point-in-time correctness and recompute every reported metric, the delivered strategy is checked against the hidden specification, and a run is accepted only when the user is satisfied and none of 15 veto checks fails. Across four coding agents and a model without tools in 150 sessions, no session is accepted: every session that the simulated user signed off fails a program check, and agents raise only 54--64\\% of the details they were not told. Human experts attribute 88.33\\% of failures to the agents. With FINCOSMOS feedback, an agent with persistent memory learned all ten tasks.",
+          "file": "data/feed/raw/maintenance-2026-11-12/source-intake/official-metadata/0001.body",
+          "file_sha256": "586409dfbf163571c723bc74eef7834162b8585976bff9e32019176ee6f861f5"
+        }
+      ],
+      "formal_decision": false,
+      "all_experimental_numbers_recomputed": false
+    },
+    {
+      "id": "arxiv:2611.12527",
+      "title": "WaveGen: Truly End-to-End Waveform Generation via Internal Spectral Trajectory Learning",
+      "source_hash": "1c380a922dbcebd5a5472bbb73a978cbaa03e339fe896756c326094284042c29",
+      "suggestion": "exclude",
+      "direction": null,
+      "reason_zh": "WaveGen音频波形生成模型及谱轨迹学习，非Harness。",
+      "evidence": [
+        {
+          "location": "Official arXiv abstract",
+          "quote": "This work proposes WaveGen, a fully end-to-end diffusion-based text-to-waveform framework based on Spectral Forcing, which jointly learns an internal spectral trajectory and the target waveform trajectory within a single model, enabling direct end-to-end text-to-waveform generation. Unlike recent TTS pipelines, WaveGen does not rely on separately trained or externally decoded intermediate representations, such as neural audio codecs, Mel-spectrogram vocoders, or VAE-based latent models. In addition, WaveGen performs internal text-speech alignment within a single model, eliminating the need for external alignment modules such as duration predictors. To preserve a truly end-to-end formulation, our framework further avoids dependence on self-supervised representations, such as BERT-based text embeddings and Wav2Vec 2.0-based semantic representations, as well as semantic distillation methods for training optimization. To achieve this, we carefully design Spectral Forcing, a model architecture with disentangled diffusion heads, and a training objective based on a multi-scale spectral $v$-loss. We further validate the scalability of end-to-end TTS models by scaling the model size from 0.1B to 0.6B parameters. Using a single architecture, open-source data, and one-stage training, without external modules such as duration predictor or REPA, WaveGen demonstrates fully end-to-end waveform generation achieving state-of-the-art performance on the Emilia training dataset. In particular, WaveGen achieves a WER of 1.47 and a SIM of 0.75 on the Seed-en benchmark. Source code and checkpoints are available at https://github.com/sh-lee-prml/WaveGen",
+          "file": "data/feed/raw/maintenance-2026-11-12/source-intake/official-metadata/0001.body",
+          "file_sha256": "586409dfbf163571c723bc74eef7834162b8585976bff9e32019176ee6f861f5"
+        }
+      ],
+      "formal_decision": false,
+      "all_experimental_numbers_recomputed": false
+    },
+    {
+      "id": "arxiv:2611.03142",
+      "title": "DepthGraft: Structural Regularization through Hierarchical Cross-Layer KV Reconstruction",
+      "source_hash": "a393f24ed64ce8a62687c8d194086e1ff40f3a32a110264b951f9b2e08ca4929",
+      "suggestion": "exclude",
+      "direction": null,
+      "reason_zh": "DepthGraft跨层KV重建结构正则，优化模型训练而非自身Harness。",
+      "evidence": [
+        {
+          "location": "Official arXiv abstract",
+          "quote": "Scaling depth is a key route to stronger large language models, but Pre-LN architectures often suffer from depth-wise information dilution, limiting the effective use of deep layers. While cross-layer connectivity has proven effective at mitigating this problem, existing designs usually introduce additional computation or memory access. We revisit cross-layer KV sharing as an efficient form of such connectivity. Beyond cache compression, each KV reuse edge creates a direct gradient path from deep layers to source KV projections, turning KV sharing into an implicit structural regularizer for KV representation geometry. We provide a systematic analysis of this mechanism, showing that proper sharing topologies sharpen key retrieval directions while enriching the value content subspace, whereas existing adjacent or global-anchor designs do not fully exploit this effect. Motivated by this, we propose DepthGraft, a hierarchical KV-sharing architecture that reconstructs deep-layer KV from stride-aligned shallow-middle source pairs. DepthGraft distributes non-local gradient flow across source layers, while preserving prefill early completion and reducing KV cache by roughly one third. Experiments on dense and MoE models from 0.5B to 16B parameters show consistent downstream improvements under both GQA and MLA. Notably, on the 16B MoE model, DepthGraft achieves a 7.0% absolute improvement on MMLU-Pro, along with gains of 6.6% on CMMLU and 6.4% on C3. These results validate the potential of DepthGraft as a scalable design for large-scale pretraining. The project page is available at https://github.com/jianke0604/DepthGraft.",
+          "file": "data/feed/raw/maintenance-2026-11-12/source-intake/official-metadata/0001.body",
+          "file_sha256": "586409dfbf163571c723bc74eef7834162b8585976bff9e32019176ee6f861f5"
+        }
+      ],
+      "formal_decision": false,
+      "all_experimental_numbers_recomputed": false
+    },
+    {
+      "id": "arxiv:2611.13348",
+      "title": "ProTEUS: A mutation-resolved world model for closed-loop protein evolution",
+      "source_hash": "b5e9c8d54fef420365302ddecf0a8530b3bb0f08912dcd1fd94de3548959f7c6",
+      "suggestion": "exclude",
+      "direction": null,
+      "reason_zh": "ProTEUS闭环优化蛋白质序列和突变世界模型，产物是科学对象而非Agent自身Harness。",
+      "evidence": [
+        {
+          "location": "Official arXiv abstract",
+          "quote": "Protein engineering requires navigating rugged fitness landscapes, where small sequence changes can produce large functional differences, but experimental screening can only sample a small fraction of sequence space. Thus, a central challenge is to efficiently traverse the large combinatorial space of mutations in silico. We introduce ProTEUS, a mutation-resolved world model for closed-loop protein evolution. Pretrained on deep mutational scanning assays, ProTEUS learns a joint representation of sequence, evolutionary, and structural information using MutationFormer, a mutation-biased attention architecture. Variants are represented as states in this joint latent space, and mutations define actions whose functional consequences are predicted. To support exploration of many mutants, we developed a fast, physics-constrained all-atom predictor that utilizes explicit geometric constraint enforcement to achieve >10 fold increase in speed than AlphaFold3 with guaranteed physical validity. Lastly, ProTEUS refines its prediction and understanding of protein activity through closed loop experimental feedback to guide evolution toward a desired phenotype. ProTEUS surpasses established models in both zero-shot and supervised fine-tuning mutation prediction tasks. We experimentally demonstrate its utility in two closed-loop multi-objective engineering campaigns on aldehyde dehydrogenase and levansucrase, yielding variants with >10 fold higher activity than wild type. ProTEUS provides a world-model framework that connects virtual evaluation of mutational outcomes with experimental learning for efficient protein evolution.",
+          "file": "data/feed/raw/maintenance-2026-11-12/source-intake/official-metadata/0001.body",
+          "file_sha256": "586409dfbf163571c723bc74eef7834162b8585976bff9e32019176ee6f861f5"
+        }
+      ],
+      "formal_decision": false,
+      "all_experimental_numbers_recomputed": false
+    },
+    {
+      "id": "arxiv:2611.13576",
+      "title": "PhyRubric: Rubric-Grounded Diagnostic Evaluation of Physical Commonsense in Text-to-Video Generation",
+      "source_hash": "0d3bcf9242a40ea239a839a913785aa4e1ef5b5d77cd7e10c0502b6a45bb527c",
+      "suggestion": "exclude",
+      "direction": null,
+      "reason_zh": "PhyRubric视频物理常识诊断基准，非Harness演化专项。",
+      "evidence": [
+        {
+          "location": "Official arXiv abstract",
+          "quote": "As text-to-video (T2V) models are increasingly positioned as world simulators, it is essential to evaluate whether their videos conform to physical commonsense. However, existing benchmarks rely on annotators who rate each video with a single score based on intuition, yielding ratings that are subjective and do not tell which physical principle is violated. We introduce PhyRubric, a rubric-grounded diagnostic framework for evaluating physical commonsense in T2V generation. For each caption, PhyRubric constructs a caption-specific rubric before any video is seen, decomposing the caption into semantic and physical items, and derives scores from item-level verdicts grounded in timestamped evidence. We instantiate this framework as PhyRubric-Bench, which spans 34 categories across five physical domains, and scale it up to PhyRubric-Train with 3,788 videos, on which we fine-tune the open-source PhyRubric-Judge. Empirical results across ten T2V models show that physical commonsense remains far from solved, and that PhyRubric-Judge correlates more closely with human judgments than existing open-source judges while matching the frontier proprietary Gemini 4 Argon. Further analysis provides actionable insights for T2V models.",
+          "file": "data/feed/raw/maintenance-2026-11-12/source-intake/official-metadata/0001.body",
+          "file_sha256": "586409dfbf163571c723bc74eef7834162b8585976bff9e32019176ee6f861f5"
+        }
+      ],
+      "formal_decision": false,
+      "all_experimental_numbers_recomputed": false
+    },
+    {
+      "id": "arxiv:2611.01527",
+      "title": "From Tool State to Scientific Action: Auditing Decision Provenance in Biomedical Research Agents",
+      "source_hash": "6d32813efe7fde69daf72c029494aca1ab68d8337b909c75496d02be3e53e2c4",
+      "suggestion": "exclude",
+      "direction": null,
+      "reason_zh": "生物医学Agent工具状态与决策来源审计，固定审计机制及任务输出不构成自改Harness。",
+      "evidence": [
+        {
+          "location": "Official arXiv abstract",
+          "quote": "A scientific agent can give the same verdict while reading and citing different evidence. BioAgent-DF tests this separation using paired reference and candidate values saved at the same scientific computation site. It restores or transplants those values at their original coordinates, then runs the agent on healthy hardware. Across eight SciFact batches, Qwen3.5-4B shows repeatable citation changes in three capture-claim combinations, and Gemma 3 4B IT shows repeatable read and citation changes in four. These seven combinations cover two claims. Full restoration recovers the reference evidence sets while verdicts remain unchanged. Verdict changes observed under the baseline prompt did not recur under the explicit-example prompt. Complementary tool and optimizer experiments distinguish recovery of numerical state, recovery of ranked lists, and restoration of an agent's visible history. These results show that an audit should track both the evidence an agent uses and its final answer. In hERG cardiac-safety assay allocation, silent numerical faults changed testing decisions while the fixed-budget shortlist kept the same number of compounds labeled as blockers. After the agent had used faulty values, restoring its earlier execution state and supplying certified scores recovered all 39 changed decisions, whereas replacing the prediction file recovered none; no incorrect action was committed. A streaming implementation of the arithmetic checks reduced the total time for forward execution and verification by 42.4% relative to the original FP64 implementation, with identical flags and recovery outputs.",
+          "file": "data/feed/raw/maintenance-2026-11-12/source-intake/official-metadata/0001.body",
+          "file_sha256": "586409dfbf163571c723bc74eef7834162b8585976bff9e32019176ee6f861f5"
+        }
+      ],
+      "formal_decision": false,
+      "all_experimental_numbers_recomputed": false
+    },
+    {
+      "id": "arxiv:2611.10866",
+      "title": "The Surprising Effectiveness of Deleting Weights in LLM Post-Training",
+      "source_hash": "67816c574d26ded0d89bd490b6decfbe63e2bb80a599bef661097c8f51c82693",
+      "suggestion": "exclude",
+      "direction": null,
+      "reason_zh": "通过删除模型权重研究post-training，修改对象是参数。",
+      "evidence": [
+        {
+          "location": "Official arXiv abstract",
+          "quote": "How little of a pretrained large language model (LLM) has to change for it to acquire new capabilities? We find that zeroing fewer than 0.05% of its weights, with no other modification, matches full fine-tuning (FFT) at scale across three LLM post-training regimes: reinforcement learning with verifiable rewards, supervised fine-tuning, and on-policy distillation. Our method, Deletion Tuning, learns a binary mask over the gate projection of transformer blocks. Two practical advantages follow: the trained mask is hundreds to thousands of times smaller than the corresponding FFT checkpoint, and Deletion Tuning forgets far less, which addresses a central challenge in continual learning. Under reinforcement learning, its prior-task accuracy stays near the base level while FFT, LoRA, and random sparse fine-tuning lose up to 5.4 points. To understand why masking alone suffices, we analyze the geometry of the learned weight changes under reinforcement learning using stable rank, spectrum drift, and principal-weight overlap. Compared with LoRA and random sparse fine-tuning, Deletion Tuning is closest to FFT across the three measures.",
+          "file": "data/feed/raw/maintenance-2026-11-12/source-intake/official-metadata/0001.body",
+          "file_sha256": "586409dfbf163571c723bc74eef7834162b8585976bff9e32019176ee6f861f5"
+        }
+      ],
+      "formal_decision": false,
+      "all_experimental_numbers_recomputed": false
+    },
+    {
+      "id": "arxiv:2611.10486",
+      "title": "Test-Time Scaling for Diffusion Language Models with Frequency-Aware Remasking",
+      "source_hash": "0d17db2b516c15f5e5fe5a771cc22faf5ba37672fa3f5c7b4bb2da8389b9758e",
+      "suggestion": "exclude",
+      "direction": null,
+      "reason_zh": "固定frequency-aware remasking在单次扩散推理中增加计算，不跨任务改写Harness。",
+      "evidence": [
+        {
+          "location": "Official arXiv abstract",
+          "quote": "Diffusion language models (DLMs) generate text through iterative denoising, where decisions about which tokens to commit or remask strongly affect output quality. Existing certainty-aware strategies rely on instantaneous confidence or entropy, but these local signals can be misleading on difficult reasoning problems. We formulate DLM test-time scaling as adaptive allocation of both inference compute and decoding strategies. Our two-stage approach uses a fast base sampler to solve easy questions, then applies frequency-aware remasking to the remaining hard questions. This strategy tracks how often each token's prediction changes across denoising steps and preferentially commits frequently changing tokens, encouraging samples to explore alternative reasoning paths rather than collapse onto the model's preferred trajectory. Experiments with LLaDA-8B-Instruct and Dream-7B-Instruct show consistent improvements over a strong adaptive allocation baseline, with absolute accuracy gains of up to 3.73 percentage points (LLaDA) and 7.33 percentage points (Dream) on MATH-500, and absolute coverage gains of up to 11.39 percentage points (LLaDA) and 10.98 percentage points (Dream) on HumanEval. On questions unsolved by the base certainty-aware strategy after 100 samples, frequency-aware remasking recovers solutions for 3.75% to 18.75% of examples.",
+          "file": "data/feed/raw/maintenance-2026-11-12/source-intake/official-metadata/0001.body",
+          "file_sha256": "586409dfbf163571c723bc74eef7834162b8585976bff9e32019176ee6f861f5"
+        }
+      ],
+      "formal_decision": false,
+      "all_experimental_numbers_recomputed": false
+    },
+    {
+      "id": "arxiv:2611.12411",
+      "title": "PhysOPSD: Code as Privilege for Physically Plausible Video Generation",
+      "source_hash": "6315fa5a51a600f5ae1aefb400d53d60b5e3446123a36be82497bf06194fc3a9",
+      "suggestion": "exclude",
+      "direction": null,
+      "reason_zh": "PhysOPSD用代码作特权监督训练物理视频模型，外部仿真代码和模型权重不是自有Harness。",
+      "evidence": [
+        {
+          "location": "Official arXiv abstract",
+          "quote": "While modern video generative models achieve remarkable visual fidelity, they remain noticeably brittle when generating physically plausible dynamics and complex interactions. Targeted post-training is crucial, yet supervised fine-tuning suffers from offline state mismatch, and reinforcement learning is hindered by sparse, ill-defined physical reward functions. On-Policy (Self-)Distillation (OPSD) reconciles on-policy rollouts with dense corrective feedback, shifting the core challenge to designing effective privileged context. However, conventional modalities fall short: text prompts are inherently declarative, whereas real reference videos heavily entangle physical laws with visual appearance without parametric control. To this end, we propose PhysOPSD, introducing executable code as privileged physical context for video generation. Unlike static visual observations, executable code instantiates an editable physical world with intrinsic abstraction and controllability. Powered by PhysOPSD-Engine, we translate real-world physical scenarios into verifiable simulation programs. PhysOPSD then incorporates (i) dual-level physical privilege to bridge the information gap via an intermediate bottleneck, alongside (ii) controlled physical variations under shared rollout noise to expose causal dynamic shifts. Extensive experiments demonstrate that PhysOPSD substantially improves physical plausibility across diverse backbones, outperforming SFT and RL baselines with only $3$K samples, while preserving general video generation quality.",
+          "file": "data/feed/raw/maintenance-2026-11-12/source-intake/official-metadata/0001.body",
+          "file_sha256": "586409dfbf163571c723bc74eef7834162b8585976bff9e32019176ee6f861f5"
+        }
+      ],
+      "formal_decision": false,
+      "all_experimental_numbers_recomputed": false
+    },
+    {
+      "id": "arxiv:2611.10015",
+      "title": "Micius-Flash: Lightweight Agentic Intelligence for Engineering",
+      "source_hash": "d4af6e9e70b2f52e1c8cd3924d76eac167c983f0ad7f539b5a32848f4c5faae3",
+      "suggestion": "exclude",
+      "direction": null,
+      "reason_zh": "Micius-Flash主要是工程模型训练和固定Agent框架；执行反馈修任务代码不等于修自身Harness。",
+      "evidence": [
+        {
+          "location": "Official arXiv abstract",
+          "quote": "We introduce Micius-Flash, a 27-billion-parameter model for engineering with native multimodal input, deep reasoning and a 256K-token context window. We design the Micius data pipeline as a knowledge-tree-driven data flywheel comprising three stages: knowledge tree construction and expansion, data synthesis, and quality validation with hard-example augmentation. From this data, we train expert models for semiconductor knowledge and reasoning, hardware coding, and semiconductor multimodal understanding, along with agentic experts. Subsequently, we employ Multi-Teacher On-Policy Distillation (MOPD) to supervise training on sequences generated by Micius itself, thereby integrating the capabilities of these expert models into a unified model. On more than 20 datasets with about 15K records, Micius-Flash averages 64.2% on hardware code benchmarks, 15.0 points above a same-size baseline. It scores 62.4% on a semiconductor-specific agent benchmark, exceeding the same-size baseline by 17.2 points. We further develop Micius Harness for industrial applications, connecting the model to specialized tools, including EDA tools and KiCad, as well as execution environments. Case studies in PCB design, chip design workflow automation, and software development demonstrate the model's ability to use tool execution feedback for multi-step planning, code debugging, and iterative verification. We release Micius as an open-source model to advance the development of agents for science and engineering.",
+          "file": "data/feed/raw/maintenance-2026-11-12/source-intake/official-metadata/0001.body",
+          "file_sha256": "586409dfbf163571c723bc74eef7834162b8585976bff9e32019176ee6f861f5"
+        }
+      ],
+      "formal_decision": false,
+      "all_experimental_numbers_recomputed": false
+    },
+    {
+      "id": "arxiv:2611.14488",
+      "title": "Is Your Robot's Memory Just a Clock? Temporal Shortcuts in Memory-Augmented VLA Policies",
+      "source_hash": "b869682337114104b188896da38498e4d4d0596d6ea1e27e584ddc08d8721ff0",
+      "suggestion": "exclude",
+      "direction": null,
+      "reason_zh": "对记忆增强VLA的时间捷径做因果评测，不是演化Harness专项。",
+      "evidence": [
+        {
+          "location": "Official arXiv abstract",
+          "quote": "Memory-augmented vision-language-action (VLA) policies are meant to remember what happened. Many of them, however, fill memory by time: they sample frames uniformly across the episode and stamp each frame with its time step. Because time passes even when nothing happens, such a memory may not tell waiting from working. We show that it does not. On the counting tasks of RoboMME, we make the robot briefly pause or fidget its wrist. Such a null event changes nothing the task depends on, yet a released memory VLA counts the interval as work done and stops early. We call this failure phantom progress. It cuts success from 47 to 16 of 50 on one task and from 44 to 10 on the other. When the same frames are withheld from memory, success returns, so the cause lies in memory rather than in the interruption itself. We trace the failure to a temporal shortcut: because demonstrations proceed at a steady pace, elapsed time predicts progress. Indeed, rescaling the time stamps alone makes the policy stop early when the clock runs fast and repeat when it runs slow. Surprisingly, removing the time encoding does not cure the failure, because the frames of a null event still occupy slots of the time-sampled memory. Across RoboMME's released designs, vulnerability follows how memory is indexed. Of the fixes the diagnosis suggests, training with injected pauses does not remove the failure and impairs counting, whereas indexing memory by events recovers half or more of the loss without retraining. A memory meant to remember what happened should count events rather than clock ticks.",
+          "file": "data/feed/raw/maintenance-2026-11-12/source-intake/official-metadata/0001.body",
+          "file_sha256": "586409dfbf163571c723bc74eef7834162b8585976bff9e32019176ee6f861f5"
+        }
+      ],
+      "formal_decision": false,
+      "all_experimental_numbers_recomputed": false
+    },
+    {
+      "id": "arxiv:2611.13885",
+      "title": "Are Causal Neuron Circuits Unique and Transferable?",
+      "source_hash": "b667748ef24edf1ad19a26b48290c906405600f59523d245d6f34e7affba97c7",
+      "suggestion": "exclude",
+      "direction": null,
+      "reason_zh": "研究模型神经元因果回路及迁移，非外部Harness。",
+      "evidence": [
+        {
+          "location": "Official arXiv abstract",
+          "quote": "Interpretability demonstrations often show that intervening on a group of neurons changes a model's answer. A recent example removes an 18-neuron group in Qwen3-32B and the model answers \"Simba\" instead of \"Scar\" to a two-hop Lion King riddle. Such a demonstration establishes that the group matters, but not how much of it is necessary, whether other groups could do the same, or whether the effect carries over to other inputs. We ask: when intervening on a group of neurons changes a model's answer, how much of that group is actually necessary? For every selected group we measure all 4,096 subsets of 12 MLP neurons. On a two-alternative capital task (Qwen3-0.6B), zero-ablating 12 selected neurons lowers the answer margin by 27% while random neurons barely change it, yet replacing the same neurons with their values from other questions also barely changes it: their activations are nearly constant across questions, and we find no evidence that they carry question-specific content. On two-hop relation chains, patching 12 neurons with activations from the first-hop question shifts the answer to the bridge entity (from Scar to Simba): the greedy answer starts with the bridge in 9/11 chains for Qwen3-1.7B, 9/11 for Llama-3.2-1B and 8/10 for Gemma-3-1B; random neurons never do. The full group is rarely necessary: a few neurons often suffice, and in many chains disjoint subsets each flip the answer on their own, in an exploratory analysis most often when the model is less confident. Group effects transfer to rephrasings of the same chain but are much weaker on other tested chains. We study neuron-level causal interventions and alternative subsets; we do not recover the full connectivity of circuits.",
+          "file": "data/feed/raw/maintenance-2026-11-12/source-intake/official-metadata/0001.body",
+          "file_sha256": "586409dfbf163571c723bc74eef7834162b8585976bff9e32019176ee6f861f5"
+        }
+      ],
+      "formal_decision": false,
+      "all_experimental_numbers_recomputed": false
+    },
+    {
+      "id": "arxiv:2611.14115",
+      "title": "LEASH: Stay Safe in Agentic Robotics",
+      "source_hash": "12be03f7ce7f101db0a2d06657a6c4ff5a994f556283d61cbe90701d3feab6f2",
+      "suggestion": "exclude",
+      "direction": null,
+      "reason_zh": "LEASH固定安全规则/监督门控保护机器人Agent，未按反馈迭代该控制工件。",
+      "evidence": [
+        {
+          "location": "Official arXiv abstract",
+          "quote": "Foundation models such as GPT and Claude have shown strong capabilities in spatial understanding and embodied intelligence. These advances make agentic robotics a promising path toward artificial general intelligence in robotics. However, we find that using foundation models to control robots poses serious safety risks, and comprehensive safety evaluation is still lacking. We introduce RoboRisk, a comprehensive benchmark for evaluating safety in agentic robotics. Its 92 simulated tasks and 13 physical-robot tasks fall into five categories: Task-level Refusal (T), Plan Repair (P), Execution-time Hazard (E), Injection (I), and Sequential Memory (S). Prior benchmarks cover at most two of these categories, and several evaluate only text outputs. In contrast, RoboRisk covers all five and executes every task in closed loop. We evaluate six state-of-the-art foundation models on RoboRisk: GPT-6 Astra, GPT-6.1 Sol, GPT-6 Luna, Claude Opus 5.5, Gemini 4 Argon, and Grok 4.7. These models generally show high harm rates. We also evaluate two robot-specific APIs: the Dream API and PokeBot's RoboAPI. We further propose the Lease-Enforced Agentic Safety Harness (LEASH), which offers essential safety infrastructure for agentic robotics and can be integrated into nearly any agentic architecture. LEASH leverages a decision model (Jev or OpenAI's Decisions API) to implement task, action, and commit gates, which review the task, each action, and each irreversible operation in their visual context. The planner and all three gates share a common safety policy. Experiments on RoboRisk in simulation and on physical robots show that LEASH effectively reduces harm across all six foundation models. It largely preserves their task completion performance and adds little time and token overhead.",
+          "file": "data/feed/raw/maintenance-2026-11-12/source-intake/official-metadata/0001.body",
+          "file_sha256": "586409dfbf163571c723bc74eef7834162b8585976bff9e32019176ee6f861f5"
+        }
+      ],
+      "formal_decision": false,
+      "all_experimental_numbers_recomputed": false
+    },
+    {
+      "id": "arxiv:2611.13572",
+      "title": "Market-Conditioned JEPA: Learning from Unpredictable Market Shocks",
+      "source_hash": "deb3f31a99b78499ae0b3686fba13e984967a51c962344899819bec943cac841",
+      "suggestion": "exclude",
+      "direction": null,
+      "reason_zh": "Market-Conditioned JEPA为市场表示学习模型，非Harness。",
+      "evidence": [
+        {
+          "location": "Official arXiv abstract",
+          "quote": "Much of the variation in financial time series is driven by market-wide shocks that cannot be predicted from an asset's own history. Per-asset self-supervised learning treats this variation as irreducible noise. Under a latent factor model, we show that conditioning prediction on the realized market factor makes the asset's market exposure necessary for optimal prediction, while reducing the noise against which the asset-specific component is learned. Building on this insight, we introduce Market-Conditioned JEPA (MC-JEPA), a joint-embedding predictive architecture for financial time series. During training, we construct a leave-one-out market condition for each asset from the future target embeddings of other assets and incorporate it through factor loadings derived from the asset's own representation. On 11 years of minute-level Chinese A-share data, MC-JEPA improves over per-asset JEPA across nine targets spanning returns, market exposure, risk, and liquidity, with the strongest and most statistically significant gains in exposure, risk, and liquidity. It achieves the best RankIC on all liquidity targets and on return horizons from two hours to five days, outperforming time-series foundation models and self-supervised baselines, and delivers the best portfolio performance in a historical backtest. Ablations show that the return and exposure gains require the condition to be aligned with the realized market movement. After restoring the volatility scale removed by normalization, the predictor's factor loadings rank stocks by market beta nearly as well as a supervised probe, without labels. A synthetic factor-model study with known parameters shows that conditioning improves the recovery of both market exposure and the asset-specific component.",
+          "file": "data/feed/raw/maintenance-2026-11-12/source-intake/official-metadata/0001.body",
+          "file_sha256": "586409dfbf163571c723bc74eef7834162b8585976bff9e32019176ee6f861f5"
+        }
+      ],
+      "formal_decision": false,
+      "all_experimental_numbers_recomputed": false
+    },
+    {
+      "id": "arxiv:2611.12184",
+      "title": "Blind Variation, Selective Retention: Improving Creative Idea Generation in AI Scientists",
+      "source_hash": "1d2be7a68e8e996ca6e8c5e860f723f8933322beac885e9f78424232caa476b6",
+      "suggestion": "exclude",
+      "direction": "ai4ai",
+      "reason_zh": "BVSR通过训练scalar scoring head选择科研proposal，优化模型和外部科研假设，不是自身Harness工件。",
+      "evidence": [
+        {
+          "location": "Official arXiv abstract",
+          "quote": "Scientific discovery requires ideas that are original, useful, and non-obvious. Yet AI scientists are typically given as much task information as possible during idea generation, which can anchor generation toward familiar approaches. Inspired by the cognitive framework of Blind Variation and Selective Retention (BVSR), we propose a discovery framework that separates these two roles of information: it generates proposals under deliberately limited task information to broaden exploration, then learns from proposals previously verified on the same task and their outcomes to retain promising candidates for costly empirical evaluation. We evaluate BVSR across five proposer models and 12 scientific tasks. Limiting task information substantially increases proposal originality and non-obviousness, and produces a larger share of highly creative and high-utility proposals than existing state-of-the-art prompting-based baselines. Learning from prior proposal outcomes on the task further improves candidate selection, discarding half of the candidates while retaining most top-performing proposals. When incorporated into existing AI-scientist workflows, BVSR achieves stronger discoveries across gene expression analysis, drug response prediction, anomaly detection, scaling law discovery, and brain activity prediction. These results suggest that effective AI scientists should use information differently across stages of discovery: constrain task-specific information during exploration while exploiting accumulated empirical experience on the task.",
+          "file": "data/feed/raw/maintenance-2026-11-12/source-intake/official-metadata/0001.body",
+          "file_sha256": "586409dfbf163571c723bc74eef7834162b8585976bff9e32019176ee6f861f5"
+        }
+      ],
+      "formal_decision": false,
+      "all_experimental_numbers_recomputed": false
+    },
+    {
+      "id": "arxiv:2611.12934",
+      "title": "EarthRecord: From Pixels to Land Change with Multimodal Agents over Four Decades of Satellite Imagery",
+      "source_hash": "4f0ebfc559662b85e50e573824a3c52a510d89c807179e60ffb5edcefa5307c6",
+      "suggestion": "exclude",
+      "direction": null,
+      "reason_zh": "EarthRecord多模态Agent重建土地变化历史，固定工作流产出外部遥感结果。",
+      "evidence": [
+        {
+          "location": "Official arXiv abstract",
+          "quote": "While multimodal agents now carry out complex data analysis with tools, their ability to turn decades of satellite imagery into reliable land-change analysis, crucial for Earth observation science, remains unmeasured. Existing benchmarks fall short: they pose questions on curated images or give agents preprocessed inputs, leaving out the raw multi-sensor archives where such analysis begins. We introduce EarthRecord, a benchmark built on the raw record of 56 sites: four decades of Landsat, MODIS, VIIRS, and Sentinel-2 data, with cloud masking and cross-sensor harmonization left to the agent. It poses 238 land-change questions across ten analysis tasks, scored against withheld references from global products, agreement among methods, and visual interpretation. Two controls test what answers rest on: the closed book removes the record, and instrument pairs alter one satellite's data while nothing changes on the ground. Evaluations of twelve multimodal agents reveal that leading agents complete most analyses end to end but falter when an answer requires mapping from imagery. Further analysis shows that the record moves answers from prior knowledge to the pixels but not yet to the real change on the ground: when one satellite's data are altered, half of the right answers follow the alteration. EarthRecord thus provides a principled platform for measuring and advancing agents from pixels to land change.",
+          "file": "data/feed/raw/maintenance-2026-11-12/source-intake/official-metadata/0001.body",
+          "file_sha256": "586409dfbf163571c723bc74eef7834162b8585976bff9e32019176ee6f861f5"
+        }
+      ],
+      "formal_decision": false,
+      "all_experimental_numbers_recomputed": false
+    },
+    {
+      "id": "arxiv:2611.12865",
+      "title": "Shortcuts and Boundaries: Verifiable RL Misalignment and Contextual Safety Learning",
+      "source_hash": "d0fe35beaa65dd40f6b6b20d5a3aab1407db8d4860d3c69fdd4228934e3e23df",
+      "suggestion": "exclude",
+      "direction": null,
+      "reason_zh": "研究RL与上下文安全学习，未提供持久外部Harness修改链。",
+      "evidence": [
+        {
+          "location": "Official arXiv abstract",
+          "quote": "Reinforcement learning (RL) can improve an agent's task capability while reinforcing behavior that violates contextual execution requirements. We study this reward-driven misalignment, including reward hacking, through verifiable reward--context conflicts, where compliant task completion remains feasible while some executable shortcuts earn more reward than every compliant strategy. Encoding these conflicts in task dynamics lets us generate diverse interactive environments at scale and derive compliance feedback from execution histories. In resource and reporting workflows, task optimization increases real productivity through unauthorized resource use or raises reported scores while actual work declines. Controlled changes in the training distribution show that minority conflict exposure can still lead to widespread shortcut acquisition, reaching 97.9\\% certified profitable violations on an API task under a 25\\% conflict mixture after 128 updates. The same contextual checks supply a simple binary penalty that supports joint capability and compliance gains and partially mitigates acquired violations. Learned safety adapts to expanded authorization and transfers across mechanisms into workflows with evolving evidence and approval requirements. On 32 unseen changing-evidence tasks, resource-trained safety increases safe completion from 53.1\\% to 89.1\\% relative to task-only training, while both policies achieve full real work. These results connect a verifiable account of reward-driven misalignment with scalable task construction and safety learning that remains useful under changing execution requirements.",
+          "file": "data/feed/raw/maintenance-2026-11-12/source-intake/official-metadata/0001.body",
+          "file_sha256": "586409dfbf163571c723bc74eef7834162b8585976bff9e32019176ee6f861f5"
+        }
+      ],
+      "formal_decision": false,
+      "all_experimental_numbers_recomputed": false
+    },
+    {
+      "id": "arxiv:2611.13560",
+      "title": "Are Dense Rewards Worth Their Tokens in GRPO?",
+      "source_hash": "60e3770977260049b2cf68ed7347a49aab79e5eb95242eb2dfbe7524ffe87a2c",
+      "suggestion": "exclude",
+      "direction": null,
+      "reason_zh": "比较GRPO密集奖励的训练收益和token成本，优化模型训练目标。",
+      "evidence": [
+        {
+          "location": "Official arXiv abstract",
+          "quote": "RLVR trains language models to reason by rewarding correct final answers. A widely used algorithm, group-relative policy optimization (GRPO), gives every token of a solution the same credit, so dense process rewards have been proposed to credit intermediate steps, for example with a Monte-Carlo reward that scores each step by sampling continuations from it. Comparing such a reward with GRPO per training update, or vetting it with a gradient test on a single batch, leaves out what it costs: in our setting, the continuations alone take 91% of all generated tokens. We introduce a matched-compute protocol that gives every training intervention the same budget, measured in generated tokens and training GPU-hours, and tests it in preregistered studies with controls for side effects. Across 1,668 runs on six models, matching compute reverses the ranking. On Qwen2.5-1.5B, the Monte-Carlo reward leads standard GRPO per update, yet ends 14.3 percentage points lower at equal tokens and 7.8 points lower at equal training time, and none of four dense-reward variants outperforms GRPO even with as much training time. A per-token gradient test orders these rewards as training does but overestimates each by one to two points, as much as the gains it is meant to detect. In contrast, training on the prompts whose predicted success is nearest 1/2 improves accuracy at matched compute, by 1.7 points on Qwen3-0.6B and 0.8 on Qwen2.5-1.5B. These gains replicate on fresh seeds and unseen problems, and a simple rule, that the candidate prompts are predicted to fail more often than not, predicted where they appear in five of six preregistered tests. Both gains come early in training, and standard GRPO with twice the initial learning rate comes within half a point of them. We argue that training interventions should be validated at matched compute, which overturns some apparent gains and confirms others.",
+          "file": "data/feed/raw/maintenance-2026-11-12/source-intake/official-metadata/0001.body",
+          "file_sha256": "586409dfbf163571c723bc74eef7834162b8585976bff9e32019176ee6f861f5"
+        }
+      ],
+      "formal_decision": false,
+      "all_experimental_numbers_recomputed": false
+    },
+    {
+      "id": "arxiv:2611.13482",
+      "title": "ExRL: Sample-Efficient Online Adaptation of Long-Chunk Policies via Execution Length Control",
+      "source_hash": "2721612044eb56ae848facc901501193e87bf1fcf79430b2c900bbaff65bcefc",
+      "suggestion": "exclude",
+      "direction": null,
+      "reason_zh": "ExRL学习执行chunk长度并在线适配机器人策略，未演化Agent自身软件工件。",
+      "evidence": [
+        {
+          "location": "Official arXiv abstract",
+          "quote": "Predicting long action chunks, often spanning dozens of timesteps, has become a key ingredient in increasingly capable robot policies. In this paper, we find that adapting these long-chunk policies with existing reinforcement learning (RL) methods can require many online samples due to the high dimensionality of the action chunks being optimized, making such adaptation impractical in real-world scenarios where interaction data are costly to collect. Our key insight is to shift adaptation from optimizing actions to optimizing how long to execute each predicted action chunk. This keeps the adaptation space low-dimensional while its expressivity grows with the chunk size. We thus introduce Execution at the Right Length (ExRL), a simple approach which augments the base policy with a lightweight adapter that predicts the execution length of each chunk and is trained using off-policy RL algorithms. Across simulation benchmarks and real-world robotic tasks, ExRL enables sample-efficient adaptation of a diverse range of long-chunk policies with minimal task-specific hyperparameter tuning.",
+          "file": "data/feed/raw/maintenance-2026-11-12/source-intake/official-metadata/0001.body",
+          "file_sha256": "586409dfbf163571c723bc74eef7834162b8585976bff9e32019176ee6f861f5"
+        }
+      ],
+      "formal_decision": false,
+      "all_experimental_numbers_recomputed": false
+    },
+    {
+      "id": "arxiv:2610.40754",
+      "title": "DyCraft: An Agentic System for Long-Horizon 4D Scene Generation",
+      "source_hash": "084c5de7e170c6cd0af686cdda840ca8832b6fbbd03dfa6c8b424c9c954e3450",
+      "suggestion": "exclude",
+      "direction": null,
+      "reason_zh": "DyCraft执行反馈修复外部4D场景和动画代码，既有生成流水线固定。",
+      "evidence": [
+        {
+          "location": "Official arXiv abstract",
+          "quote": "While frontier coding agents can generate high-quality 3D scenes and articulated assets, they struggle to create coherent long-horizon animations. When equipped with general-purpose harnesses, they frequently produce physically implausible outputs, generating objects that interpenetrate, lack physical support, or move unnaturally. Such bare agents struggle to repair these errors because they default to scripting the full animation in one pass, making it difficult to verify their work and disentangle complex spatiotemporal constraints. Drawing on the practice of human animators, we introduce DyCraft, a system for animated 3D scene generation that breaks animation into steps that coding agents can more reliably solve. DyCraft first expands the user's prompt into a detailed plan and builds a static scene. It then creates a 3D storyboard of key animation poses, where each frame is a static 3D scene that the agent can build and debug in isolation. Storyboarding decomposes the problem into pairs of verified start and end states, allowing the agent to author local motion between them with a collection of motion authoring tools. We evaluate DyCraft on 24 long-horizon, multi-shot animation tasks covering humanoid robots, human and animal characters, and physical mechanisms. Compared with a native GPT-6 agent in Codex and prior agentic baselines, DyCraft substantially reduces physical violations and generates higher-quality animated 3D scenes that are more often preferred by human raters.",
+          "file": "data/feed/raw/maintenance-2026-11-12/source-intake/official-metadata/0001.body",
+          "file_sha256": "586409dfbf163571c723bc74eef7834162b8585976bff9e32019176ee6f861f5"
+        }
+      ],
+      "formal_decision": false,
+      "all_experimental_numbers_recomputed": false
+    },
+    {
+      "id": "arxiv:2611.14516",
+      "title": "TorchCurves: Differentiable Parametric Curves",
+      "source_hash": "fb1eeb33c06e2ba4e2546144d128efe75fb016c865cc284b0477b9a82f9ab4e3",
+      "suggestion": "exclude",
+      "direction": null,
+      "reason_zh": "TorchCurves为可微参数曲线软件库，与Harness RSI无关。",
+      "evidence": [
+        {
+          "location": "Official arXiv abstract",
+          "quote": "We present TorchCurves, a PyTorch library that treats vector-valued parametric curves as learnable primitives. Its central operation maps batches of scalar inputs to points on curves represented in B-spline or Legendre polynomial bases, with differentiation through both inputs and coefficients. Curve coefficients can be optimized jointly with the surrounding model or produced by another network. The library provides trainable modules, reusable basis modules, and a functional interface, supporting applications ranging from continuous feature embeddings to Kolmogorov-Arnold networks and functional regression. Its implementation combines classical evaluation algorithms with vectorized PyTorch operations, emphasizing readability and maintainability without custom hardware kernels. Timing experiments compare curve evaluation against NumPy and SciPy and KAN training against EfficientKAN across a range of problem sizes. The results illustrate where this generality remains computationally practical and where overhead is substantial. Library is available on GitHub at https://github.com/alexshtf/torchcurves.",
+          "file": "data/feed/raw/maintenance-2026-11-12/source-intake/official-metadata/0001.body",
+          "file_sha256": "586409dfbf163571c723bc74eef7834162b8585976bff9e32019176ee6f861f5"
+        }
+      ],
+      "formal_decision": false,
+      "all_experimental_numbers_recomputed": false
+    },
+    {
+      "id": "arxiv:2611.13907",
+      "title": "EVAThink: Evidence Sufficiency-Guided Training for Adaptive Thinking in Video Understanding",
+      "source_hash": "f70e7bbc8db9e88cdaa232c20c2b2fce3c1559f828f3264e46e7daf1e76a9bcb",
+      "suggestion": "exclude",
+      "direction": null,
+      "reason_zh": "EVAThink以证据充分性训练视频模型的思考行为，非外部Harness演化。",
+      "evidence": [
+        {
+          "location": "Official arXiv abstract",
+          "quote": "Under a fixed frame budget, video understanding with vision-language models (VLMs) depends on whether the sampled frames provide sufficient evidence for the question. Sufficient frame evidence supports direct answering, whereas less informative observations may benefit from reasoning that connects the available cues. We introduce EVAThink, which enhances video understanding through evidence sufficiency-guided training for adaptive thinking. First, Recoverable Evidence Gap Mining constructs evidence-dense and evidence-sparse video views that share the same question and answer under an identical frame budget. It retains pairs where sparse views yield lower direct-answer accuracy than dense views but benefit from explicit reasoning, providing supervision for response-mode selection. Second, Evidence-Guided Two-Stage Reinforcement Learning uses stage-specific rewards to guide training with evidence-based mode preferences and then refine response efficiency, while first-token advantage regularization mitigates mode collapse. Trained on only 6.7K curated samples, EVAThink consistently improves upon the base model across video understanding benchmarks under both 32- and 64-frame budgets, while outperforming strong baselines on average. The code, model, and datasets are available at \\href{https://github.com/ChangtiWu/EVAThink}{EVAThink}.",
+          "file": "data/feed/raw/maintenance-2026-11-12/source-intake/official-metadata/0001.body",
+          "file_sha256": "586409dfbf163571c723bc74eef7834162b8585976bff9e32019176ee6f861f5"
+        }
+      ],
+      "formal_decision": false,
+      "all_experimental_numbers_recomputed": false
+    },
+    {
+      "id": "arxiv:2611.12200",
+      "title": "Learning to Act with World Models by Valuing What Comes Next",
+      "source_hash": "6c137726f755f02d33b60e0717299471d86591a8707276cc1ed0231c6a837021",
+      "suggestion": "exclude",
+      "direction": null,
+      "reason_zh": "学习world-model价值和动作策略，模型权重是改进对象。",
+      "evidence": [
+        {
+          "location": "Official arXiv abstract",
+          "quote": "A sparse terminal reward tells an agent little about its steps. Much of the missing information is implicit in the environment's dynamics, because each state transition can change the conditions for success long before the reward arrives. A world model trained on real transitions can learn to predict what each action changes, but a predicted observation does not by itself show whether success has become more likely. With a binary terminal reward, PPO's critic makes this judgment by estimating the current policy's probability of success, but only for states the agent reaches. Our method, WM-PPO, elegantly brings the two together. For each action the policy samples, executed or not, the world model predicts the next observation and the critic values the predicted successor. In the policy channel, comparisons among these values give the policy auxiliary advantages; in the value channel, their mean gives the critic an auxiliary target. A shared gate weights both channels according to how reliably comparisons with similar margins predicted real outcomes earlier in training. The policy, critic and world model all learn from the agent's own interaction, with no teacher or privileged information, and only the policy is used at inference. With a comparable number of real environment steps, WM-PPO raises success from PPO's 63.5% to 87.5% on ALFWorld and from 39.3% to 52.9% on ScienceWorld. It matches the strongest PPO refinements we tested on ALFWorld and exceeds the best of them by 6.5 points on ScienceWorld. The trained policy more often completes prerequisite steps before placing an object or committing to an answer.",
+          "file": "data/feed/raw/maintenance-2026-11-12/source-intake/official-metadata/0001.body",
+          "file_sha256": "586409dfbf163571c723bc74eef7834162b8585976bff9e32019176ee6f861f5"
+        }
+      ],
+      "formal_decision": false,
+      "all_experimental_numbers_recomputed": false
+    },
+    {
+      "id": "arxiv:2611.12955",
+      "title": "Predictive Surprise as Self-Grounding Concept Bottleneck for Interpretable Time Series",
+      "source_hash": "4838b6b39d5a9a22066326e0c4acb7c7524b2de38edd7c341b73ddcddc8c4c0d",
+      "suggestion": "exclude",
+      "direction": null,
+      "reason_zh": "时间序列预测的概念瓶颈和表示学习，非Harness。",
+      "evidence": [
+        {
+          "location": "Official arXiv abstract",
+          "quote": "Time-series classifiers deployed in risk-sensitive domains must be (1) accurate, (2) interpretable, and (3) able to abstain when evidence is weak. Existing methods do not deliver all 3 at once, and the obstacle is structural, rather than logistical. Meaningful temporal patterns cannot be defined without knowing segment boundaries, yet meaningful boundaries cannot be placed without knowing which patterns to expect. Existing approaches break this circularity by using fixed windows or expert-annotated vocabularies, thereby sacrificing at least one of the 3 properties. We introduce ConceptTime, which closes the loop through a single self-supervised signal. A frozen probabilistic forecaster predicts a distribution over the next observation at every timestep of the sequence. We call the mismatch between its prediction and the realized signal the predictive surprise. This signal both locates segment boundaries and characterizes each resulting segment through the forecaster. Segments are thus grounded by how they behaved relative to expectation, not by what they look like. These summaries cluster into a vocabulary of dynamical regimes that we call concepts. A lightweight head classifies from the concept sequence, and the distance to the nearest concept yields reliability by design. Across 17 public benchmarks, ConceptTime is competitive with state-of-the-art black-box accuracy, beats every interpretable baseline, and retains near-98% accuracy on Epilepsy with 1% of labels. It further remains competitive with softmax, prototype-distance, and SHAP/TimeX/TimeX++ on OOD detection and deletion faithfulness, without a single annotation, language model call, or domain expert. Code is available at: https://github.com/Sachithx/ConceptTime.git.",
+          "file": "data/feed/raw/maintenance-2026-11-12/source-intake/official-metadata/0001.body",
+          "file_sha256": "586409dfbf163571c723bc74eef7834162b8585976bff9e32019176ee6f861f5"
+        }
+      ],
+      "formal_decision": false,
+      "all_experimental_numbers_recomputed": false
+    },
+    {
+      "id": "arxiv:2611.14116",
+      "title": "Visual Similarity in Adult Word Extension and Artificial Word Learning",
+      "source_hash": "24b6d8017d5e793d7de7bedf9aca67c95750eec0db414b1847b434b0dee94427",
+      "suggestion": "exclude",
+      "direction": null,
+      "reason_zh": "人类和模型的词义扩展/视觉相似度研究，非Harness RSI。",
+      "evidence": [
+        {
+          "location": "Official arXiv abstract",
+          "quote": "When two objects share a name, how much does their visual similarity explain, and what do the teaching examples add? First, we reanalyzed trial-level data from a large adult word-extension study (Lewis & Frank, 2018), computing each test image's distance to the examples shown in the space of a frozen self-supervised visual encoder (DINOv2). Distance was associated with extension (log odds -3.23 per standard deviation; 520 people), and an exploratory post hoc analysis suggested that this association persisted within the taught domain after controlling for taxonomic level and teaching condition. Example composition also mattered: after three examples, adults extended a word to 1.1% of superordinate items when the examples were subordinate and to 77.5% when they were superordinate. Second, in an artificial learner using the same encoder, words joining two categories were learned less accurately the farther apart the categories were (84.7%, 65.4%, and 53.0% naming accuracy for near, mid, and far pairs). The encoder's distances correlated with human similarity and confusability measures from three datasets (rho = .501-.795), but this representational alignment did not translate into conclusive evidence that human-derived distances predict learner difficulty, and a second encoder trained on one child's experience reproduced the tier ordering but not the pair-level effect. The secondary human data were analyzed under an internal plan fixed before the confirmatory analyses (not externally preregistered). Visual similarity accounts for part of how generalization is organized in both systems, while the composition of examples contributes what the distance we used does not capture.",
+          "file": "data/feed/raw/maintenance-2026-11-12/source-intake/official-metadata/0001.body",
+          "file_sha256": "586409dfbf163571c723bc74eef7834162b8585976bff9e32019176ee6f861f5"
+        }
+      ],
+      "formal_decision": false,
+      "all_experimental_numbers_recomputed": false
+    },
+    {
+      "id": "arxiv:2611.14083",
+      "title": "Sable: A Small-Field Sumcheck Argument for Bit-Exact Inference of Large Language Models",
+      "source_hash": "bc52981756e5a2cc11364523b4cc7288aa6d09255c94b1b92a200e350ba66176",
+      "suggestion": "exclude",
+      "direction": null,
+      "reason_zh": "Sable验证LLM精确推理的密码学sumcheck协议，不是Agent自演化验证器。",
+      "evidence": [
+        {
+          "location": "Official arXiv abstract",
+          "quote": "We present Sable, an argument system and single-GPU prover for the statement that a committed, integer-quantized transformer produced a given token sequence from a given prompt, bit for bit. Sable fixes an integer function F_O with no floating-point step, in which every rounding, normalization, softmax and sampling decision is determined by its inputs, and proves it with a constraint system whose relations provably never wrap modulo the 31-bit KoalaBear prime. The proof batches zerochecks and LogUp-GKR lookups into one sumcheck per domain, and commits to every witness tensor and weight in one multilinear commitment built from Reed-Solomon codes, BLAKE3 Merkle trees and a mixed-length BaseFold opening. The prover streams the model layer by layer on one GPU. On one NVIDIA RTX PRO 6000 Blackwell GPU, Sable proves all 64 layers of Qwen2.5-32B in 92.5 s for 4,096 tokens and 398 s for 16,384 tokens, and covers Qwen3-32B and the mixture-of-experts Qwen3-30B-A3B (4,096 tokens in 121.8 and 84.7 s). A proof costs 41 to 50 times the serving time, or 6.4 cents per 4,096-token request at public GPU prices, and 40 to 64 times less time per parameter and token than zkLLM. On WikiText-2, F_O's greedy token matches the BF16 model's at 86.3% of positions; on Qwen3, F_O is within 1.6 points of BF16 on MMLU and 1.7 points on GSM8K. A verifier with a compiled core checks a proof on one CPU core in 19 to 56 s. In the random-oracle model, the interactive proof has round-by-round soundness error 2^-103. The proof is not zero-knowledge, so the system targets open-weight models. Code: https://github.com/moonmath-ai/Sable",
+          "file": "data/feed/raw/maintenance-2026-11-12/source-intake/official-metadata/0001.body",
+          "file_sha256": "586409dfbf163571c723bc74eef7834162b8585976bff9e32019176ee6f861f5"
+        }
+      ],
+      "formal_decision": false,
+      "all_experimental_numbers_recomputed": false
+    },
+    {
+      "id": "arxiv:2611.13995",
+      "title": "Lipschitz-Controlled Flow Matching for Robust Image Restoration",
+      "source_hash": "5755a1e7f6078b39b8a7c74653babbbd9d37e5968045a604d078e4b6753efe86",
+      "suggestion": "exclude",
+      "direction": null,
+      "reason_zh": "图像复原的Lipschitz flow-matching模型方法，非Harness。",
+      "evidence": [
+        {
+          "location": "Official arXiv abstract",
+          "quote": "Flow-matching models can produce high-quality image restorations, but their learned dynamics may amplify small input perturbations and make reconstructions unstable. We introduce LipsFlower to reduce this amplification. We derive stability bounds for Flow-from-$Y$, which initializes the ordinary differential equation from a noise-perturbed observation, as well as for observation-conditioned posterior sampling, which conditions the velocity field on the observation throughout integration. Based on this analysis, we develop LipHDiT, a Lipschitz-aware hourglass diffusion transformer that serves as the vector-field architecture of LipsFlower. LipHDiT incorporates stabilized approximate spectral normalization, bounded modulation, and convex residual mixing. We also use adversarial finite-radius gain regularization at sampled interpolation states to penalize excessive sensitivity to the state and, for conditional sampling, the observation. We test both formulations on blind face restoration, measuring adversarial robustness and the perceptual quality of the reconstructions. LipsFlower reduces perturbation amplification while keeping restoration quality competitive with the evaluated baselines. These results suggest that Lipschitz-aware flow matching can improve the stability of generative image restoration.",
+          "file": "data/feed/raw/maintenance-2026-11-12/source-intake/official-metadata/0001.body",
+          "file_sha256": "586409dfbf163571c723bc74eef7834162b8585976bff9e32019176ee6f861f5"
+        }
+      ],
+      "formal_decision": false,
+      "all_experimental_numbers_recomputed": false
+    },
+    {
+      "id": "arxiv:2611.11912",
+      "title": "LO-World: Unified BEV Latent Modeling for Joint 4D Occupancy and LiDAR Forecasting",
+      "source_hash": "5b7e3c025ee7be2284c52381854550dc3d433a7754d1dae191e743887792a21b",
+      "suggestion": "exclude",
+      "direction": null,
+      "reason_zh": "LO-World BEV潜变量世界模型与占据/LiDAR预测，非Harness。",
+      "evidence": [
+        {
+          "location": "Official arXiv abstract",
+          "quote": "LiDAR point clouds and 3D semantic occupancy represent two distinct modalities capturing fine-grained metric geometry and dense volumetric semantics, respectively, holding natural potential for mutual complementarity. However, existing world models typically forecast these modalities independently or cascade them heuristically, missing the opportunity for reciprocal cross-modal regularization. To address this, we propose \\textbf{LO-World}, a unified 4D world model that forecasts both modalities within a shared BEV latent space. This single-stream formulation enables dense semantics and metric geometry to mutually reinforce each other, while eliminating multi-pipeline redundancy. Specifically, LO-World couples an efficient hybrid range-voxel autoencoder with a flow-matching generator that caches historical context to reduce iterative sampling latency. Extensive experiments demonstrate that LO-World outperforms prior state-of-the-art baselines, improving occupancy forecasting IoU by 10.9% and reducing LiDAR Chamfer Distance by 30.1%. Meanwhile, it sustains a real-time throughput exceeding $25$~FPS on a single RTX 4090. Our code is available at https://github.com/lzzzzzm/LO-World.",
+          "file": "data/feed/raw/maintenance-2026-11-12/source-intake/official-metadata/0001.body",
+          "file_sha256": "586409dfbf163571c723bc74eef7834162b8585976bff9e32019176ee6f861f5"
+        }
+      ],
+      "formal_decision": false,
+      "all_experimental_numbers_recomputed": false
+    },
+    {
+      "id": "arxiv:2611.13425",
+      "title": "Prompt2Echo (P2Echo): Text-Prompted Multi-View Echocardiography Segmentation with One Model",
+      "source_hash": "06cb7fb7d310308d00b9003866bc00e164eef79e0eff519beb68665e4e818141",
+      "suggestion": "exclude",
+      "direction": null,
+      "reason_zh": "Prompt2Echo文本引导心超分割模型，非Harness。",
+      "evidence": [
+        {
+          "location": "Official arXiv abstract",
+          "quote": "Automated segmentation in multi-view echocardiography is essential for comprehensive cardiac assessment, yet remains challenging due to substantial anatomical and appearance variability across standard acoustic windows. In this paper, we present P2Echo, a unified framework capable of segmenting diverse cardiac structures across multiple standard echocardiographic views using a single model controlled by structured view-aware text prompts. Unlike recent foundation model adaptations that rely on implicit latent priors, P2Echo explicitly conditions the segmentation process via a novel Dynamic Image-Text Alignment (DyITA) module. DyITA integrates a differentiable routing mechanism and token differential operators to dynamically modulate decoder features according to the requested view and target structure. This allows the network to adaptively switch its processing pathways for different views without architectural changes. Extensive experiments on a large-scale internal dataset (seen during training) and held-out evaluation on three external datasets demonstrate that P2Echo matches or exceeds both view-specific specialists and state-of-the-art universal models at a fraction of their computational cost, offering an efficient, controllable solution for multi-plane cardiac analysis. Code is available at: https://github.com/moeinheidari7829/P2Echo.",
+          "file": "data/feed/raw/maintenance-2026-11-12/source-intake/official-metadata/0001.body",
+          "file_sha256": "586409dfbf163571c723bc74eef7834162b8585976bff9e32019176ee6f861f5"
+        }
+      ],
+      "formal_decision": false,
+      "all_experimental_numbers_recomputed": false
+    },
+    {
+      "id": "arxiv:2611.05927",
+      "title": "Modality-Aware Expert Pruning for MoE-Based Multimodal Large Language Models",
+      "source_hash": "e07bb9e36c816c4a269666d5fa3c35476de00f0b240e9b0db49f85cb59d538fc",
+      "suggestion": "exclude",
+      "direction": null,
+      "reason_zh": "MoE多模态模型专家剪枝，修改权重结构，不是Harness。",
+      "evidence": [
+        {
+          "location": "Official arXiv abstract",
+          "quote": "Mixture-of-Experts (MoE) enables multimodal large language models (MLLMs) to scale capacity efficiently, but expert parameters dominate memory even though only a few experts are activated per token: they account for over 90% of model size in modern MoE-MLLMs (e.g., 54 GB out of about 58 GB in BF16 for InternVL3.5-30B-A3B and Qwen3-VL-30B-A3B). Expert pruning has emerged as an effective compression strategy, but existing methods aggregate importance uniformly across tokens, ignoring that the same expert may serve different roles for vision versus language processing. To address this, we propose MAEP (Modality-Aware Expert Pruning), a training-free framework that decomposes expert importance by modality in a single forward pass. MAEP introduces (1) Delta-H Output ($ΔH$), a redistribution-aware metric measuring the MoE output change when an expert is removed, and (2) low-attention vision tokens as a vision-side pruning signal that is dataset-stable: its expert-importance ranking remains stable across different datasets. Text-side importance serves as a preservation signal while vision-side importance serves as a pruning signal, and experts are ranked globally across layers. Experiments on three MoE-based MLLMs across multimodal and text benchmarks show that MAEP outperforms modality-agnostic baselines on the majority of multimodal benchmarks while remaining competitive on text-only tasks, reducing the BF16 expert weight footprint by about 27 GB (about 47% of total memory) so that the full weight footprint of an approximately 58 GB model fits within a single 40 GB GPU. Code is available at https://github.com/nota-github/MAEP.",
+          "file": "data/feed/raw/maintenance-2026-11-12/source-intake/official-metadata/0001.body",
+          "file_sha256": "586409dfbf163571c723bc74eef7834162b8585976bff9e32019176ee6f861f5"
+        }
+      ],
+      "formal_decision": false,
+      "all_experimental_numbers_recomputed": false
+    },
+    {
+      "id": "arxiv:2611.11994",
+      "title": "EmoHarness: Boosting Multimodal Emotion Understanding with Meta-Harness Evolving",
+      "source_hash": "cc95475d938624b57cc69400815bf11101ca03e62f9eb84d1e680bf145931eb4",
+      "suggestion": "include",
+      "direction": "harness/evolve_main",
+      "reason_zh": "EmoHarness冻结学生模型，以construction失败及trace指导Builder修改提示、配置和受限验证代码；validation准入后的incumbent保留到后续代并冻结评测。主要收益来自音频证据，演化增量未过Holm校正；部分evaluation项被人工开发看过，不能称完全未触碰留出集。",
+      "evidence": [
+        {
+          "location": "S3.SS1.p1",
+          "file": "data/feed/raw/maintenance-2026-11-12/source-intake/scope-fulltexts/2611.11994.html",
+          "file_sha256": "fec1126a018dc4430f259d65f32a1890db10a4244b8b5f29a8cf08fa0b5c3c59",
+          "quote": "Given a video v v , a request q q , and allowed labels 𝒴 q \\mathcal{Y}_{q} , a harness H H invokes the frozen student M θ M_{\\theta} and returns labels Y ^ \\hat{Y} , an explanation z z , and a trace τ \\tau : ( Y ^ , z , τ ) = H ⁡ ( M θ , v , P ⁡ ( v ) , q , 𝒴 q ) . (\\hat{Y},z,\\tau)=H(M_{\\theta};v,P(v),q,\\mathcal{Y}_{q}). (1) Fixed preprocessing P ⁡ ( v ) P(v) supplies a transcript, prosodic descriptors, and a frame cache. MHE changes H H but never θ \\theta , and within H H the perception tools, evidence and output schemas, and output controller are also fixed; the Builder may rewrite prompts, settings (e.g., transcript presentation), and restricted verification code."
+        },
+        {
+          "location": "S3.SS3.p1",
+          "file": "data/feed/raw/maintenance-2026-11-12/source-intake/scope-fulltexts/2611.11994.html",
+          "file_sha256": "fec1126a018dc4430f259d65f32a1890db10a4244b8b5f29a8cf08fa0b5c3c59",
+          "quote": "MHE evolves the harness over T = 4 T=4 generations. In each, the Builder proposes candidate edits, and gates either promote one candidate or keep the current harness. MHE inherits from Meta-Harness ( Lee et al., 2026 ) a proposer that reads prior harness code and execution traces. It differs in three respects. First, the Builder sees the failures of one frozen student, clustered by gold–prediction confusion and by cross-modal conflict; a deterministic check flags a conflict when the student’s visual and audio-derived citations favor different labels. Second, gates on a separate validation split decide promotion, and the Builder sees neither validation scores nor gate decisions, only the resulting harness. Third, each run keeps one current harness, the incumbent , giving a chain H 0 → ⋯ → H T H_{0}\\rightarrow\\cdots\\rightarrow H_{T} ."
+        },
+        {
+          "location": "S3.SS3.SSS0.Px1.p1",
+          "file": "data/feed/raw/maintenance-2026-11-12/source-intake/scope-fulltexts/2611.11994.html",
+          "file_sha256": "fec1126a018dc4430f259d65f32a1890db10a4244b8b5f29a8cf08fa0b5c3c59",
+          "quote": "The incumbent runs on a construction split 𝒟 b \\mathcal{D}_{b} , whose failures the Builder may read. Given the incumbent’s files, intermediate records, clustered failures, and earlier proposals with check and reviewer feedback, the Builder proposes up to four candidate harnesses, each an edit aimed at one failure cluster; evaluation data are never exposed."
+        },
+        {
+          "location": "S3.SS3.SSS0.Px2.p1",
+          "file": "data/feed/raw/maintenance-2026-11-12/source-intake/scope-fulltexts/2611.11994.html",
+          "file_sha256": "fec1126a018dc4430f259d65f32a1890db10a4244b8b5f29a8cf08fa0b5c3c59",
+          "quote": "Candidates must pass file-scope, schema, loadability, and static-code checks, as well as a proposal reviewer that rejects, for example, edits that force a label regardless of evidence or add unsupported settings; these are filters, not guarantees. Survivors run on the validation split 𝒟 v \\mathcal{D}_{v} . Let r i ​ ( H ) ∈ [ 0 , 1 ] r_{i}(H)\\in[0,1] be per-item Recognition (Section 4.2 ) and 𝒮 t \\mathcal{S}_{t} the validation items solved ( r i = 1 r_{i}=1 ) by any incumbent so far. The regression rate is the fraction of 𝒮 t \\mathcal{S}_{t} that a candidate no longer solves: ρ t ​ ( H ) = | 𝒮 t ∖ Solved ⁡ ( H ; 𝒟 v ) | | 𝒮 t | . \\rho_{t}(H)=\\frac{|\\mathcal{S}_{t}\\setminus\\operatorname{Solved}(H;\\mathcal{D}_{v})|}{|\\mathcal{S}_{t}|}. (2) A candidate H H replaces the incumbent H t H_{t} only if R ^ v ( H ) > R ^ v ( H t ) , ρ t ( H ) ≤ δ , c ¯ ( H ) ≤ B , Q ^ v ( H ) ≥ Q ^ v ( H t ) − ϵ , \\begin{gathered}\\widehat{R}_{v}(H)>\\widehat{R}_{v}(H_{t}),\\qquad\\rho_{t}(H)\\leq\\delta,\\\\ \\overline{c}(H)\\leq B,\\qquad\\widehat{Q}_{v}(H)\\geq\\widehat{Q}_{v}(H_{t})-\\epsilon,\\end{gathered} (3) where R ^ v \\widehat{R}_{v} is the mean validation Recognition, c ¯ \\overline{c} the mean number of student calls, and Q ^ v \\widehat{Q}_{v} a reasoning proxy used only for selection: the average share of non-final reasoning steps that a judge marks correct, on a fixed 200-item validation subset (Appendix B ). We use δ = 0.05 \\delta=0.05 , B = 4.5 B=4.5 , and ϵ = 0.02 \\epsilon=0.02 . The best passing candidate, ranked by validation Recognition and then by fewer calls, becomes H t + 1 H_{t+1} ; otherwise H t + 1 = H t H_{t+1}=H_{t} . After T T generations the evolved harness H ⋆ = H T H^{\\star}=H_{T} is frozen; if nothing was promoted, H ⋆ H^{\\star} is the Shared scaffold itself. Algorithm B (Appendix B ) summarizes the loop."
+        },
+        {
+          "location": "S4.SS1.SSS0.Px2.p1",
+          "file": "data/feed/raw/maintenance-2026-11-12/source-intake/scope-fulltexts/2611.11994.html",
+          "file_sha256": "fec1126a018dc4430f259d65f32a1890db10a4244b8b5f29a8cf08fa0b5c3c59",
+          "quote": "Construction and validation use 399 and 394 MME-Emotion items ( Zhang et al., 2026 ) from three task types (ER-Lab, ER-Wild: lab and in-the-wild emotion recognition; SA: sentiment analysis). Evaluation uses 5,507 further items, namely the benchmark minus every item whose media overlap construction, validation, or a reserved 129-item set. The evaluation set contains 2,963 items in the seen types and 2,544 in five held-out types (noisy, fine-grained, and multi-label emotion recognition: Noise-ER, FG-ER, ML-ER; fine-grained sentiment: FG-SA; intent recognition: IR). Held-out refers to task type, not to an untouched test set: 986 evaluation items, which we cannot identify, were inspected during development. Inspection could have influenced any human design choice, most plausibly the scaffold, but not the Builder’s edits directly: the Builder never saw evaluation items (Appendix A )."
+        }
+      ],
+      "formal_decision": false,
+      "all_experimental_numbers_recomputed": false
+    },
+    {
+      "id": "post:https://sakana.ai/michael-tom/",
+      "title": "マイケル・ロジャース米退役海軍大将、トム・モラン元CIA支局長がSakana AIのシニアアドバイザーに就任",
+      "source_hash": "3281942da63dc53eff5824217c5cf9a1935d8278af48692ab1af1e06d05ada50",
+      "suggestion": "exclude",
+      "direction": null,
+      "reason_zh": "Sakana高级顾问任命公告，与Harness RSI无关。",
+      "evidence": [
+        {
+          "location": "Official article metadata/body",
+          "quote": "写真左：マイケル・ロジャース氏、写真右：トム・モラン氏 （English Announcement Below.） AIは、国家の安全保障のあり方を左右する重要なテクノロジーになりつつあります。この変化に日本が向き合うために、Sakana AIは本日、元米国家安全保障局（NSA）長官兼米サイバー軍司令官のマイケル・ロジャース（Michael Rogers）退役海軍大将と、元米中央情報局（CIA）幹部のトム・モラン（Tom Moran）氏が、ともにシニアアドバイザーに就任したことを発表します。両氏は、防衛分野の強化とサイバーセキュリティの強化の2つの軸で、当社に助言を行います。 2名のアドバイザーは、異なるインテリジェンスの領域で、それぞれ最前線に立ってきました。 マイケル・ロジャース退役海軍大将 マイケル・ロジャース氏は、37年にわたる米海軍でのキャリアを、軍事作戦、インテリジェンス、サイバーセキュリティの最前線で歩んできました。 海軍では暗号分野を専門とし、米インド太平洋軍（U.S. Indo-Pacific Command）の情報部長（J2）をはじめとする情報分野の要職を歴任。その後、米艦隊サイバー軍（U.S. Fleet Cyber Command）/第10艦隊の司令官（U.S. Tenth Fleet）などを経て、2014年から2018年には、NSA長官（National Security Agency Director and Commander）と米サイバー軍司令官（Commander of U.S. Cyber Command）を兼務しました。米国最大の諜報機関と、米軍ネットワークの防衛および世界規模のサイバー作戦を担う統合軍を同時に率いた、サイバー領域のエキスパートです。 2018年に四つ星の海軍大将として退役後は、2019年からBrunswick Groupのシニアアドバイザーとして、サイバーセキュリティ、地政学、危機管理について助言しています。 「AIは、サイバー空間における攻撃と防御の両面で、国家安全保障の前提を大きく変えつつあります。Sakana AIは、世界水準の研究力と、日本発の独自のアプローチを兼ね備えた企業です。サイバーセキュリティと防衛の強化に向けて、私の経験を役立てられることを楽しみにしています。」 — マイケル・ロジャース退役海軍大将 トム・モラン元CIA支局長 トム・モラン氏は、約30年にわたりCIAに在籍し、オペレーション・オフィサーとして世界各地での任務にあたってきました。 東アジア、西欧、中東、アフリカの各地で支局長（Chief of Station）を6度務め、ワシントンD.C.の本部でも上級幹部職を歴任。情報機関の上級幹部にあたる上級情報部（Senior Intelligence Service）のメンバーとして、2023年には殊勲情報章（Distinguished Career Intelligence Medal）を受章しています。 2024年からは、UC Berkeley Goldman School of Public PolicyのInstitute for Security and Governanceにおいて「Intelligence Project」のディレクターを務め、自身の安全保障に関する知見を次世代に伝えています。 「インテリジェンスの現場で最も大切なのは、限られた時間のなかで、膨大な情報から正しい判断を導き出すことです。AIはその力を飛躍的に高める可能性を持っています。同時に、信頼性と責任ある運用が欠かせません。Sakana AIは、優れた人材と創造的な発想で、日本の防衛・インテリジェンスを支えようとしています。その挑戦に、アドバイザーとして参加できることを光栄に思います。」 — トム・モラン元CIA支局長 Sakana AI Sakana AIは創業以来、国内外から優れた人材を東京に迎え入れてきました。9月の ユルゲン・シュミットフーバー博士 に続き、今回は防衛とインテリジェンスの領域で、国際的な経験を持つ二人をお迎えします。 Sakana AIは 防衛事業に対する基本方針 に基づき、技術の力で日本の防衛・インテリジェンスを支える最前線のチームを拡大中です。ソフトウェアエンジニア、アプライドリサーチエンジニア、サイバーセキュリティエンジニア、プロジェクトマネージャー、テクニカルエディターなど複数の職種の人材を募集しています。詳しくは当社の 募集要項 をご覧ください。 English Announcement U.S. Admiral Michael Rogers and Former CIA Chief of Station Tom Moran Join Sakana AI as Senior Advisors Left: Michael Rogers, Right: Tom Moran AI is becoming a technology that will shape the future of national security. To help Japan meet this change, Sakana AI today announces that Admiral Michael Rogers, U.S. Navy (Ret.), former Director of the National Security Agency (NSA) and Commander of U.S. Cyber Command, and Tom Moran, a former senior officer of the Central Intelligence Agency (CIA), have both joined as Senior Advisors. They will advise the company on two fronts: strengthening defense capabilities and strengthening cybersecurity. Our two advisors have each stood on the front lines of different domains of intelligence. Admiral Michael Rogers, U.S. Navy (Ret.) Michael Rogers spent a 37-year career in the U.S. Navy on the front lines of military operations, intelligence, and cybersecurity. Specializing in cryptology, he held a series of senior intelligence posts, including Director for Intelligence (J2) at U.S. Indo-Pacific Command (INDOPACOM), and went on to serve as Commander of U.S. Fleet Cyber Command / U.S. Tenth Fleet, among other posts, before serving simultaneously as Director of the NSA and Commander of U.S. Cyber Command from 2014 to 2018. He led both the largest intelligence agency in the United States and the unified command responsible for defending U.S. military networks and conducting cyber operations worldwide, making him an expert with an unparalleled command of the cyber domain. After retiring in 2018 as a four-star admiral, he has served since 2019 as Senior Advisor to the Brunswick Group, advising on cybersecurity, geopolitics, and crisis management. “AI is fundamentally changing the assumptions of national security, on both offense and defense in cyberspace. Throughout my career, I have seen how much risk emerges when institutions fail to keep pace with advances in technology. Sakana AI combines world-class research with a distinctive approach that originates in Japan. I look forward to contributing my experience to strengthening cybersecurity and defense.” — Admiral Michael Rogers, U.S. Navy (Ret.) Tom Moran, Former CIA Chief of Station Tom Moran spent close to 30 years at the CIA, on the front lines of intelligence operations in the field around the world. He served six times as Chief of Station across East Asia, Western Europe, the Middle East, and Africa, and held senior leadership positions at headquarters in Washington, D.C. A member of the Senior Intelligence Service, the CIA’s senior executive cadre, he was awarded the Distinguished Career Intelligence Medal in 2023. Since 2024, he has also been passing on his security expertise to the next generation as Director of the Intelligence Project in the Institute for Security and Governance at UC Berkeley’s Goldman School of Public Policy. “What matters most in intelligence work is reaching the right judgment from an enormous amount of information in a limited amount of time. AI has the potential to dramatically strengthen that ability. At the same time, reliability and responsible use are essential. Sakana AI is working to support Japan’s defense and intelligence with outstanding people and creative thinking, and I am honored to join that effort as an advisor.” — Tom Moran, Former CIA Chief of Station About Sakana AI Since its founding, Sakana AI has welcomed outstanding talent from Japan and abroad to Tokyo. Following Dr. Jürgen Schmidhuber in September, we are now joined by two people with international experience in defense and intelligence. In line with our Defense Policy , Sakana AI is expanding its front-line team that supports Japan’s defense and intelligence through technology. We are hiring for multiple roles, including Software Engineer, Applied Research Engineer, Cybersecurity Engineer, Project Manager, and Technical Editor. For details, please see our careers page .",
+          "intake_bindings": [
+            {
+              "requested_at": "2026-11-12T06:24:45.217220+00:00",
+              "finished_at": "2026-11-12T06:24:46.075206+00:00",
+              "request_url": "https://sakana.ai/feed.xml",
+              "body_path": "data/feed/raw/maintenance-2026-11-12/source-intake/network/rss-sakana/0001.body",
+              "body_sha256": "800d3361bf20a72639b42f27d22655c94e4f18a7bcde15b15d8f11b7bf2bca99",
+              "params": null,
+              "normalized_record_index": 0
+            }
+          ]
+        }
+      ],
+      "formal_decision": false,
+      "all_experimental_numbers_recomputed": false
+    },
+    {
+      "id": "post:https://openai.com/index/gilbert-tobin-sam-nickless",
+      "title": "Gilbert + Tobin rethinks the business of law with AI",
+      "source_hash": "b9caa16e0a16783b08cad854f7f25df59cab215eea9f7db02577d03748936022",
+      "suggestion": "exclude",
+      "direction": null,
+      "reason_zh": "法律事务所使用AI的案例介绍，未呈现自动反馈改写Harness的证据。",
+      "evidence": [
+        {
+          "location": "Official article metadata/body",
+          "quote": "A conversation with Sam Nickless, Partner and Chief Executive Officer at Gilbert + Tobin.",
+          "intake_bindings": [
+            {
+              "requested_at": "2026-11-12T06:24:52.636830+00:00",
+              "finished_at": "2026-11-12T06:24:53.445336+00:00",
+              "request_url": "https://openai.com/news/rss.xml",
+              "body_path": "data/feed/raw/maintenance-2026-11-12/source-intake/network/rss-openai/0001.body",
+              "body_sha256": "9cd7e929ab27f40626b917c7835e17e771d9be839257c0f8b9e1863bf4d9abbe",
+              "params": null,
+              "normalized_record_index": 0
+            }
+          ]
+        }
+      ],
+      "formal_decision": false,
+      "all_experimental_numbers_recomputed": false
+    },
+    {
+      "id": "post:https://openai.com/index/chatgpt-plus-for-veterans",
+      "title": "ChatGPT Plus for veterans and servicemembers",
+      "source_hash": "7ff2646098332376e1d2b312c1adb7f7cba204282d0e4c8324d7bd7182237ff1",
+      "suggestion": "exclude",
+      "direction": null,
+      "reason_zh": "退役军人和军人的ChatGPT订阅计划，非研究方法。",
+      "evidence": [
+        {
+          "location": "Official article metadata/body",
+          "quote": "More than 20,000 veterans and transitioning service members have claimed a free year of ChatGPT Plus. See how they use it to prepare for civilian careers.",
+          "intake_bindings": [
+            {
+              "requested_at": "2026-11-12T06:24:52.636830+00:00",
+              "finished_at": "2026-11-12T06:24:53.445336+00:00",
+              "request_url": "https://openai.com/news/rss.xml",
+              "body_path": "data/feed/raw/maintenance-2026-11-12/source-intake/network/rss-openai/0001.body",
+              "body_sha256": "9cd7e929ab27f40626b917c7835e17e771d9be839257c0f8b9e1863bf4d9abbe",
+              "params": null,
+              "normalized_record_index": 1
+            }
+          ]
+        }
+      ],
+      "formal_decision": false,
+      "all_experimental_numbers_recomputed": false
+    },
+    {
+      "id": "post:https://openai.com/index/jiostar-vijay-seshadri",
+      "title": "JioStar’s chief architect on AI discovery at 500M-user scale",
+      "source_hash": "cd2aa9f8c0ca3af07d175d83fb9f09c4c1b87f7cff708dd0ec7e08c924699d1d",
+      "suggestion": "exclude",
+      "direction": null,
+      "reason_zh": "媒体平台AI发现和企业应用案例，未说明自身Harness自进化链。",
+      "evidence": [
+        {
+          "location": "Official article metadata/body",
+          "quote": "JioStar’s Vijay Seshadri explains AI discovery at 500M-user scale. Read his lessons on evals, guardrails, and taking AI into production.",
+          "intake_bindings": [
+            {
+              "requested_at": "2026-11-12T06:24:52.636830+00:00",
+              "finished_at": "2026-11-12T06:24:53.445336+00:00",
+              "request_url": "https://openai.com/news/rss.xml",
+              "body_path": "data/feed/raw/maintenance-2026-11-12/source-intake/network/rss-openai/0001.body",
+              "body_sha256": "9cd7e929ab27f40626b917c7835e17e771d9be839257c0f8b9e1863bf4d9abbe",
+              "params": null,
+              "normalized_record_index": 2
+            }
+          ]
+        }
+      ],
+      "formal_decision": false,
+      "all_experimental_numbers_recomputed": false
+    },
+    {
+      "id": "post:https://openai.com/index/singapore-airlines-travel-work",
+      "title": "Singapore Airlines elevates travel & work with OpenAI technology",
+      "source_hash": "2b0ae34dde012c482db90bc488fab876627ed02b14ed88c78e93f832098c8570",
+      "suggestion": "exclude",
+      "direction": null,
+      "reason_zh": "航空公司使用OpenAI的服务与工作案例，非Harness演化研究。",
+      "evidence": [
+        {
+          "location": "Official article metadata/body",
+          "quote": "Discover how Singapore Airlines uses OpenAI models and API to enhance customer support, travel discovery, and employee productivity, doubling CSAT for its Kris chatbot.",
+          "intake_bindings": [
+            {
+              "requested_at": "2026-11-12T06:24:52.636830+00:00",
+              "finished_at": "2026-11-12T06:24:53.445336+00:00",
+              "request_url": "https://openai.com/news/rss.xml",
+              "body_path": "data/feed/raw/maintenance-2026-11-12/source-intake/network/rss-openai/0001.body",
+              "body_sha256": "9cd7e929ab27f40626b917c7835e17e771d9be839257c0f8b9e1863bf4d9abbe",
+              "params": null,
+              "normalized_record_index": 6
+            }
+          ]
+        }
+      ],
+      "formal_decision": false,
+      "all_experimental_numbers_recomputed": false
+    },
+    {
+      "id": "post:https://openai.com/index/cogent-security",
+      "title": "Cogent and OpenAI build cyber defense factories for enterprises",
+      "source_hash": "a6e0e1ca54b7b6b6e41cd06ec8cf66897900f33bd41978a620931af2c192c388",
+      "suggestion": "exclude",
+      "direction": null,
+      "reason_zh": "网络安全企业Agent应用公告，未提供反馈修改可复用Harness工件及准入的证据。",
+      "evidence": [
+        {
+          "location": "Official article metadata/body",
+          "quote": "Cogent combines OpenAI models with enterprise context to help automatically remediate vulnerabilities with agents.",
+          "intake_bindings": [
+            {
+              "requested_at": "2026-11-12T06:24:52.636830+00:00",
+              "finished_at": "2026-11-12T06:24:53.445336+00:00",
+              "request_url": "https://openai.com/news/rss.xml",
+              "body_path": "data/feed/raw/maintenance-2026-11-12/source-intake/network/rss-openai/0001.body",
+              "body_sha256": "9cd7e929ab27f40626b917c7835e17e771d9be839257c0f8b9e1863bf4d9abbe",
+              "params": null,
+              "normalized_record_index": 8
+            }
+          ]
+        }
+      ],
+      "formal_decision": false,
+      "all_experimental_numbers_recomputed": false
+    },
+    {
+      "id": "post:https://deepmind.google/blog/alphagenome-2-deciphering-how-cells-read-dna-to-better-understand-disease/",
+      "title": "AlphaGenome 2: Deciphering how cells read DNA to better understand disease",
+      "source_hash": "b702b14a5214313f105610118365232e49dda40fb3602e16dbea7a54371fb3be",
+      "suggestion": "exclude",
+      "direction": null,
+      "reason_zh": "AlphaGenome基因组预测模型成果，非Agent自身Harness。",
+      "evidence": [
+        {
+          "location": "Official article metadata/body",
+          "quote": "Predicting how DNA sequences and their variations impact specific human cell types and disease.",
+          "intake_bindings": [
+            {
+              "requested_at": "2026-11-12T06:24:54.014970+00:00",
+              "finished_at": "2026-11-12T06:24:55.410683+00:00",
+              "request_url": "https://deepmind.google/blog/rss.xml",
+              "body_path": "data/feed/raw/maintenance-2026-11-12/source-intake/network/rss-deepmind/0001.body",
+              "body_sha256": "08c862eb93478978565a6079e67d5283527e1a248a9802174659c040e87ffcc0",
+              "params": null,
+              "normalized_record_index": 0
+            }
+          ]
+        }
+      ],
+      "formal_decision": false,
+      "all_experimental_numbers_recomputed": false
+    }
+  ],
+  "counts": {
+    "exclude": 58,
+    "borderline": 1,
+    "include": 6
+  }
+}

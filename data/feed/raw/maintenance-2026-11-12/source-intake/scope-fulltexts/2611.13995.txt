@@ -1,0 +1,723 @@
+Lipschitz-Controlled Flow Matching for Robust Image Restoration Skip to main content Report GitHub Issue × Title: Content selection saved. Describe the issue below: Description: Submit without GitHub Submit in GitHub Why HTML? Report Issue Back to Abstract Download PDF Contents Reading mode Colour theme Abstract 1 Introduction 2 Related Work Blind face image restoration. Flow matching for image restoration. Lipschitz control and robustness of learned dynamics. 3 Background and Problem Formulation 3.1 Blind Face Restoration 3.2 Flow Matching 3.3 Observation-Dependent Restoration Flows 3.3.1 Flow-from-Y 3.3.2 Observation-Conditioned Posterior Sampling 3.4 Robustness Objective 4 Stability Analysis 4.1 Stability of Flow-from- Y Y Restoration 4.2 Stability of Observation-Conditioned Flows 4.3 Implications for Model Design 5 LipsFlower 5.1 Lipschitz-Aware Velocity Network 5.2 Finite-Radius Gain Regularization 6 Experiments 6.1 Experimental Setup Data and comparisons. Restoration metrics. Adversarial evaluation. 6.2 Robustness to Observation Perturbations Flow-from- Y Y . Observation-conditioned sampling. 6.3 Restoration Quality 7 Limitations 8 Conclusion 9 Acknowledgment References A Proofs of the Stability Results A.1 Grönwall–Bellman Inequality A.2 Proof of Proposition A.3 Proof of Proposition B LipsFlower: Architecture, Regularization Details, and Additional Results B.1 LipHDiT Architecture Backbone. Stabilized spectral normalization. Normalization and modulation. Feed-forward transformation. Convex residual and skip mixing. Conditional input stems. B.2 Localized Multi-Scale State Perturbations Spatial support. Perturbation magnitude. Adversarial search. Gain measurement. B.3 Observation Perturbations for Conditional Sampling B.4 Time Sampling and Optimization Sampling training states. Penalty and gradient computation. Weight warm-up and cadence. B.5 Scope of the Stability Controls B.6 Detailed Restoration Quality Results Flow-from- Y Y . Observation-conditioned sampling. B.7 Component Ablation Study Architectural controls. Gain regularization. Restoration-quality trade-off. C Training and Inference Settings C.1 Training Data and Degradation Pipeline C.2 Optimization C.3 Inference for the Flow-Matching Comparisons Flow-from- Y Y . Conditional sampling. C.4 Inference for Literature Baselines C.5 Shared Evaluation Procedure License: CC BY 4.0 arXiv:2611.13995v1 [cs.CV] 10 Nov 2026 Lipschitz-Controlled Flow Matching for Robust Image Restoration Sedjro Salomon Hotegni Affiliation: Paderborn University Affiliation: TU Dortmund University Email: sedjro.salomon.hotegni@uni-paderborn.de Konstantin Sonntag Affiliation: Paderborn University Email: konstantin.sonntag@uni-paderborn.de Paul-Christian Bürkner Affiliation: TU Dortmund University Email: sebastian.peitz@uni-paderborn.de Sebastian Peitz Affiliation: Paderborn University Email: paul.buerkner@gmail.com Abstract Flow-matching models can produce high-quality image restorations, but their learned dynamics may amplify small input perturbations and make reconstructions unstable. We introduce LipsFlower to reduce this amplification. We derive
+stability bounds for Flow-from- Y Y , which initializes the ordinary
+differential equation from a noise-perturbed observation, as well as for
+observation-conditioned posterior sampling, which conditions the
+velocity field on the observation throughout integration.
+Based on this analysis, we develop LipHDiT, a Lipschitz-aware
+hourglass diffusion transformer that serves as the vector-field architecture of LipsFlower. LipHDiT incorporates stabilized approximate spectral normalization, bounded modulation, and convex residual mixing. We also use adversarial finite-radius gain regularization
+at sampled interpolation states to penalize excessive sensitivity
+to the state and, for conditional sampling, the observation.
+We test both formulations on blind face restoration, measuring adversarial robustness and the perceptual quality of the reconstructions. LipsFlower reduces perturbation amplification while keeping restoration quality
+competitive with the evaluated baselines. These results suggest that Lipschitz-aware flow matching can improve the stability of generative image restoration. 1 Introduction Image restoration seeks to recover clean images
+from degraded observations. One particularly challenging case is
+blind face restoration, which aims to recover a
+high-quality face image from an observation affected by unknown
+degradations, such as blur, noise, downsampling, and compression.
+The problem is ill-posed: several clean faces may explain the
+same degraded input. The output must therefore look realistic,
+preserve facial identity and geometry, and stay consistent with
+the observation. Recent generative methods use face priors to
+synthesize plausible
+details [ 49 , 14 , 60 , 56 ] .
+But a convincing output can still be sensitive to small input
+perturbations. Figure 1 : Robustness to observation perturbations. LipsFlower reduces output changes for both backbones under model-specific black-box SPSA attacks, with a larger reduction for Flow-from- Y Y .
+The mean perturbation and output differences are amplified for visibility.
+Blue boxes mark the largest above-threshold change regions,
+with thresholds matched within each backbone pair. For human faces, even a slight change in the input
+can cause an image restoration model to produce noticeably different facial features, potentially
+changing the person’s apparent identity.
+Metrics such as PSNR [ 20 ] ,
+LPIPS [ 58 ] , and FID [ 17 ] assess reconstruction or distributional quality, but do not directly
+measure input sensitivity.
+A model can score well on these metrics
+and still produce very different reconstructions from nearly
+identical observations. Flow matching [ 30 ] learns a time-dependent
+velocity field whose ordinary differential equation (ODE) transports
+samples from a source distribution toward clean images. A common form of flow matching is rectified flow [ 31 ] ,
+in which models are trained on straight-line interpolations
+between source and target samples. Recent work shows that these models can produce
+visually convincing restorations [ 31 , 38 ] . We consider two
+formulations: Flow-from- Y Y [ 38 ] , which
+starts the ODE from a noise-perturbed degraded observation, and observation-conditioned posterior sampling [ 61 ] , which starts from a simple base distribution (e.g., multivariate Gaussian) and conditions the velocity field on the observation throughout integration.
+Neither formulation by itself guarantees that nearby observations
+produce nearby reconstructions. In Flow-from- Y Y , an input
+perturbation changes the initial state and propagates through the
+dynamics. In conditional sampling, perturbing the observation directly
+changes the velocity field. Our stability analysis in Sec. 4 relates these effects to the field’s Lipschitz behavior: the velocity field’s sensitivity to the evolving ODE state matters in both
+formulations, while conditional sampling additionally
+requires controlling the velocity field’s sensitivity
+to the observation. Standard flow-matching regression does not directly constrain the field’s Lipschitz constants with respect to the ODE state or the observation.
+Our goal is to reduce excessive amplification while preserving the capacity needed for realistic restoration. This motivates controlling selected sources of
+amplification rather than imposing an excessively small global Lipschitz constant. The latter may restrict the nonlinear transformations needed to restore heavily degraded images and recover facial detail. We introduce LipsFlower , a flow-matching framework that
+combines architectural controls with adversarial finite-radius gain
+regularization to reduce input sensitivity. Its velocity network, LipHDiT , builds on the hourglass diffusion transformer
+(HDiT) [ 8 ] . It uses stabilized approximate
+spectral normalization, controlled normalization and time
+modulation, and convex residual and skip mixing. Our architectural contribution lies in adapting
+and integrating these controls within HDiT to improve restoration
+stability. The conditional
+variant of LipHDiT uses separate state and observation projection
+stems with controlled fusion, targeting
+the additional observation sensitivity identified by our analysis.
+We also adapt adversarial Lipschitz
+regularization [ 46 ] to velocity fields at
+sampled flow-matching interpolation states. To do this, we search for local
+state perturbations at several magnitude scales and use a separate
+observation perturbation search to target conditional sensitivity.
+A hinge penalty applies only when the finite-difference velocity
+gain exceeds a prescribed threshold. Sampling across training
+times extends regularization beyond the source and endpoint
+without requiring full ODE rollouts. Together, these mechanisms
+encourage empirical stability.
+We evaluate both formulations on blind face restoration,
+measuring reconstruction changes under adversarial input
+perturbations, along with reconstruction and perceptual quality.
+Our experiments show that architectural controls and gain
+regularization reduce perturbation amplification while keeping
+reconstruction fidelity and perceptual quality competitive with the evaluated baselines.
+Our main contributions are: • We derive stability bounds for Flow-from- Y Y and
+observation-conditioned posterior sampling, identifying the state and observation Lipschitz quantities that govern input
+sensitivity. • We introduce LipsFlower, which combines a Lipschitz-aware
+hourglass transformer with adversarial finite-radius
+regularization of state sensitivity and, for conditional
+sampling, observation sensitivity. • We evaluate both formulations on blind face restoration,
+assessing restoration-map
+sensitivity and reconstruction quality. The results
+show that LipsFlower improves robustness to observation
+perturbations, particularly in the Flow-from- Y Y formulation, while maintaining competitive
+reconstruction quality. 2 Related Work Blind face image restoration. Early deep-learning methods for blind face restoration (BFR) used facial geometry, semantic parsing maps, or component dictionaries to reduce ambiguity [ 28 , 5 , 27 ] . More recent generative
+methods use learned priors to synthesize realistic facial details.
+GPEN [ 55 ] and GFP-GAN [ 49 ] incorporate
+generative face priors into restoration networks.
+VQFR [ 14 ] , RestoreFormer [ 52 ] , and
+CodeFormer [ 60 ] use vector-quantized codebooks or
+transformer-based retrieval of high-quality facial features.
+These methods improve perceptual quality, but strong priors can also
+generate details that the observation does not clearly support.
+Diffusion models [ 18 ] have since been applied to BFR
+through conditional generation, degradation removal, and identity-aware
+guidance. DifFace [ 56 ] uses a pretrained diffusion prior
+for posterior estimation, while DR2 [ 51 ] separates
+degradation removal from content enhancement.
+Region-adaptive conditioning [ 44 ] ,
+frequency-domain restoration [ 36 ] , and one-step
+diffusion models [ 48 ] further improve identity
+preservation, efficiency, or the perception–distortion trade-off.
+Evaluation still focuses mainly on the quality of restored images.
+Their consistency under small changes to the degraded observation
+has received less attention. Standard distortion and perceptual
+metrics do not directly show whether nearby observations produce
+nearby reconstructions. Our experiments show that
+the evaluated baselines can amplify small observation perturbations
+into larger changes in their reconstructions. Flow matching for image restoration. Flow-based restoration methods differ in how they use the degraded
+observation. Plug-and-play methods such as
+PnP-Flow [ 35 ] reuse a pretrained flow model
+as an image prior within an iterative reconstruction algorithm
+that promotes consistency with the degraded observation. Other methods transport degraded observations or preliminary
+estimates toward the clean-image
+distribution [ 39 , 11 ] . For example, ELIR [ 7 ] uses latent consistency flow matching to transport preliminary latent estimates with added Gaussian noise toward clean-image representations.
+FlowIE [ 61 ] instead learns a conditional rectified flow from Gaussian noise to clean-image representations, using initial restorations of the degraded inputs as guidance.
+PMRF [ 39 ] is closely related to our setting.
+It transports an estimate of the posterior mean toward the clean-image
+distribution, aiming for a better perception–distortion trade-off.
+Its controlled study compares Flow-from- Y Y with two conditional
+rectified-flow baselines whose velocity fields are conditioned on
+either the degraded observation or its posterior-mean estimate. Unlike PMRF’s two-stage pipeline, our formulations
+do not require a separate posterior-mean predictor.
+Other recent methods use rectified flows to connect discriminative
+and generative restoration or progressively refine images across
+degradation levels [ 11 ] . These methods focus mainly on
+restoration quality, sampling efficiency, and transport design.
+We instead study how perturbations to the degraded observation propagate
+through the learned dynamics. We consider two pathways: the initial
+condition in Flow-from- Y Y and the observation supplied to the velocity
+field in observation-conditioned posterior sampling. Lipschitz control and robustness of learned dynamics. Methods for controlling input sensitivity in neural networks include
+spectral normalization of linear operators [ 37 ] ,
+gradient penalties [ 15 ] , orthogonal or
+norm-constrained parameterizations [ 6 ] , and non-expansive activations [ 1 ] . GroupSort networks
+combine norm-constrained linear maps with gradient-norm-preserving
+activations to retain expressivity under Lipschitz constraints [ 1 , 45 ] .
+Standard dot-product self-attention is not globally Lipschitz on
+an unbounded domain, which has motivated normalized and otherwise
+controlled attention mechanisms [ 24 , 9 ] .
+For neural ODEs, the regularity of the vector field governs the
+existence, uniqueness, and sensitivity of trajectories [ 3 ] . This connection has been used to study
+robustness, stability, and generalization in continuous-depth models [ 54 , 22 , 34 ] .
+Recent work on plug-and-play flow restoration also links vector-field
+Lipschitz regularity to numerical restoration error [ 21 ] .
+Our analysis focuses on how perturbations to the degraded observation
+affect the restoration map, both for flows initialized
+from the observation and for flows conditioned on it. LipsFlower uses this analysis to guide two forms of control: architectural control and gain regularization.
+First, LipHDiT limits amplification within the hourglass diffusion
+transformer through controlled normalization and conditioning,
+regularized linear projections, and scaled residual branches.
+Second, since layer-wise global bounds can be
+conservative and overly restrictive, we also regularize adversarial
+finite-radius gain at sampled flow-matching interpolation states. This penalizes excessive local amplification across training times without imposing an overly small global Lipschitz constant on the whole model.
+TVM [ 59 ] is the closest work architecturally.
+It identifies the lack of Lipschitz continuity in standard diffusion
+transformers as a source of training instability and introduces
+semi-Lipschitz modifications based on normalized attention,
+normalization, modulation, and initialization.
+Under a Lipschitz assumption, it relates a terminal-velocity
+objective to distributional error in one- and few-step image
+generation. This result concerns the distance between generated and target image distributions, not the sensitivity of individual reconstructions to their degraded observations.
+We bound how observation
+perturbations affect the final reconstruction when introduced
+through the initial state or the observation condition.
+We also regularize finite-radius amplification
+at sampled interpolation states.
+The goal is to make small observation changes
+produce correspondingly small reconstruction changes, with
+sampling randomness held fixed. 3 Background and Problem Formulation 3.1 Blind Face Restoration Let X ∈ 𝒳 ⊆ ℝ d X\in\mathcal{X}\subseteq\mathbb{R}^{d} denote a clean face image and Y ∈ 𝒴 ⊆ ℝ d Y\in\mathcal{Y}\subseteq\mathbb{R}^{d} its degraded observation 1 1 1 The shared dimensionality
+reflects the image-restoration setting considered here.
+Conditional posterior sampling also supports observations in ℝ m \mathbb{R}^{m} , with m ≠ d m\neq d . More general observation structures would require a suitable observation-space metric and an adapted conditioning encoder whose sensitivity is also controlled.
+We leave such architectural extensions to future work. . During training, paired samples ( X , Y ) ∼ p X , Y (X,Y)\sim p_{X,Y} are available, with Y Y generated by a stochastic
+degradation process that may combine blur, downsampling, noise, and compression.
+At inference time, the degradation parameters are unknown [ 49 , 56 ] . The objective is to
+construct a potentially stochastic restoration map X ^ = ℛ ⁡ ( Y ) . \widehat{X}=\mathcal{R}(Y). Besides producing perceptually realistic and observation-consistent faces, we require ℛ \mathcal{R} to be stable: a small perturbation of the degraded observation
+should not cause a disproportionately large change in the reconstruction when
+the model randomness is held fixed. This requirement is distinct from conventional restoration quality. Metrics
+such as PSNR and LPIPS assess the relation between a reconstruction and its
+reference, whereas stability concerns the variation of the restoration map
+with respect to its input. We therefore study the response of ℛ ⁡ ( Y ) \mathcal{R}(Y) to nearby observations Y ′ = Y + δ Y^{\prime}=Y+\delta , where δ \delta may represent incidental corruption or an adversarially selected
+perturbation 2 2 2 This notation also covers
+transformations Y ′ = f ⁡ ( Y ) Y^{\prime}=f(Y) in the same observation space by setting δ = f ⁡ ( Y ) − Y \delta=f(Y)-Y . Under the assumptions stated
+in Sec. 4 , the stability bounds depend on ‖ f ⁡ ( Y ) − Y ‖ 2 \|f(Y)-Y\|_{2} , regardless of how the perturbation is obtained. . 3.2 Flow Matching Let Z 0 Z_{0} be a source sample and let Z 1 = X Z_{1}=X be a clean target image. We use the
+linear probability path [ 30 , 31 ] Z t = ( 1 − t ) ​ Z 0 + t ​ X , t ∈ [ 0 , 1 ] , Z_{t}=(1-t)Z_{0}+tX,\qquad t\in[0,1], (1) whose sample-wise target velocity is U t = d ​ Z t d ​ t = X − Z 0 . U_{t}=\frac{\mathrm{d}Z_{t}}{\mathrm{d}t}=X-Z_{0}. (2) A neural velocity field v θ v_{\theta} is trained by regressing this target: ℒ FM ​ ( θ ) = 𝔼 ⁡ [ ‖ v θ ​ ( Z t , t ) − ( X − Z 0 ) ‖ 2 2 ] , \mathcal{L}_{\mathrm{FM}}(\theta)=\mathbb{E}\left[\left\|v_{\theta}(Z_{t},t)-\left(X-Z_{0}\right)\right\|_{2}^{2}\right], (3) where t ∼ 𝒰 ⁡ [ 0 , 1 ] t\sim\mathcal{U}[0,1] . At the population optimum, the learned field
+approximates the conditional mean velocity v ∗ ​ ( z , t ) = 𝔼 ⁡ [ X − Z 0 ∣ Z t = z ] . v^{*}(z,t)=\mathbb{E}\!\left[X-Z_{0}\mid Z_{t}=z\right]. To generate a sample, we draw Z 0 Z_{0} and integrate d ​ z t d ​ t = v θ ​ ( z t , t ) , t ∈ [ 0 , 1 ] . \frac{\mathrm{d}z_{t}}{\mathrm{d}t}=v_{\theta}(z_{t},t),\qquad t\in[0,1]. (4) We denote the flow map from time s s to t t by Φ s → t θ \Phi^{\theta}_{s\rightarrow t} , so the terminal sample is X ^ = Φ 0 → 1 θ ​ ( Z 0 ) \widehat{X}=\Phi^{\theta}_{0\rightarrow 1}(Z_{0}) . In practice,
+we approximate this continuous-time flow with a numerical solver
+using a finite number of steps. This general construction can
+be made observation-dependent in two ways: the degraded observation can determine the source state or condition the velocity field.
+We consider both cases below. 3.3 Observation-Dependent Restoration Flows 3.3.1 Flow-from-Y Flow-from- Y Y starts from a noisy version of the degraded
+observation [ 39 ] .
+Let Y Y be the degraded observation in the same image space
+as the clean image X X . The source state is Z 0 Y = Y + σ s ​ ϵ , ϵ ∼ 𝒩 ⁡ ( 0 , I ) , Z_{0}^{Y}=Y+\sigma_{s}\epsilon,\qquad\epsilon\sim\mathcal{N}(0,I), (5) where σ s \sigma_{s} controls the source-noise level. The training
+path and target velocity are Z t Y = ( 1 − t ) ​ Z 0 Y + t ​ X , U t Y = X − Z 0 Y . Z_{t}^{Y}=(1-t)Z_{0}^{Y}+tX,\qquad U_{t}^{Y}=X-Z_{0}^{Y}. (6) The velocity field depends on Y Y through the evolving state,
+without receiving it as a separate input. Its flow-matching loss is ℒ F ​ Y ​ ( θ ) = 𝔼 ⁡ [ ‖ v θ ​ ( Z t Y , t ) − U t Y ‖ 2 2 ] . \mathcal{L}_{\mathrm{F}Y}(\theta)=\mathbb{E}\left[\left\|v_{\theta}(Z_{t}^{Y},t)-U_{t}^{Y}\right\|_{2}^{2}\right]. (7) At inference, the restoration map is ℛ F ​ Y ​ ( y , ϵ ) = Φ 0 → 1 θ ​ ( y + σ s ​ ϵ ) . \mathcal{R}_{\mathrm{F}Y}(y;\epsilon)=\Phi^{\theta}_{0\rightarrow 1}\left(y+\sigma_{s}\epsilon\right). (8) Perturbing y y changes the ODE’s initial state, and the velocity
+field propagates this difference over the full integration
+interval. When comparing y y and y ′ = y + δ y^{\prime}=y+\delta , we use the same ϵ \epsilon for both restorations to measure observation sensitivity
+with the source noise held fixed. 3.3.2 Observation-Conditioned Posterior Sampling The second formulation samples the initial state from a standard Gaussian,
+independently of the clean image and degraded observation, and supplies the
+observation to the velocity field: Z 0 C = ϵ , ϵ ∼ 𝒩 ⁡ ( 0 , I ) . Z_{0}^{C}=\epsilon,\ \epsilon\sim\mathcal{N}(0,I). Using the path Z t C = ( 1 − t ) ​ ϵ + t ​ X , U t C = X − ϵ , Z_{t}^{C}=(1-t)\epsilon+tX,\qquad U_{t}^{C}=X-\epsilon, (9) we train an observation-conditioned velocity field v θ ​ ( z , t , y ) v_{\theta}(z,t;y) through ℒ CFM ​ ( θ ) = 𝔼 ⁡ [ ‖ v θ ​ ( Z t C , t , Y ) − U t C ‖ 2 2 ] . \mathcal{L}_{\mathrm{CFM}}(\theta)=\mathbb{E}\left[\left\|v_{\theta}(Z_{t}^{C},t;Y)-U_{t}^{C}\right\|_{2}^{2}\right]. (10) The corresponding population-optimal field is v ∗ ( z , t ; y ) = 𝔼 [ X − ϵ ∣ Z t C = z , Y = y ] . v^{*}(z,t;y)=\mathbb{E}\left[X-\epsilon\mid Z_{t}^{C}=z,Y=y\right]. (11) Under the usual flow-matching assumptions and with an exact velocity field, integrating d ​ z t d ​ t = v θ ​ ( z t , t , y ) , z 0 = ϵ , \frac{\mathrm{d}z_{t}}{\mathrm{d}t}=v_{\theta}(z_{t},t;y),\qquad z_{0}=\epsilon, (12) transports the base distribution toward the conditional clean-image
+distribution p X | Y = y p_{X\mid Y=y} . The resulting restoration map is ℛ C ​ ( y , ϵ ) = Φ 0 → 1 , y θ ​ ( ϵ ) , \mathcal{R}_{\mathrm{C}}(y;\epsilon)=\Phi^{\theta}_{0\rightarrow 1,y}(\epsilon), (13) where the subscript y y emphasizes that the entire flow depends on the
+observation.
+Unlike Flow-from- Y Y , changing y y does not alter the initial state when
+the same ϵ \epsilon is used. Instead, it changes the predicted velocity at
+every integration time. Observation perturbations may therefore be injected
+continuously throughout the trajectory. 3.4 Robustness Objective We study the input-to-reconstruction sensitivity of a stochastic restoration model
+under fixed randomness. For a fixed randomness realization ξ \xi , observation y y , and
+nonzero perturbation δ \delta , define the finite-radius restoration gain G ℛ ​ ( y , δ , ξ ) = ‖ ℛ ⁡ ( y + δ , ξ ) − ℛ ⁡ ( y , ξ ) ‖ 2 ‖ δ ‖ 2 . G_{\mathcal{R}}(y,\delta;\xi)=\frac{\left\|\mathcal{R}(y+\delta;\xi)-\mathcal{R}(y;\xi)\right\|_{2}}{\left\|\delta\right\|_{2}}. (14) The corresponding worst-case gain within a radius ρ > 0 \rho>0 is G ℛ ( ρ ) ​ ( y , ξ ) = sup 0 < ‖ δ ‖ 2 ≤ ρ G ℛ ​ ( y , δ , ξ ) . G_{\mathcal{R}}^{(\rho)}(y;\xi)=\sup_{0<\|\delta\|_{2}\leq\rho}G_{\mathcal{R}}(y,\delta;\xi). (15) This quantity measures how strongly the complete restoration procedure can
+amplify a bounded input change. It is distinct from sample diversity, since
+the same random seed and numerical-solver configuration are used before and
+after perturbation.
+The two formulations induce different sensitivity pathways (see Figure 2 ). Figure 2 : Flow-based restoration formulations. (a) Flow-from- Y Y initializes the ODE with the
+noise-perturbed observation.
+(b) Observation-conditioned flow starts from a latent z 0 z_{0} independent of y y and conditions the velocity
+field on y y throughout integration.
+Solid arrows between states denote ODE integration, and
+dashed arrows indicate observation conditioning. Accordingly, Flow-from- Y Y requires control of the velocity field with
+respect to its evolving state, whereas an observation-conditioned flow
+requires control with respect to both its evolving state and the observation
+condition.
+In the latter case, condition-wise sensitivity determines how
+perturbations of the observation enter the dynamics, while state-wise
+sensitivity governs how the resulting trajectory discrepancies propagate
+during integration.
+In Sec. 4 , we formalize these mechanisms and derive
+bounds relating the Lipschitz behavior of the velocity field to the sensitivity
+of the terminal restoration. These results subsequently motivate the
+architecture and training objective introduced in Sec. 5 . 4 Stability Analysis We now characterize how perturbations of the degraded observation propagate
+through the two formulations introduced in
+Sec. 3.3 . Our analysis considers the exact
+continuous-time flow and uses the Euclidean norm throughout. We assume that
+the vector fields are continuous in time and that the corresponding ODE
+solutions exist on t ∈ [ 0 , 1 ] t\in[0,1] [ 4 ] . All comparisons use the same source-noise
+realization ϵ \epsilon , thereby isolating sensitivity to the observation from ordinary
+sampling variability. 4.1 Stability of Flow-from- Y Y Restoration In Flow-from- Y Y , the observation affects the restoration through the initial
+state z 0 y = y + σ s ​ ϵ , z_{0}^{y}=y+\sigma_{s}\epsilon, while the velocity field itself is not explicitly conditioned on y y . Proposition 1 (Stability of Flow-from- Y Y ) . Suppose that v θ v_{\theta} is ρ \rho -Lipschitz with respect to its state,
+uniformly over time: ‖ v θ ​ ( a , t ) − v θ ​ ( b , t ) ‖ 2 ≤ ρ ​ ‖ a − b ‖ 2 \left\|v_{\theta}(a,t)-v_{\theta}(b,t)\right\|_{2}\leq\rho\left\|a-b\right\|_{2} (16) for all a , b ∈ ℝ d a,b\in\mathbb{R}^{d} and t ∈ [ 0 , 1 ] t\in[0,1] . Then, for any observations y 1 , y 2 y_{1},y_{2} restored using the same ϵ \epsilon , ‖ ℛ F ​ Y ​ ( y 2 , ϵ ) − ℛ F ​ Y ​ ( y 1 , ϵ ) ‖ 2 ≤ e ρ ​ ‖ y 2 − y 1 ‖ 2 . \left\|\mathcal{R}_{\mathrm{F}Y}(y_{2};\epsilon)-\mathcal{R}_{\mathrm{F}Y}(y_{1};\epsilon)\right\|_{2}\leq e^{\rho}\left\|y_{2}-y_{1}\right\|_{2}. (17) The proof is provided in the supplementary material. The bound in ( 17 )
+is worst-case sharp under the stated Lipschitz assumption.
+However, it can be conservative for a particular velocity field,
+whose actual perturbation amplification may be much smaller
+than e ρ e^{\rho} . 3 3 3 For example, v θ ​ ( z , t ) = ρ ​ z v_{\theta}(z,t)=\rho z attains the bound, whereas v θ ​ ( z , t ) = − ρ ​ z v_{\theta}(z,t)=-\rho z has the same
+Lipschitz constant but contracts perturbations by e − ρ e^{-\rho} . 4.2 Stability of Observation-Conditioned Flows In a conditional posterior sampler, the initial noise is independent of the
+observation, but the observation affects the vector field throughout the
+trajectory.
+Consequently, observation sensitivity is governed by the dependence of the
+field on both its evolving state and its condition. Proposition 2 (Stability of an observation-conditioned flow) . Suppose that v θ v_{\theta} is uniformly ρ \rho -Lipschitz in its state and uniformly ρ c \rho_{c} -Lipschitz in its observation condition. That is, for every t ∈ [ 0 , 1 ] t\in[0,1] , ‖ v θ ​ ( a , t , y ) − v θ ​ ( b , t , y ) ‖ 2 \displaystyle\left\|v_{\theta}(a,t;y)-v_{\theta}(b,t;y)\right\|_{2} ≤ ρ ​ ‖ a − b ‖ 2 , \displaystyle\leq\rho\left\|a-b\right\|_{2}, (18) ‖ v θ ​ ( a , t , y 2 ) − v θ ​ ( a , t , y 1 ) ‖ 2 \displaystyle\left\|v_{\theta}(a,t;y_{2})-v_{\theta}(a,t;y_{1})\right\|_{2} ≤ ρ c ​ ‖ y 2 − y 1 ‖ 2 . \displaystyle\leq\rho_{c}\left\|y_{2}-y_{1}\right\|_{2}. (19) If ρ > 0 \rho>0 , then, for any y 1 , y 2 y_{1},y_{2} and the same initial noise ϵ \epsilon , ‖ ℛ C ​ ( y 2 , ϵ ) − ℛ C ​ ( y 1 , ϵ ) ‖ 2 ≤ ρ c ρ ​ ( e ρ − 1 ) ​ ‖ y 2 − y 1 ‖ 2 . \left\|\mathcal{R}_{\mathrm{C}}(y_{2};\epsilon)-\mathcal{R}_{\mathrm{C}}(y_{1};\epsilon)\right\|_{2}\leq\frac{\rho_{c}}{\rho}\left(e^{\rho}-1\right)\left\|y_{2}-y_{1}\right\|_{2}. (20) We give the proof in the supplementary material. The bound in ( 20 )
+is also worst-case sharp under the stated assumptions, although
+it may be conservative for a particular velocity field. 4 4 4 Equality is attained for the scalar
+field v θ ​ ( z , t , y ) = ρ ​ z + ρ c ​ y v_{\theta}(z,t;y)=\rho z+\rho_{c}y when both trajectories
+start from the same initial noise. In this bound, the factor ρ c \rho_{c} controls how
+strongly an observation perturbation is injected into the velocity field,
+whereas ρ \rho controls how the induced trajectory discrepancy is
+subsequently propagated. Controlling only ρ c \rho_{c} is therefore insufficient:
+even a small condition-induced discrepancy can be strongly amplified by
+state-sensitive dynamics. 4.3 Implications for Model Design The stability analysis yields three design requirements. First , both restoration
+formulations require control of the velocity field with respect to the evolving
+state. Second , an observation-conditioned flow must additionally control its
+dependence on the conditioning image. Third , control should apply throughout
+the transport interval, because sensitivity accumulated at intermediate states
+affects the terminal reconstruction.
+The next section explains how LipsFlower addresses these three
+requirements through architectural controls and gain regularization. 5 LipsFlower Guided by our stability analysis, LipsFlower combines a
+Lipschitz-aware velocity network with finite-radius gain
+regularization. We instantiate this framework for both
+Flow-from- Y Y and observation-conditioned posterior sampling,
+targeting state sensitivity in both formulations and
+observation sensitivity in the conditional formulation. 5.1 Lipschitz-Aware Velocity Network Our velocity network, LipHDiT , keeps the overall
+structure of HDiT [ 8 ] and adds controls
+to limit amplification. Linear projections use approximate
+spectral normalization [ 37 ] with a safety
+margin and full-precision power iteration. We include safeguards
+against degenerate iteration vectors, including for zero-initialized
+weights. We add a denominator floor to RMSNorm [ 57 ] and bound the time-dependent modulation used for adaptive
+conditioning [ 8 , 41 ] .
+Our query-key normalization also uses a denominator floor,
+building on normalized-attention
+designs [ 16 , 8 ] .
+To control amplification in the residual branches and decoder skip connections, we use convex
+aggregation [ 6 ] .
+For conditional sampling, separate
+state and observation projection stems feed a controlled fusion
+module before the shared backbone. These controls aim to reduce
+amplification without requiring every component to be nonexpansive. More architectural details are given in Appendix B of the supplementary material. 5.2 Finite-Radius Gain Regularization Figure 3 : Finite-radius gain regularization. Adversarial searches perturb local state regions and,
+for conditional sampling (marked in orange), the whole observation.
+Squared hinge penalties on velocity gains above prescribed
+thresholds are added to the flow-matching loss. We also adapt adversarial Lipschitz
+regularization [ 46 ] to restoration
+velocity fields. It searches for perturbations that cause large
+velocity changes and penalizes gains above a chosen threshold.
+We apply it at sampled flow-matching interpolation
+states [ 30 ] , so regularization does not require
+full ODE rollouts. For observation-conditioned fields, our
+stability analysis motivates controlling sensitivity to both
+the evolving state and the observation. We measure the two
+finite-radius gains separately: g s \displaystyle g_{s} = ‖ v θ ​ ( z t + δ s , t , y ) − v θ ​ ( z t , t , y ) ‖ 2 ‖ δ s ‖ 2 , \displaystyle=\frac{\|v_{\theta}(z_{t}+\delta_{s},t;y)-v_{\theta}(z_{t},t;y)\|_{2}}{\|\delta_{s}\|_{2}}, (21) g c \displaystyle g_{c} = ‖ v θ ​ ( z t , t , y + δ c ) − v θ ​ ( z t , t , y ) ‖ 2 ‖ δ c ‖ 2 . \displaystyle=\frac{\|v_{\theta}(z_{t},t;y+\delta_{c})-v_{\theta}(z_{t},t;y)\|_{2}}{\|\delta_{c}\|_{2}}. For Flow-from- Y Y , we use only g s g_{s} , with no explicit
+observation condition.
+We use localized state perturbations to discourage amplification of spatially concentrated disturbances. However, the gains in Eq. ( 21 ) use full-image norms,
+so velocity changes outside the perturbed region also count. The root-mean-square (RMS) magnitude of the perturbations within the region
+is drawn from a mixture of small, moderate, and severe scales,
+with more weight on small perturbations. Starting from random
+noise, we use projected gradient ascent [ 33 ] to approximately maximize the velocity discrepancy.
+After each update, we restrict the perturbation to its sampled
+region and rescale it to the chosen RMS magnitude.
+For conditional sampling, we search separately for observation
+perturbations at prescribed whole-image RMS radii. This addresses distributed measurement uncertainty.
+With these adversarial perturbations, we optimize ℒ = \displaystyle\mathcal{L}={} ℒ FM + λ s ​ 𝔼 ​ ( [ g s − τ s ] + 2 ) + λ c ​ 𝔼 ​ ( [ g c − τ c ] + 2 ) , \displaystyle\mathcal{L}_{\mathrm{FM}}+\lambda_{s}\mathbb{E}\!\left([g_{s}-\tau_{s}]_{+}^{2}\right)+\lambda_{c}\mathbb{E}\!\left([g_{c}-\tau_{c}]_{+}^{2}\right), (22) where [ a ] + = max ⁡ ( a , 0 ) [a]_{+}=\max(a,0) , τ s \tau_{s} and τ c \tau_{c} are gain
+thresholds, and λ s \lambda_{s} and λ c \lambda_{c} weight the
+sensitivity penalties relative to velocity regression.
+The expectations are over sampled training states and
+perturbation searches, with Flow-from- Y Y using only the state penalty. These architectural controls and sampled gain penalties target the sensitivities identified by our analysis. As illustrated in Fig. 1 , small adversarial perturbations
+to the observation can lead to noticeable reconstruction changes.
+LipsFlower reduces these changes for both Flow-from- Y Y and observation-conditioned posterior sampling. The supplementary material
+describes the perturbation distributions, search settings, and
+regularization schedule (see Appendix B ). 6 Experiments Table 1 : Adversarial robustness under SPSA attacks on CelebA-Test.
+LPIPS drift is reported in units of 10 − 3 10^{-3} . CVaR 95 ​ G \mathrm{CVaR}_{95}\,G is the mean of the worst 5% among all test images. The blocks (I) and (II) present the comparison sets for the Flow-from- Y Y and observation-conditioned formulations of LipsFlower, respectively.
+Within each category, bold and underlined values indicate the best and second-best results, respectively. Method SPSA– ℓ 2 \ell_{2} (RMS budget) SPSA– ℓ ∞ \ell_{\infty} Mean G G ↓ \downarrow P95 G G ↓ \downarrow CVaR 95 ​ G \mathrm{CVaR}_{95}\,G ↓ \downarrow Max G G ↓ \downarrow LPIPS drift ↓ \downarrow Mean G G ↓ \downarrow P95 G G ↓ \downarrow CVaR 95 ​ G \mathrm{CVaR}_{95}\,G ↓ \downarrow Max G G ↓ \downarrow LPIPS drift ↓ \downarrow (I) CodeFormer 2.44 4.04 4.577 7.17 63.375 2.91 4.82 5.495 9.35 53.101 GFPGAN 3.01 5.13 5.664 7.53 110.573 3.60 6.45 7.122 9.57 98.214 RestoreFormer++ 1.77 3.75 4.445 6.79 44.146 2.10 4.56 5.406 8.53 38.113 OSDFace 4.99 6.49 6.898 8.13 186.731 5.83 7.77 8.262 9.87 155.168 PMRF 0.47 1.11 1.455 2.91 9.033 0.47 1.03 1.355 2.96 5.454 ELIR 12.82 23.03 25.700 36.00 459.179 12.99 22.98 25.643 35.37 451.283 Flow-from- Y Y 0.52 0.74 0.849 1.74 15.803 0.52 0.74 0.830 1.66 9.188 LipsFlower (w/ Flow-from- Y Y ) 0.47 0.67 0.747 1.16 11.649 0.48 0.66 0.727 1.12 7.360 DiffBIR 0.90 2.05 2.892 10.28 14.711 0.96 2.22 3.296 10.67 10.459 FlowIE 0.64 1.45 1.856 3.51 7.635 0.65 1.39 1.834 3.75 4.935 BayesFlow 0.23 0.35 0.412 0.95 2.901 0.25 0.36 0.433 0.73 2.024 (II) LipsFlower (w/ BayesFlow) 0.26 0.36 0.406 0.56 1.648 0.28 0.38 0.415 0.56 1.088 We evaluate LipsFlower on blind face restoration, testing
+whether it reduces the amplification of observation
+perturbations compared with its flow-matching baselines
+and how this affects restoration quality. The supplementary material reports an ablation study of architectural controls and gain regularization, individually and jointly, in Sec. B.7 . 6.1 Experimental Setup Data and comparisons. Our models are trained on FFHQ [ 23 ] at 512 × 512 512\times 512 resolution. Evaluation uses a shared set
+of 3,000 3{,}000 degraded–clean image pairs from
+CelebA-Test [ 49 ] at the same resolution.
+We compare each LipsFlower variant with its corresponding
+baseline: Flow-from- Y Y [ 39 ] and an
+observation-conditioned sampler implemented using
+BayesFlow [ 25 ] .
+BayesFlow is a framework for amortized Bayesian inference.
+Our adaptation uses its conditional flow-matching component
+to learn a velocity field that transports Gaussian noise
+toward clean images, with the degraded observation conditioned
+throughout integration. The baselines are grouped by their inference pathway.
+Group (I) includes direct restoration methods
+(CodeFormer [ 60 ] ,
+GFPGAN [ 49 ] , and
+RestoreFormer++ [ 53 ] ) and methods
+that refine or transport an image or latent representation
+derived from the observation
+(OSDFace [ 48 ] ,
+PMRF [ 39 ] ,
+ELIR [ 7 ] , and Flow-from- Y Y ).
+Group (II) includes methods that start from
+observation-independent noise and condition their sampling
+dynamics on the observation
+(DiffBIR [ 29 ] ,
+FlowIE [ 61 ] , and our BayesFlow adaptation).
+Each LipsFlower variant appears alongside its corresponding
+flow-matching baseline.
+Training and method-specific inference settings are given
+in the supplementary material ( Appendix C ). Restoration metrics. We measure reconstruction fidelity using RGB PSNR [ 19 ] and perceptual similarity using VGG-based
+LPIPS [ 58 ] . We report
+FID [ 17 ] and generative precision [ 26 ] against a common FFHQ reference distribution.
+Face-specific fidelity is assessed using the angular
+distance between ArcFace embeddings, denoted DEG [ 10 ] and measured in degrees, and the mean distance
+between predicted facial landmarks, denoted LMD [ 50 ] and measured in image pixels. All methods use the
+same evaluation images and metric implementations. Adversarial evaluation. We evaluate observation sensitivity using simultaneous
+perturbation stochastic approximation
+(SPSA) [ 43 , 47 ] , which requires
+only queries to the restoration procedure. For observations (height H H and width W W ) with pixel values scaled to [ 0 , 1 ] [0,1] , we consider nominal budgets ‖ δ ‖ 2 / 3 ​ H ​ W ≤ 0.01 \|\delta\|_{2}/\sqrt{3HW}\leq 0.01 and ‖ δ ‖ ∞ ≤ 0.01 \|\delta\|_{\infty}\leq 0.01 .
+Searches use 20 20 iterations with two queries each, probe radius 0.0025 0.0025 , and step size 0.002 0.002 . For each method ℛ \mathcal{R} , amplification is measured using G = G ℛ ​ ( y , δ , ξ ) G=G_{\mathcal{R}}(y,\delta;\xi) , defined in ( 14 ). Randomness ξ \xi is fixed across paired evaluations.
+For both attacks, we report the mean, 95th percentile, maximum, and CVaR 95 \mathrm{CVaR}_{95} of the gains across all test images. CVaR 95 \mathrm{CVaR}_{95} denotes the Conditional Value at Risk at the 95th percentile, computed as the mean of the largest 5 % 5\% of gains. We also report LPIPS drift between clean and attacked reconstructions. 6.2 Robustness to Observation Perturbations We first examine the primary objective of LipsFlower, which is to make restorations less sensitive to small changes in the degraded observation.
+Table 1 measures how much an
+input perturbation changes the reconstructed image.
+Lower gain indicates less amplification, while lower
+LPIPS drift means that the perturbed reconstruction
+remains perceptually closer to the original output. Flow-from- Y Y . LipsFlower improves every reported robustness measure
+relative to the Flow-from- Y Y baseline under both
+attack constraints. Under the RMS-constrained attack,
+mean gain decreases from 0.52 0.52 to 0.47 0.47 .
+The improvement also extends to the most sensitive images. The average gain among the worst 5 % 5\% of cases, measured by CVaR 95 \mathrm{CVaR}_{95} ,
+decreases from 0.849 0.849 to 0.747 0.747 , while the maximum
+observed gain decreases from 1.74 1.74 to 1.16 1.16 .
+These correspond to reductions of approximately 12 % 12\% and 33 % 33\% , respectively.
+The ℓ ∞ \ell_{\infty} attack produces a similar pattern.
+The average gain among the worst 5 % 5\% of cases
+decreases from 0.830 0.830 to 0.727 0.727 , and the maximum
+decreases from 1.66 1.66 to 1.12 1.12 .
+These reductions are accompanied by lower perceptual
+drift: LPIPS drift decreases by approximately 26 % 26\% under the RMS-constrained attack and 20 % 20\% under
+the ℓ ∞ \ell_{\infty} attack.
+Thus, the improvement concerns both numerical
+amplification and perceptual changes in the output.
+The literature comparisons provide further context.
+PMRF achieves a similar mean gain and lower LPIPS
+drift, whereas LipsFlower achieves lower
+95th-percentile, tail-average, and maximum gains. Observation-conditioned sampling. For conditional sampling, LipsFlower primarily reduces
+large observed changes and perceptual drift.
+Relative to BayesFlow, maximum gain decreases from 0.95 0.95 to 0.56 0.56 under the RMS-constrained attack
+and from 0.73 0.73 to 0.56 0.56 under the ℓ ∞ \ell_{\infty} attack. LPIPS drift decreases by approximately 43 % 43\% and 46 % 46\% , respectively.
+However, mean gain and the 95th percentile increase
+slightly. The conditional formulation therefore
+improves some aspects of robustness without uniformly
+reducing sensitivity across the test set. 6.3 Restoration Quality With Flow-from- Y Y , LipsFlower reduces perturbation amplification while PSNR on unperturbed observations drops by only 0.31 0.31 dB relative to the baseline (Table 2 in Sec. B.6 ). FID rises from 37.05 37.05 to 40.77 40.77 , close to that of RestoreFormer++ ( 40.61 40.61 ). With BayesFlow, the reduction in maximum observed amplification and perceptual drift comes at a larger cost to restoration quality. PSNR drops by 2.32 2.32 dB and FID rises from 40.24 40.24 to 57.04 57.04 . We provide the full comparison in the supplementary material ( Sec. B.6 ). Taken together, the two formulations demonstrate different robustness–quality trade-offs. Flowing directly from the observation offers a better balance between robustness and restoration quality, whereas conditioning on the observation reduces maximum amplification and perceptual drift at a moderately higher cost to perceptual fidelity. 7 Limitations Our results show that Lipschitz-aware flow matching can reduce perturbation amplification, although the effect depends on the restoration formulation. In particular, LipsFlower (w/ Flow-from- Y Y ) gives a better balance between robustness and reconstruction quality,
+whereas observation-conditioned sampling loses more perceptual quality and shows less consistent robustness gains.
+At the same time, the architectural controls and finite-radius regularization do not provide a global Lipschitz guarantee.
+Therefore, the stability results still depend on the assumptions used in the analysis. In addition, our experiments are limited to blind face restoration.
+Evaluating other inverse problems and stronger perturbations are good directions for future work. 8 Conclusion We introduced LipsFlower to make flow-based image restoration less sensitive to input perturbations.
+Our method combines Lipschitz-aware architectural controls with finite-radius gain regularization, while our stability analysis explains how observation perturbations enter and propagate through two flow-matching formulations.
+On blind face restoration, LipsFlower reduces perturbation amplification, with Flow-from- Y Y giving the better balance between robustness and reconstruction quality.
+Overall, the results show that controlling sensitivity in both the architecture and training objective can improve the stability of generative image restoration. 9 Acknowledgment All experiments were performed on the compute cluster of the Lamarr Institute for Machine Learning and Artificial Intelligence . References [1] C. Anil, J. Lucas, and R. Grosse (2019) Sorting out lipschitz function approximation . In International conference on machine learning , pp. 291–301 . Cited by: §2 . [2] R. Bellman (1943) The stability of solutions of linear differential equations . Cited by: Appendix A . [3] R. T. Q. Chen, Y. Rubanova, J. Bettencourt, and D. K. Duvenaud (2018) Neural ordinary differential equations . In Advances in Neural Information Processing Systems , S. Bengio, H. Wallach, H. Larochelle, K. Grauman, N. Cesa-Bianchi, and R. Garnett (Eds.) , Vol. 31 , pp. . External Links: Link Cited by: §2 . [4] R. T. Chen, Y. Rubanova, J. Bettencourt, and D. K. Duvenaud (2018) Neural ordinary differential equations . Advances in neural information processing systems 31 . Cited by: §4 . [5] Y. Chen, Y. Tai, X. Liu, C. Shen, and J. Yang (2018) Fsrnet: end-to-end learning face super-resolution with facial priors . In 2018 IEEE/CVF Conference on Computer Vision and Pattern Recognition , pp. 2492–2501 . Cited by: §2 . [6] M. Cisse, P. Bojanowski, E. Grave, Y. Dauphin, and N. Usunier (2017) Parseval networks: improving robustness to adversarial examples . In International conference on machine learning , pp. 854–863 . Cited by: §B.1 , §2 , §5.1 . [7] E. Cohen, I. Achituve, I. Diamant, A. Netzer, and H. V. Habi (2025) Efficient image restoration via latent consistency flow matching . arXiv preprint arXiv:2502.03500 . Cited by: §2 , §6.1 . [8] K. Crowson, S. A. Baumann, A. Birch, T. M. Abraham, D. Z. Kaplan, and E. Shippole (2024) Scalable high-resolution pixel-space image synthesis with hourglass diffusion transformers . arXiv preprint arXiv:2401.11605 . Cited by: §B.1 , §B.1 , §1 , §5.1 . [9] G. Dasoulas, K. Scaman, and A. Virmaux (2021) Lipschitz normalization for self-attention layers with application to graph neural networks . In Proceedings of the 38th International Conference on Machine Learning , M. Meila and T. Zhang (Eds.) , Proceedings of Machine Learning Research , Vol. 139 , pp. 2456–2466 . External Links: Link Cited by: §2 . [10] J. Deng, J. Guo, N. Xue, and S. Zafeiriou (2019) Arcface: additive angular margin loss for deep face recognition . In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition , pp. 4690–4699 . Cited by: §6.1 . [11] Z. Fan, X. Lu, J. Xiao, D. Li, J. Huang, and X. Fu (2026) IR-flow: bridging discriminative and generative image restoration via rectified flow . arXiv preprint arXiv:2604.19680 . Cited by: §2 . [12] G. H. Golub and H. A. Van der Vorst (2000) Eigenvalue computation in the 20th century . Journal of Computational and Applied Mathematics 123 ( 1-2 ), pp. 35–65 . Cited by: §B.1 . [13] T. H. Gronwall (1919) Note on the derivatives with respect to a parameter of the solutions of a system of differential equations . Annals of Mathematics 20 ( 4 ), pp. 292–296 . Cited by: Appendix A . [14] Y. Gu, X. Wang, L. Xie, C. Dong, G. Li, Y. Shan, and M. Cheng (2022) Vqfr: blind face restoration with vector-quantized dictionary and parallel decoder . In European Conference on Computer Vision , pp. 126–143 . Cited by: §1 , §2 . [15] I. Gulrajani, F. Ahmed, M. Arjovsky, V. Dumoulin, and A. C. Courville (2017) Improved training of wasserstein gans . Advances in neural information processing systems 30 . Cited by: §2 . [16] A. Henry, P. R. Dachapally, S. S. Pawar, and Y. Chen (2020) Query-key normalization for transformers . In Findings of the Association for Computational Linguistics: EMNLP 2020 , pp. 4246–4253 . Cited by: §B.1 , §5.1 . [17] M. Heusel, H. Ramsauer, T. Unterthiner, B. Nessler, and S. Hochreiter (2017) Gans trained by a two time-scale update rule converge to a local nash equilibrium . Advances in neural information processing systems 30 . Cited by: §1 , §6.1 . [18] J. Ho, A. Jain, and P. Abbeel (2020) Denoising diffusion probabilistic models . Advances in neural information processing systems 33 , pp. 6840–6851 . Cited by: §2 . [19] A. Hore and D. Ziou (2010) Image quality metrics: psnr vs. ssim . In 2010 20th international conference on pattern recognition , pp. 2366–2369 . Cited by: §6.1 . [20] Q. Huynh-Thu and M. Ghanbari (2008) Scope of validity of psnr in image/video quality assessment . Electronics letters 44 ( 13 ), pp. 1 . Cited by: §1 . [21] F. Jia, Y. Huang, S. Wang, C. Garcia-Cardona, A. L. Bertozzi, and B. Wang (2025) Plug-and-play image restoration with flow matching: a continuous viewpoint . External Links: 2512.04283 , Link Cited by: §2 . [22] Q. Kang, Y. Song, Q. Ding, and W. P. Tay (2021) Stable neural ode with lyapunov-stable equilibrium points for defending against adversarial attacks . In Advances in Neural Information Processing Systems , M. Ranzato, A. Beygelzimer, Y. Dauphin, P.S. Liang, and J. W. Vaughan (Eds.) , Vol. 34 , pp. 14925–14937 . External Links: Link Cited by: §2 . [23] T. Karras, S. Laine, and T. Aila (2019) A style-based generator architecture for generative adversarial networks . In 2019 IEEE/CVF conference on computer vision and pattern recognition (CVPR) , pp. 4396–4405 . Cited by: §C.1 , §6.1 . [24] H. Kim, G. Papamakarios, and A. Mnih (2021) The lipschitz constant of self-attention . In International Conference on Machine Learning , pp. 5562–5571 . Cited by: §2 . [25] L. Kühmichel, J. M. Huang, V. Pratz, J. Arruda, H. Olischläger, D. Habermann, S. Kucharsky, L. Elsemüller, A. Mishra, N. Bracher, et al. (2026) BayesFlow 2: multi-backend amortized bayesian inference in python . arXiv preprint arXiv:2602.07098 . Cited by: §6.1 . [26] T. Kynkäänniemi, T. Karras, S. Laine, J. Lehtinen, and T. Aila (2019) Improved precision and recall metric for assessing generative models . Advances in neural information processing systems 32 . Cited by: §6.1 . [27] X. Li, C. Chen, S. Zhou, X. Lin, W. Zuo, and L. Zhang (2020) Blind face restoration via deep multi-scale component dictionaries . In European conference on computer vision , pp. 399–415 . Cited by: §2 . [28] X. Li, M. Liu, Y. Ye, W. Zuo, L. Lin, and R. Yang (2018) Learning warped guidance for blind face restoration . In European Conference on Computer Vision , pp. 278–296 . Cited by: §2 . [29] X. Lin, J. He, Z. Chen, Z. Lyu, B. Dai, F. Yu, Y. Qiao, W. Ouyang, and C. Dong (2024) Diffbir: toward blind image restoration with generative diffusion prior . In European conference on computer vision , pp. 430–448 . Cited by: §6.1 . [30] Y. Lipman, R. T. Q. Chen, H. Ben-Hamu, M. Nickel, and M. Le (2023) Flow matching for generative modeling . In The Eleventh International Conference on Learning Representations , External Links: Link Cited by: §B.4 , §1 , §3.2 , §5.2 . [31] X. Liu, C. Gong, and Q. Liu (2022) Flow straight and fast: learning to generate and transfer data with rectified flow . arXiv preprint arXiv:2209.03003 . Cited by: §1 , §3.2 . [32] I. Loshchilov and F. Hutter (2017) Decoupled weight decay regularization . arXiv preprint arXiv:1711.05101 . Cited by: §C.2 . [33] A. Madry, A. Makelov, L. Schmidt, D. Tsipras, and A. Vladu (2018) Towards deep learning models resistant to adversarial attacks . In International Conference on Learning Representations , External Links: Link Cited by: §B.2 , §5.2 . [34] P. Marion (2023) Generalization bounds for neural ordinary differential equations and deep residual networks . In Advances in Neural Information Processing Systems , A. Oh, T. Naumann, A. Globerson, K. Saenko, M. Hardt, and S. Levine (Eds.) , Vol. 36 , pp. 48918–48938 . External Links: Document , Link Cited by: §2 . [35] S. Martin, A. Gagneux, P. Hagemann, and G. Steidl (2025) Pnp-flow: plug-and-play image restoration with flow matching . In International Conference on Learning Representations , Vol. 2025 , pp. 45466–45492 . Cited by: §2 . [36] Y. Miao, J. Deng, and J. Han (2024) Waveface: authentic face restoration with efficient frequency recovery . In 2024 IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR) , pp. 6583–6592 . Cited by: §2 . [37] T. Miyato, T. Kataoka, M. Koyama, and Y. Yoshida (2018) Spectral normalization for generative adversarial networks . In International Conference on Learning Representations , External Links: Link Cited by: §B.1 , §B.1 , §2 , §5.1 . [38] G. Ohayon, T. Michaeli, and M. Elad (2024) Posterior-mean rectified flow: towards minimum mse photo-realistic image restoration . arXiv preprint arXiv:2410.00418 . Cited by: §1 . [39] G. Ohayon, T. Michaeli, and M. Elad (2025) Posterior-mean rectified flow: towards minimum mse photo-realistic image restoration . In International Conference on Learning Representations , Vol. 2025 , pp. 63101–63140 . Cited by: §2 , §3.3.1 , §6.1 , §6.1 . [40] B. Pachpatte (1973) A note on gronwall-bellman inequality . Journal of Mathematical Analysis and Applications 44 ( 3 ), pp. 758–762 . External Links: ISSN 0022-247X , Document , Link Cited by: Appendix A . [41] W. Peebles and S. Xie (2023) Scalable diffusion models with transformers . In 2023 IEEE/CVF International Conference on Computer Vision (ICCV) , pp. 4172–4182 . Cited by: §B.1 , §5.1 . [42] N. Shazeer (2020) Glu variants improve transformer . arXiv preprint arXiv:2002.05202 . Cited by: §B.1 . [43] J. C. Spall (1992) Multivariate stochastic approximation using a simultaneous perturbation gradient approximation . IEEE transactions on automatic control 37 ( 3 ), pp. 332–341 . Cited by: §6.1 . [44] M. Suin, N. G. Nair, C. P. Lau, V. M. Patel, and R. Chellappa (2024) Diffuse and restore: a region-adaptive diffusion model for identity-preserving blind face restoration . In 2024 IEEE/CVF Winter Conference on Applications of Computer Vision (WACV) , pp. 6331–6340 . Cited by: §2 . [45] U. Tanielian and G. Biau (2021) Approximating lipschitz continuous functions with groupsort neural networks . In International Conference on Artificial Intelligence and Statistics , pp. 442–450 . Cited by: §2 . [46] D. Terjék (2019) Adversarial lipschitz regularization . arXiv preprint arXiv:1907.05681 . Cited by: §B.2 , §1 , §5.2 . [47] J. Uesato, B. O’donoghue, P. Kohli, and A. Oord (2018) Adversarial risk and the dangers of evaluating against weak attacks . In International conference on machine learning , pp. 5025–5034 . Cited by: §6.1 . [48] J. Wang, J. Gong, L. Zhang, Z. Chen, X. Liu, H. Gu, Y. Liu, Y. Zhang, and X. Yang (2025) Osdface: one-step diffusion model for face restoration . In 2025 IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR) , pp. 12626–12636 . Cited by: §2 , §6.1 . [49] X. Wang, Y. Li, H. Zhang, and Y. Shan (2021) Towards real-world blind face restoration with generative facial prior . In 2021 IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR) , pp. 9164–9174 . Cited by: §1 , §2 , §3.1 , §6.1 , §6.1 . [50] X. Wang, L. Bo, and L. Fuxin (2019) Adaptive wing loss for robust face alignment via heatmap regression . In 2019 IEEE/CVF International Conference on Computer Vision (ICCV) , pp. 6970–6980 . Cited by: §6.1 . [51] Z. Wang, Z. Zhang, X. Zhang, H. Zheng, M. Zhou, Y. Zhang, and Y. Wang (2023) Dr2: diffusion-based robust degradation remover for blind face restoration . In 2023 IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR) , pp. 1704–1713 . Cited by: §2 . [52] Z. Wang, J. Zhang, R. Chen, W. Wang, and P. Luo (2022) Restoreformer: high-quality blind face restoration from undegraded key-value pairs . In 2022 IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR) , pp. 17491–17500 . Cited by: §2 . [53] Z. Wang, J. Zhang, T. Chen, W. Wang, and P. Luo (2023) Restoreformer++: towards real-world blind face restoration from undegraded key-value pairs . IEEE Transactions on Pattern Analysis and Machine Intelligence 45 ( 12 ), pp. 15462–15476 . Cited by: §6.1 . [54] H. YAN, J. DU, V. TAN, and J. FENG (2020) On robustness of neural ordinary differential equations . In International Conference on Learning Representations , External Links: Link Cited by: §2 . [55] T. Yang, P. Ren, X. Xie, and L. Zhang (2021) Gan prior embedded network for blind face restoration in the wild . In 2021 IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR) , pp. 672–681 . Cited by: §2 . [56] Z. Yue and C. C. Loy (2024) Difface: blind face restoration with diffused error contraction . IEEE Transactions on Pattern Analysis and Machine Intelligence 46 ( 12 ), pp. 9991–10004 . Cited by: §1 , §2 , §3.1 . [57] B. Zhang and R. Sennrich (2019) Root mean square layer normalization . Advances in neural information processing systems 32 . Cited by: §B.1 , §5.1 . [58] R. Zhang, P. Isola, A. A. Efros, E. Shechtman, and O. Wang (2018) The unreasonable effectiveness of deep features as a perceptual metric . In 2018 IEEE/CVF conference on computer vision and pattern recognition , pp. 586–595 . Cited by: §1 , §6.1 . [59] L. Zhou, M. Parger, A. Haque, and J. Song (2026) Terminal velocity matching . In International Conference on Learning Representations , Vol. 2026 , pp. 87506–87530 . Cited by: §2 . [60] S. Zhou, K. Chan, C. Li, and C. C. Loy (2022) Towards robust blind face restoration with codebook lookup transformer . Advances in Neural Information Processing Systems 35 , pp. 30599–30611 . Cited by: §1 , §2 , §6.1 . [61] Y. Zhu, W. Zhao, A. Li, Y. Tang, J. Zhou, and J. Lu (2024) Flowie: efficient image enhancement via rectified flow . In 2024 IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR) , pp. 13–22 . Cited by: §1 , §2 , §6.1 . Supplementary Material Contents Appendix A Proofs of the Stability Results This section provides the complete proofs of the stability results stated in
+the main paper. For completeness, we first recall the
+Grönwall–Bellman inequality [ 13 , 2 , 40 ] used in both derivations and then restate each
+proposition before presenting its proof. All norms are Euclidean, and all
+trajectory comparisons use the same source-noise realization unless stated
+otherwise. A.1 Grönwall–Bellman Inequality The following standard integral inequality controls the growth of a
+nonnegative function and is the principal tool used to translate local
+Lipschitz control of the velocity field into an end-to-end stability bound. Lemma 1 (Gronwall–Bellman inequality) . Let d ⁡ ( t ) d(t) and h ⁡ ( t ) h(t) be nonnegative, continuous functions on ℐ = [ a , b ] \mathcal{I}=[a,b] .
+Assume that d 0 d_{0} is a nonnegative constant and that d ⁡ ( t ) ≤ d 0 + ∫ a t h ⁡ ( s ) ​ d ​ ( s ) ​ 𝑑 s , for all t ∈ ℐ . d(t)\leq d_{0}+\int_{a}^{t}h(s)d(s)\ \mathrm{d}s,\quad\text{for all}\quad t\in\mathcal{I}. Then d ⁡ ( t ) ≤ d 0 ​ exp ⁡ ( ∫ a t h ⁡ ( s ) ​ 𝑑 s ) , for all t ∈ ℐ . d(t)\leq d_{0}\exp\left(\int_{a}^{t}h(s)\ \mathrm{d}s\right),\quad\text{for all}\quad t\in\mathcal{I}. A.2 Proof of Proposition 1 We first consider Flow-from- Y Y , where the degraded observation determines
+the initial ODE state. We restate the proposition to make the supplementary
+material self-contained. Proposition 1 (Stability of Flow-from- Y Y ) . Suppose that v θ v_{\theta} is ρ \rho -Lipschitz with respect to its state,
+uniformly over time: ‖ v θ ​ ( a , t ) − v θ ​ ( b , t ) ‖ 2 ≤ ρ ​ ‖ a − b ‖ 2 \left\|v_{\theta}(a,t)-v_{\theta}(b,t)\right\|_{2}\leq\rho\left\|a-b\right\|_{2} (23) for all a , b ∈ ℝ d a,b\in\mathbb{R}^{d} and t ∈ [ 0 , 1 ] t\in[0,1] . Then, for any observations y 1 , y 2 y_{1},y_{2} restored using the same ϵ \epsilon , ‖ ℛ F ​ Y ​ ( y 2 , ϵ ) − ℛ F ​ Y ​ ( y 1 , ϵ ) ‖ 2 ≤ e ρ ​ ‖ y 2 − y 1 ‖ 2 . \left\|\mathcal{R}_{\mathrm{F}Y}(y_{2};\epsilon)-\mathcal{R}_{\mathrm{F}Y}(y_{1};\epsilon)\right\|_{2}\leq e^{\rho}\left\|y_{2}-y_{1}\right\|_{2}. (24) Proof. Let z 1 : [ 0 , 1 ] → ℝ d z^{1}:[0,1]\rightarrow\mathbb{R}^{d} and z 2 : [ 0 , 1 ] → ℝ d z^{2}:[0,1]\rightarrow\mathbb{R}^{d} denote the Flow-from- Y Y trajectories associated with observations y 1 y_{1} and y 2 y_{2} , respectively,
+using the same source-noise realization ϵ \epsilon . They satisfy d ​ z t 1 d ​ t \displaystyle\frac{\mathrm{d}z_{t}^{1}}{\mathrm{d}t} = v θ ​ ( z t 1 , t ) , \displaystyle=v_{\theta}(z_{t}^{1},t), z 0 1 \displaystyle z_{0}^{1} = y 1 + σ s ​ ϵ , \displaystyle=y_{1}+\sigma_{s}\epsilon, (25) d ​ z t 2 d ​ t \displaystyle\frac{\mathrm{d}z_{t}^{2}}{\mathrm{d}t} = v θ ​ ( z t 2 , t ) , \displaystyle=v_{\theta}(z_{t}^{2},t), z 0 2 \displaystyle z_{0}^{2} = y 2 + σ s ​ ϵ , \displaystyle=y_{2}+\sigma_{s}\epsilon, (26) and their terminal states are z 1 i = ℛ F ​ Y ​ ( y i , ϵ ) , for i ∈ { 1 , 2 } . z_{1}^{i}=\mathcal{R}_{\mathrm{F}Y}(y_{i};\epsilon),\quad\text{for}\quad i\in\{1,2\}. (27) Integrating Eqs. ( 25 ) and
+( 26 ) from 0 0 to t t gives z t 1 \displaystyle z_{t}^{1} = z 0 1 + ∫ 0 t v θ ​ ( z s 1 , s ) ​ 𝑑 s , \displaystyle=z_{0}^{1}+\int_{0}^{t}v_{\theta}(z_{s}^{1},s)\,\mathrm{d}s, (28) z t 2 \displaystyle z_{t}^{2} = z 0 2 + ∫ 0 t v θ ​ ( z s 2 , s ) ​ 𝑑 s . \displaystyle=z_{0}^{2}+\int_{0}^{t}v_{\theta}(z_{s}^{2},s)\,\mathrm{d}s. (29) Subtracting the first equality from the second yields z t 2 − z t 1 = z 0 2 − z 0 1 + ∫ 0 t [ v θ ​ ( z s 2 , s ) − v θ ​ ( z s 1 , s ) ] ​ 𝑑 s . z_{t}^{2}-z_{t}^{1}=z_{0}^{2}-z_{0}^{1}+\int_{0}^{t}\left[v_{\theta}(z_{s}^{2},s)-v_{\theta}(z_{s}^{1},s)\right]\mathrm{d}s. (30) Taking the Euclidean norm and applying the triangle inequality, ‖ z t 2 − z t 1 ‖ 2 ≤ \displaystyle\left\|z_{t}^{2}-z_{t}^{1}\right\|_{2}\leq\; ‖ z 0 2 − z 0 1 ‖ 2 \displaystyle\left\|z_{0}^{2}-z_{0}^{1}\right\|_{2} + ∫ 0 t ‖ v θ ( z s 2 , s ) − v θ ( z s 1 , s ) ‖ 2 d s . \displaystyle+\int_{0}^{t}\left\|v_{\theta}(z_{s}^{2},s)-v_{\theta}(z_{s}^{1},s)\right\|_{2}\mathrm{d}s. (31) By the assumed uniform ρ \rho -Lipschitz continuity of v θ v_{\theta} with
+respect to its state, ‖ v θ ​ ( z s 2 , s ) − v θ ​ ( z s 1 , s ) ‖ 2 ≤ ρ ​ ‖ z s 2 − z s 1 ‖ 2 . \left\|v_{\theta}(z_{s}^{2},s)-v_{\theta}(z_{s}^{1},s)\right\|_{2}\leq\rho\left\|z_{s}^{2}-z_{s}^{1}\right\|_{2}. (32) Substituting Eq. ( 32 ) into
+Eq. ( 31 ) gives ‖ z t 2 − z t 1 ‖ 2 ≤ ‖ z 0 2 − z 0 1 ‖ 2 + ρ ​ ∫ 0 t ‖ z s 2 − z s 1 ‖ 2 ​ 𝑑 s . \left\|z_{t}^{2}-z_{t}^{1}\right\|_{2}\leq\left\|z_{0}^{2}-z_{0}^{1}\right\|_{2}+\rho\int_{0}^{t}\left\|z_{s}^{2}-z_{s}^{1}\right\|_{2}\mathrm{d}s. (33) Define d ⁡ ( t ) ≔ ‖ z t 2 − z t 1 ‖ 2 . d(t)\coloneqq\left\|z_{t}^{2}-z_{t}^{1}\right\|_{2}. (34) The function d d is nonnegative and continuous, and
+Eq. ( 33 ) becomes d ⁡ ( t ) ≤ d ⁡ ( 0 ) + ∫ 0 t ρ ​ d ​ ( s ) ​ 𝑑 s . d(t)\leq d(0)+\int_{0}^{t}\rho d(s)\,\mathrm{d}s. (35) Applying the Grönwall–Bellman inequality ( Sec. A.1 ) with d 0 = d ⁡ ( 0 ) d_{0}=d(0) and h ⁡ ( s ) = ρ h(s)=\rho yields d ⁡ ( t ) ≤ d ⁡ ( 0 ) ​ exp ⁡ ( ∫ 0 t ρ ​ 𝑑 s ) = e ρ ​ t ​ d ​ ( 0 ) . d(t)\leq d(0)\exp\left(\int_{0}^{t}\rho\,\mathrm{d}s\right)=e^{\rho t}d(0). (36) Because the two trajectories use the same source-noise realization, z 0 2 − z 0 1 = ( y 2 + σ s ​ ϵ ) − ( y 1 + σ s ​ ϵ ) = y 2 − y 1 . z_{0}^{2}-z_{0}^{1}=\left(y_{2}+\sigma_{s}\epsilon\right)-\left(y_{1}+\sigma_{s}\epsilon\right)=y_{2}-y_{1}. (37) Therefore, d ⁡ ( 0 ) = ‖ y 2 − y 1 ‖ 2 . d(0)=\left\|y_{2}-y_{1}\right\|_{2}. (38) Evaluating Eq. ( 36 ) at t = 1 t=1 , and using
+Eq. ( 27 ), gives ‖ ℛ F ​ Y ​ ( y 2 , ϵ ) − ℛ F ​ Y ​ ( y 1 , ϵ ) ‖ 2 \displaystyle\left\|\mathcal{R}_{\mathrm{F}Y}(y_{2};\epsilon)-\mathcal{R}_{\mathrm{F}Y}(y_{1};\epsilon)\right\|_{2} = ‖ z 1 2 − z 1 1 ‖ 2 ≤ e ρ ​ ‖ y 2 − y 1 ‖ 2 , \displaystyle\qquad=\left\|z_{1}^{2}-z_{1}^{1}\right\|_{2}\leq e^{\rho}\left\|y_{2}-y_{1}\right\|_{2}, (39) which proves Proposition 1 .
+∎ The preceding result controls perturbations that enter through the initial
+state. We next consider the setting in which the initial state is fixed under common-noise coupling, while the observation affects the velocity field throughout the transport trajectory. A.3 Proof of Proposition 2 For an observation-conditioned flow, robustness depends on the sensitivity of
+the velocity field with respect to both its evolving state and its condition.
+We again restate the proposition before giving the complete derivation. Proposition 2 (Stability of an observation-conditioned flow) . Suppose that v θ v_{\theta} is uniformly ρ \rho -Lipschitz in its state and uniformly ρ c \rho_{c} -Lipschitz in its observation condition. That is, for every t ∈ [ 0 , 1 ] t\in[0,1] , ‖ v θ ​ ( a , t , y ) − v θ ​ ( b , t , y ) ‖ 2 \displaystyle\left\|v_{\theta}(a,t;y)-v_{\theta}(b,t;y)\right\|_{2} ≤ ρ ​ ‖ a − b ‖ 2 , \displaystyle\leq\rho\left\|a-b\right\|_{2}, (40) ‖ v θ ​ ( a , t , y 2 ) − v θ ​ ( a , t , y 1 ) ‖ 2 \displaystyle\left\|v_{\theta}(a,t;y_{2})-v_{\theta}(a,t;y_{1})\right\|_{2} ≤ ρ c ​ ‖ y 2 − y 1 ‖ 2 . \displaystyle\leq\rho_{c}\left\|y_{2}-y_{1}\right\|_{2}. (41) If ρ > 0 \rho>0 , then, for any y 1 , y 2 y_{1},y_{2} and the same initial noise ϵ \epsilon , ‖ ℛ C ​ ( y 2 , ϵ ) − ℛ C ​ ( y 1 , ϵ ) ‖ 2 ≤ ρ c ρ ​ ( e ρ − 1 ) ​ ‖ y 2 − y 1 ‖ 2 . \left\|\mathcal{R}_{\mathrm{C}}(y_{2};\epsilon)-\mathcal{R}_{\mathrm{C}}(y_{1};\epsilon)\right\|_{2}\leq\frac{\rho_{c}}{\rho}\left(e^{\rho}-1\right)\left\|y_{2}-y_{1}\right\|_{2}. (42) Proof. Let z 1 : [ 0 , 1 ] → ℝ d z^{1}:[0,1]\rightarrow\mathbb{R}^{d} and z 2 : [ 0 , 1 ] → ℝ d z^{2}:[0,1]\rightarrow\mathbb{R}^{d} denote two conditional flow
+trajectories associated with observations y 1 y_{1} and y 2 y_{2} , respectively.
+Let ϵ ∼ 𝒩 ⁡ ( 0 , I ) \epsilon\sim\mathcal{N}(0,I) be the source-noise realization for both trajectories: d ​ z t 1 d ​ t \displaystyle\frac{\mathrm{d}z_{t}^{1}}{\mathrm{d}t} = v θ ​ ( z t 1 , t , y 1 ) , \displaystyle=v_{\theta}(z_{t}^{1},t;y_{1}), z 0 1 \displaystyle z_{0}^{1} = ϵ , \displaystyle=\epsilon, (43) d ​ z t 2 d ​ t \displaystyle\frac{\mathrm{d}z_{t}^{2}}{\mathrm{d}t} = v θ ​ ( z t 2 , t , y 2 ) , \displaystyle=v_{\theta}(z_{t}^{2},t;y_{2}), z 0 2 \displaystyle z_{0}^{2} = ϵ . \displaystyle=\epsilon. (44) Their terminal states satisfy z 1 i = ℛ C ​ ( y i , ϵ ) , for i ∈ { 1 , 2 } . z_{1}^{i}=\mathcal{R}_{\mathrm{C}}(y_{i};\epsilon),\qquad\text{for}\quad i\in\{1,2\}. (45) Integrating Eqs. ( 43 ) and
+( 44 ) from 0 0 to t t gives z t 1 \displaystyle z_{t}^{1} = ϵ + ∫ 0 t v θ ​ ( z s 1 , s , y 1 ) ​ 𝑑 s , \displaystyle=\epsilon+\int_{0}^{t}v_{\theta}(z_{s}^{1},s;y_{1})\,\mathrm{d}s, (46) z t 2 \displaystyle z_{t}^{2} = ϵ + ∫ 0 t v θ ​ ( z s 2 , s , y 2 ) ​ 𝑑 s . \displaystyle=\epsilon+\int_{0}^{t}v_{\theta}(z_{s}^{2},s;y_{2})\,\mathrm{d}s. (47) Subtracting the first equality from the second yields z t 2 − z t 1 = ∫ 0 t v θ ​ ( z s 2 , s , y 2 ) − v θ ​ ( z s 1 , s , y 1 ) ​ d s . \displaystyle z_{t}^{2}-z_{t}^{1}=\int_{0}^{t}v_{\theta}(z_{s}^{2},s;y_{2})-v_{\theta}(z_{s}^{1},s;y_{1})\,\mathrm{d}s. (48) Taking norms and applying the triangle inequality, ‖ z t 2 − z t 1 ‖ 2 ≤ \displaystyle\left\|z_{t}^{2}-z_{t}^{1}\right\|_{2}\leq\; (49) ∫ 0 t ‖ v θ ​ ( z s 2 , s , y 2 ) − v θ ​ ( z s 1 , s , y 1 ) ‖ 2 ​ d s . \displaystyle\int_{0}^{t}\left\|v_{\theta}(z_{s}^{2},s;y_{2})-v_{\theta}(z_{s}^{1},s;y_{1})\right\|_{2}\,\mathrm{d}s. To separate the effects of the state and the observation, we add and subtract v θ ​ ( z s 1 , s , y 2 ) v_{\theta}(z_{s}^{1},s;y_{2}) : ‖ v θ ​ ( z s 2 , s , y 2 ) − v θ ​ ( z s 1 , s , y 1 ) ‖ 2 \displaystyle\left\|v_{\theta}(z_{s}^{2},s;y_{2})-v_{\theta}(z_{s}^{1},s;y_{1})\right\|_{2} (50) = \displaystyle\quad= ‖ v θ ​ ( z s 2 , s , y 2 ) − v θ ​ ( z s 1 , s , y 2 ) + v θ ​ ( z s 1 , s , y 2 ) − v θ ​ ( z s 1 , s , y 1 ) ‖ 2 \displaystyle\left\|v_{\theta}(z_{s}^{2},s;y_{2})-v_{\theta}(z_{s}^{1},s;y_{2})+v_{\theta}(z_{s}^{1},s;y_{2})-v_{\theta}(z_{s}^{1},s;y_{1})\right\|_{2} ≤ \displaystyle\quad\leq ‖ v θ ​ ( z s 2 , s , y 2 ) − v θ ​ ( z s 1 , s , y 2 ) ‖ 2 \displaystyle\left\|v_{\theta}(z_{s}^{2},s;y_{2})-v_{\theta}(z_{s}^{1},s;y_{2})\right\|_{2} + ‖ v θ ​ ( z s 1 , s , y 2 ) − v θ ​ ( z s 1 , s , y 1 ) ‖ 2 . \displaystyle+\left\|v_{\theta}(z_{s}^{1},s;y_{2})-v_{\theta}(z_{s}^{1},s;y_{1})\right\|_{2}. The first term changes the state while holding the condition fixed, whereas
+the second changes the condition while holding the state fixed. By the
+assumed Lipschitz continuity in these two arguments, ‖ v θ ​ ( z s 2 , s , y 2 ) − v θ ​ ( z s 1 , s , y 2 ) ‖ 2 \displaystyle\left\|v_{\theta}(z_{s}^{2},s;y_{2})-v_{\theta}(z_{s}^{1},s;y_{2})\right\|_{2} ≤ ρ ​ ‖ z s 2 − z s 1 ‖ 2 , \displaystyle\leq\rho\left\|z_{s}^{2}-z_{s}^{1}\right\|_{2}, (51) ‖ v θ ​ ( z s 1 , s , y 2 ) − v θ ​ ( z s 1 , s , y 1 ) ‖ 2 \displaystyle\left\|v_{\theta}(z_{s}^{1},s;y_{2})-v_{\theta}(z_{s}^{1},s;y_{1})\right\|_{2} ≤ ρ c ​ ‖ y 2 − y 1 ‖ 2 . \displaystyle\leq\rho_{c}\left\|y_{2}-y_{1}\right\|_{2}. (52) Combining Eqs. ( 49 )–( 52 ) gives ‖ z t 2 − z t 1 ‖ 2 ≤ \displaystyle\left\|z_{t}^{2}-z_{t}^{1}\right\|_{2}\leq ρ ​ ∫ 0 t ‖ z s 2 − z s 1 ‖ 2 ​ 𝑑 s \displaystyle\rho\int_{0}^{t}\left\|z_{s}^{2}-z_{s}^{1}\right\|_{2}\,\mathrm{d}s (53) + \displaystyle+ ρ c ​ ∫ 0 t ‖ y 2 − y 1 ‖ 2 ​ 𝑑 s \displaystyle\rho_{c}\int_{0}^{t}\left\|y_{2}-y_{1}\right\|_{2}\,\mathrm{d}s = \displaystyle= ρ ​ ∫ 0 t ( ‖ z s 2 − z s 1 ‖ 2 + ρ c ρ ​ Δ ​ y ) ​ d s , \displaystyle\rho\int_{0}^{t}\left(\left\|z_{s}^{2}-z_{s}^{1}\right\|_{2}+\frac{\rho_{c}}{\rho}\Delta y\right)\,\,\mathrm{d}s, with Δ ​ y ≔ ‖ y 2 − y 1 ‖ 2 \Delta y\coloneqq\left\|y_{2}-y_{1}\right\|_{2} . Next, we define d ⁡ ( t ) ≔ ‖ z t 2 − z t 1 ‖ 2 + ρ c ρ ​ Δ ​ y , \displaystyle d(t)\coloneqq\left\|z_{t}^{2}-z_{t}^{1}\right\|_{2}+\frac{\rho_{c}}{\rho}\Delta y, (54) with d ⁡ ( 0 ) = ρ c ρ ​ Δ ​ y d(0)=\frac{\rho_{c}}{\rho}\Delta y , since z 0 2 = z 0 1 = ϵ z_{0}^{2}=z_{0}^{1}=\epsilon . Then, by Eq. ( 53 ), we obtain d ⁡ ( t ) ≤ d ⁡ ( 0 ) + ∫ 0 t ρ ​ d ​ ( s ) ​ d s . \displaystyle d(t)\leq d(0)+\int_{0}^{t}\rho d(s)\,\,\mathrm{d}s. (55) Then, we can apply the Grönwall-Bellman inequality, to derive d ⁡ ( t ) ≤ d ⁡ ( 0 ) ​ e ρ ​ t . \displaystyle d(t)\leq d(0)e^{\rho t}. (56) Using the definition of d ⁡ ( t ) d(t) and Δ ​ y \Delta y , we obtain ‖ z t 2 − z t 1 ‖ 2 ≤ ρ c ρ ​ ( e ρ ​ t − 1 ) ​ ‖ y 2 − y 1 ‖ 2 . \displaystyle\left\|z_{t}^{2}-z_{t}^{1}\right\|_{2}\leq\frac{\rho_{c}}{\rho}\left(e^{\rho t}-1\right)\left\|y_{2}-y_{1}\right\|_{2}. Finally, setting t = 1 t=1 and using
+Eq. ( 45 ) gives ‖ ℛ C ​ ( y 2 , ϵ ) − ℛ C ​ ( y 1 , ϵ ) ‖ 2 \displaystyle\left\|\mathcal{R}_{\mathrm{C}}(y_{2};\epsilon)-\mathcal{R}_{\mathrm{C}}(y_{1};\epsilon)\right\|_{2} (57) = ‖ z 1 2 − z 1 1 ‖ 2 ≤ ρ c ρ ​ ( e ρ − 1 ) ​ ‖ y 2 − y 1 ‖ 2 , \displaystyle=\left\|z_{1}^{2}-z_{1}^{1}\right\|_{2}\leq\frac{\rho_{c}}{\rho}\left(e^{\rho}-1\right)\left\|y_{2}-y_{1}\right\|_{2}, which proves the proposition.
+∎ Table 2 : Clean reconstruction and perceptual quality on CelebA-Test at 512 × 512 512\times 512 resolution. The blocks (I) and (II) present the comparison sets for the Flow-from- Y Y and observation-conditioned formulations of LipsFlower, respectively. Within each category, bold and underlined values indicate the best and second-best results, respectively. Method PSNR ↑ \uparrow LPIPS ↓ \downarrow FID ↓ \downarrow Precision ↑ \uparrow DEG ↓ \downarrow LMD ↓ \downarrow (I) CodeFormer 25.146 0.343 52.521 0.3512 37.282 2.470 GFPGAN 24.986 0.364 46.160 0.3212 36.036 2.444 RestoreFormer++ 25.313 0.344 40.611 0.4089 29.634 2.043 OSDFace 23.381 0.364 43.567 0.4631 33.907 2.158 PMRF 25.821 0.367 35.842 0.3855 31.027 2.037 ELIR 25.817 0.374 39.944 0.2441 34.258 2.308 Flow-from- Y Y 25.784 0.350 37.050 0.3797 30.602 1.995 LipsFlower (w/ Flow-from- Y Y ) 25.475 0.388 40.769 0.2711 34.143 2.351 DiffBIR 25.418 0.387 57.663 0.4131 33.074 2.017 FlowIE 24.855 0.344 50.871 0.3954 33.390 2.208 BayesFlow 25.731 0.330 40.243 0.3440 32.035 2.107 (II) LipsFlower (w/ BayesFlow) 23.409 0.508 57.037 0.1448 36.088 2.457 Figure 4 : Qualitative comparison on CelebA-Test. Both LipsFlower variants closely reproduce the facial structure and hairstyle of the ground truth, with differences mainly in fine texture. Despite the trade-off in perceptual quality for improved robustness, their reconstructions remain visually comparable to those of the other methods. Appendix B LipsFlower: Architecture, Regularization Details, and Additional Results This section details the architectural controls and
+finite-radius regularization used by LipsFlower.
+Both Flow-from- Y Y and observation-conditioned posterior
+sampling use the same core architectural modifications
+and localized state regularizer. The conditional model
+additionally uses separate input stems and an
+observation-sensitivity penalty. B.1 LipHDiT Architecture Backbone. LipHDiT follows the hierarchical organization of
+HDiT [ 8 ] . We use 4 × 4 4\times 4 input
+patches, feature widths ( 256,512 , 1024 ) (256,512,1024) , and level depths ( 2 , 2 , 8 ) (2,2,8) . The first two levels use neighborhood attention
+with 7 × 7 7\times 7 windows, whereas the coarsest level uses
+global attention. The attention head dimension is 64 64 ,
+and the feed-forward hidden dimension is three times the
+corresponding feature width. The time-conditioning mapping
+network has width 768 768 and depth 2 2 . Dropout is disabled. Stabilized spectral normalization. Following spectral normalization [ 37 ] ,
+we control linear projections using an estimate of the
+largest singular value of their weight matrix. For a raw
+weight matrix W W , the effective weight is W ^ = W max ⁡ ( 1 , κ ​ σ ^ ​ ( W ) ) , κ = 1.10 , \widehat{W}=\frac{W}{\max(1,\kappa\widehat{\sigma}(W))},\qquad\kappa=1.10, (58) where σ ^ ​ ( W ) \widehat{\sigma}(W) is obtained using power
+iteration [ 12 , 37 ] . Unlike normalization that always rescales to
+unit estimated norm, this rule leaves sufficiently small
+weights unchanged. We use two power iterations per spectral-buffer refresh.
+The matrix–vector products and spectral estimates are
+computed in single-precision floating-point arithmetic (FP32). To handle zero-initialized projections,
+a vanishing iteration product does not replace a valid
+iteration vector with a zero vector: the previous valid
+direction is retained, with a nonzero fallback when needed.
+Consequently, zero initialization does not permanently
+disable subsequent spectral estimation.
+Spectral-buffer updates are frozen during the paired
+evaluations used to compute finite-difference gains,
+so both evaluations use the same effective weights.
+The factor κ \kappa provides a practical safety margin,
+not a certified upper bound: a finite number of power
+iterations can underestimate the true spectral norm. Normalization and modulation. For a token feature vector h ∈ ℝ d h\in\mathbb{R}^{d} , we use
+a denominator-floored variant of
+RMSNorm [ 57 ] : 𝒩 c ​ ( h ) = h max ⁡ ( c , d − 1 ​ ‖ h ‖ 2 2 + ε n ) , \mathcal{N}_{c}(h)=\frac{h}{\max\!\left(c,\sqrt{d^{-1}\|h\|_{2}^{2}+\varepsilon_{\mathrm{n}}}\right)}, (59) with c = 0.10 c=0.10 and ε n = 10 − 12 \varepsilon_{\mathrm{n}}=10^{-12} .
+The floor limits the amplification introduced when
+normalizing low-magnitude features. Given the time embedding e t e_{t} , adaptive normalization
+uses scale-only modulation: AdaNorm ⁡ ( h , e t ) = 𝒩 c ​ ( h ) ⊙ [ 1 + β ​ tanh ⁡ ( A ​ e t ) ] , \operatorname{AdaNorm}(h,e_{t})=\mathcal{N}_{c}(h)\odot\left[1+\beta\tanh(Ae_{t})\right], (60) where β = 0.25 , \beta=0.25, and A A is a spectrally controlled projection.
+Thus, each modulation factor lies between 0.75 0.75 and 1.25 1.25 , and no additive modulation shift is used.
+This adapts the conditioning mechanisms used in diffusion
+transformers [ 41 , 8 ] while explicitly bounding their multiplicative factors.
+Queries and keys are normalized separately using
+Eq. ( 59 ), also with floor 0.10 0.10 .
+This modifies normalized-attention
+designs [ 16 , 8 ] to control their behavior near zero. Feed-forward transformation. The feed-forward expansion projects features into two
+equal-sized groups, a a and b b , and applies the
+coordinatewise minimum, ϕ ​ ( a , b ) i = min ⁡ ( a i , b i ) . \phi(a,b)_{i}=\min(a_{i},b_{i}). (61) This replaces the multiplicative GEGLU transformation a ⊙ GELU ⁡ ( b ) a\odot\operatorname{GELU}(b) [ 42 ] with a coordinatewise minimum, followed by a spectrally controlled output projection. The pairwise minimum is nonexpansive under the Euclidean norm on the concatenated input ( a , b ) (a,b) . Convex residual and skip mixing. Motivated by convex aggregation for Lipschitz
+control [ 6 ] , each attention or
+feed-forward residual update takes the form h + = ( 1 − α ) ​ h + α ​ F θ ​ ( h ) , α = α max ​ sigmoid ⁡ ( a ) , h^{+}=(1-\alpha)h+\alpha F_{\theta}(h),\qquad\alpha=\alpha_{\max}\operatorname{sigmoid}(a), (62) where a a is a learned scalar and F θ F_{\theta} denotes the
+transformation branch alone, excluding the identity skip.
+Time conditioning is omitted from the notation.
+We set α max = 0.10 \alpha_{\max}=0.10 and initialize α = 0.05 \alpha=0.05 .
+The mapping-network residual branches use the same
+convex-mixing mechanism. Decoder token-splitting connections combine the projected,
+upsampled features U ⁡ ( h ) U(h) with the corresponding encoder
+features s s : h dec = ( 1 − γ ) ​ s + γ ​ U ​ ( h ) . h_{\mathrm{dec}}=(1-\gamma)s+\gamma U(h). (63) Here, γ \gamma is sigmoid-parameterized with maximum 1 1 and initialized to 0.5 0.5 . For an input-independent coefficient α \alpha and a
+branch with Lipschitz constant L F L_{F} , the residual map
+satisfies Lip ⁡ ( ( 1 − α ) ​ I + α ​ F θ ) ≤ ( 1 − α ) + α ​ L F . \operatorname{Lip}\bigl((1-\alpha)I+\alpha F_{\theta}\bigr)\leq(1-\alpha)+\alpha L_{F}. (64) This explains the role of convex mixing without implying
+that the resulting block is nonexpansive when L F > 1 L_{F}>1 . Conditional input stems. The conditional model embeds the state and observation
+using separate patch projections: h s = E s ( z t ) , h c = E c ( y ) , h in = P ( [ h s ; η h c ] ) , \displaystyle h_{s}=E_{s}(z_{t}),\quad h_{c}=E_{c}(y),\quad h_{\mathrm{in}}=P([h_{s};\eta h_{c}]), (65) where [ ⋅ ; ⋅ ] [\cdot;\cdot] denotes channel concatenation.
+The projections E s E_{s} , E c E_{c} , and P P use the same
+stabilized spectral normalization. The observation
+coefficient η \eta is sigmoid-parameterized with maximum 1 1 and initialized to 0.75 0.75 .
+Unlike decoder skip mixing, this module uses scaled
+concatenation followed by projection, not a convex sum. B.2 Localized Multi-Scale State Perturbations We adapt adversarial Lipschitz
+regularization [ 46 ] to sampled
+velocity-field inputs. Perturbations are applied only
+during the regularizer evaluations, and the inputs and
+targets of the main flow-matching loss remain unchanged. Spatial support. For each selected state, we sample a binary rectangular
+mask M ∈ { 0 , 1 } H × W M\in\{0,1\}^{H\times W} , shared across channels.
+The target area fraction is sampled uniformly from [ 0.02 , 0.15 ] [0.02,0.15] , and the width-to-height aspect ratio is
+sampled log-uniformly from [ 0.5 , 2.0 ] [0.5,2.0] .
+The rectangle dimensions are rounded to valid pixel
+dimensions, and its location is sampled uniformly among
+valid placements. Thus, the realized area can differ
+slightly from the sampled target because of rounding. Perturbation magnitude. Let C C be the number of channels and n M = C ​ ∑ i , j M i ​ j n_{M}=C\sum_{i,j}M_{ij} the number of active scalar
+coordinates. Define the masked RMS magnitude by ‖ u ‖ RMS , M = ( 1 n M ​ ∑ c , i , j M i ​ j ​ u c ​ i ​ j 2 ) 1 / 2 . \|u\|_{\mathrm{RMS},M}=\left(\frac{1}{n_{M}}\sum_{c,i,j}M_{ij}u_{cij}^{2}\right)^{1/2}. (66) The perturbation radius r r is sampled independently
+for each selected state according to
+Table 3 .
+All radii are expressed in the coordinates supplied
+to the velocity network, rather than in integer
+pixel-intensity units. Table 3 : Mixture used to sample the RMS magnitude
+inside the perturbed region. Scale Probability Radius distribution Small 0.70 0.70 LogUniform ⁡ ( 0.001 , 0.01 ) \operatorname{LogUniform}(0.001,0.01) Moderate 0.20 0.20 LogUniform ⁡ ( 0.01 , 0.10 ) \operatorname{LogUniform}(0.01,0.10) Severe 0.10 0.10 r = 0.25 r=0.25 For an interval [ r min , r max ] [r_{\min},r_{\max}] , log-uniform
+sampling means r = exp ⁡ ( log ⁡ r min + u ​ log ⁡ r max r min ) , u ∼ 𝒰 ⁡ ( 0 , 1 ) . r=\exp\!\left(\log r_{\min}+u\log\frac{r_{\max}}{r_{\min}}\right),\qquad u\sim\mathcal{U}(0,1). (67) Adversarial search. Define masked normalization as 𝒬 M ​ ( u ) = M ⊙ u ‖ M ⊙ u ‖ RMS , M , \mathcal{Q}_{M}(u)=\frac{M\odot u}{\|M\odot u\|_{\mathrm{RMS},M}}, (68) with numerical safeguards for zero denominators.
+Starting from Gaussian noise ξ \xi , we initialize δ ( 0 ) = r ​ 𝒬 M ​ ( ξ ) \delta^{(0)}=r\mathcal{Q}_{M}(\xi) .
+For the conditional formulation, the search objective is J s ​ ( δ ) = 1 C ​ H ​ W ​ ‖ v θ ​ ( z t + δ , t , y ) − v θ ​ ( z t , t , y ) ‖ 2 2 . J_{s}(\delta)=\frac{1}{CHW}\|v_{\theta}(z_{t}+\delta,t;y)-v_{\theta}(z_{t},t;y)\|_{2}^{2}. (69) The observation is omitted for Flow-from- Y Y . Using projected gradient ascent [ 33 ] ,
+we update q ( k ) \displaystyle q^{(k)} = ∇ δ J s ​ ( δ ( k ) ) , \displaystyle=\nabla_{\delta}J_{s}(\delta^{(k)}), (70) δ ( k + 1 ) \displaystyle\delta^{(k+1)} = r ​ 𝒬 M ​ ( δ ( k ) + 2.5 ​ r K ​ 𝒬 M ​ ( q ( k ) ) ) . \displaystyle=r\,\mathcal{Q}_{M}\!\left(\delta^{(k)}+\frac{2.5r}{K}\mathcal{Q}_{M}(q^{(k)})\right). Our configuration uses K = 1 K=1 ascent step.
+Each update preserves the sampled support and restores
+the prescribed masked RMS magnitude, up to numerical
+safeguards. This is a fixed-radius search, rather than
+projection onto an RMS ball. No image-range clipping
+is applied to the perturbed state. Gain measurement. After the search, the state gain is g s = ‖ v θ ​ ( z t + δ ( K ) , t , y ) − v θ ​ ( z t , t , y ) ‖ 2 ‖ δ ( K ) ‖ 2 . g_{s}=\frac{\|v_{\theta}(z_{t}+\delta^{(K)},t;y)-v_{\theta}(z_{t},t;y)\|_{2}}{\|\delta^{(K)}\|_{2}}. (71) The implementation evaluates this ratio using full-image
+RMS norms, which is equivalent to the Euclidean-norm
+ratio for equal input and output dimensions, apart from
+numerical safeguards.
+The numerator includes every output coordinate and
+therefore captures velocity changes outside the
+perturbed region. B.3 Observation Perturbations for Conditional Sampling For observation-conditioned posterior sampling, we
+additionally search for observation perturbations while
+holding z t z_{t} and t t fixed. These perturbations have
+whole-image support and prescribed full-image RMS
+radius r c ∈ { 0.005 , 0.01 } r_{c}\in\{0.005,0.01\} . The search follows Eq. ( 70 )
+with an all-ones mask, radius r c r_{c} , and objective J c ​ ( δ c ) = 1 C ​ H ​ W ​ ‖ v θ ​ ( z t , t , y + δ c ) − v θ ​ ( z t , t , y ) ‖ 2 2 . J_{c}(\delta_{c})=\frac{1}{CHW}\|v_{\theta}(z_{t},t;y+\delta_{c})-v_{\theta}(z_{t},t;y)\|_{2}^{2}. (72) We again use one ascent step, without image-range
+clipping. The final observation gain is g c = ‖ v θ ​ ( z t , t , y + δ c ) − v θ ​ ( z t , t , y ) ‖ 2 ‖ δ c ‖ 2 . g_{c}=\frac{\|v_{\theta}(z_{t},t;y+\delta_{c})-v_{\theta}(z_{t},t;y)\|_{2}}{\|\delta_{c}\|_{2}}. (73) The two observation radii are cycled during training.
+They do not use the localized three-scale mixture
+employed by the state regularizer. B.4 Time Sampling and Optimization Sampling training states. We reuse the interpolation states and times generated
+for the flow-matching objective [ 30 ] .
+Training uses stratified-uniform time sampling.
+At each regularization event, two examples per GPU
+are selected by cycling through positions in the local
+minibatch. This covers different portions of the sampled
+training path over successive events, without computing
+numerical ODE trajectories. For the conditional observation search, the radius changes
+after a complete cycle through the local minibatch
+positions. With the default local batch size of 16 16 and two selected examples, each radius is used for
+eight regularization events before switching. Penalty and gradient computation. For the selected examples, we compute 𝒫 s = 1 m ​ ∑ i = 1 m [ g s , i − τ s ] + 2 , 𝒫 c = 1 m ​ ∑ i = 1 m [ g c , i − τ c ] + 2 , \mathcal{P}_{s}=\frac{1}{m}\sum_{i=1}^{m}[g_{s,i}-\tau_{s}]_{+}^{2},\qquad\mathcal{P}_{c}=\frac{1}{m}\sum_{i=1}^{m}[g_{c,i}-\tau_{c}]_{+}^{2}, (74) where m = 2 m=2 , τ s = τ c = 12 \tau_{s}=\tau_{c}=12 , and [ a ] + = max ⁡ ( a , 0 ) [a]_{+}=\max(a,0) .
+The observation term is used only for the conditional
+model. During the inner search, the reference velocity is
+detached. During the outer optimization, the final
+perturbations are detached, while gradients propagate
+through both reference and perturbed velocity evaluations.
+We therefore do not differentiate through the adversarial
+search itself. Weight warm-up and cadence. The nominal weight for each active penalty is λ 0 = 10 − 4 \lambda_{0}=10^{-4} . For zero-based epoch index e e ,
+we use λ ⁡ ( e ) = λ 0 ​ min ⁡ ( 1 , e + 1 20 ) . \lambda(e)=\lambda_{0}\min\!\left(1,\frac{e+1}{20}\right). (75) Thus, the weight increases over the first 20 20 epochs, and
+regularization is not disabled during this period. To reduce computation, penalties are evaluated once
+every I I physical minibatches. At an active event,
+their weights are multiplied by I I to compensate for
+this reduced frequency: ℒ active = ℒ FM + I ​ λ ​ ( e ) ​ 𝒫 s + I ​ λ ​ ( e ) ​ 𝒫 c , \mathcal{L}_{\mathrm{active}}=\mathcal{L}_{\mathrm{FM}}+I\lambda(e)\mathcal{P}_{s}+I\lambda(e)\mathcal{P}_{c}, (76) with the final term omitted for Flow-from- Y Y .
+Inactive minibatches use only the flow-matching loss. Table 4 : Default batching and regularization settings. Setting Flow-from- Y Y Conditional Number of GPUs 4 4 4 4 Batch size per GPU 8 8 16 16 Gradient accumulation 8 8 4 4 Effective batch size 256 256 256 256 Regularization interval I I 8 8 8 8 Selected examples per GPU 2 2 2 2 Ascent steps per search 1 1 1 1 Nominal state weight 10 − 4 10^{-4} 10 − 4 10^{-4} Nominal observation weight — 10 − 4 10^{-4} Gain threshold 12 12 12 12 Warm-up epochs 20 20 20 20 B.5 Scope of the Stability Controls Architectural controls act throughout the network, while
+the gain penalty probes selected finite-radius
+neighborhoods of training-path states. Neither the
+approximate adversarial search nor the power-iteration
+estimates provide a global certificate.
+Our propositions therefore remain conditional on their stated
+Lipschitz assumptions. The implementation aims to
+encourage the sensitivity behavior described by the
+analysis. We assess its effect using velocity gains and
+end-to-end restoration robustness. (a) (b) (c) Figure 5 : Additional qualitative comparisons on CelebA-Test. Panels (a)–(c) show three degraded faces and their clean references alongside reconstructions from both LipsFlower variants and the other methods. The examples illustrate how closely LipsFlower recovers facial structure and finer details such as hair and skin texture. B.6 Detailed Restoration Quality Results Greater consistency under input perturbations is useful
+only when the model also retains sufficient restoration
+quality. Table 2 therefore
+evaluates the same models on unperturbed observations,
+measuring reconstruction fidelity, perceptual quality,
+and preservation of facial information. Flow-from- Y Y . The robustness improvements come with a relatively
+small decrease in PSNR, from 25.784 25.784 to 25.475 25.475 dB.
+Perceptual metrics also decline: LPIPS increases
+from 0.350 0.350 to 0.388 0.388 , and FID increases from 37.050 37.050 to 40.769 40.769 .
+Nevertheless, the resulting FID remains close to
+RestoreFormer++ ( 40.611 40.611 ) and below GFPGAN
+( 46.160 46.160 ) and CodeFormer ( 52.521 52.521 ).
+The trade-off is therefore quantifiable and does not place our method outside the range of perceptual
+quality achieved by the compared restoration methods.
+For LipsFlower (w/ Flow-from- Y Y ), the central result is lower perturbation amplification with a moderate reduction in perceptual fidelity. Observation-conditioned sampling. The conditional model sacrifices more reconstruction quality.
+PSNR decreases from 25.731 25.731 to 23.409 23.409 dB,
+LPIPS increases from 0.330 0.330 to 0.508 0.508 , and FID
+increases from 40.243 40.243 to 57.037 57.037 .
+LipsFlower (w/ BayesFlow) thus trades clean reconstruction
+quality for lower maximum amplification and perceptual drift. Figure 4 provides a visual perspective on this quality trade-off. In the illustrated example, both LipsFlower variants recover clearly defined facial features from the degraded observation.
+The reconstructions retain a coherent facial appearance and overall visual clarity. This example complements the quantitative results by showing that LipsFlower’s lower perceptual scores coexist with visually clear reconstructions. B.7 Component Ablation Study Table 5 : Component ablation for Flow-from- Y Y under SPSA attacks on CelebA-Test. A and B use standard HDiT, without and with sensitivity regularization, respectively; C uses LipHDiT without regularization; E combines both components (full LipsFlower). Lower is better: bold and underlined values indicate the best and second-best point estimates, respectively. Setting Backbone Gain reg. SPSA– ℓ 2 \ell_{2} (RMS budget) SPSA– ℓ ∞ \ell_{\infty} Mean G G P95 G G CVaR 95 ​ G \mathrm{CVaR}_{95}\,G Max G G LPIPS drift Mean G G P95 G G CVaR 95 ​ G \mathrm{CVaR}_{95}\,G Max G G LPIPS drift A: Baseline HDiT – 0.525 0.743 0.849 1.740 15.803 0.523 0.737 0.830 1.660 9.188 B: Regularizer only HDiT Yes 0.559 0.791 0.904 1.584 14.040 0.558 0.770 0.878 1.631 8.660 C: Architecture only LipHDiT – 0.486 0.688 0.775 1.309 12.530 0.489 0.674 0.750 1.277 7.772 E: LipsFlower LipHDiT Yes 0.475 0.667 0.747 1.158 11.649 0.480 0.658 0.727 1.118 7.360 Table 6 : Clean reconstruction and perceptual quality for the Flow-from- Y Y component ablation on CelebA-Test. A and B use standard HDiT, without and with sensitivity regularization, respectively; C uses LipHDiT without regularization; E combines both components (full LipsFlower). Bold and underlined values indicate the best and second-best point estimates, respectively. Setting Backbone Gain reg. PSNR ↑ \uparrow LPIPS ↓ \downarrow FID ↓ \downarrow Precision ↑ \uparrow DEG ↓ \downarrow LMD ↓ \downarrow A: Baseline HDiT – 25.784 0.350 37.050 0.3797 30.602 1.995 B: Regularizer only HDiT Yes 25.298 0.384 35.306 0.4005 31.145 2.045 C: Architecture only LipHDiT – 25.474 0.379 39.906 0.2625 34.148 2.345 E: LipsFlower LipHDiT Yes 25.475 0.388 40.769 0.2711 34.143 2.351 Table 7 : Inference configurations for the literature
+baselines. Iterative methods retain their respective
+sampling procedures. Method Inference configuration CodeFormer (a) Fidelity weight 0.5 0.5 ; aligned inputs;
+upscale factor 1 1 ; background upsampling
+disabled. GFPGAN (b) Released v1.3 checkpoint with the clean
+architecture; restoration weight 0.5 0.5 ;
+aligned inputs; upscale factor 1 1 . RestoreFormer++ (c) Released RestoreFormer++ checkpoint;
+aligned inputs; upscale factor 1 1 . OSDFace (d) Stable Diffusion 2.1-base backbone;
+one U-Net evaluation at timestep 399 399 ;
+merged LoRA with rank 16 16 and scale
+parameter 16 16 ; FP32 inference. DiffBIR (e) Version 2 face-restoration pipeline;
+spaced sampler with 50 50 steps;
+classifier-free guidance scale 4 4 ;
+captioning disabled; FP32 inference. PMRF (f) Official implementation and pretrained checkpoint; 100 100 flow integration steps. FlowIE (g) Released blind-face-restoration checkpoint;
+official mean-value sampler with midpoint
+index 3 3 , requiring four velocity evaluations;
+preprocessing enabled and wavelet color
+correction. ELIR (h) Released blind-face-restoration checkpoint;
+five flow steps; source-noise scale 0.1 0.1 ;
+latent dimensions 16 × 64 × 64 16\times 64\times 64 . a https://github.com/sczhou/CodeFormer b https://github.com/TencentARC/GFPGAN c https://github.com/wzhouxiff/RestoreFormerPlusPlus d https://github.com/jkwang28/OSDFace e https://github.com/XPixelGroup/DiffBIR f https://github.com/ohayonguy/PMRF g https://github.com/EternalEvan/FlowIE h https://github.com/eladc-git/ELIR Tables 5 and 6 examine
+the contributions of architectural controls and
+gain regularization in Flow-from- Y Y .
+We compare four configurations: standard HDiT (A),
+HDiT with gain regularization (B), LipHDiT without
+gain regularization (C), and full LipsFlower (E).
+All configurations use 1,000 1{,}000 training epochs and 100 100 Euler sampling steps. Architectural controls. Replacing HDiT with LipHDiT without adding the
+regularizer (A → \rightarrow C) improves every reported
+robustness measure under both attack constraints.
+For example, under the RMS-constrained attack,
+mean gain decreases from 0.525 0.525 to 0.486 0.486 ,
+and the average gain among the worst 5 % 5\% of images
+decreases from 0.849 0.849 to 0.775 0.775 .
+Maximum gain decreases from 1.740 1.740 to 1.309 1.309 .
+These results show that the architectural controls
+provide a substantial part of the observed
+robustness improvement. Gain regularization. The effect of the regularizer depends on the backbone.
+Adding it to standard HDiT (A → \rightarrow B)
+reduces maximum gain and perceptual drift, but
+increases mean gain, the 95th percentile, and CVaR 95 \mathrm{CVaR}_{95} under both attacks.
+Thus, regularization alone does not consistently
+reduce end-to-end sensitivity. Adding the same regularizer to LipHDiT
+(C → \rightarrow E), however, improves every reported
+robustness measure. Maximum gain decreases from 1.309 1.309 to 1.158 1.158 under the RMS-constrained attack
+and from 1.277 1.277 to 1.118 1.118 under the ℓ ∞ \ell_{\infty} attack, reductions of approximately 11.5 % 11.5\% and 12.5 % 12.5\% .
+Full LipsFlower consequently achieves the lowest
+observed sensitivity across all reported measures
+among the four configurations. Restoration-quality trade-off. The quality results clarify the cost of these
+improvements. Architecture-only LipHDiT and full
+LipsFlower have nearly identical PSNR
+( 25.474 25.474 and 25.475 25.475 dB).
+Adding regularization nevertheless increases LPIPS
+from 0.379 0.379 to 0.388 0.388 and FID from 39.906 39.906 to 40.769 40.769 , while slightly improving generative
+precision.
+The additional robustness therefore comes with
+some loss of perceptual quality despite essentially
+unchanged PSNR. Quality changes are also metric-dependent.
+Regularizer-only HDiT achieves the best FID
+( 35.306 35.306 ) and precision ( 0.4005 0.4005 ), whereas the
+unregularized baseline achieves the best PSNR,
+LPIPS, identity similarity, and landmark accuracy.
+Taken together, the results suggest that architectural controls and gain regularization work best in combination for measured robustness, with more varied effects on perceptual quality. Appendix C Training and Inference Settings This section describes the training configuration of
+LipsFlower and the inference procedures used for the
+main comparisons. C.1 Training Data and Degradation Pipeline We train our restoration models on FFHQ images [ 23 ] at 512 × 512 512\times 512 resolution. Images are converted to
+three-channel RGB tensors with values in [ 0 , 1 ] [0,1] .
+Degraded observations are generated by combining blur, resizing, Gaussian noise, and JPEG compression.
+The pipeline samples isotropic or anisotropic Gaussian
+blur with equal probability, using a 41 × 41 41\times 41 kernel and blur standard deviations in [ 0.1 , 15 ] [0.1,15] .
+The resizing factor is sampled from [ 0.8 , 32 ] [0.8,32] ,
+the Gaussian noise standard deviation from [ 0 , 20 / 255 ] [0,20/255] ,
+and JPEG quality from [ 30,100 ] [30,100] .
+The degraded image is subsequently resized back to 512 × 512 512\times 512 using bilinear interpolation.
+Training also uses random horizontal flipping and
+grayscale conversion with probability 0.01 0.01 ,
+while retaining three channels.
+The resulting observation is quantized to 1 / 255 1/255 increments.
+Consequently, the clean image and degraded observation
+are supplied in the same spatial and channel dimensions.
+Downsampling and resizing back to the target resolution are part of observation generation, and the restoration model does not receive the sampled degradation parameters. C.2 Optimization Both LipsFlower formulations use AdamW [ 32 ] with a constant
+learning rate of 5 × 10 − 4 5\times 10^{-4} , ( β 1 , β 2 ) = ( 0.9 , 0.95 ) (\beta_{1},\beta_{2})=(0.9,0.95) , and optimizer ϵ = 10 − 8 \epsilon=10^{-8} .
+We clip the gradient norm to 1 1 and maintain
+an exponential moving average (EMA) of the model
+parameters with decay 0.9999 0.9999 .
+Weight decay is 10 − 2 10^{-2} for ordinary parameters
+and disabled for the raw weights of spectrally
+controlled projections.
+All optimizer groups use the same learning rate.
+Table 8 summarizes the
+reference batching configuration.
+Gradient accumulation gives an effective batch size
+of 256 256 for both formulations. Table 8 : Reference training configuration for
+the two LipsFlower formulations. Batch size
+denotes the number of examples per GPU. Setting Flow-from- Y Y Conditional Image resolution 512 2 512^{2} 512 2 512^{2} Number of GPUs 4 4 4 4 Batch size per GPU 8 8 16 16 Accumulation steps 8 8 4 4 Effective batch size 256 256 256 256 Learning rate 5 × 10 − 4 5\times 10^{-4} 5 × 10 − 4 5\times 10^{-4} EMA decay 0.9999 0.9999 0.9999 0.9999 Gradient clipping norm 1 1 1 1 For Flow-from- Y Y , the source state is z 0 = y + 0.1 ​ ϵ z_{0}=y+0.1\epsilon , where ϵ ∼ 𝒩 ⁡ ( 0 , I ) \epsilon\sim\mathcal{N}(0,I) . Training uses linear interpolation between this source and the clean target, with the displacement x − z 0 x-z_{0} as the velocity-regression target. By contrast, conditional sampling uses independently sampled standard Gaussian noise as the source, with the observation supplied as a separate condition. C.3 Inference for the Flow-Matching Comparisons The main evaluation uses 100 100 forward-Euler steps and EMA parameters for both Flow-from- Y Y models and both conditional models. Training-only gain penalties are disabled at inference. Both inference pipelines disable automatic mixed
+precision. Final reconstructions are clipped to [ 0 , 1 ] [0,1] and saved as eight-bit RGB images. Flow-from- Y Y . Saved degraded observations are passed directly to
+the model without additional degradation.
+Each image receives a Gaussian source-noise draw
+generated from the evaluation seed and its position
+in the input sequence.
+The input order and seed (42) are held fixed across
+unperturbed and perturbed evaluations, ensuring
+that each pair uses the same source noise.
+After loading EMA parameters, spectral buffers are
+refreshed using at least 10 10 power iterations. Conditional sampling. We restore the saved observation-standardization
+statistics before loading the final EMA velocity
+parameters.
+Each observation produces one conditional posterior
+sample.
+The evaluation uses seed 42 42 and a fixed Gaussian
+source draw across observations and perturbation
+conditions.
+For the conditional LipsFlower model, spectral
+buffers are refreshed using five power iterations
+after loading EMA parameters. C.4 Inference for Literature Baselines We use released pretrained weights for the literature
+baselines and retain their method-specific inference
+procedures.
+Table 7 lists the settings
+configured by the evaluation adapters.
+Thus, the comparison uses a common test cohort and
+attack protocol, but does not impose an identical
+number of network evaluations on every method. C.5 Shared Evaluation Procedure All methods are evaluated on the same 3,000 3{,}000 paired CelebA-Test observations and ground truths.
+The evaluation seed is 42 42 .
+For each method, inference settings and random-seed
+handling are retained across clean and attacked
+inputs to separate observation sensitivity from
+sampling variability.
+Repeated inference on unperturbed inputs provides
+a repeatability check.
+The quality and robustness tables use reconstructions
+from the same evaluation cohort.
+Metrics are computed from saved eight-bit images;
+gain denominators use the realized input differences
+after clipping and quantization.
+FID and generative precision use the same FFHQ
+reference set for every method. (a) (b) (c) Figure 6 : Output changes under adversarial perturbations on CelebA-Test. For three degraded faces, panels (a)–(c) show the amplified absolute difference between each method’s reconstructions before and after a model-specific black-box SPSA attack on the observation. Consistent with the quantitative results, LipsFlower reduces output changes for both backbones, with a larger reduction for Flow-from- Y Y . Experimental support, please view the build logs for errors. Generated by L A T E xml . Instructions for reporting errors We are continuing to improve HTML versions of papers, and your feedback helps enhance accessibility and mobile
+      support. To report errors in the HTML that will help us improve conversion and rendering, choose any of the
+      methods listed below: Click the "Report Issue" ( ) button, located in the page header. Tip: You can select the relevant text first, to include it in your report. Our team has already identified the following issues . We appreciate your time reviewing and reporting rendering errors we
+      may not have found yet. Your efforts will help us improve the HTML versions for all readers, because disability
+      should not be a barrier to accessing research. Thank you for your continued support in championing open access for
+      all. Have a free development cycle? Help support accessibility at arXiv! Our collaborators at LaTeXML maintain a list of packages that need conversion , and welcome developer contributions . We gratefully acknowledge support from our major funders , member institutions , ,
+        and all contributors. About · Help · Contact · Subscribe · Copyright · Privacy · Accessibility · Operational Status (opens in new tab)

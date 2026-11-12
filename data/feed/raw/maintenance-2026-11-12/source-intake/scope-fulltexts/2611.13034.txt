@@ -1,0 +1,441 @@
+RoboACE: Adversarial Co-Evolution for Robot Self-Improvement Skip to main content Report GitHub Issue × Title: Content selection saved. Describe the issue below: Description: Submit without GitHub Submit in GitHub Why HTML? Report Issue Back to Abstract Download PDF Contents Reading mode Colour theme Abstract 1 Introduction 2 Related Work Embodied agents around foundation models. Embodied self-improvement. Curriculum and challenge evolution. Pretrained robot control. 3 Adversarial Co-Evolution of Robot Harnesses 3.1 Framework Overview 3.2 Phase 1: Evolving the Curriculum Harness Admission and handoff. 3.3 Phase 2: Evolving the Execution Harness 3.4 Closing the Loop with Execution Evidence 3.5 Long-Horizon Strategic Guidance 4 Empirical Study 4.1 Development and Evaluation Scope 4.2 Compared Systems and Measurement 4.3 System-Level Performance 4.4 Case Studies of Harness Evolution Curriculum revision changes how evidence is used. Execution revision clarifies a skill’s grounding contract. Strategic review connects failures across local revisions. 5 Conclusion References A Implementation and Evaluation Details A.1 Operational Update Protocol A.2 Task Validation and Admission A.3 Deployable Memory Interface A.4 Evaluation Identities and Controller Interfaces Released-model baselines. Agent-baseline variants. A.5 Complete-Panel Checks and Recording License: arXiv.org perpetual non-exclusive license arXiv:2611.13034v1 [cs.RO] 09 Nov 2026 \contribution * Equal contribution † Corresponding author \checkdata [ GitHub Repo] https://github.com/DeLin1001/RoboACE RoboACE: Adversarial Co-Evolution for Robot Self-Improvement Delin Zhao ∗ Zhengrong Yue ∗ Junlin He ∗ Yali Wang † Affiliation: MMLab @ SIAT Abstract Robot agents can improve reusable skills, planning procedures, and recovery
+strategies from execution feedback, yet a fixed practice source leaves the
+search for new weaknesses unchanged. Useful practice depends on the agent’s
+current capabilities, so the procedure that chooses practice must also be
+revisable. We present RoboACE (Robot Adversarial Co-Evolution), a framework
+that jointly evolves curriculum and execution harnesses around frozen
+foundation models. The curriculum harness uses accumulated capability
+evidence to propose informative challenges, while the execution harness
+responds with reusable revisions that expand execution capabilities. Alternating updates hold one
+side fixed as the other changes, and admitted challenges form fixed
+snapshots for comparing execution revisions. Starting from a compact set
+of LIBERO practice conditions, the resulting frozen deployment outperforms
+the evaluated controllers and agent systems across four LIBERO-family
+panels. On LIBERO-PRO, it reaches 74.0% success, exceeding the initial
+deployment by 15.0 percentage points and direct execution by its VLA
+controller by 13.5 points. Case studies document changes to evidence-guided
+practice selection, drawer-skill grounding, and controller intervention. Figure 1 : From fixed practice to adversarial co-evolution. (a) Fixed practice improves execution against an unchanged challenge source.
+(b) In RoboACE, the curriculum exposes current execution weaknesses,
+while execution expands its capabilities through reusable harness revisions.
+As capabilities grow, the curriculum targets new weaknesses,
+sustaining adversarial co-evolution.
+The blue and orange robots represent the execution and curriculum
+harnesses, respectively. 1 Introduction Robot agents increasingly improve their own software through interaction:
+RoboRSI refines reusable skills, Zetta develops critics and recovery skills,
+and DynaHarness revises interfaces between semantic decisions and physical
+execution [ 33 , 5 , 3 ] .
+Together with RAX, which turns exploration feedback into reusable programs,
+these systems make execution procedures revisable [ 11 ] .
+An equally important choice is what the agent practices next, because a
+fixed source leaves unprobed weaknesses outside the feedback driving
+revision. Improving execution alone leaves this choice unchanged. Useful practice changes as an agent’s capabilities develop. A drawer skill
+that succeeds alone can still fail when composed with object placement,
+so practice must probe the composition as well as its individual steps.
+Selecting such practice requires interpreting prior outcomes, identifying
+prerequisites, and retaining conditions that reveal regressions. Automatic
+curricula already connect practice selection with skill accumulation [ 28 ] , but the selection procedure itself must also
+adapt as failures are resolved and new interactions emerge. Earlier rules
+for finding informative challenges can then become inadequate. This motivates a
+robot self-improvement loop that revises how it chooses practice alongside
+how it executes tasks. We introduce RoboACE (Robot Adversarial Co-Evolution), in which a
+curriculum harness and an execution harness evolve through an adversarial
+interaction (Figure 1 ). A harness contains the
+prompts, skills, tools, interfaces, and agent-readable memory that organize
+behavior around frozen foundation models. The curriculum side uses prior
+capability evidence to expose weaknesses in the current execution
+harness. The execution side responds with reusable revisions that expand execution capabilities, and
+its changing capabilities redirect the curriculum’s search. Independent
+agents make runtime decisions on each side, while external optimizers
+use the resulting evidence to install revisions for future runs. Adversarial challenge generation requires a stable reference for judging
+progress, so RoboACE alternates the two updates. With execution
+fixed, the curriculum side revises its procedures and proposes practice;
+admission checks validity and consistency before fixing a comparison
+snapshot. The execution side then evaluates candidate revisions on that
+snapshot, and consolidated outcomes inform the next curriculum update.
+This order separates challenge selection from the response it elicits,
+while an infrequently invoked Strategic Advisor reviews longer histories
+to reconsider repetitive or stalled revision directions. RoboACE brings together software self-improvement and evolving
+curricula through persistent revisions to both harnesses. RPG constructs
+practice from offline data and refines execution on the resulting fixed
+task set [ 32 ] ; our curriculum side also revises the procedures
+that select and construct subsequent practice. POET evolves environments
+together with their solutions [ 30 , 31 ] ;
+our implementation instead adapts the software that organizes challenge
+production and robot execution around frozen models. The changing task
+library is an output of curriculum-harness evolution, alongside the
+execution revisions it prompts. We instantiate this loop in simulated manipulation, beginning with a compact
+set of LIBERO practice conditions and evaluating frozen deployments on
+LIBERO, LIBERO-Plus, LIBERO-PRO, and LIBERO-X. The final deployment outperforms
+the evaluated systems on all four panels (Table 2 ).
+On LIBERO-PRO, it improves over the initial deployment by 15.0 percentage
+points and over direct execution by the same VLA controller by 13.5 points.
+Case studies show how evidence-reading guidance changes independent
+practice selection and how execution revisions clarify skill grounding
+and controller handoffs. Together, the framework and empirical study
+establish a concrete implementation of robot self-improvement in which
+both the practice-selection procedure and the execution software remain
+open to revision. 2 Related Work Embodied agents around foundation models. Agent software connects foundation-model reasoning to physical control.
+Code as Policies expresses closed-loop robot behavior as language-model
+programs [ 16 ] , while CaP-X evaluates robot coding agents
+and the use of execution feedback for skill synthesis [ 9 ] . RPent augments a controller with prompt-based experience [ 34 ] , and VoLo combines subgoal decomposition, VLM
+monitoring, and grasp replanning around a VLA controller [ 2 ] . Related systems also organize closed-loop control
+through execution-aware agent harnesses [ 6 , 18 ] .
+Our focus is the revision of such harnesses across rounds, together with
+the procedures that determine which challenges those rounds contain. Embodied self-improvement. Execution feedback can support persistent changes to robot software.
+RoboRSI structures reusable skill improvement and provides the execution
+infrastructure used in our implementation [ 33 ] .
+Zetta develops runtime critics and recovery skills around a frozen policy [ 5 ] , and DynaHarness uses contracts and failure-driven
+revisions to connect semantic decisions with execution [ 3 ] . RAX and ASPIRE convert exploration into
+programs and skills [ 11 , 20 ] ; EmbodiedEvo distills
+physical feedback into code skills and diagnostic lessons [ 15 ] . RPG generates simulated practice from offline
+data before refining prompts and skills on that task set [ 32 ] , while EmbodiedRSI selects experiments to distinguish
+hypotheses about code and skill changes [ 27 ] .
+RoboACE extends the object of revision to the curriculum harness that
+uses execution evidence to select and construct future practice. Curriculum and challenge evolution. Changing challenges can guide learning toward abilities that a fixed task
+source overlooks. Voyager connects automatic curricula with skill
+accumulation [ 28 ] , and Eureka generates reward functions
+for robot training [ 21 ] . POET jointly develops environments
+and solutions [ 30 , 31 ] , PAIRED uses regret
+to guide environment design [ 4 ] , and asymmetric
+self-play builds robotic curricula through proposer and solver roles [ 23 ] . Eurekaverse generates environment programs [ 17 ] ; OMNI-EPIC produces tasks and rewards in
+response to learning progress [ 7 ] ; GenEnv co-evolves
+agent and environment policies [ 10 ] . In RoboACE, both
+the challenge-selection procedures and the execution procedures receive
+persistent software revisions while foundation-model weights remain fixed. Pretrained robot control. Generalist controllers supply action priors learned from large robot
+datasets. OpenVLA and π 0.5 \pi_{0.5} illustrate this approach [ 13 , 1 ] , while OpenVLA-OFT improves the
+fine-tuning and inference recipe and π 0 \pi_{0} -FAST studies efficient action
+tokenization [ 12 , 24 ] . Harness adaptation changes
+how an agent invokes such controllers, combines them with other tools,
+and responds to feedback. We use π 0.5 \pi_{0.5} as the frozen controller
+throughout development and revise the software around it. 3 Adversarial Co-Evolution of Robot Harnesses Figure 2 : Alternating revisions connect challenge production and execution. The curriculum side uses prior capability evidence to probe a fixed
+execution deployment. Admitted conditions form a fixed snapshot for
+comparing execution revisions, whose outcomes inform the next round.
+Independent agents run the harnesses, external optimizers revise them,
+and the Strategic Advisor periodically reviews the longer history. 3.1 Framework Overview RoboACE takes prior capability evidence and the current pair of harnesses
+as input and returns revised harnesses together with evidence for the next
+round. The curriculum harness guides practice selection and construction;
+the execution harness organizes planning, code skills, and pretrained
+control. Each contains reusable prompts, skills, tools, interfaces, and
+agent-readable memory. All foundation-model weights remain frozen.
+Figure 2 shows how the two sides exchange evidence while
+updating in alternating phases. Each side separates runtime decisions from persistent revision. An
+independent agent runs its harness to propose practice or attempt
+a task. An external optimizer examines the resulting evidence,
+proposes changes, and tests them through further independent runs.
+We call the accepted harness version Stable and a proposed revision Candidate . A phase can retain its incoming Stable version, and its
+revision history records the tests and the reasons for adoption or rejection.
+The Strategic Advisor can review evidence across multiple local updates
+without taking over these decisions. In round k k , the curriculum side receives the prior Capability Profile P k P_{k} and a fixed execution deployment. Its admitted proposals and the
+internal benchmark form a fixed task snapshot 𝒯 k \mathcal{T}_{k} . The execution
+side first measures its incoming deployment on this snapshot, then tests
+revisions and selects a deployment. Consolidated execution evidence yields P k + 1 P_{k+1} . This ordering separates the curriculum’s prediction of useful
+practice from the difficulty and response measured afterward.
+Appendix A specifies the operational protocol. 3.2 Phase 1: Evolving the Curriculum Harness The curriculum must choose conditions that reveal actionable gaps in the
+current execution capability. Its agent reads P k P_{k} , which summarizes
+demonstrated abilities, applicable lessons, unresolved gaps, and uncertainty.
+Using this profile, task statistics, and descriptions of available tasks
+or assets, the agent retains, replaces, or adds practice conditions.
+Selection balances new challenges with prerequisites and familiar
+conditions that can expose regressions; increasing difficulty alone is
+not the objective. The curriculum optimizer revises how the agent makes these choices.
+It tests whether a candidate harness supports better use of evidence,
+maintains coverage, and recovers from failed retrieval or construction.
+The revised assets persist across future curriculum-agent runs, whose
+practice choices remain independent. Section 4.4 illustrates
+this distinction through a revision to evidence-reading guidance and the
+retrieval interface. Admission and handoff. A challenge must qualify before it replaces an existing condition.
+Native tasks retain their source definitions and initializations.
+For constructed worlds, admission checks physical validity and reachability,
+then a Judge checks agreement among the instruction, goal, and scene.
+Failed or inconclusive checks return the proposal for revision.
+These checks use no fresh VLA rollouts to pre-screen difficulty and do
+not certify a complete executable solution. A separate Benchmark Curator
+maintains reference coverage and core anchors. At handoff, the curriculum
+deployment is fixed, and admitted practice and internal benchmark
+conditions form 𝒯 k \mathcal{T}_{k} . Task definitions and initializations
+remain fixed throughout the execution phase.
+Appendix A.2 details the checks. 3.3 Phase 2: Evolving the Execution Harness The execution phase turns the admitted challenges into evidence for
+reusable changes. The execution agent first attempts 𝒯 k \mathcal{T}_{k} with
+the incoming Stable harness. It chooses among code skills and VLA control,
+which can address a whole task or a shorter language goal.
+The environment’s native predicate determines task completion, so a
+successful local operation, such as grasping an object, can still leave
+the overall task unfinished. The execution optimizer diagnoses failures from outcomes, trajectories,
+public observations, and tool feedback. Diagnosis distinguishes failures
+of a skill from misleading skill descriptions or inappropriate tool choices,
+because these require different revisions. Candidate changes are tested
+through independent agent runs with task definitions, initializations,
+model settings, and budgets held fixed. Conditions shared by practice and
+the internal benchmark use the same execution record.
+Targeted runs diagnose individual mechanisms, while comparisons across
+the full snapshot inform adoption. The optimizer considers successes,
+regressions, reuse, and cost before installing Candidate or retaining Stable. 3.4 Closing the Loop with Execution Evidence Execution outcomes must inform future practice without exposing evidence
+reserved for other roles. The Experience Consolidator converts permitted
+task-level results and lessons into P k + 1 P_{k+1} . The curriculum receives
+this profile and task statistics, through which unresolved gaps can prompt
+new challenges and resolved gaps can redirect practice. Raw images,
+trajectories, model and tool calls, and implementation differences remain
+on the execution side. Geometry reserved for the Judge remains outside
+the execution agent’s observations. A diagnosis becomes useful to future agents only when it reaches a
+deployable prompt, skill description, or retrievable manual. The optimizer
+checks whether the agent actually receives and uses the revised material.
+Persistent assets are versioned with each deployment and kept separate
+from episode workspaces. Appendix A.3 describes this interface.
+Final evaluation remains outside the loop and does not inform curriculum
+choices or version selection. 3.5 Long-Horizon Strategic Guidance Local revisions can repeatedly address nearby failures while leaving the
+broader direction of improvement unexamined. The Strategic Advisor offers
+an infrequent, on-demand review across multiple updates. It reads the
+requesting optimizer’s permitted evidence and revision history to identify
+recurring failures, stalled revision patterns, and gaps in coverage.
+Its output proposes directions for investigation rather than installing
+harness changes. The local optimizer translates this advice into experiments, evaluates
+the evidence, and decides which revisions to adopt. Recommendations about
+the inactive side wait for that side’s next update phase. This separation
+allows a longer view of the campaign while preserving the alternating
+comparison protocol and local responsibility for adoption. 4 Empirical Study We evaluate whether the final frozen deployment improves over its initial
+version and alternative controllers or agent systems. We then examine
+recorded revisions to identify how the curriculum and execution harnesses
+changed during development. 4.1 Development and Evaluation Scope We instantiated RoboACE with GPT-6.1 (Terra) and pretrained tools including
+SAM 3 and π 0.5 \pi_{0.5} control [ 1 ] . The campaign
+maintained 30 practice conditions and an internal benchmark of up to
+40 conditions, with 27 saved round records. Both harnesses received
+persistent software revisions; no LLM or VLA weights were trained or
+fine-tuned by this project. Development remained within the LIBERO ecosystem. The evolving practice
+libraries included 76 distinct native LIBERO conditions across rounds,
+together with constructed worlds that passed admission. Evaluation tests
+transfer both to reserved LIBERO conditions and to LIBERO-Plus,
+LIBERO-PRO, and LIBERO-X. Development uses only LIBERO conditions. The held-out LIBERO panel is condition-disjoint from the audited development history, while LIBERO-Plus, LIBERO-PRO, and LIBERO-X are not used during development. We used four fixed panels of 200 conditions each [ 19 , 8 , 35 , 29 ] (Table 1 ). LIBERO contains 40 tasks with five reserved
+initializations per task. LIBERO-Plus and LIBERO-PRO use fixed perturbation
+subsets, while LIBERO-X includes 40 conditions at each challenge level,
+including language-paired conditions. These panels define the evaluation
+in this study and do not constitute the complete official benchmark
+protocols. Table 1 : Four panels test transfer from the development campaign. Each contains 200 conditions. Development exposure refers to this project’s
+self-evolution campaign, not to pretrained-model training data. Panel Coverage Evaluation role LIBERO 40 tasks, five reserved initializations Transfer to reserved conditions LIBERO-Plus Seven perturbation categories Transfer beyond development sources LIBERO-PRO Four available perturbation dimensions Transfer beyond development sources LIBERO-X Five challenge levels Transfer beyond development sources 4.2 Compared Systems and Measurement The core comparison includes RoboACE (before evolution), RoboACE (after evolution),
+and π 0.5 \pi_{0.5} [ 1 ] .
+The π 0.5 \pi_{0.5} baseline uses the final system’s official VLA controller
+continuously, without an upper-level LLM or other skills. Initial and
+final agents use Terra/high at evaluation. The controller baseline shares
+the final agent’s controller, while the systems differ in orchestration
+and available tools. We also evaluate released OpenVLA-OFT [ 12 ] , π 0 \pi_{0} -FAST [ 24 ] , Cosmos Policy [ 14 ] , and GR00T N1.7 [ 22 ] without an
+upper-level LLM. The agent comparisons use RPent without target-benchmark experience [ 34 ] and VoLo [ 2 ] . RPent receives a
+neutral prompt without target-experience retrieval. VoLo combines subgoal
+decomposition, VLM monitoring, and grasp replanning. Both use Terra/high,
+official π 0.5 \pi_{0.5} control, and public observations without hidden
+geometric state. Appendix A.4 specifies the
+baseline variants, controller interfaces, and serving configurations. Table 2 includes model-author reports [ 25 , 26 ] and published benchmark
+results [ 8 ] . Our evaluation runs use the environment’s native task predicate. All
+systems in our evaluation share a per-episode budget of 8,000 environment
+control steps at 20 Hz (6 min 40 s of simulation time). π 0.5 \pi_{0.5} executes continuous five-action chunks. For our evaluations, each cell contains one designated observation for
+every assigned condition. Historical prefix observations are retained without
+choosing the best of repeated attempts. Success rate is the number of
+confirmed native successes divided by all 200 conditions; timeouts,
+infrastructure errors, and all other outcomes count as failures.
+Only complete, independently audited panels are scored. The results
+characterize one development trajectory and its resulting deployments. 4.3 System-Level Performance The final RoboACE deployment outperforms all evaluated systems on the
+four fixed panels (Table 2 ). Relative to the initial
+deployment, it improves by 35.5 percentage points on LIBERO and by
+30.0 points on LIBERO-Plus. The gain is 15.0 points on LIBERO-PRO and
+11.0 points on LIBERO-X. These comparisons measure the overall change
+between the initial and final deployments, including their accumulated
+harness revisions. Table 2 : System comparison across four LIBERO-family benchmarks. Success rates (%), with best values in bold. Model baselines use checkpoints
+fine-tuned on original LIBERO and evaluated without further training on
+LIBERO-Plus, LIBERO-PRO, and LIBERO-X. RoboACE evolves only on LIBERO
+and is deployed frozen on held-out LIBERO and all three transfer panels.
+The π 0.5 \pi_{0.5} baseline runs the final RoboACE controller alone. System LIBERO LIBERO-Plus LIBERO-PRO LIBERO-X π 0.5 \pi_{0.5} [ 1 ] 96.9 92.0 60.5 11.5 OpenVLA-OFT [ 12 ] 96.8 75.5 51.0 2.5 π 0 \pi_{0} -FAST [ 24 ] 85.5 61.6 49.0 4.5 Cosmos Policy [ 14 ] 98.5 88.5 52.5 2.5 GR00T N1.7 [ 22 ] 97.5 89.0 48.0 2.5 RPent [ 34 ] 92.0 84.0 32.5 12.5 VoLo [ 2 ] 97.5 90.0 60.5 10.0 RoboACE (before evolution) 63.5 64.5 59.0 19.5 RoboACE (after evolution) 99.0 94.5 74.0 30.5 RPent uses no target-benchmark experience. Figure 3 : The final deployment improves across all four evaluation panels. Bar labels give success counts on a 200-episode scale. Model baselines use
+checkpoints fine-tuned on original LIBERO and evaluated without further
+training on LIBERO-Plus, LIBERO-PRO, and LIBERO-X. π 0.5 \pi_{0.5} is close to the final deployment on LIBERO and LIBERO-Plus,
+while the separation grows on LIBERO-PRO and LIBERO-X
+(Figure 3 ). On LIBERO-PRO, RoboACE exceeds π 0.5 \pi_{0.5} by 13.5 percentage points; on LIBERO-X, the margin is
+19.0 points. Sharing the official controller makes this comparison
+informative about the complete agent system built around pretrained
+control.
+RoboACE also exceeds the strongest evaluated agent baseline on every
+panel. Its margins are 1.5 and 4.5 percentage points on LIBERO and
+LIBERO-Plus, respectively, and 13.5 and 18.0 points on LIBERO-PRO and
+LIBERO-X. 4.4 Case Studies of Harness Evolution Figure 4 : Reusable revisions address concrete gaps in both harnesses. Each row follows a case from its starting point to a reusable revision
+and the recorded follow-up. (a) The curriculum revision changes how the agent
+retrieves past execution feedback to select practice. A subsequent
+independent run uses the reader to create a valid 30-condition course
+with two agent-selected replacements. (b) Following new drawer practice
+selected by the curriculum, the execution revision distinguishes a front-panel reference
+point from the attached handle and requires target-drawer verification.
+Successes change from 48 to 50 on the same 54-condition snapshot. The
+frame is recorded, and the markers and rule summaries are explanatory. Curriculum revision changes how evidence is used. An optional compact evidence reader initially went unused. A revision to
+prompts and the retrieval interface explained selective reading, coverage
+checks, and targeted recovery after truncation
+(Figure 4 (a)). In a subsequent independent run,
+the curriculum agent used the reader and produced a valid 30-condition
+course with two replacements of its own choosing. The persistent revision
+concerned the procedure for using evidence, while the agent retained
+responsibility for selecting the practice conditions. Execution revision clarifies a skill’s grounding contract. Earlier evidence indicated that standalone drawer skills did not reliably
+compose. Before receiving fresh execution outcomes, the curriculum agent
+retained 27 conditions and added top-drawer closure, pudding placement
+followed by closure, and bottom-drawer opening. The ensuing execution
+revision clarified the difference between a front-panel localization seed
+and the attached handle (Figure 4 (b)). Skill
+descriptions now required resolving that handle and verifying the target
+drawer before motion. Successes across the full 54-condition comparison
+snapshot changed from 48 to 50. The record connects a curriculum-selected composition challenge to a
+persistent clarification of the execution interface. Figure 5 : Strategic review turns recurring failures into broader execution guidance. (a) Repeated recovery remains a shared bottleneck across local revisions
+to grasping, drawer recovery, and motion interfaces. (b) Longer-horizon
+review asks when to continue VLA control, switch to code skills, or
+intervene; whole-task capability does not guarantee reliable behavior
+under arbitrary subgoals. (c) Revised guidance preserves task intent,
+targets specific limitations, and checks handoff prerequisites. The
+Advisor proposes directions; optimizers test revisions and decide adoption. Strategic review connects failures across local revisions. Repeated recovery remained a shared bottleneck after changes to grasping,
+drawer recovery, and motion interfaces. The Strategic Advisor reviewed
+this history and identified a broader question: when should the agent
+continue VLA control, switch to a code skill, or intervene in an ongoing
+attempt (Figure 5 )? Whole-task VLA capability does
+not ensure reliable behavior under arbitrary language subgoals.
+The resulting guidance preserved task intent, targeted specific controller
+limitations, and required checking prerequisites before a handoff.
+The record illustrates how longer-horizon review can connect recurring
+local failures to a common question about control selection. 5 Conclusion We presented RoboACE, a robot self-improvement framework that revises
+both the selection of practice and the software used to execute it.
+A curriculum harness proposes challenges from prior capability evidence,
+and an execution harness responds with persistent revisions around
+frozen foundation models. Alternating phases connect the two through
+admitted tasks, fixed comparison snapshots, and consolidated feedback. The final deployment achieves the highest success rate among the evaluated
+systems on four LIBERO-family panels, with gains of up to 35.5 percentage
+points over the initial deployment. Recorded cases show changes to
+practice selection, skill grounding, and controller intervention.
+These results support adversarial harness co-evolution as a concrete
+approach to joint curriculum and execution revision. Establishing its
+behavior across independent campaigns, broader environments, and physical
+robots is the next empirical step. References [1] Kevin Black, Noah Brown, James Darpinian, Karan Dhabalia, Danny Driess, Adnan
+Esmail, Michael Robert Equi, Chelsea Finn, Niccolo Fusai, Manuel Y. Galliker,
+Dibya Ghosh, Lachy Groom, Karol Hausman, Brian Ichter, Szymon Jakubczak, Tim
+Jones, Liyiming Ke, Devin LeBlanc, Sergey Levine, Adrian Li-Bell, Mohith
+Mothukuri, Suraj Nair, Karl Pertsch, Allen Z. Ren, Lucy Xiaoyang Shi, Laura
+Smith, Jost Tobias Springenberg, Kyle Stachowicz, James Tanner, Quan Vuong,
+Homer Walke, Anna Walling, Haohuan Wang, Lili Yu, and Ury Zhilinsky. π 0.5 \pi_{0.5} : a vision-language-action model with open-world
+generalization. In Proceedings of The 9th Conference on Robot Learning , volume
+305 of Proceedings of Machine Learning Research , pages 17–40. PMLR,
+2025. URL https://proceedings.mlr.press/v305/black25a.html . [2] Siyi Chen, Hugo Hadfield, Alex Zook, Mikaela Angelina Uy, Chan Hee Song, Erwin
+Coumans, Xuning Yang, Faisal Ladhak, Qing Qu, Stan Birchfield, Jonathan
+Tremblay, and Valts Blukis. VoLo: A physical orchestrator for open-vocabulary long-horizon
+manipulation, 2026. URL https://arxiv.org/abs/2606.07723 . Accepted to CoRL 2026. [3] Haoyuan Deng, Jiebin Liu, Tengxiao Zhang, Langning Yan, Hongye Cao, and Ziwei
+Wang. DynaHarness: A dynamic physical harness for self-evolving robot
+agents, 2026. URL https://arxiv.org/abs/2609.40306 . [4] Michael Dennis, Natasha Jaques, Eugene Vinitsky, Alexandre Bayen, Stuart J.
+Russell, Andrew Critch, and Sergey Levine. Emergent complexity and zero-shot transfer via unsupervised
+environment design. In Advances in Neural Information Processing Systems ,
+volume 33, pages 13049–13061. Curran Associates, Inc., 2020. URL https://proceedings.neurips.cc/paper_files/paper/2020/hash/985e9a46e10005356bbaf194249f6856-Abstract.html . [5] Xin Ding, Liang Mi, Mingzhe Huang, Zixuan Wang, Chao Zhang, Zixu Hao, Fu Chen,
+Xiangyu Li, Yikai Zheng, Yaoyu Guo, Weijun Wang, Kun Li, Hao Wu, Yunxin Liu,
+and Ting Cao. Zetta ζ \zeta : An efficient closed-loop embodied harness for
+self-evolving physical intelligence, 2026. URL https://arxiv.org/abs/2608.16590 . [6] Tingwen Du, Haoyu Guo, Hanxue Zhang, Xuanxu Wang, Junting Dong, Chao Gao,
+Mingfei Han, Tao Lu, Mulin Yu, Chunhua Shen, Xiaojun Chang, and Zhihui Li. From VLM planners to robotic agents: Self-evolving harnesses for
+history-dependent manipulation, 2026. URL https://arxiv.org/abs/2610.29560 . [7] Maxence Faldor, Jenny Zhang, Antoine Cully, and Jeff Clune. OMNI-EPIC: Open-endedness via models of human notions of
+interestingness with environments programmed in code. In International Conference on Learning Representations , 2025. URL https://proceedings.iclr.cc/paper_files/paper/2025/hash/d40d7cbe7210f8a13ea0149eeae9c6de-Abstract-Conference.html . [8] Senyu Fei, Siyin Wang, Junhao Shi, Zihao Dai, Jikun Cai, Pengfang Qian, Li Ji,
+Xinzhe He, Shiduo Zhang, Zhaoye Fei, Jinlan Fu, Jingjing Gong, and Xipeng
+Qiu. LIBERO-Plus: A progressive robustness benchmark for
+visual-language-action models. In Proceedings of the IEEE/CVF Conference on Computer Vision
+and Pattern Recognition , pages 38574–38583, 2026. URL https://openaccess.thecvf.com/content/CVPR2026/html/Fei_LIBERO-Plus_A_Progressive_Robustness_Benchmark_for_Visual-Language-Action_Models_CVPR_2026_paper.html . [9] Letian Fu, Justin Yu, Karim El-Refai, Ethan Kou, Haoru Xue, Huang Huang, Wenli
+Xiao, Fei-Fei Li, Guanya Shi, Jiajun Wu, S. Shankar Sastry, Yuke Zhu, Ken
+Goldberg, and Linxi Fan. CaP-X: A framework for benchmarking and improving coding agents for
+robot manipulation. In Proceedings of the 43rd International Conference on Machine
+Learning , volume 306 of Proceedings of Machine Learning Research ,
+pages 32155–32212, 2026. URL https://proceedings.mlr.press/v306/fu26u.html . [10] Jiacheng Guo, Ling Yang, Peter Chen, Qixin Xiao, Yinjie Wang, Xinzhe Juan,
+Jiahao Qiu, Ke Shen, and Mengdi Wang. GenEnv: Difficulty-aligned co-evolution between LLM agents and
+environment simulators, 2025. URL https://arxiv.org/abs/2512.19682 . [11] Runhan Huang, Xiangcheng Zhang, Haoyu Chen, Yitong Li, Yen-Jen Wang, Bohan Lyu,
+Haotian Ye, Chuye Hong, Yixuan Wang, Chloe Su, Haoyu Xiong, Yangzhen Wu, Enze
+Xie, Travis Manderson, Stefano Ermon, Pieter Abbeel, Antonio Torralba, Dawn
+Song, Weirui Ye, and Yilun Du. Scaling online exploration for robot agents, 2026. URL https://arxiv.org/abs/2610.22496 . [12] Moo Jin Kim, Chelsea Finn, and Percy Liang. Fine-tuning vision-language-action models: Optimizing speed and
+success. In Proceedings of Robotics: Science and Systems ,
+2025a. 10.15607/RSS.2025.XXI.017 . URL https://www.roboticsproceedings.org/rss21/p017.html . [13] Moo Jin Kim, Karl Pertsch, Siddharth Karamcheti, Ted Xiao, Ashwin Balakrishna,
+Suraj Nair, Rafael Rafailov, Ethan P Foster, Pannag R Sanketi, Quan Vuong,
+Thomas Kollar, Benjamin Burchfiel, Russ Tedrake, Dorsa Sadigh, Sergey Levine,
+Percy Liang, and Chelsea Finn. OpenVLA: An open-source vision-language-action model. In Proceedings of The 8th Conference on Robot Learning , volume
+270 of Proceedings of Machine Learning Research , pages 2679–2713,
+2025b. URL https://proceedings.mlr.press/v270/kim25c.html . [14] Moo Jin Kim, Yihuai Gao, Tsung-Yi Lin, Yen-Chen Lin, Yunhao Ge, Grace Lam,
+Percy Liang, Shuran Song, Ming-Yu Liu, Chelsea Finn, and Jinwei Gu. Cosmos policy: Fine-tuning video models for visuomotor control and
+planning, 2026. URL https://arxiv.org/abs/2601.16163 . [15] Wenyi Li, Yizhe Chi, Youjie Zheng, Chunyu Liu, Xiaoqiu Wang, Mingju Gao, Zheng
+Jiang, Deyao Hong, Calvin Xiao, Kaisen Yang, and Qinhuai Na. EmbodiedEvo: Self-evolving coding agent for physical intelligence,
+2026. URL https://arxiv.org/abs/2610.18867 . [16] Jacky Liang, Wenlong Huang, Fei Xia, Peng Xu, Karol Hausman, Brian Ichter, Pete
+Florence, and Andy Zeng. Code as policies: Language model programs for embodied control. In 2023 IEEE International Conference on Robotics and
+Automation (ICRA) , pages 9493–9500. IEEE, 2023. 10.1109/ICRA48891.2023.10160591 . URL https://doi.org/10.1109/ICRA48891.2023.10160591 . [17] William Liang, Sam Wang, Hung-Ju Wang, Osbert Bastani, Dinesh Jayaraman, and
+Yecheng Jason Ma. Environment curriculum generation via large language models. In Proceedings of the 8th Conference on Robot Learning , volume
+270 of Proceedings of Machine Learning Research , pages 433–454. PMLR,
+2025. URL https://proceedings.mlr.press/v270/liang25a.html . [18] Tao Lin, Yuxin Du, Haoxiao Wang, Zile Zhong, and Bo Zhao. FastHarness: Experience-driven review scheduling for
+vision-language-action policies, 2026. URL https://arxiv.org/abs/2610.31427 . [19] Bo Liu, Yifeng Zhu, Chongkai Gao, Yihao Feng, Qiang Liu, Yuke Zhu, and Peter
+Stone. LIBERO: Benchmarking knowledge transfer for lifelong robot
+learning. In Advances in Neural Information Processing Systems ,
+volume 36, pages 44776–44791. Curran Associates, Inc., 2023. 10.52202/075280-1939 . URL https://proceedings.neurips.cc/paper_files/paper/2023/hash/8c3c666820ea055a77726d66fc7d447f-Abstract-Datasets_and_Benchmarks.html . [20] Runyu Lu, Yubo Wu, Ethan Kou, Haotian Lin, Letian Fu, Wenli Xiao, Ajay
+Mandlekar, Yinzhen Xu, Guanya Shi, Ken Goldberg, Ang Chen, Mosharaf
+Chowdhury, Jan Kautz, Yuke Zhu, Linxi "Jim" Fan, and Guanzhi Wang. ASPIRE: Agentic /skills discovery for robotics, 2026. URL https://arxiv.org/abs/2607.00272 . [21] Yecheng Jason Ma, William Liang, Guanzhi Wang, De-An Huang, Osbert Bastani,
+Dinesh Jayaraman, Yuke Zhu, Linxi Fan, and Anima Anandkumar. Eureka: Human-level reward design via coding large language models. In The Twelfth International Conference on Learning
+Representations , 2024. URL https://proceedings.iclr.cc/paper_files/paper/2024/hash/70c26937fbf3d4600b69a129031b66ec-Abstract-Conference.html . [22] NVIDIA. GR00T N1.7-LIBERO. Official model release, 2026. URL https://huggingface.co/nvidia/GR00T-N1.7-LIBERO . [23] OpenAI, Matthias Plappert, Raul Sampedro, Tao Xu, Ilge Akkaya, Vineet
+Kosaraju, Peter Welinder, Ruben D’Sa, Arthur Petron, Henrique P. d. O. Pinto,
+Alex Paino, Hyeonwoo Noh, Lilian Weng, Qiming Yuan, Casey Chu, and Wojciech
+Zaremba. Asymmetric self-play for automatic goal discovery in robotic
+manipulation, 2021. URL https://arxiv.org/abs/2101.04882 . [24] Karl Pertsch, Kyle Stachowicz, Brian Ichter, Danny Driess, Suraj Nair, Quan
+Vuong, Oier Mees, Chelsea Finn, and Sergey Levine. FAST: Efficient action tokenization for vision-language-action
+models. In Proceedings of Robotics: Science and Systems , 2025. 10.15607/RSS.2025.XXI.012 . URL https://www.roboticsproceedings.org/rss21/p012.html . [25] Physical Intelligence. openpi: LIBERO benchmark results for π 0 \pi_{0} and π 0 \pi_{0} -FAST. Official repository, revision 7cf5f60, 2025a. URL https://github.com/Physical-Intelligence/openpi/blob/7cf5f609837e87179cbd28d48a915fc3447d8124/examples/libero/README.md . [26] Physical Intelligence. openpi: LIBERO benchmark results for π 0.5 \pi_{0.5} . Official repository, revision 2d70d96, 2025b. URL https://github.com/Physical-Intelligence/openpi/blob/2d70d966582e711128ad8358d8dbf23d2cc3d658/examples/libero/README.md . [27] Python Song, Zhixuan Liang, Kelsey Fu, Mengdi Wang, Junfeng Yang, and Shilong
+Liu. EmbodiedRSI: Active continual robot learning through
+hypothesis-guided co-evolution, 2026. URL https://arxiv.org/abs/2610.10498 . [28] Guanzhi Wang, Yuqi Xie, Yunfan Jiang, Ajay Mandlekar, Chaowei Xiao, Yuke Zhu,
+Linxi Fan, and Anima Anandkumar. Voyager: An open-ended embodied agent with large language models. Transactions on Machine Learning Research , 2024. ISSN 2835-8856. URL https://openreview.net/forum?id=ehfRiF0R3a . [29] Guodong Wang, Chenkai Zhang, Qingjie Liu, Jinjin Zhang, Jiancheng Cai, Junjie
+Liu, and Xinmin Liu. LIBERO-X: Robustness litmus for vision-language-action models. In Proceedings of Robotics: Science and Systems ,
+2026a. 10.15607/RSS.2026.XXII.097 . URL https://www.roboticsproceedings.org/rss22/p097.html . [30] Rui Wang, Joel Lehman, Jeff Clune, and Kenneth O. Stanley. POET: Open-ended coevolution of environments and their optimized
+solutions. In Proceedings of the Genetic and Evolutionary Computation
+Conference , pages 142–151. Association for Computing Machinery, 2019. 10.1145/3321707.3321799 . URL https://doi.org/10.1145/3321707.3321799 . [31] Rui Wang, Joel Lehman, Aditya Rawal, Jiale Zhi, Yulun Li, Jeffrey Clune, and
+Kenneth Stanley. Enhanced POET: Open-ended reinforcement learning through unbounded
+invention of learning challenges and their solutions. In Hal Daumé III and Aarti Singh, editors, Proceedings of the
+37th International Conference on Machine Learning , volume 119 of Proceedings of Machine Learning Research , pages 9940–9951. PMLR,
+13–18 Jul 2020. URL https://proceedings.mlr.press/v119/wang20l.html . [32] Yen-Jen Wang, Haozhe Jiang, Shuying Deng, Haoru Xue, Weirui Ye, Rocky Duan,
+Nika Haghtalab, S. Shankar Sastry, Pieter Abbeel, and Haozhi Qi. Reconstruct, practice, go real: Guided self-improvement for embodied
+agents, 2026b. URL https://arxiv.org/abs/2610.02204 . [33] Zimo Wen, Yijin Chen, Yuxuan Cao, Wendi Chen, Yanwen Zou, Wenye Yu, Fuhang
+Kuang, Han Xue, Jun Lv, Chuan Wen, and Cewu Lu. RoboRSI: Stable, efficient, and reusable robot self-evolution in
+complex real-world environments, 2026. URL https://arxiv.org/abs/2610.12424 . [34] Yixian Zhang, Huanming Zhang, Feng Gao, Xiao Li, Zhihao Liu, Yi Nie, Chunyang
+Zhu, Jiaxing Qiu, Yuchen Yan, Jiyuan Liu, Wenhao Tang, Jiaji Rao, Zhengru
+Fang, Changxu Wei, Yu Wang, Wenbo Ding, and Chao Yu. Harness VLA: Steering frozen VLAs into reliable manipulation
+primitives via memory-guided agents, 2026. URL https://arxiv.org/abs/2607.08448 . [35] Xueyang Zhou, Yangming Xu, Guiyao Tie, Yongchao Chen, Guowen Zhang, Duanfeng
+Chu, Pan Zhou, and Lichao Sun. LIBERO-PRO: Towards robust and fair evaluation of
+vision-language-action models beyond memorization, 2026. URL https://arxiv.org/abs/2510.03827 . Appendix A Implementation and Evaluation Details This appendix specifies the update boundaries, task admission, deployable
+memory, and baseline evaluation underlying
+Sections 3 and 4 . A.1 Operational Update Protocol Table 3 : Alternation fixes the reference during each revision phase. Either phase can retain its incoming Stable version. Final evaluation
+evidence remains outside the loop. Step Independent work and revision Fixed reference or output 1 Curriculum agent proposes practice; its optimizer tests reusable revisions. Execution deployment and prior profile P k P_{k} . 2 Validate proposals, retain or replace practice, and curate reference coverage. Fixed comparison snapshot 𝒯 k \mathcal{T}_{k} . 3 Evaluate the incoming execution deployment and compare reusable revisions. Same tasks, initializations, settings, and budgets. 4 Adopt Candidate or retain Stable; consolidate permitted evidence. Selected deployment and next profile P k + 1 P_{k+1} . The curriculum proposes new conditions using prior capability evidence;
+fresh execution observations arrive only after handoff. The curriculum phase uses only the prior-round capability profile; execution outcomes on newly admitted conditions are collected after the task snapshot is fixed. Candidate execution comparisons preserve
+task definitions and initializations. These boundaries distinguish practice
+selection, incoming difficulty, candidate behavior, and the evidence used
+for adoption (Table 3 ). A.2 Task Validation and Admission Native tasks preserve their source definitions and initialization identities.
+Constructed tasks additionally pass compilation and physical-validity
+checks for loadability, stable finite states, valid goal references, and
+absence of severe interpenetration. Geometry checks use the compiled robot
+and inverse kinematics to assess the reachability of key interaction
+endpoints. The Judge then reviews semantic agreement among the instruction,
+goal, and actual scene. Failed or inconclusive proposals return to the curriculum agent for
+revision. Constructed tasks are admitted after checks for compilation, physical validity, endpoint reachability, and instruction-goal-scene consistency. These checks do not guarantee full dynamic executability, and task difficulty is not pre-screened with fresh VLA rollouts. Recorded selections include both
+native tasks and admitted constructed worlds. A.3 Deployable Memory Interface The implementation exposes up to 2500 characters from each skill’s main
+description and supports retrieval of additional task and skill manuals.
+The optimizer checks whether the agent receives and uses the relevant
+material. An optimizer journal can contain a useful diagnosis without
+making it accessible to future agents; deployment requires incorporating
+it into an exposed description, prompt, or retrievable manual.
+Episode workspaces remain separate from persistent assets, whose code,
+tool, and memory versions are fixed with the deployment. A.4 Evaluation Identities and Controller Interfaces Direct π 0.5 \pi_{0.5} continuously uses the final system’s official controller,
+executing five actions per prediction chunk without an upper-level LLM
+or other skills. Initial and final agents use Terra/high.
+All systems in our evaluation share a per-episode budget of 8,000
+environment control steps at 20 Hz (6 min 40 s of simulation time). Released-model baselines. OpenVLA-OFT uses the released combined spatial/object/goal/10 fine-tuned
+checkpoint with native eight-action chunks, front and wrist images,
+and proprioception. π 0 \pi_{0} -FAST uses the official pi0_fast_libero checkpoint, released image, state, and action
+transforms, and five-action replanning from a ten-action horizon.
+This project neither trains nor fine-tunes these models. Agent-baseline variants. RPent uses a neutral prompt without target-experience retrieval, rather
+than its experience-augmented variant. VoLo retains its deployed adapter’s
+subgoal decomposition, monitoring, and replanning, including VLM monitoring
+and replan_grasp . Both use Terra/high, official π 0.5 \pi_{0.5} control,
+and public observations without hidden geometric state. A.5 Complete-Panel Checks and Recording A released-model panel requires 200 unique request/result pairs, settled
+workers, and an independent audit of source identity, raw records, and
+outcome counts. Agent-baseline panels likewise require 200 complete,
+independently audited conditions. Partial panels are excluded from scored
+results. Each condition contributes one designated main-table observation.
+Historical prefix observations remain in place without best-attempt
+selection. Timeouts and infrastructure outcomes remain in the denominator
+and count as failures. Separate reassessments and targeted diagnostics do
+not replace the designated main-table observations. Experimental support, please view the build logs for errors. Generated by L A T E xml . Instructions for reporting errors We are continuing to improve HTML versions of papers, and your feedback helps enhance accessibility and mobile
+      support. To report errors in the HTML that will help us improve conversion and rendering, choose any of the
+      methods listed below: Click the "Report Issue" ( ) button, located in the page header. Tip: You can select the relevant text first, to include it in your report. Our team has already identified the following issues . We appreciate your time reviewing and reporting rendering errors we
+      may not have found yet. Your efforts will help us improve the HTML versions for all readers, because disability
+      should not be a barrier to accessing research. Thank you for your continued support in championing open access for
+      all. Have a free development cycle? Help support accessibility at arXiv! Our collaborators at LaTeXML maintain a list of packages that need conversion , and welcome developer contributions . We gratefully acknowledge support from our major funders , member institutions , ,
+        and all contributors. About · Help · Contact · Subscribe · Copyright · Privacy · Accessibility · Operational Status (opens in new tab)
