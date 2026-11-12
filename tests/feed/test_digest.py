@@ -208,7 +208,7 @@ def test_daily_supplement_preserves_sources_after_collection_state_advances(tmp_
     accept_daily(root)
     state = root / "data/feed/state.json"
     state.write_text(json.dumps({"sources": {
-        "hf-daily": {"last_run": DAY + "T09:00:00Z", "last_count": 11},
+        "hf-daily": {"last_run": DAY + "T09:00:00Z", "last_count": 11, "availability": "not_ready"},
         "arxiv-hydration": {"last_run": DAY + "T09:05:00Z", "last_count": 1},
     }}))
     publish_day(root, DAY, now=DAY + "T12:00:00Z")
@@ -224,12 +224,17 @@ def test_daily_supplement_preserves_sources_after_collection_state_advances(tmp_
     assert manifest.read_bytes() == original_bytes
 
     write_daily(root, lambda review: review["items"][0].update(decision="accept"))
+    write_daily(root, lambda review: review.update(reviewed_on=NEXT))
     publish_day(root, DAY, now=NEXT + "T14:00:00Z")
     supplemented = json.loads(manifest.read_text())
     assert len(supplemented["items"]) == 2
     assert supplemented["sources"] == original["sources"]
     assert supplemented["published_at"] == original["published_at"]
     assert supplemented["updated_at"] == NEXT + "T14:00:00Z"
+    html = (root / "site/daily" / f"{DAY}.html").read_text()
+    assert "首刊时的信源快照（补刊保留）" in html
+    assert "Source snapshot at first publication" in html
+    assert f'<time datetime="{DAY}T09:00:00Z">' in html
 
 
 def test_weekly_requires_daily_publication_and_cannot_use_old_full_review(tmp_path):
