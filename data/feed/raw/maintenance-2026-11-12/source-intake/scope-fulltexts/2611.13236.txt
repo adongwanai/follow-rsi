@@ -1,0 +1,318 @@
+NCP: Verifier-Guided Optimization of Weight-Space Control Policies Skip to main content Report GitHub Issue × Title: Content selection saved. Describe the issue below: Description: Submit without GitHub Submit in GitHub Why HTML? Report Issue Back to Abstract Download PDF Contents Reading mode Colour theme Abstract 1 Introduction 2 Background and Related Work 2.1 Weight-space programming 2.2 Control-plane separation 2.3 Feedback-driven
+improvement 2.4 Neural interventions 2.5 Repetition and directional
+interventions 3 System Model 4 Neural Flow Table 4.1 Rule definition 4.2 Lifecycle and evidence 5 Telemetry and Candidate
+Synthesis 5.1 Output and task
+measurements 5.2 Activation profiles 5.3 Deterministic action
+templates 5.4 Controller-agnostic candidate
+representation 6 Verification and Policy
+Admission 6.1 Routed task comparison 6.2 Forced-action corpus
+comparison 6.3 Spectral and restoration
+checks 7 Architectural
+Microbenchmark 7.1 Protocol 7.2 Generated candidates 7.3 Task and corpus results 7.4 Repeat, resume, and test
+coverage 8 Control-Policy Optimization 9 Reproducibility and
+Implementation 10 Conclusion References License: CC BY-NC-ND 4.0 arXiv:2611.13236v1 [cs.AI] 09 Nov 2026 NCP: Verifier-Guided Optimization of Weight-Space Control Policies Ekrem Aksoy November 5, 2026 Abstract We present the Neural Control Plane (NCP), a closed-loop system that
+observes language-model execution, synthesizes candidate weight-space
+intervention rules, evaluates them, and maintains a versioned table of
+admitted policies. NCP separates a pretrained model’s inference data
+plane from the control policy that selects temporary parameter
+interventions. W-ISA supplies transactional execution and parameter
+restoration; NCP supplies telemetry, candidate synthesis, admission
+criteria, priorities, and rule lifetime management. The optimization
+state consists of active rules and an archive of evaluated candidates,
+while base-model parameters are restored after each request. In a local
+SmolLM-135M-Instruct experiment, NCP generated three candidates from
+development telemetry and evaluated them on separate task examples and a
+4,095-target WikiText-2 slice. One projection reduced validation token
+repetition from 0.4133 to 0.2191, with a perplexity change of -0.0574%.
+All candidates produced zero newly correct exact answers, so the
+configured admission gate archived all three and retained the original
+active policy. Fresh-process repetition and saved-table resumption
+reproduced the measured outcomes. NCP provides an executable framework
+for studying recursive self-improvement at the control-policy level
+through explicit synthesis, verification, and state transitions. Keywords: neural control plane; recursive self-improvement;
+inference-time optimization; weight-space interventions; model editing;
+transactional execution. 1 Introduction Inference-time adaptation can be expressed through changes to prompts,
+intermediate activations, auxiliary memory, or model parameters. Each
+choice creates a different optimization state and execution lifecycle.
+NCP studies the policy that decides which weight-space intervention to
+apply to an incoming request. We explicitly credit Rikiya Takehi, Jayden Teoh, Alex Zhang, and Omar
+Khattab’s Sparks of Weight-Space Programming: LLMs can natively
+read & write neural network weights [11] as a conceptual
+foundation. Their November 2, 2026 article presents reasoning-driven
+weight inspection and editing, describes a tool-assisted loop-reduction
+experiment on Qwen3.5-0.8B, and identifies recursive self-improvement as
+a research direction. NCP develops a verifier-guided control-policy
+architecture around this weight-space programming perspective, using
+W-ISA for scoped execution. The system observes task outcomes and output-token telemetry, extracts
+an activation direction associated with development failures, and
+constructs explicit match-action candidates. A verifier compares the
+current policy with the policy that would result from admitting each
+candidate. Accepted rules become part of the active flow table;
+evaluation records preserve the outcomes of every trial. Our architectural starting point is the separation of control and data
+planes used in software-defined networking. OpenFlow provides a
+flow-table interface through which a controller manages
+packet-processing behavior [1]. NCP adopts this separation as a
+software design: the language model performs tensor computation, the
+W-ISA runtime executes parameter interventions, and the controller
+selects and evaluates rules. The recursive self-improvement (RSI) research objective is improvement
+of this control policy across successive feedback cycles. An admitted
+rule changes the behavior observed in later requests, which changes
+subsequent telemetry and candidate generation. The implemented loop uses
+a deterministic synthesizer and an explicit verifier, making each
+proposed policy transition inspectable. The central question is: Can a language-model control policy be improved through repeated
+generation, temporary execution, and verification of
+activation-conditioned weight-space rules while preserving a stable base
+parameter state? The present contribution is an executable architecture for this
+question: a versioned neural flow table, deterministic candidate
+generation, a routed-task and forced-action admission gate, and a
+reproducible local evaluation protocol. 2 Background and Related Work 2.1 Weight-space programming Takehi et al. [11] study general-purpose LLMs reading and writing
+weights under natural-language objectives, including experiments with
+controlled forward-pass budgets. Their discussion of model correction
+and recursive self-improvement motivates the NCP research objective. The
+present implementation supplies deterministic candidate templates,
+routed task evaluation, forced-action corpus checks, and evidence-bound
+policy admission. 2.2 Control-plane separation OpenFlow exposes switch flow tables through an interface for adding and
+removing entries [1]. The corresponding NCP objects are activation
+predicates, W-ISA action programs, priorities, and rule lifetimes. The
+analogy concerns programmatic control and policy management; NCP’s
+matching signals are neural activations, and its actions modify selected
+parameter tensors within an inference scope. 2.3 Feedback-driven
+improvement Self-Refine iteratively revises outputs using model-generated feedback
+[2]. Reflexion maintains linguistic feedback in episodic memory to
+influence later trials [3]. NCP instead makes a table of executable
+intervention rules the persistent optimization state. Its current
+synthesis step is a deterministic Python procedure driven by observed
+task labels and captured activations. OPRO generates and evaluates candidate solutions using a language model
+conditioned on earlier solutions and their scores [12]. DSPy
+separates declarative language-model programs from metric-driven
+pipeline optimization [13]. These studies, also referenced by Takehi
+et al., provide context for separating candidate representation,
+proposal generation, and evaluation. NCP applies this separation to a
+table of activation-conditioned weight interventions. 2.4 Neural interventions ROME and MEMIT construct parameter updates for factual associations
+[4, 5]. Contrastive Activation Addition derives behavioral
+directions from activation differences [6]. pyvene provides
+configurable intervention schemes [7], while NNsight supports
+tracing, persistent intervention definitions, and conditional execution
+[8]. These works provide related edit constructions and intervention
+infrastructures. NCP builds on the W-ISA execution interface described in the companion
+manuscript [9]. W-ISA handles instruction validation, weight writes,
+snapshots, synchronization, and restoration. NCP handles the question of
+which program to propose, which evidence to collect, and which rule to
+admit. 2.5 Repetition and directional
+interventions Pipis et al. [14] analyze looping in reasoning models, including its
+relationship to decoding temperature and temporally correlated errors.
+Their study motivates measuring repetition separately from answer
+correctness. NCP records token n-gram repetition, decoding-score
+entropy, and exact-answer outcomes as distinct signals. Arditi et
+al. [15] provide a related example of studying model behavior
+through a residual-stream direction; NCP’s current projection candidates
+use development-derived directions in a selected MLP input space. 3 System Model Let f θ f_{\theta} denote a pretrained model with registered base
+parameter state θ \theta . Let Φ t \Phi_{t} be the active rule table at
+controller cycle t t , and A t A_{t} the archive of evaluated candidates.
+A request is routed through Φ t \Phi_{t} to choose a program P P or the
+identity program. The system’s persistent optimization state is 𝒮 t = ( Φ t , A t , e t ) , \mathcal{S}_{t}=(\Phi_{t},A_{t},e_{t}), where e t e_{t} is the active-table version. The base parameter state
+remains the reference state between requests. The control recurrence is 𝒯 t = Observe ⁡ ( f θ , Φ t , D dev ) , \mathcal{T}_{t}=\operatorname{Observe}(f_{\theta},\Phi_{t},D_{\mathrm{dev}}), 𝒞 t = Synthesize ⁡ ( 𝒯 t ) , \mathcal{C}_{t}=\operatorname{Synthesize}(\mathcal{T}_{t}), ( Φ t + 1 , A t + 1 ) = Admit ⁡ ( Φ t , A t , 𝒞 t , D val , C gate ) . (\Phi_{t+1},A_{t+1})=\operatorname{Admit}\bigl(\Phi_{t},A_{t},\mathcal{C}_{t},D_{\mathrm{val}},C_{\mathrm{gate}}\bigr). Candidates are evaluated sequentially. Admission of an earlier candidate
+changes the policy context used to evaluate a later candidate. Repeated
+candidate identifiers retrieve their recorded decisions. A cycle with no
+new candidate evaluations terminates the current search. This recurrence defines the control-policy layer of the RSI research
+program. Its objects are rule proposals, verification evidence, and
+active-policy transitions. The experiment in Section 7 records a cycle
+in which the archive grows and the active policy remains unchanged. 4 Neural Flow Table 4.1 Rule definition A rule is represented as r = ( id , M , ℓ , v , τ , P , π , H , I , B ) , r=\bigl(\mathrm{id},\,M,\,\ell,\,v,\,\tau,\,P,\,\pi,\,H,\,I,\,B\bigr), where M M identifies the base model; ℓ \ell specifies the activation
+module, input/output location, and pooling method; v v is a match
+direction; τ \tau is a threshold; P P is a W-ISA program; π \pi is
+priority; H H and I I are hard and idle timeouts; and B B is an
+optional generation-token budget. Model identity includes the model identifier, checkpoint revision, and a
+SHA-256 digest of parameter names, shapes, dtypes, and bytes. A rule
+fingerprint covers its definition and numeric operands. The table owns
+copies of submitted data. For a nonzero captured activation h θ ℓ ​ ( x ) h_{\theta}^{\ell}(x) and nonzero
+direction v v , matching uses s r ​ ( x ) = h θ ℓ ​ ( x ) T ​ v ∥ h θ ℓ ​ ( x ) ∥ 2 ​ ∥ v ∥ 2 , s r ​ ( x ) > τ . s_{r}(x)=\frac{h_{\theta}^{\ell}(x)^{T}v}{\lVert h_{\theta}^{\ell}(x)\rVert_{2}\lVert v\rVert_{2}},\hskip 20.00003pts_{r}(x)>\tau. The implementation assigns score zero to a zero activation. Higher
+numeric priority is considered first, and equal-priority rules retain
+registration order. The first matching rule is selected. Activations are
+measured before the selected parameter intervention is applied. 4.2 Lifecycle and evidence The table records candidate, active, rejected, expired, and retired
+states. Promotion requires accepted evidence for the rule’s fingerprint
+and the current active-table version. Changes to the active policy
+invalidate evidence measured against an earlier version. Accepted rule definitions persist in the table. Their weight effects
+remain temporary and are reconstructed during matching requests. The
+runtime holds a shared model lock, applies the selected program,
+performs generation using a fresh KV cache, and restores the
+request-entry weights. Hard timeout is elapsed wall-clock time since promotion. Idle timeout is
+elapsed time since promotion or the most recent completed selected
+request. Expiration is applied during table inspection for dispatch or
+admission; an in-flight request completes under its selected scope.
+Persisted timestamps preserve elapsed time across process restart. Token
+budgets are separate from these time-based fields. Table snapshots preserve status, order, timestamps, hit counts,
+definitions, and evidence. Persistence writes a flushed temporary JSON
+file and atomically replaces the destination. 5 Telemetry and Candidate
+Synthesis 5.1 Output and task
+measurements Each observation records generated text, token IDs, elapsed time,
+token-budget completion, and per-step entropy of the decoding-score
+distribution: H t = − ∑ j p t , j log p t , j . H_{t}=-\sum_{j}p_{t,j}\log p_{t,j}. Repetition telemetry uses token n-grams. For G G observed n-grams and U U distinct n-grams, the repeated fraction is R = G − U G , R=\frac{G-U}{G}, with R = 0 R=0 when G = 0 G=0 . The implementation also records the first
+adjacent repeated-block position and the maximum consecutive repetition
+run. The default n-gram size is four. Terminal EOS is removed from the
+repetition sequence. Task scoring uses an explicit expected-answer specification. In the
+recorded fixture, the requested format ends with Final answer: <number> . The scorer
+takes the last answer-pattern capture, or the complete response when the
+pattern is absent, and applies case and trailing-period normalization
+before exact comparison. 5.2 Activation profiles Development outcomes label prompt-end activations. When both classes are
+present, the profile is v error = μ failure − μ success . v_{\mathrm{error}}=\mu_{\mathrm{failure}}-\mu_{\mathrm{success}}. For an all-failure development set, the implementation uses v error = μ failure v_{\mathrm{error}}=\mu_{\mathrm{failure}} and records the source as failure_centroid . Capture and matching use the same activation
+site and pooling method. Zero-norm directions produce an empty candidate
+set for that site. 5.3 Deterministic action
+templates For each configured transformer block and attention head, the initial
+synthesizer constructs: Candidate W-ISA action MLP projection Remove the profiled input direction from the block’s
+down-projection Head scaling Scale the selected head’s columns in the attention output
+projection Combined Execute head scaling followed by the MLP projection The block and head dimensions are read from the loaded model. Candidate
+identifiers are deterministically derived from the action and matching
+configuration. Compilation checks the generated instruction sequence
+against the actual parameters before evaluation. 5.4 Controller-agnostic candidate
+representation The NeuralRule representation separates a candidate’s origin
+from its execution and evaluation. It holds model identity, an
+activation predicate, a W-ISA source program, numeric operands and
+lifecycle fields. TorchBackend.compile() binds that source to
+the model through the W-ISA compiler. Caller-constructed rules can
+therefore use the supported instruction set independently of the
+templates in Section 5.3. The public path is FlowTable.submit(rule) , followed by Verifier.evaluate(rule,table,cases,corpus_tokens) ,
+and then promotion or rejection using the returned evidence. The
+verifier evaluates the proposed policy and the forced action; promotion
+checks the accepted flag, fingerprint and active-table version. These
+interfaces operate on trusted local rule and evidence data. The
+controller’s step() method assembles this path around the
+deterministic synthesizer used in the recorded experiment. 6 Verification and Policy
+Admission 6.1 Routed task comparison The verifier evaluates the existing active table and the prospective
+table containing the candidate. Both runs use the same validation cases
+and the table’s actual priority order. Let c c be the number of incorrect-to-correct transitions, r r the
+number of correct-to-incorrect transitions, m m the number of
+validation cases that selected the candidate, and Δ ​ R = R ¯ before − R ¯ after . \Delta R=\bar{R}_{\mathrm{before}}-\bar{R}_{\mathrm{after}}. The initial policy requires c ≥ 1 c\geq 1 , r = 0 r=0 , m > 0 m>0 , and Δ ​ R ≥ 0 \Delta R\geq 0 . Thresholds are caller-configurable. The gate also
+requires progress in task correctness or repetition: c > r c>r or Δ ​ R > 0 \Delta R>0 . 6.2 Forced-action corpus
+comparison The candidate program is forced active across the entire verifier corpus
+slice, independently of the trigger. This measurement evaluates the
+action under a common exposure protocol, while routed task evaluation
+measures the policy that would be deployed. For mean token NLL ℓ ¯ 0 \bar{\ell}_{0} under original weights and ℓ ¯ P \bar{\ell}_{P} under the forced action, the relative perplexity change
+is Δ PPL % = 100 [ exp ( ℓ ¯ P − ℓ ¯ 0 ) − 1 ] . \Delta\mathrm{PPL}_{\%}=100\left[\exp(\bar{\ell}_{P}-\bar{\ell}_{0})-1\right]. The recorded policy sets a maximum increase of 0.5%. Original-corpus
+scores are cached by token digest and scoring protocol. 6.3 Spectral and restoration
+checks For each edited parameter, the verifier records ∥ W ∥ 2 \lVert W\rVert_{2} , ∥ Δ ​ W ∥ 2 \lVert\Delta W\rVert_{2} , ∥ Δ ​ W ∥ F \lVert\Delta W\rVert_{F} , and the relative
+spectral change. A configured relative spectral budget adds a
+corresponding admission condition. Model parameter digests are checked around verification. The original
+weights are restored after each routed request and forced-action trial.
+Before promotion, evidence is checked against the candidate fingerprint
+and active-table version. Under the recorded defaults, admission can be written as Accept ⁡ ( P ) = \displaystyle\operatorname{Accept}(P)={} [ m > 0 ] ∧ [ c ≥ 1 ] ∧ [ r = 0 ] \displaystyle[m>0]\land[c\geq 1]\land[r=0] ∧ [ Δ R ≥ 0 ] ∧ [ Δ PPL % ≤ 0.5 ] ∧ E , \displaystyle}{\displaystyle\land[\Delta R\geq 0]\land[\Delta\mathrm{PPL}_{\%}\leq 0.5]\land E, where E E denotes exact parameter restoration and valid admission
+provenance. Configured spectral bounds are conjoined with this
+expression. Accepted candidates become active rules; other evaluated
+candidates retain their measurements and decision reasons in the
+archive. 7 Architectural
+Microbenchmark 7.1 Protocol The recorded run uses HuggingFaceTB/SmolLM-135M-Instruct , revision b5f4b394abe60fe0e4d666139e57bfce520302a9 , with FP32
+weights on MPS and CPU FP64 intervention arithmetic. The runtime is
+PyTorch 2.15.0 with Python 3.12.9. Generation is greedy with a 128-token
+budget. The nine-question handwritten fixture is an architectural microbenchmark
+of telemetry, candidate generation, admission and persistence. It
+contains three development, three validation, and three final-test
+questions with disjoint IDs and prompts. Development questions cover
+addition, sequence continuation, and counting grouped objects.
+Validation and final-test questions use separate arithmetic scenarios.
+Final-test inference begins after candidate selection finishes. The language-modeling corpus is the cached WikiText-2 raw test split
+[10]. Its tokenized stream is partitioned into two disjoint
+4,096-token slices. The first supplies the verifier corpus and the
+second supplies final corpus evaluation. Each slice scores 4,095 targets
+once, with context length 512 and stride 256. These are explicitly
+bounded corpus slices. 7.2 Generated candidates Development exact-answer scoring was 0/3. Synthesis therefore used the
+failure centroid at the last prompt token’s input to model.layers.9.mlp.down_proj . This direction has
+1,536 dimensions and norm 3.6363433948. The three candidates target the tenth transformer block: an MLP
+projection, scaling query head 0’s output contribution by zero, and
+their ordered combination. The cosine threshold is 0.8. Each candidate
+was selected on all three validation prompts. 7.3 Task and corpus results Baseline validation repetition fraction was 0.41333333. Baseline
+verifier perplexity was 23.74291741. Candidate Validation repetition fraction Newly correct answers Forced-action perplexity PPL change Decision MLP projection 0.21906173 0 23.72929551 -0.0573725% Archived Head scale 0.0 0.36800000 0 23.78039795 +0.1578599% Archived Combined 0.51733333 0 23.77012175 +0.1145787% Archived All three candidates met the configured perplexity budget. The
+corrected-answer threshold was one; the active table consequently
+remained at zero rules. The projection and head-scaling candidates
+reduced repetition, while their combination increased it under this
+fixture. The MLP projection had relative spectral change 0.17329298; head scaling
+had 0.46918526. The combined program recorded both parameter changes
+separately. Every trial restored the base parameter digest. Final exact-answer scoring was 0/3 for both original and routed
+execution. Both recorded a repetition fraction of 0.256. Final-slice
+baseline perplexity was 33.72129164. With the active policy unchanged,
+the final outputs matched the baseline policy. 7.4 Repeat, resume, and test
+coverage The initial end-to-end run took 44.38 seconds. A new-process two-cycle
+run took 48.37 seconds and reproduced first-cycle generated outputs,
+token entropies, candidate fingerprints, spectral measurements, and
+perplexity values. Its second cycle recognized the three recorded
+candidate identifiers. A saved-table resume in a third process took
+15.56 seconds and preserved the decisions and final outputs. Independent reconstruction from the saved per-window NLL sums confirmed
+all 4,095 target counts and aggregate perplexity values. Direct
+reconstruction of corrected-case counts agreed with the admission
+records. The NCP suite contains 25 passing tests. Controlled fixtures exercise
+both promotion and rejection through actual W-ISA parameter writes.
+Other cases cover hard and idle expiration, elapsed TTL across restart,
+stale evidence, priority shadowing, definition copying, token-budget
+dispatch, forced-action PPL for unmatched inputs, cancellation, and
+scalar-parameter fingerprints. The recorded SmolLM run demonstrates the complete candidate-to-decision
+workflow and archive persistence. Its active-policy transition is Φ t + 1 = Φ t = ∅ \Phi_{t+1}=\Phi_{t}=\varnothing , with three evaluated candidates added
+to the archive. The controlled promotion fixtures exercise the
+complementary active-table transition. 8 Control-Policy Optimization The optimization state has two parts with distinct effects. The active
+table changes inference routing, while the archive records search
+history. In the measured cycle the archive grew by three candidates and
+the active table stayed empty. On the next cycle, deterministic
+candidate identifiers retrieved the existing decisions. Saved-table
+resumption retained the same search state across process boundaries. The verifier separates task progress from repetition and corpus cost. In
+the projection trial, repetition decreased by 0.19427160 and the
+forced-action corpus score satisfied the configured budget. The
+corrected-answer count remained zero, so the rule was archived under the
+one-correction admission criterion. This decision illustrates how the
+configured objective determines a policy transition rather than treating
+every change in an auxiliary signal as an improvement. Proposal construction and acceptance remain separate operations. The
+representation in Section 5.4 carries a program regardless of its
+producer, while the verifier binds evidence to the exact candidate and
+current policy. Once a rule is active, priority matching and expiry
+determine its execution lifetime; the W-ISA scope determines the
+lifetime of its parameter effects. The companion W-ISA study [9] measures this execution layer on
+SmolLM-135M and Qwen2.5-1.5B, including a 45-request comparison between
+materialized rank-one updates and equivalent PyTorch hooks. NCP’s
+microbenchmark measures the controller lifecycle on SmolLM. The shared
+abstraction is an explicit intervention program whose temporary weight
+effects are restored before the next policy evaluation. 9 Reproducibility and
+Implementation The implementation contains the schema, flow table, telemetry, local
+backend, candidate synthesizer, verifier, and controller. It reuses
+W-ISA’s instruction compiler and request-scoped runtime. Public APIs
+include NeuralControlPlane , NeuralRule , FlowTable , TorchBackend , TaskCase , GatePolicy , and Verifier . Rule tables are trusted local control data. Model identity, rule
+fingerprints, active-table versions, corpus-token hashes, and task
+fixtures are retained in the reports. Persistence uses a flushed
+temporary file followed by atomic replacement. Runtime scopes own
+parameter restoration; table promotion persists policy definitions. Separate records retain the initial run, fresh-process repeat and
+saved-table resumption. The reasoning fixture defines expected answers
+and disjoint task splits; the tests exercise scoring and lifecycle
+transitions. The companion W-ISA manuscript [9] describes the
+execution substrate separately. The experiment runner exposes options for the device, task fixture,
+corpus, candidate layers and heads, thresholds, timeouts, token budgets,
+and output location. Section 7 specifies the settings used for the
+recorded microbenchmark. Code uses the MIT License, copyright 2026 Ekrem Aksoy. Model and corpus
+materials retain their upstream attribution and license terms. 10 Conclusion NCP makes a language model’s intervention policy an explicit
+optimization state. Telemetry generates candidates; W-ISA executes them
+within owned scopes; a verifier evaluates routed task effects and
+forced-action corpus effects; and a versioned flow table records
+admission decisions. The initial local experiment produced three
+reproducible candidate evaluations, retained the configured correctness
+criterion, and restored the base model after every trial. This
+architecture provides a concrete basis for studying recursive
+self-improvement through successive, evidence-bound changes to neural
+flow policies. References [1] Nick McKeown, Tom Anderson, Hari Balakrishnan, Guru Parulkar,
+Larry Peterson, Jennifer Rexford, Scott Shenker, and Jonathan Turner. OpenFlow: Enabling Innovation in Campus Networks . ACM SIGCOMM
+Computer Communication Review, 38(2):69–74, 2008. https://doi.org/10.1145/1355734.1355746 [2] Aman Madaan et al. Self-Refine: Iterative Refinement with
+Self-Feedback . arXiv:2303.17651, 2023. https://arxiv.org/abs/2303.17651 [3] Noah Shinn et al. Reflexion: Language Agents with Verbal
+Reinforcement Learning . arXiv:2303.11366, 2023. https://arxiv.org/abs/2303.11366 [4] Kevin Meng, David Bau, Alex Andonian, and Yonatan Belinkov. Locating and Editing Factual Associations in GPT . NeurIPS, 2022. https://arxiv.org/abs/2202.05262 [5] Kevin Meng, Arnab Sen Sharma, Alex Andonian, Yonatan Belinkov,
+and David Bau. Mass-Editing Memory in a Transformer .
+arXiv:2210.07229. https://arxiv.org/abs/2210.07229 [6] Nina Panickssery et al. Steering Llama 2 via Contrastive
+Activation Addition . arXiv:2312.06681. https://arxiv.org/abs/2312.06681 [7] Zhengxuan Wu et al. pyvene: A Library for Understanding
+and Improving PyTorch Models via Interventions . arXiv:2403.07809. https://arxiv.org/abs/2403.07809 [8] NNsight documentation. Model Editing and Conditional Interventions . Accessed November 3, 2026. https://nnsight.net/features/7_model_editing/ ; https://nnsight.net/vllm/conditional/ [9] Ekrem Aksoy. W-ISA: Transactional Execution of
+Weight-Space Intervention Programs . Companion manuscript, 2026. [10] Stephen Merity, Caiming Xiong, James Bradbury, and Richard
+Socher. Pointer Sentinel Mixture Models . arXiv:1609.07843, 2016. https://arxiv.org/abs/1609.07843 . Dataset distribution: https://huggingface.co/datasets/Salesforce/wikitext [11] Rikiya Takehi, Jayden Teoh, Alex Zhang, and Omar Khattab. Sparks of Weight-Space Programming: LLMs can natively read &
+write neural network weights . Blog post, November 2, 2026. https://rikiyat.github.io/blog/weight-space-programming/ [12] Chengrun Yang, Xuezhi Wang, Yifeng Lu, Hanxiao Liu, Quoc V. Le,
+Denny Zhou, and Xinyun Chen. Large Language Models as Optimizers .
+ICLR, 2024. https://arxiv.org/abs/2309.03409 [13] Omar Khattab et al. DSPy: Compiling Declarative Language
+Model Calls into Self-Improving Pipelines . ICLR, 2024. https://arxiv.org/abs/2310.03714 [14] Charilaos Pipis, Shivam Garg, Vasilis Kontonis, Vaishnavi
+Shrivastava, Akshay Krishnamurthy, and Dimitris Papailiopoulos. Wait, Wait, Wait… Why Do Reasoning Models Loop? ICML,
+2026. arXiv:2512.12895. https://arxiv.org/abs/2512.12895 [15] Andy Arditi, Oscar Obeso, Aaquib Syed, Daniel Paleka, Nina
+Panickssery, Wes Gurnee, and Neel Nanda. Refusal in Language
+Models Is Mediated by a Single Direction . arXiv:2406.11717, 2024. https://arxiv.org/abs/2406.11717 Experimental support, please view the build logs for errors. Generated by L A T E xml . Instructions for reporting errors We are continuing to improve HTML versions of papers, and your feedback helps enhance accessibility and mobile
+      support. To report errors in the HTML that will help us improve conversion and rendering, choose any of the
+      methods listed below: Click the "Report Issue" ( ) button, located in the page header. Tip: You can select the relevant text first, to include it in your report. Our team has already identified the following issues . We appreciate your time reviewing and reporting rendering errors we
+      may not have found yet. Your efforts will help us improve the HTML versions for all readers, because disability
+      should not be a barrier to accessing research. Thank you for your continued support in championing open access for
+      all. Have a free development cycle? Help support accessibility at arXiv! Our collaborators at LaTeXML maintain a list of packages that need conversion , and welcome developer contributions . We gratefully acknowledge support from our major funders , member institutions , ,
+        and all contributors. About · Help · Contact · Subscribe · Copyright · Privacy · Accessibility · Operational Status (opens in new tab)

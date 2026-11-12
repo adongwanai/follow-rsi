@@ -554,13 +554,13 @@ def _render_day(root, edition, editions, directions, config):
     directory.mkdir(parents=True, exist_ok=True)
     status_path = root / "data/feed/daily-status.json"
     daily_status = json.loads(status_path.read_text())["days"] if status_path.exists() else []
-    published_status_dates = {entry["date"] for entry in ordered if entry.get("kind") == "daily_status"}
+    published_dates = {entry["date"] for entry in ordered}
     context = {"editions": ordered, "directions": directions, "config": config,
                "daily_archive": sorted([*ordered, *_recaps(root)], key=lambda row: row.get("date", row.get("end"))),
                "evidence_labels": EVIDENCE_LABELS, "object_labels": OBJECT_LABELS_EN,
                "subdirections": subdirections, "source_notice": _source_notice,
                "withdrawn_editions": load_withdrawn_editions(root),
-               "daily_status": sorted((entry for entry in daily_status if entry["date"] not in published_status_dates),
+               "daily_status": sorted((entry for entry in daily_status if entry["date"] not in published_dates),
                                       key=lambda entry: entry["date"]),
                "review_decisions": REVIEW_DECISIONS,
                "daily_date_note": DAILY_DATE_NOTE, "header": Markup(render_header(config, "daily", "../")),
