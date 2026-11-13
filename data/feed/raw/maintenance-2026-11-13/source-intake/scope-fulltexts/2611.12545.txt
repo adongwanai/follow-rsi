@@ -1,0 +1,364 @@
+teamknitt: Configuring, Observing and Interveningin LLM-Agent Teams through the Lens ofDynamical-Systems and Human-Team Theory Skip to main content Report GitHub Issue × Title: Content selection saved. Describe the issue below: Description: Submit without GitHub Submit in GitHub Why HTML? Report Issue Back to Abstract Download PDF Contents Reading mode Colour theme Abstract 1 Introduction Scope of this paper 2 Background and related work 2.1 Three distinctions from human-team research Explanatory locus Form of emergence Process, state and outcome Distributed, interactive and dynamical accounts 2.2 Distributed teams and creative dynamics 2.3 LLM-agent systems Relation to Labtune 3 Design principles 4 The teamknitt model 4.1 Configuration space 4.2 Routing topologies 4.3 Sharing profiles and exposure 4.4 Problem-solving bindings 4.5 Execution loop 5 Observing the work: two groups of views Non-system views System views Optional process observations 6 Intervention Queue semantics Planned disturbances 7 Reference implementation Offline demonstration Observability 8 Research agenda: hypotheses and protocol Protocol Threats to validity 9 Limitations 10 Conclusion References License: CC BY-NC-ND 4.0 arXiv:2611.12545v1 [physics.soc-ph] 09 Nov 2026 teamknitt: Configuring, Observing and Intervening in LLM-Agent Teams through the Lens of Dynamical-Systems and Human-Team Theory Goran Mitevski Email: rolevski.mk@icloud.com November 2026 Abstract Most frameworks for teams of large language model (LLM) agents fix the team’s shape inside the
+software: who talks to whom, how much is passed along, and what a human can do once a run has
+started. Human-team research has spent six decades asking exactly those questions, with
+competing answers about where team phenomena live (in the members or in their interaction),
+how team-level properties arise (by aggregation or by differentiation), and what distinguishes
+what a team does from how a team is . I propose using that body of theory as the
+organizing lens for configuring, observing and intervening in LLM-agent teams, without assuming
+that its findings transfer. I introduce teamknitt , a framework and open reference implementation in which a user
+configures a team of 1–16 AI agents for task completion, solution generation, achieving a goal
+or a research mission;
+selects one of fourteen deterministic routing topologies or a custom directed graph; chooses a
+sharing profile that limits what may travel along permitted routes; and binds complementary
+sources, external representations, work dependencies, version-specific handoffs and an
+expertise directory. The same recorded process can then be observed through two groups of
+views: non-system views that locate explanation in member reports and behavior, and system views that locate it in distributed problem-solving, differentiated transactive
+memory, interactive coordination and team dynamics. Interventions are explicit and human-led:
+reviewed reconfiguration between runs, planned disturbances before a run, and private feedback,
+pause, resume or stop applied at dependency-wave boundaries during a run. Every record keeps
+“queued”, “applied”, “context assembled”, “understood” and “improved” as separate
+claims. Emergent states such as trust, cohesion and shared understanding are declared unmeasured. This is an idea and system-description paper. The contribution is a configuration space, a
+reference implementation and a set of falsifiable hypotheses about topology, information flow
+and intervention timing in LLM-agent teams. A planned line of study extends the author’s earlier
+work on the dynamics of distributed software teams: whether the fractal scaling and flexibility
+of the communication output exchanged between members—and between members running on different
+models—is associated with better task and team performance. No comparative result is reported,
+and no topology is claimed to be best. 1  Introduction A team of LLM agents has an organization whether or not anyone chose it. A chain of
+specialists, a hub that collects proposals, a round of debate among peers and a fully
+connected chat each decide who sees what and when. The choice is usually buried in the
+architecture of the orchestration framework [ 24 , 17 , 35 , 43 ] , or delegated to an optimizer
+that searches over communication graphs against a benchmark signal [ 47 , 46 , 18 ] . Both approaches answer the organizational
+question before the work starts and give the user little to inspect or adjust once it has. Human-team research has a long, unfinished argument about the same question. One tradition
+treats the team as the context in which individual attributes add up: the input–process–output
+(IPO) framework [ 28 , 14 ] and the compositional reading of
+team-level constructs [ 22 ] . A second tradition moves to the system
+level while keeping psychological constructs—emergent states such as shared mental models,
+trust and psychological safety that develop over repeated episodes [ 26 , 20 , 9 ] . A third treats team cognition as
+something a team does in interaction rather than something it has [ 6 , 11 ] , and reads variability in coordination as a
+source of adaptability rather than noise. Gorman and colleagues [ 11 ] summarize the divide as non-system versus system explanations: whether a team phenomenon is
+located in the members or in the interaction process. The present paper takes these distinctions seriously as design questions for LLM-agent
+teams , while refusing the shortcut of assuming that human findings carry over. If the
+organization of an agent team changes what it produces, a user should be able to choose the
+organization explicitly, observe the work through more than one explanatory lens, and intervene
+in ways whose scope is recorded. teamknitt is a concrete attempt to make that possible. It is a
+follow-up to Labtune [ 32 ] , which treated laboratory organization and
+information sharing as controlled variables for LLM-agent research, and to the author’s thesis
+work on the dynamics of distributed software teams’ creative processes [ 31 ] .
+Where Labtune offered six editable laboratory designs for research missions, teamknitt generalizes
+the mission to tasks, brainstorming and goals, replaces lab designs with fourteen routing
+topologies over 1–16 members, binds the team’s problem-solving structure explicitly, and adds
+research-informed views and human-led intervention. It ships its own runtime and makes no
+automated organizational improvement. The paper has five commitments: • Configuration before execution. Purpose, members, routing, sharing, bindings,
+models, tools and finite budgets are explicit and user-selected. Topology filters exposure;
+it grants no decision authority and creates no capacity ( Section 4 ). • Two explanatory lenses on one record. Non-system and system views project
+the same configuration and trace. Switching views never changes the team ( Section 5 ). • Three distinctions kept apart. Explanatory locus (non-system/system), form of
+emergence (compositional/compilational) and process/state/outcome are related but separate
+axes, and the implementation does not collapse them ( Section 2 ). • Explicit, bounded intervention. Reviewed reconfiguration, planned disturbances
+and boundary-applied feedback, pause, resume and stop, with queued, applied, assembled,
+understood and improved recorded as distinct claims ( Section 6 ). • Declared non-measurement. Trust, cohesion, psychological safety, efficacy,
+potency, shared understanding, emergence, synchrony and attractors are not inferred from
+software traces. What is recorded is operational; what is not measured is named. Scope of this paper This is an exploratory preprint and system description. I
+contribute (i) the framing of team topology, information flow and intervention as explicit,
+theory-indexed variables for LLM-agent teams; (ii) a formal configuration space and the design
+principles that constrain it; (iii) an open reference implementation [ 33 ] with offline demonstrations, grouped views and an intervention queue; and (iv) falsifiable
+hypotheses and a protocol for testing them ( Section 8 ). I report no comparative result.
+A persona label assigns a reasoning role; it is not evidence of expertise, and completion of a
+workflow is not evidence that the user’s goal was achieved. 2  Background and related work 2.1  Three distinctions from human-team research Explanatory locus Non-system explanations locate a team phenomenon in member
+attributes, knowledge and skills, or in their aggregate; system explanations locate it in the
+interaction process, which has properties no member possesses alone [ 11 ] .
+This is an orientation, not a quality ranking, and system is not a synonym for complexity
+science: conventional IPO and IMOI models also include interaction, feedback and contingencies [ 20 ] . Form of emergence Kozlowski and Klein [ 22 ] distinguish compositional emergence, where a team-level construct is isomorphic with its member-level
+counterpart and can be formed by means, sums or agreement, from compilational emergence, where the team-level pattern is a differentiated configuration with no simple
+individual analogue. Shared mental models measured as within-team agreement [ 3 , 27 , 7 ] are the textbook
+compositional case; transactive memory—knowing who knows what, with differentiated encoding
+and retrieval [ 42 , 23 ] —is compilational. The
+distinction is related to explanatory locus but not identical to it. Process, state and outcome Marks, Mathieu and Zaccaro [ 26 ] separate what teams do (transition and action processes, with interpersonal processes spanning
+both) from emergent states that describe how teams are, and organize processes temporally
+across recurring episodes. Outcomes feed later inputs [ 20 ] . The distinction
+matters for software: a publication, an exposure or an acknowledgement is an operational
+process record. It is not cohesion [ 1 ] , trust, psychological safety [ 9 ] or shared understanding. Distributed, interactive and dynamical accounts Distributed cognition [ 19 ] and its extension to teams [ 29 ] widen the
+unit of analysis to people, artifacts, tools and representation transformations. Interactive
+team cognition [ 6 ] treats cognition as situated interaction activity.
+Coordination dynamics [ 21 , 40 ] and the dynamical-systems
+view of teams [ 11 ] supply principles—local–global stability, substrate
+independence, cross-level effects—and interventions such as perturbation training [ 10 ] , alongside meta-analytic evidence on team training [ 37 ] . Complex adaptive systems are a wider tradition [ 16 , 30 ] ; citing them motivates questions, not
+conclusions. 2.2  Distributed teams and creative dynamics The dynamical view also motivated the author’s earlier empirical work on distributed software
+teams [ 31 ] . Using GitHub records of one organization, that study applied
+detrended fluctuation analysis to code-addition time series and estimated maximal Lyapunov
+exponents of daily discussion density, following Guastello’s treatment of creative discussion
+groups [ 13 ] . Long-range correlation was present in the development
+dynamics, and the discussion that accompanied the more stable software product was more
+flexible in the quantitative sense used there. The thesis also noted that such measurements
+could inform when, and how much, an artificial teammate should intervene in a creative process.
+teamknitt follows up on that interest from the other side: it records the team process at the
+granularity of dependency waves and makes the intervention decision explicit and human-led.
+It does not estimate those exponents. Wave records are short and unevenly spaced; the
+estimators belong in a research agenda ( Section 8 ), not in a product dashboard. The
+agenda carries the question forward in a form the earlier data could not support: because every
+contribution, exposure and acknowledgement in a teamknitt run is timestamped and attributed, the
+communication output between members—its volume, its timing and its lexical content—can be
+assembled into series long enough to ask whether its scaling properties relate to how well the
+team did, and whether that relation changes when members run on different models. 2.3  LLM-agent systems Table 1 places teamknitt among LLM-based approaches that touch the organizational
+question. Reasoning methods such as Tree and Graph of Thoughts [ 45 , 2 ] structure intermediate thoughts within an agent; teamknitt is
+agnostic about them and organizes agents. Research systems—Agent Laboratory [ 39 ] , the AI co-scientist [ 12 ] , the AI
+Scientist [ 25 ] , the Virtual Lab [ 41 ] —fix a
+division of labour and an exchange pattern; AgentRxiv [ 38 ] adds
+cross-lab sharing of reports. MacNet [ 36 ] , GPTSwarm [ 47 ] and G-Designer [ 46 ] study or optimize communication topology; IMACS [ 5 ] routes tasks to protocols with a bandit; AutoGen [ 43 ] is general orchestration infrastructure. Failure analyses [ 4 ] , evidence that
+teams can hold experts back [ 34 ] , and evidence that generative tools raise
+individual output while reducing collective diversity [ 8 ] all suggest
+that more communication is not automatically better collaboration. The Collaborative
+Intelligence benchmark [ 44 ] evaluates an agent as a teammate on eight capabilities
+after conditioning on solo competence; teamknitt treats that as a member-focused (non-system)
+view and keeps probe evidence in a separate context. Table 1: teamknitt, Labtune and related LLM-based approaches. The “emphasis” column states what
+the present work contributes relative to each approach; it is not a claim of superiority. Approach Category Main focus Labtune / teamknitt emphasis Tree / Graph of Thoughts [ 45 , 2 ] Reasoning methods Reasoning paths and dependencies between intermediate thoughts Organization of agents and teams; reasoning methods can operate within individual members Agent Laboratory [ 39 ] AI research system Specialized agents covering literature review, experimentation and reporting Alternative lab designs, topologies and exchange rules as user configurations AgentRxiv [ 38 ] Research-sharing infrastructure Shared reports so autonomous labs can build on each other’s findings Configurable exchange within and across teams and labs: who shares, when, under which rules and word budgets AI co-scientist [ 12 ] AI research system Hypothesis generation, review and evolution through specialists and tournaments Exploration of different organizations and exchange styles rather than one fixed process MacNet [ 36 ] Multi-agent architecture Graph-based collaboration; effects of topology and agent scaling Topology combined with sharing profiles, bindings and user-led follow-up and intervention GPTSwarm [ 47 ] Agent graph optimization Optimization of prompts and information-flow connections Explicit, stable configurations for examining how organizational choices affect results G-Designer [ 46 ] Topology optimization Task-adaptive communication topologies balancing quality and token cost Cross-domain comparison of topologies and exchange styles under controlled, non-growing budgets AutoGen [ 43 ] Orchestration framework General infrastructure for agent communication and orchestration A team-specific framework centred on organization and its recorded effects Collaborative Intelligence [ 44 ] Teammate evaluation Eight teammate capabilities, conditioned on solo competence Member-focused view; separate-context probes, not an official score for a configured team Labtune [ 32 ] Configurable research labs Six lab designs, sharing levels, protected confirmation, multi-lab studies Research missions and statistical confirmation teamknitt (this paper) Configurable task teams Fourteen topologies, 1–16 members, sharing profiles, bindings, grouped views, interventions Tasks, brainstorming, goals and research; human-team theory as lens Relation to Labtune Labtune [ 32 ] asked which laboratory
+organization, under which communication policy, suits which research problem, and supplied the
+apparatus for asking it. teamknitt is based on Labtune and keeps its conservative core: budgets are
+conserved under delegation, information crosses boundaries only through controller-published
+views at phase barriers, and the system never redesigns its own organization. It departs in
+four ways. The mission generalizes from research to any task, brainstorming prompt or goal.
+The organizational variable changes from six prose-defined lab designs to fourteen deterministic
+routing presets plus custom directed links, with explicit bindings of sources, representations,
+work and handoffs. The observation layer is grouped by explanatory locus rather than by
+research phase. And intervention becomes a first-class, bounded operation. Bayesian analysis
+and model-assisted priors are not carried over; descriptive records and frequentist count and
+interval analysis remain where applicable. 3  Design principles The implementation follows eight rules. They are conservative on purpose: the aim is to make
+organizational differences observable, not to make a team appear autonomous or effective. P1. The user configures the team. Purpose, member count, roles, topology,
+sharing, models, tools, delegation and budgets are explicit. Drafts write nothing; applying a
+draft is a separate reviewed step with a private backup, blocked by the run lock. Larger
+teams never raise budgets. P2. Topology filters exposure and nothing else. Routes decide which peer views
+and generated notes a member may encounter. A hub routes information; it acquires no veto.
+A hierarchy is a tree of routes, not a chain of command. Directed routes imply no reply. P3. Sharing is a policy applied at barriers. Publications validate before a wave
+commits; unfinished same-wave output is never exposed. A read budget bounds cross-member
+exposure per episode, including generated notes. P4. Exposure is not noninterference. A later contribution can relay what a member
+encountered along any later permitted route. Changing a route does not erase previous
+exposure; the record keeps the history. P5. Access, exposure, noticing, publication, citation and acknowledgement are
+distinct. An acknowledgement confirms that a specific version was encountered; it does not
+imply agreement, understanding or correctness. P6. Views never change the team. Non-system and system views, snapshots and the
+live monitor are presentation-only; they make no model calls and cannot write configuration. P7. Interventions are explicit, private and bounded. Requests are drafts until
+applied, bind one run and configuration, and are acknowledged at the next dependency-wave
+boundary. Feedback is task context, never a permission or budget grant. P8. Nothing is inferred that is not measured. Emergent psychological states,
+emergence itself, attractors, synchrony and causal intervention effects are not estimated
+from execution logs. Completion is not goal achievement. 4  The teamknitt model Figure 1 shows the four steps the user moves through and the records that govern
+each step. The user configures a team, sets the task, observes the work through chosen views,
+and intervenes within recorded scope. The engine compiles the configuration into a task-team
+workflow of dependency waves, schedules bounded member frames, publishes permitted views at
+barriers, and retains contributions for human review. 1 / Configure members, roles, topology, sharing; explicit models, tools, budgets 2 / Set tasks brief, sources, deliverable, success criteria, review boundary 3 / Observe work non-system and system views; live metadata; offline snapshots 4 / Intervene preview, then explicit apply; human outcome review Configuration identity drafts write nothing; apply backs up; no automatic redesign Barrier publication validate, then expose along routes; read budget W W per episode Operational records available / exposed / published / acknowledged; states unmeasured Bounded queue queued ≠ \neq applied ≠ \neq assembled ≠ \neq understood ≠ \neq improved between runs: reviewed reconfiguration Figure 1: teamknitt from configuration to reviewed output. Top row: what the user does. Bottom row:
+the records that govern each step. Reconfiguration happens between runs; views and interventions
+never alter the organization of a run in progress. 4.1  Configuration space A team configuration is a tuple 𝒯 = ( p , N , G , π , Σ , Δ , ℳ , ℬ , 𝒟 ) , \mathcal{T}=(p,\;N,\;G,\;\pi,\;\Sigma,\;\Delta,\;\mathcal{M},\;\mathcal{B},\;\mathcal{D}), (1) where p p is the purpose, one of task , brainstorm , goal or research ; N ∈ { 1 , … , 16 } N\in\{1,\dots,16\} the member count; G = ( V , E ) G=(V,E) a directed routing graph over
+members V = { 1 , … , N } V=\{1,\dots,N\} drawn from a preset or given as custom links ( Section 4.2 ); π = ( ℓ , w , W ) \pi=(\ell,w,W) the sharing policy, with profile ℓ \ell one of none , low , intermediate , high or wisdom_only , wisdom flag w w and
+read budget W W in words ( Section 4.3 ); Σ \Sigma the problem-solving
+bindings ( Section 4.4 ); Δ \Delta the delegation limits; ℳ \mathcal{M} the provider,
+model and tool bindings; ℬ \mathcal{B} the finite budgets (requests, wall time, concurrency);
+and 𝒟 \mathcal{D} an optional set of planned disturbances ( Section 6 ). The
+configuration is loaded from strict YAML, validated, and hashed into an identity stored with
+every plan, run and snapshot. Initialization, drafting, planning, viewing and demonstration
+make no provider calls, so the configuration space can be explored for free. 4.2  Routing topologies Fourteen presets define E E deterministically for any N ≤ 16 N\leq 16 ( Table 2 ; Figure 2 ). Reciprocal presets add both directions of a link; directed presets add
+one. A single member has no peer links, and small layouts can coincide (a two-member ring is a
+chain). Custom links are exactly the listed directed pairs; an empty list isolates every
+member. Presets are routing definitions, not inferred optimal organizations. Two consequences
+follow from P2 and P4. First, member 1 in a hub, wheel, broadcast or gather layout is a
+routing position, not a leader: it cannot veto, rank or create resources. Second, a diagram
+line denotes a permitted route, not causal influence; with sufficient waves, content can relay
+across a chain or around a ring, and the record will show where it did. Table 2: The fourteen routing presets. All support 1–16 members. Preset Exact routing fully_connected Every ordered pair of distinct members hub_and_spoke Member 1 exchanges two-way with every spoke; no spoke–spoke links ring Two-way neighbours with a closing loop hierarchical Two-way binary tree over member ids; no decision authority is granted chain Two-way adjacent ids, no closing loop directed_chain 1 → 2 → … → N 1\to 2\to\dots\to N ; no implied replies directed_ring Each member sends to its successor; N N sends to 1 wheel Two-way member-1 hub plus a two-way ring among the spokes grid Row-major ⌈ N ⌉ \lceil\sqrt{N}\rceil columns; horizontal and vertical neighbours, no wrap or diagonals clustered Consecutive pods of up to three, fully connected within a pod; successive pod leads connect two-way bipartite First ⌈ N / 2 ⌉ \lceil N/2\rceil members connect two-way to all remaining members; no links within a partition broadcast Member 1 sends to all others; no replies or spoke links gather All others send to member 1; no return or spoke links custom Exactly the listed directed source/target pairs; empty means isolated 1 2 3 4 5 6 ring 1 2 3 4 5 6 hub_and_spoke 1 2 3 4 5 6 directed_chain 1 2 3 4 5 6 clustered 1 2 3 4 5 6 grid Figure 2: Five of the fourteen presets for N = 6 N=6 . Plain lines are reciprocal routes; arrows are
+one-way routes. Shaded members occupy routing positions (hub, pod lead), which carry no decision
+authority. 4.3  Sharing profiles and exposure Sharing limits how much, and what kind of, content can travel along permitted routes
+( Table 3 ). Let o i ​ ( t ) o_{i}(t) denote member i i ’s published representations at barrier t t , and V π V_{\pi} the controller’s filter for profile π \pi . Member j j ’s context evolves as C j ​ ( t + 1 ) = C j ​ ( t ) ∪ trunc W ⁡ ( V π ​ ( { o i ​ ( t ) : ( i → j ) ∈ E } ) ) , C_{j}(t+1)\;=\;C_{j}(t)\,\cup\,\operatorname{trunc}_{W}\!\Big(V_{\pi}\big(\{\,o_{i}(t):(i\to j)\in E\,\}\big)\Big), (2) where trunc W \operatorname{trunc}_{W} bounds the combined exposure, including generated notes, to W W words per episode. Notes are not an extra channel: they obey the same routes and the same
+budget. User-supplied sources have their own reader grants and are not subject to E E .
+Shared writable workspaces require high . All publications in a wave validate before
+the wave commits, so a member never sees a peer’s unfinished same-wave output. The equation
+describes a filter on exposure, not a guarantee of noninterference (P4): what j j encounters at t t may reappear, transformed, in o j ​ ( t + 1 ) o_{j}(t+1) and travel further along ( j → k ) ∈ E (j\to k)\in E . Table 3: Sharing profiles. A profile limits content along permitted routes; it does not add
+routes. Profile Admitted content Intended trade-off none No peer content; independent contributions retained for user review Baseline that preserves independent search; joint phases are operational only low Bounded member-reported blockers, labelled unverified Avoid repeated dead ends without steering toward a solution intermediate Compact contribution summaries Share direction while limiting copying high Detailed peer views and explicitly granted versioned notes Deliberate reuse and recombination wisdom_only Conditional lessons with stated limits, not detailed peer output General lessons with reduced solution steering 4.4  Problem-solving bindings The bindings Σ \Sigma make the team’s problem-solving structure explicit so that system views
+have something to inspect other than chat. Σ \Sigma declares: roles with
+responsibilities, a perspective and capabilities; representations —user sources and
+per-member append-only structured notes—with explicit readers and writers; work units with phase, actors, inputs, outputs and dependencies; version-specific handoffs from a producer to a consumer with an acknowledgement requirement; an expertise directory that records which members are assigned which topics, with the
+declared basis (“user-editable role emphasis, not verified expertise”); a temporal
+reference ordering the phases with a deadline wave; and affordances , the capability-conditioned
+action opportunities a member actually has (publish to a note; acknowledge a
+handoff). teamknitt init generates these bindings mechanically from purpose, member
+count, topology and sharing; the user edits them directly rather than regenerating. The default
+task-team design runs four phases—independent proposals, task adoption, parallel episodes
+and evidence review—and asks members to frame, connect, develop and review while preserving
+alternatives before converging. 4.5  Execution loop Figure 3 shows one dependency wave. A member observes only its permitted inputs,
+representations and affordances, externalizes a bounded contribution with input provenance,
+and the controller validates all publications of the wave before committing immutable versions.
+Consumers encounter permitted versions in a later wave and acknowledge specific handoffs. The
+record distinguishes available, exposed, published and acknowledged, and keeps report freshness
+and missingness explicit. Delegation, decision tools, retries and corrections draw on the same
+request cap. The default contribution is bounded text; code or external actions require an
+explicitly permitted tool and its receipt, and the design instructs members not to pretend
+otherwise. Completion means contributions were produced and retained for review in trials/ID/deliverable.md ; it is not a verified outcome. User brief and sources task, prompt or goal; complementary inputs Member’s permitted view own role, representations, affordances Externalize contribution bounded note with input provenance Wave barrier validate all publications; commit immutable versions Peer’s later view exposure along E E under π \pi ; version-specific ack Team choices + bounds G G , π \pi , W W , models, tools, budgets; intervention queue Process records available / exposed / published / acknowledged; freshness next wave Figure 3: One dependency wave. Routes E E and profile π \pi filter what a peer may encounter;
+the barrier publishes only validated, immutable versions; the intervention queue is read before
+a wave begins, outside any publication transaction. 5  Observing the work: two groups of views The same configuration and record can be observed through two groups of views
+( Table 4 ). The grouping follows explanatory locus ( Section 2.1 ). It is an
+orientation for the observer, not a partition of science or a pair of execution presets, and
+switching groups is presentation-only. Table 4: Grouped views over one configuration and record. The right-hand column names what the
+view does not measure. View Inspects Not measured or inferred Non-system: member- and component-centred Collaborative intelligence Eight teammate-behaviour questions [ 44 ] , from an optional, separately run probe protocol Capabilities of the configured team; an official benchmark score; psychological traits Shared models & member reports Explicit plans, agreement with a declared reference, report freshness, perceived alignment Latent mental-model similarity or accuracy; understanding; correctness System: interaction- and configuration-centred Distributed problem-solving Complementary inputs, representations, tools, expertise directory, transformations, dependencies, handoffs Emergent cognitive capacity; goal achievement Transactive memory Differentiated (compilational) expertise assignments, holders and retrieval scaffolds Credibility, specialization, retrieval success, system effectiveness Interactive cognition & coordination Observed artifact exposure, version-specific handoff receipts, cross-level records Understanding or agreement; configured routes are never substituted for missing observations Team dynamics Selected temporal activity, continuity, disturbance windows, return and maintenance, first attainment, censoring Attractors, synchrony, fractal scaling, emergence, adaptation, causality Non-system views The collaborative-intelligence view is member-focused and
+behavioural. teamknitt ships original synthetic alone/baseline/challenged probes informed by the
+Collaborative Intelligence benchmark [ 44 ] ; they run in a separate workspace, use
+alone performance for eligibility, leave incomplete cells unknown rather than zero, and can be
+attached to a task view only as separate-context evidence. Ordinary task telemetry does not
+evaluate the eight capabilities. The shared-models view compares explicit member reports:
+reported plans, conformity to a declared reference, freshness and perceived alignment. These
+are compositional proxies by construction and are labelled as such; similarity is not accuracy [ 27 ] . System views The distributed problem-solving view inspects the bindings of Section 4.4 together with recorded transformations and handoffs, in the spirit of [ 19 , 29 ] . The transactive-memory view inspects the
+configured expertise directory as a differentiated pattern [ 42 , 23 ] , and says so when the directory is merely
+configured rather than demonstrated. The interactive-cognition view inspects exposure and
+acknowledgement receipts [ 6 ] ; a configured route is never substituted
+for a missing observation. The dynamics view exposes optional descriptive observations. Optional process observations When enabled, four descriptive dimensions are
+derived from the record: local–global , contribution and receipt activity alongside
+handoff-state continuity; perturbation , explicit disturbance windows with baseline
+sufficiency, overlap, maintenance or return, first attainment and right censoring; coupling , directed artifact-exposure and provenance counts; and cross-level ,
+member, artifact and coordination records together. Three further dimensions—attractors,
+synchronization and fractals—are listed so that their absence is explicit: no estimator is
+implemented, and dependency waves are neither evenly spaced nor uniform in content. Variability
+in contribution activity is reported, not read as flexibility or resilience. 6  Intervention Human-team research addresses intervention at several levels: staffing and role design, task
+design, procedures and enabling conditions [ 14 , 15 ] ;
+cross-training and perturbation training [ 10 ] ; and team training in
+general [ 37 ] . teamknitt offers one explicit mechanism for each timing
+( Table 5 ) and refuses to collapse them: a changed input, a changed process, a
+report of alignment and an improved outcome are different claims. Table 5: Intervention mechanisms by timing. Human findings motivate the mechanisms; they do not
+establish effects for AI teams. Timing / mechanism Actual support Boundary Between runs: inputs and conditions Reviewed changes to roles, task, context, criteria, sources, procedures, topology and sharing Draft first; explicit apply with private backup under the run lock; no automatic staffing or model choice Before a run: planned disturbance actor_unavailable , representation_unavailable or link_dropout at a chosen wave for a chosen duration A software condition for a future run, not weight training or a validated adaptive-training replication During a run: private feedback Bounded task context for chosen members’ future frames; newest text first within the representation word cap No new tool, source or permission grants; not proof of delivery or understanding During a run: pause / resume / stop Acknowledged at the next dependency-wave boundary; current-wave work may finish Pause keeps the lock, counters and wall deadline; resume resets nothing; stop is terminal and skips confirmation After a run: outcome review Private partial or complete deliverable, request receipts, separate outcome evidence No automatic quality, psychological-state or intervention-effect score Queue semantics Requests are prepared from the command line (the browser desk
+prepares commands and reads receipts; it cannot write the queue or start execution). A request
+without --apply is a preview. An applied request binds one run and one configuration
+identity and is read by the runtime before it begins a dependency wave, outside any publication
+transaction. The record then separates five claims that are easy to conflate: queued ≠ applied at boundary ≠ context assembled ≠ understood ≠ improved . \textit{queued}\;\neq\;\textit{applied at boundary}\;\neq\;\textit{context assembled}\;\neq\;\textit{understood}\;\neq\;\textit{improved}. A context-assembly event is metadata about constructing a member’s frame; it is not proof that
+a provider received the text or that a model used it. A request arriving after the last useful
+boundary is retained as not applied. Receipts carry recipients, timestamps, hashes, boundary
+waves and assembly counts, never message bodies. The queue is bounded (256 requests per run,
+64 pending) and is a private file queue, not a multi-user or cryptographic authorization system. Planned disturbances A disturbance is scheduled before a run, with an explicit
+kind, target, wave and duration that must fit the configured system. It changes the
+configuration identity of a future run and never a historical record. The perturbation
+observation then reports baseline sufficiency, the disturbed window, whether a continuity
+measure was maintained or returned, first attainment and censoring. It reports no recovery
+score and infers no causal effect; the comparison condition, independent outcome evidence and
+analysis are the user’s. 7  Reference implementation teamknitt 0.9.0 is a Python ( ≥ \geq 3.11) package with one console command and its own runtime, teamknitt.engine , which owns scheduling, provider and decision adapters, persistence,
+structural planning, schemas and resources [ 33 ] . It imports no upstream
+package and delegates to no other CLI. The core modules comprise roughly 7,300 lines; the
+offline test suite contains 21 modules and about 350 tests, and setup, planning, viewing,
+drafting, demonstration, diagram rendering and packaging make no provider calls. Table 6 separates implemented components from limits. Table 6: Implementation status of teamknitt 0.9.0. Layer Implemented Not implemented / limits Configuration Four purposes; 1–16 members; 14 presets plus custom links; five sharing profiles; schema-3 bindings; drafts, backups, run lock No automatic topology, staffing or model selection Runtime Dependency waves, scoped frames, immutable versioned notes, route-filtered views, barrier publication, handoffs, plan reports Bounded text by default; live mid-run reconfiguration; durable crash recovery Views Non-system and system groups; live metadata monitor; private offline snapshots; optional probe attachment Metadata only, never raw prompts, generated text or credentials Observations Local–global, perturbation, coupling and cross-level descriptions Attractors, synchronization and fractals not estimated; no emergence or causal inference Interventions Private file queue; feedback, pause, resume, stop at wave boundaries; planned disturbances Not available to advanced engine workflows implicitly; no retries or recovery Statistics Descriptive records; frequentist count and interval analysis where applicable Bayesian analysis and prior elicitation removed; unsupported legacy choices fail before provider initialization Probes Synthetic alone/baseline/challenged teammate probes in a separate workspace Not the official Collaborative Intelligence benchmark or a score for a configured team Advanced engine Provider and decision adapters, research adapters, single-scientist and multi-lab workflows inherited from Labtune Candidate execution sandbox limited to one synthetic domain Offline demonstration teamknitt demo runs deterministic “connected” and
+“fragmented” fixtures through the full configure–publish–observe path without a model, so
+that routes, barriers, receipts and views can be inspected before any budget is spent. Fixtures
+are software behaviour, not model evidence or a solution to the user’s task. Live execution
+requires an explicit provider, a private key, a reviewed plan and run --live --approve-requests N , where N N must equal the resolved request cap. Observability A local, read-only viewer and the offline snapshot show the resolved
+team, routes, bindings, grouped views, heartbeat and recorded completion. Live activity, stale
+metadata and recorded completion are visually distinct. Nothing in the browser applies a
+configuration, changes a budget or starts a model. 8  Research agenda: hypotheses and protocol teamknitt is useful only if organizational and intervention claims about LLM-agent teams become
+testable. The hypotheses below are possibilities, not expectations; several are phrased so that
+either outcome would be informative about whether human-team regularities transfer. H1. Topology is inert without sharing. Under none , differences between
+presets in the diversity of retained alternatives vanish; they appear only at intermediate or above. (A manipulation check on P2–P3.) H2. Hubs converge faster, not better. At matched N N , W W and budget, hub_and_spoke retains fewer distinct alternatives at review than ring or grid , without a higher share of contributions judged useful by the user. H3. Direction limits relay. directed_chain preserves more of the
+first-wave alternatives than chain at equal exposure budget, because reciprocal routes
+allow content to return and recombine. H4. Redundancy and disturbance. After an actor_unavailable disturbance,
+handoff continuity returns sooner in topologies with alternative routes ( ring , grid , wheel ) than in chain or hub_and_spoke ; whether variability
+in contribution activity before the disturbance predicts return, as the dynamical view of
+human teams suggests [ 11 ] , is an open question. H5. Timing of feedback. Private feedback assembled before a transition phase
+(task adoption, evidence review) changes subsequent contributions more than feedback assembled
+during an action phase (parallel episodes), consistent with the temporal taxonomy of [ 26 ] . H6. Member measures do not predict system records. A member’s separately measured
+teammate profile [ 44 ] predicts its in-team acknowledgement and relay behaviour
+only weakly once topology and sharing are controlled. A strong prediction would favour
+non-system explanation; a weak one would favour system explanation. H7. Same-model homogeneity. When all members use one model, topology differences
+shrink as sharing increases; heterogeneous model assignment widens them. H8. Fractality of communication output. Following [ 31 , 13 ] , the series of communication output exchanged
+between members (per-wave contribution and acknowledgement volume, inter-contribution
+intervals, and turnover in lexical content across versions) exhibits long-range correlation,
+and teams whose series show a scaling exponent in the persistent range ( 0.5 < α < 1 0.5<\alpha<1 under detrended fluctuation analysis) and a positive but bounded maximal Lyapunov exponent
+for discussion density receive higher user-judged usefulness and retain more distinct
+alternatives than teams whose series are closer to white noise or to rigid periodicity. Scaling
+that reflects only the scheduler’s wave structure must be ruled out with surrogate series and
+with the none baseline, where no inter-member communication occurs. H9. Cross-model fractality. When members run on different models, the output of
+each model carries its own scaling signature, and the degree to which those signatures align
+after exchange (relative to runs where the same models never see each other’s output) is
+associated with team performance; the sign of that association is left open, since alignment
+may indicate productive coupling or premature convergence. Protocol I propose a factorial design over topology (a selected subset of the
+fourteen presets), sharing profile (five) and member count (for example N ∈ { 3 , 6 , 9 } N\in\{3,6,9\} ),
+with purpose, brief, model, request cap, read budget W W and review criteria held fixed, and custom with empty links as the isolated baseline. Each cell is replicated with fresh
+contexts. Outcomes are operational and human-reviewed: the number of distinct alternatives
+retained at review; the share of contributions the user judges useful against declared
+criteria; relay distance of first-wave content; acknowledgement rate and latency; handoff
+continuity around disturbances; and realized cost including corrections and delegation.
+Analysis is descriptive with frequentist count and interval estimates declared before review.
+teamknitt’s records—configuration identities, exposure logs, receipts and assembly events—are
+designed to supply these quantities directly. H8 and H9 need longer runs than the other
+hypotheses: scaling estimates require series of at least a few hundred points, so these studies
+would use goal-oriented missions with many waves, or many short runs of the same configuration
+whose per-wave series are analysed as an ensemble, with DFA and Lyapunov estimates compared
+against phase-randomized and shuffled surrogates [ 31 ] . The communication
+series themselves would be derived offline from the exported event store; no estimator runs
+inside the product. Threats to validity Four are immediate. Personas on one model may differ in label
+more than in behaviour; the mechanisms must be measured, not assumed. Field-based sharing
+filters cannot guarantee semantic isolation, so leakage is an outcome to quantify rather than a
+property to assume. Provider nondeterminism and silent model changes require replication and
+recorded model identities. Finally, human review of usefulness is itself a measurement with
+reliability that must be checked. 9  Limitations The main limitation is the boundary of the paper: no empirical comparison of topologies,
+sharing profiles or interventions is reported. teamknitt supplies the apparatus, not evidence that
+any configuration is better. The grouped views are explanatory orientations applied to
+operational scaffolds; they do not measure the psychological constructs whose names they
+borrow, and the implementation says so at each view. The dynamical observations are descriptive,
+and the estimators used in the author’s earlier work [ 31 ] —detrended
+fluctuation analysis and Lyapunov exponents—are not applied inside the product, because
+wave-level records from a single run are short and unevenly spaced; H8 and H9 therefore depend on
+an offline analysis pipeline and on longer or pooled runs that do not yet exist. The teammate probes are original synthetic protocols informed by the
+Collaborative Intelligence benchmark, not the benchmark itself. Intervention receipts record
+assembly, not understanding; feedback effects are not estimated. The runtime defaults to bounded
+text work; code and external actions require explicitly permitted tools. Finally, the software
+is distributed under a source-available noncommercial and research licence rather than an OSI
+open-source licence: general noncommercial use is free, but research use outside qualifying
+academic institutions, and any commercial use, require separate written permission. 10  Conclusion Every LLM-agent team has a topology, an information policy and a stance on human intervention,
+even when the framework hides them. teamknitt makes those three choices explicit and user-owned,
+and offers human-team theory as a lens for observing what happens rather than as a source of
+borrowed conclusions. The user chooses who is connected to whom and what may travel; observes the
+work through member-centred or interaction-centred views that never alter it; and intervenes
+through mechanisms whose scope, timing and receipts are recorded. Configuration identities,
+exposure logs and the chain from queued to improved then make it possible to ask, for agent
+teams, the questions that human-team research has been asking for decades: where does a
+team’s success or failure live, how does a team-level property arise, and when does intervening
+help? Whether the answers for LLM agents resemble the answers for people is an empirical
+question. teamknitt is intended to provide the apparatus for asking it. Code availability Source code, topology catalog, task-team design, starters and diagrams are available (version
+0.9.0) at https://github.com/JeranRolevs/teamknitt . teamknitt is based on Labtune
+( https://github.com/JeranRolevs/labtune ). The software is distributed under the Teamknitt
+Noncommercial and Research Licence 2.0 (copyright holder and licensor: Pioneertown B.V.; author:
+Goran Mitevski); see LICENSE and LICENSING.md in the repository for terms.
+Credentials, trials and research results are not distributed. Disclosure During the preparation of this manuscript, the author utilized a combination of LLM models to
+rephrase and improve the clarity, readability and stylistic tone of the draft. After using these
+tools, the author reviewed, edited and verified the content to ensure accuracy, and takes full
+responsibility for the final manuscript. References [1] Daniel J. Beal, Robin R. Cohen, Michael J. Burke, and Christy L. McLendon. Cohesion and performance in groups: A meta-analytic clarification of
+construct relations. Journal of Applied Psychology , 88(6):989–1004, 2003. [2] Maciej Besta, Nils Blach, Ales Kubicek, Robert Gerstenberger, et al. Graph of thoughts: Solving elaborate problems with large language
+models. arXiv preprint arXiv:2308.09687 , 2024. [3] Janis A. Cannon-Bowers, Eduardo Salas, and Sharolyn Converse. Shared mental models in expert team decision making. In N. John Castellan, editor, Individual and Group Decision
+Making: Current Issues , pages 221–246. Lawrence Erlbaum, Hillsdale, NJ,
+1993. [4] Mert Cemri, Melissa Z. Pan, Shuyi Yang, Lakshya A. Agrawal, et al. Why do multi-agent LLM systems fail? arXiv preprint arXiv:2503.13657 , 2025. [5] Huan Chen, Xiang Song, Jian Jin, Pan Ren, and Liang-Jie Zhang. Toward an organizational science of multi-agent LLM systems:
+Decoupling who, how, and which algorithm. arXiv preprint arXiv:2607.25446 , 2026. [6] Nancy J. Cooke, Jamie C. Gorman, Christopher W. Myers, and Jasmine L. Duran. Interactive team cognition. Cognitive Science , 37(2):255–285, 2013. [7] Leslie A. DeChurch and Jessica R. Mesmer-Magnus. The cognitive underpinnings of effective teamwork: A meta-analysis. Journal of Applied Psychology , 95(1):32–53, 2010. [8] Anil R. Doshi and Oliver P. Hauser. Generative AI enhances individual creativity but reduces the
+collective diversity of novel content. Science Advances , 10(28):eadn5290, 2024. [9] Amy Edmondson. Psychological safety and learning behavior in work teams. Administrative Science Quarterly , 44(2):350–383, 1999. [10] Jamie C. Gorman, Nancy J. Cooke, and Polemnia G. Amazeen. Training adaptive teams. Human Factors , 52(2):295–307, 2010. [11] Jamie C. Gorman, Terri A. Dunbar, David Grimm, and Christina L. Gipson. Understanding and modeling teams as dynamical systems. Frontiers in Psychology , 8:1053, 2017. doi: 10.3389/fpsyg.2017.01053 . [12] Juraj Gottweis, Wei-Hung Weng, Alexander Daryin, Tao Tu, et al. Towards an AI co-scientist. arXiv preprint arXiv:2502.18864 , 2025. [13] Stephen J. Guastello. Creative problem solving groups at the edge of chaos. Journal of Creative Behavior , 32(1):38–57, 1998. [14] J. Richard Hackman. The design of work teams. In Jay W. Lorsch, editor, Handbook of Organizational Behavior ,
+pages 315–342. Prentice-Hall, Englewood Cliffs, NJ, 1987. [15] J. Richard Hackman. Leading Teams: Setting the Stage for Great Performances . Harvard Business School Press, Boston, 2002. [16] John H. Holland. Hidden Order: How Adaptation Builds Complexity . Addison-Wesley, Reading, MA, 1995. [17] Sirui Hong, Mingchen Zhuge, Jonathan Chen, Xiawu Zheng, et al. MetaGPT: Meta programming for a multi-agent collaborative
+framework. arXiv preprint arXiv:2308.00352 , 2023. [18] Shengran Hu, Cong Lu, and Jeff Clune. Automated design of agentic systems. arXiv preprint arXiv:2408.08435 , 2024. [19] Edwin Hutchins. Cognition in the Wild . MIT Press, Cambridge, MA, 1995. [20] Daniel R. Ilgen, John R. Hollenbeck, Michael Johnson, and Dustin Jundt. Teams in organizations: From input-process-output models to IMOI
+models. Annual Review of Psychology , 56:517–543, 2005. [21] J. A. Scott Kelso. Dynamic Patterns: The Self-Organization of Brain and Behavior . MIT Press, Cambridge, MA, 1995. [22] Steve W. J. Kozlowski and Katherine J. Klein. A multilevel approach to theory and research in organizations:
+Contextual, temporal, and emergent processes. In Katherine J. Klein and Steve W. J. Kozlowski, editors, Multilevel Theory, Research, and Methods in Organizations , pages
+3–90. Jossey-Bass, San Francisco, 2000. [23] Kyle Lewis. Measuring transactive memory systems in the field: Scale development
+and validation. Journal of Applied Psychology , 88(4):587–604, 2003. [24] Guohao Li, Hasan Abed Al Kader Hammoud, Hani Itani, Dmitrii Khizbullin, and
+Bernard Ghanem. CAMEL: Communicative agents for “mind” exploration of large
+language model society. arXiv preprint arXiv:2303.17760 , 2023. [25] Chris Lu, Cong Lu, Robert Tjarko Lange, Jakob Foerster, Jeff Clune, and David
+Ha. The AI Scientist: Towards fully automated open-ended scientific
+discovery. arXiv preprint arXiv:2408.06292 , 2024. [26] Michelle A. Marks, John E. Mathieu, and Stephen J. Zaccaro. A temporally based framework and taxonomy of team processes. Academy of Management Review , 26(3):356–376, 2001. [27] John E. Mathieu, Tonia S. Heffner, Gerald F. Goodwin, Eduardo Salas, and
+Janis A. Cannon-Bowers. The influence of shared mental models on team process and
+performance. Journal of Applied Psychology , 85(2):273–283, 2000. [28] Joseph E. McGrath. Social Psychology: A Brief Introduction . Holt, Rinehart & Winston, New York, 1964. [29] Michael D. McNeese, Eduardo Salas, and Mica R. Endsley, editors. Foundations and Theoretical Perspectives of Distributed Team
+Cognition . CRC Press, Boca Raton, FL, 2021. [30] Melanie Mitchell. Complexity: A Guided Tour . Oxford University Press, New York, 2009. [31] Goran Mitevski. Sparks and fractals: Measuring quantitative aspects of distributed
+software development team’s creative process with Lyapunov exponents and
+detrended fluctuation analysis. Msc thesis (data science & society), Tilburg University, Department
+of Cognitive Science & Artificial Intelligence, Tilburg, The Netherlands,
+2023. [32] Goran Mitevski. Labtune: Treating lab organization and information sharing as
+experimental variables in LLM-agent discovery. Preprint, 2026a. Reference implementation: Labtune, https://github.com/JeranRolevs/labtune . [33] Goran Mitevski. teamknitt: Research-informed agent teams — configure, set tasks,
+follow work and intervene explicitly. https://github.com/JeranRolevs/teamknitt , 2026b. Version 0.9.0. [34] Aneesh Pappu, Batu El, Hancheng Cao, Carmelo di Nolfo, Yanchao Sun, Meng Cao,
+and James Zou. Multi-agent teams hold experts back. arXiv preprint arXiv:2602.01011 , 2026. [35] Chen Qian, Wei Liu, Hongzhang Liu, Nuo Chen, et al. ChatDev: Communicative agents for software development. arXiv preprint arXiv:2307.07924 , 2023. [36] Chen Qian, Zihao Xie, Yifei Wang, Wei Liu, et al. Scaling large-language-model-based multi-agent collaboration. arXiv preprint arXiv:2406.07155 , 2024. [37] Eduardo Salas, Deborah DiazGranados, Cameron Klein, C. Shawn Burke, Kevin C.
+Stagl, Gerald F. Goodwin, and Stanley M. Halpin. Does team training improve team performance? A meta-analysis. Human Factors , 50(6):903–933, 2008. [38] Samuel Schmidgall and Michael Moor. AgentRxiv: Towards collaborative autonomous research. arXiv preprint arXiv:2503.18102 , 2025. [39] Samuel Schmidgall, Yusheng Su, Ze Wang, Ximeng Sun, Jialian Wu, Xiaodong Yu,
+Jiang Liu, Zicheng Liu, and Emad Barsoum. Agent Laboratory: Using LLM agents as research assistants. arXiv preprint arXiv:2501.04227 , 2025. [40] R. C. Schmidt and Michael J. Richardson. Dynamics of interpersonal coordination. In Armin Fuchs and Viktor K. Jirsa, editors, Coordination:
+Neural, Behavioral and Social Dynamics , pages 281–308. Springer, Berlin,
+2008. [41] Kyle Swanson, Wesley Wu, Nash L. Bulaong, John E. Pak, and James Zou. The Virtual Lab of AI agents designs new SARS-CoV-2 nanobodies. Nature , 2025. Preprint: bioRxiv 2024.11.11.623004. [42] Daniel M. Wegner. Transactive memory: A contemporary analysis of the group mind. In Brian Mullen and George R. Goethals, editors, Theories of
+Group Behavior , pages 185–208. Springer, New York, 1987. [43] Qingyun Wu, Gagan Bansal, Jieyu Zhang, Yiran Wu, et al. AutoGen: Enabling next-gen LLM applications via multi-agent
+conversation. arXiv preprint arXiv:2308.08155 , 2023. [44] Sean Wu, Aneesh Pappu, Jiaru Zou, Yubin Kim, Yuncong Mao, Hongjian Zhou, Junchi
+Yu, Jieneng Chen, and James Zou. Measuring AI agents as teammates with collaborative intelligence. arXiv preprint arXiv:2611.02633 , 2026. [45] Shunyu Yao, Dian Yu, Jeffrey Zhao, Izhak Shafran, Thomas L. Griffiths, Yuan
+Cao, and Karthik Narasimhan. Tree of thoughts: Deliberate problem solving with large language
+models. arXiv preprint arXiv:2305.10601 , 2023. [46] Guibin Zhang, Yanwei Yue, Xiangguo Sun, Guancheng Wan, et al. G-Designer: Architecting multi-agent communication topologies via
+graph neural networks. arXiv preprint arXiv:2410.11782 , 2025. [47] Mingchen Zhuge, Wenyi Wang, Louis Kirsch, Francesco Faccio, Dmitrii Khizbullin,
+and Jürgen Schmidhuber. Language agents as optimizable graphs. arXiv preprint arXiv:2402.16823 , 2024. Experimental support, please view the build logs for errors. Generated by L A T E xml . Instructions for reporting errors We are continuing to improve HTML versions of papers, and your feedback helps enhance accessibility and mobile
+      support. To report errors in the HTML that will help us improve conversion and rendering, choose any of the
+      methods listed below: Click the "Report Issue" ( ) button, located in the page header. Tip: You can select the relevant text first, to include it in your report. Our team has already identified the following issues . We appreciate your time reviewing and reporting rendering errors we
+      may not have found yet. Your efforts will help us improve the HTML versions for all readers, because disability
+      should not be a barrier to accessing research. Thank you for your continued support in championing open access for
+      all. Have a free development cycle? Help support accessibility at arXiv! Our collaborators at LaTeXML maintain a list of packages that need conversion , and welcome developer contributions . We gratefully acknowledge support from our major funders , member institutions , ,
+        and all contributors. About · Help · Contact · Subscribe · Copyright · Privacy · Accessibility · Operational Status (opens in new tab)

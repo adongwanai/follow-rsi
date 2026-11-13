@@ -1,0 +1,5103 @@
+{
+  "id": "arxiv:2610.19148",
+  "version": 2,
+  "raw_receipt": {
+    "id": "arxiv:2610.19148",
+    "version": 2,
+    "kind": "html",
+    "url": "https://arxiv.org/html/2610.19148v2",
+    "requested_at": "2026-11-13T00:11:11.757497+00:00",
+    "finished_at": "2026-11-13T00:11:12.980491+00:00",
+    "http_status": "200",
+    "returncode": 0,
+    "stderr": "",
+    "file": "build/maintenance-2026-11-13/backlog-audit/priority-version-sources/2610.19148v2.html.html",
+    "sha256": "dde4716999a8bf779d84056f4196150a3a9e2cce1fa659ba742952efd5386596",
+    "bytes": 873979,
+    "paid": false,
+    "html_close_present": true,
+    "title": "Compiling Expert Procedures into Verified Programs: When a Small Model Is Enough",
+    "document_version_mentions": [
+      "2610.19148v2"
+    ]
+  },
+  "blocks": [
+    {
+      "id": "abstract1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "In procedural tool-use domains, how much of the gap between base models is procedure rather than capability? We build an explicit program from a teacher’s traces and run it in front of unchanged small models, including an 8B model. The construction, PLVR , takes the reasoning traces of a teacher, Kimi-K3, clusters their segments to locate recurring operations, has a frontier model author one typed primitive per operation, each run by a small frozen model and checked by a deterministic verifier, and assembles the program by A ∗ search over a rule library mined from the same traces, under a reference-action objective: the distance between the actions the program takes and the actions the teacher took on the training tasks. At inference the program takes one of two forms: for troubleshooting and tool search it produces the chain of thought the student would otherwise generate for itself, and the student acts on it; for multi-turn tool matching the student proposes each action and the program checks, repairs, or retries it before it goes out. On the official τ 2 \\tau^{2} -Bench Retail and Telecom test sets and on LiveMCPBench, with three Nemotron base models and the same program for each, the answer depends on the domain. On Telecom, Granite-4.2-8B as the student goes from 43.0% to 91.2% under the program, and every Nemotron student reaches 93.3–94.4%, against at most 58.2% for fine-tuning on the same traces, prompt optimisation of the student, or two token-matched baselines. With Granite-4.2-8B as the student, the program is within 2 to 3 points of the Nemotron students on Telecom and within 3 on Retail, and 3 to 13 points below them on LiveMCPBench: on τ 2 \\tau^{2} Telecom an 8B student is enough, and on tool search the student still matters. The Telecom result is in-domain compositional generalisation: the program is built from synthetic tasks in the benchmark’s own environment and run on the benchmark’s unseen test tasks. On Retail and LiveMCPBench the program is competitive with the best baseline. The spread between base models shrinks from about 7 points to about 2, averaged over the suites, with no weights changed."
+    },
+    {
+      "id": "S1.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "A small model that fails a multi-step tool-use task may lack the capability for the task, or may only lack the procedure: which record to read first, which check to run before which fix, when to stop. The two look alike in an end-to-end score. They differ in what fixes them. Capability is addressed by a bigger or better-trained model; procedure can be written down."
+    },
+    {
+      "id": "S1.p2.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "This paper asks how much of the gap between base models in procedural tool-use domains is procedure. We build an explicit program from a teacher’s traces and run it in front of unchanged models of different sizes, down to an 8B model. If the gap is mostly procedure, the choice of model under the program should matter little; if it is mostly capability, the program should help the stronger model more and the model should still matter. The answer we find depends on the domain: on troubleshooting and multi-turn tool matching an 8B student under the program is level with larger ones, and on tool search the student still matters."
+    },
+    {
+      "id": "S1.SS0.SSS0.Px1.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "PLVR takes the teacher traces that supervised fine-tuning would consume and decompose them instead. Clustering the traces’ segments proposes where recurring operations occur; a frontier model decides what each operation is and writes it as a primitive , a call to a small frozen model scoped to one operation, with a typed input, an output schema, and a deterministic verifier that rejects ill-formed or ungrounded outputs; and the primitives are composed into a program by search. The student’s weights are never updated; the program is the object that is built."
+    },
+    {
+      "id": "S1.F1.pic1.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": ""
+    },
+    {
+      "id": "S1.F1.pic1.2.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": ""
+    },
+    {
+      "id": "S1.F1.pic1.3.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": ""
+    },
+    {
+      "id": "S1.F1.pic1.4.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": ""
+    },
+    {
+      "id": null,
+      "tag": "figcaption",
+      "classes": [
+        "ltx_caption",
+        "ltx_centering"
+      ],
+      "text": "Figure 1 : Trace-guided program construction. (A) Each kept teacher trace is cut into segments typed as reason, call, message, or question. (B) Segments are clustered within kind; each cluster’s behaviours become primitives, each a single call to frozen Granite-4.2-8B with a typed input, an output schema, a deterministic verifier, and a fallback (§ 3.2 ). (C) From the same traces, code alone reads off the expert actions, and a program is scored by the distance between the actions it takes and the expert’s (§ 3.3 ). (D) A ∗ adds rules from a library mined from the traces, minimising f = | P | + 100 ​ d f=|P|+100\\,d on the training tasks, and keeps the best program (§ 3.4 )."
+    },
+    {
+      "id": "S1.SS0.SSS0.Px2.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "A base model asked to reason before acting generates a plan for itself at inference time and then follows it. For troubleshooting and tool search, the program is that plan, constructed once, from the teacher’s traces, as a typed composition of primitives, and at inference runs it to produce the chain of thought the student then acts on: the program replaces the student’s reasoning. For multi-turn tool matching the program is a guard around the student: the student proposes each action, and the program checks it against the records, the rules, and the user’s consent, repairs it, or sends it back to be proposed again. In both forms the student is the same model with the same weights; what changes is whether its reasoning is written for it or its actions are checked for it."
+    },
+    {
+      "id": "S1.SS0.SSS0.Px3.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Assembling the program is a discrete search with no gradients. A frontier model first mines a library of rules from the traces, one line each. Starting from a hand-written seed, A ∗ adds rules from that library, scoring each partial program by the distance between the actions a program takes and the actions the teacher took on the same task, read off the trace by code: a reference-action objective. We report the seed’s and the final program’s accuracy on the test suites so the search’s contribution is visible."
+    },
+    {
+      "id": "S1.SS0.SSS0.Px4.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Four results, all in Table 2 . First, on τ 2 \\tau^{2} Telecom, Granite-4.2-8B as the student goes from 43.0% to 91.2% under the program, and Nemotron 3.5 Lightning, Nemotron 3 Nano, and Nemotron 3 Super reach 94.4%, 93.3%, and 93.3%; no other arm on any student exceeds 58.2%. Second, with Granite-4.2-8B as the student the program is 2.1 to 3.2 points below the Nemotron students on Telecom, within 2.7 points of them on Retail, and 3.2 to 12.6 points below on LiveMCPBench: on τ 2 \\tau^{2} Telecom an 8B student is enough, and on tool search the student still matters. On Retail and LiveMCPBench the program is competitive with the best baseline, above it on some students and below it on others. Third, the spread between the three students shrinks from 6.6 points to 1.9 averaged over the suites, with no weights changed; per suite, from 15.8 to 3.5 on Retail, 15.0 to 1.1 on Telecom, and 10.9 to 9.4 on LiveMCPBench. Fourth, the search contributes: on Lightning it takes the hand-written seed from 73.1%, 68.4%, and 37.9% on the three suites to 82.7%, 94.4%, and 50.5% (59.8% to 75.9% averaged)."
+    },
+    {
+      "id": "S1.SS0.SSS0.Px5.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "The method needs intermediate outputs that admit checking. Tasks whose quality is a matter of judgement rather than satisfaction, such as summarisation and open generation, are outside its scope, and we make no claim about them. Extraction was run on one teacher and three kinds of tool-use task, and we do not claim the primitives transfer to other domains."
+    },
+    {
+      "id": "S1.I1.i1.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "An estimate of how much of the gap is procedure. One program, the same for every base model, run in front of three Nemotron students and of Granite-4.2-8B on three suites. With the 8B model as the student the program reaches 91.2% on Telecom and 82.5% on Retail, within 3 points of the Nemotron students; on LiveMCPBench the Nemotron students are 3 to 13 points ahead of it (§ 5 )."
+    },
+    {
+      "id": "S1.I1.i2.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Trace-guided program construction ( PLVR ). A frontier model authors 37 primitives from clusters of teacher-trace segments, each a typed call to a small frozen model carrying a deterministic verifier, so that every primitive is checked as it runs; a rule library is mined from the same traces; and A ∗ assembles the program under a reference-action objective read off the traces by code (§ 3 , Appendix D.1 ). The search itself is plain A ∗ and is not claimed as a contribution."
+    },
+    {
+      "id": "S2.SS0.SSS0.Px1.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Knowledge distillation transfers a teacher’s behaviour into a student’s parameters, classically through soft targets and in the LLM setting through supervised fine-tuning on the teacher’s outputs or reasoning traces ( Ouyang et al., 2022 ) . RLHF fits reward models to human preferences ( Christiano et al., 2023 ; Ouyang et al., 2022 ) ; RLVR instead rewards programmatic checks such as test execution or answer matching ( Guo et al., 2025 ) . PLVR consumes the same traces as trace-based SFT, but puts the result into a program over frozen components rather than into weights, and the student’s parameters are not changed; its objective is the distance to the teacher’s actions rather than a reward."
+    },
+    {
+      "id": "S2.SS0.SSS0.Px2.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Program-of-thought and PAL-style methods have a model emit executable code in place of free-text reasoning ( Gao et al., 2023 ; Chen et al., 2023 ) , and later work distils such programs into smaller models ( Zhu et al., 2024 ) . These write the program to a fixed template per example. PLVR writes one program per task family, from operations mined out of the teacher’s traces, and runs it either to produce the reasoning the student then follows or, in its guard form, to check and repair the actions the student proposes; the second form is closer to runtime guardrails and output verifiers than to program-of-thought."
+    },
+    {
+      "id": "S2.SS0.SSS0.Px3.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Process supervision scores intermediate steps ( Uesato et al., 2022 ; Lightman et al., 2023 ; Wang et al., 2024 ; Xi et al., 2025 ; Kamoi et al., 2026 ) . ProTeGi, TextGrad, Trace, and GEPA optimise language-model systems through textual or trace feedback without derivatives through the model calls ( Pryzant et al., 2023 ; Yuksekgonul et al., 2024 ; Cheng et al., 2024 ; Agrawal et al., 2026 ) . DSPy, ADAS, AFlow, and AgentFlow compile or search declarative pipelines and workflows ( Khattab et al., 2023 ; Hu et al., 2025 ; Zhang et al., 2025 ; Li et al., 2026 ) . Logic-LM, Proof-of-Thought, and SEVerA couple language models with symbolic structure and executable checks ( Pan et al., 2023 ; Ganguly et al., 2024 ; Banerjee et al., 2026 ) . PLVR differs from these in where its components come from: the primitives are authored from clusters of a teacher’s traces rather than declared in advance, and the process signal is read off those same traces rather than learned or annotated. The search itself is plain A ∗ over a mined rule library and is not claimed as a contribution."
+    },
+    {
+      "id": "S3.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "A PLVR program is a composition of typed primitives arranged by a small set of operators. We describe the training data and teacher traces (§ 3.1 ), the primitive library (§ 3.2 ), the expert actions read off each trace and the distance to them (§ 3.3 ), and the search (§ 3.4 ); the primitives and the clusters each is drawn from are in Appendix D.1 ."
+    },
+    {
+      "id": "S3.SS1.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "The three evaluation suites differ in the shape of their tasks, so we built a synthetic training set of 553 tasks in three subsets, one per kind of task (Table 1 ). The retail subset is 142 tasks in the τ 2 \\tau^{2} retail format, multi-turn tool matching against a policy. The telecom subset is 178 tasks in the τ 2 \\tau^{2} telecom format, mostly troubleshooting. The tool-search subset is 233 tasks in the LiveMCPBench format, tool search over a large registry. Each subset is split into training and held-aside tasks: 119/23 for retail, 122/56 for telecom, 183/50 for tool-search."
+    },
+    {
+      "id": "S3.SS1.SSS0.Px1.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Claude 5 Opus generated the tasks. For retail and telecom it used τ 2 \\tau^{2} -Bench’s own tools, environment, and policies and wrote new questions against them; for tool-search it used LiveMCPBench’s registry format and wrote new questions against that."
+    },
+    {
+      "id": "S3.SS1.SSS0.Px2.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "No benchmark task, and nothing that could stand in for one, appears in the training set:"
+    },
+    {
+      "id": "S3.I1.i1.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "No benchmark instances. Every benchmark task is excluded by id, including held-out ones. On LiveMCPBench the benchmark’s tasks were never read at all."
+    },
+    {
+      "id": "S3.I1.i2.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "No shared underlying data. A training task may not reuse what a benchmark task is built on: the same issue type and fault set (telecom), or the same customer or order (retail)."
+    },
+    {
+      "id": "S3.I1.i3.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "No near-duplicates. Training task text is checked mechanically against benchmark text, and close matches are rewritten or dropped."
+    },
+    {
+      "id": "S3.I1.i4.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Held-aside tasks stay out. Each subset’s held-aside split is fixed up front and never used for training or search."
+    },
+    {
+      "id": "S3.I1.i5.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "No uninformative tasks. Tasks that always pass or cannot be solved are removed."
+    },
+    {
+      "id": "S3.SS1.SSS0.Px2.p2.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Kimi-K3 is run on every task with the task’s tools and a system prompt that asks it to work through the task, record its steps, and finish with the tool calls; it names no operation and no primitive. We keep the reasoning the provider returns separately from the reply. Traces that do not reach the task’s ground truth are discarded: retail and telecom traces must re-score 1.0 under the τ 2 \\tau^{2} evaluator, and tool-search traces must pass both an LLM judge and the task’s deterministic label. Every telecom and tool-search trace is kept; on retail, 128 of 142 are (90.1%). The 539 kept traces are the only demonstrations in this paper: they are what the primitives are extracted from, what the search scores against, and what every baseline is trained on. Two frontier models take part in building the program and see no benchmark data: Claude 5 Opus writes the primitives from the clustered traces (§ 3.2 ), and Claude Sonnet 4.5 mines the rule library the program search draws on (§ 3.4 )."
+    },
+    {
+      "id": "S3.T1.3.1",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Subset Format Tasks Train Held aside Kept traces"
+    },
+    {
+      "id": "S3.T1.3.2",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Retail τ 2 \\tau^{2} retail format, multi-turn tool matching 142 119 23 128"
+    },
+    {
+      "id": "S3.T1.3.3",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Telecom τ 2 \\tau^{2} telecom format, troubleshooting 178 122 56 178"
+    },
+    {
+      "id": "S3.T1.3.4",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Tool-search LiveMCPBench format, tool search 233 183 50 233"
+    },
+    {
+      "id": "S3.T1.3.5",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Total 553 424 129 539"
+    },
+    {
+      "id": null,
+      "tag": "figcaption",
+      "classes": [
+        "ltx_caption",
+        "ltx_centering"
+      ],
+      "text": "Table 1: The training set and the kept teacher traces."
+    },
+    {
+      "id": "S3.SS2.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "The primitives are trace-grounded and model-authored. The kept traces are processed by segmenting each trace, typing each segment as a reason , a call , a message , or a question , embedding, and clustering with k k -means within each kind. This gives 3,141 segments in 35 clusters: 15 reason, 8 call, 9 message, 3 question (segmentation rule and embedding model in Appendix D.1 ). Clustering locates where an operation lives in the traces; it does not by itself separate which decision a segment witnesses, since one segment can show several (a call segment shows the function chosen and the parameters filled). Clustering therefore proposes where operations occur; a frontier model, Claude 5 Opus, post-processes the clusters, decides what the operations are, and writes each primitive: its input–output signature, prompt, verifier, and fallback. The result is 37 primitives in six groups: understanding the message (7), finding the tools (5), building the call (8), checking the policy (7), troubleshooting conditions (6), and finishing (4). Each primitive is anchored to the clusters its segments come from; a primitive draws on 1 to 14 clusters and on 1 to 195 segments, and a cluster carries 1 to 14 primitives. Fifteen of the 37 are used in more than one subset; the rest are specific to one kind of task. The full mapping between primitives and clusters is in Appendix D.1 ."
+    },
+    {
+      "id": "S3.SS2.SSS0.Px1.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Each primitive is one call to Granite-4.2-8B, frozen, under its own prompt. It has named inputs plus a shared context (the facts gathered so far, the latest user message, the agent’s previous message, and where relevant the policy), a JSON output schema, a deterministic verifier , and a fallback returned when the verifier rejects. No prompt is tuned against a benchmark or an end-task reward. The verifier makes each primitive checkable: an output that violates its schema, quotes text not verbatim in its source, cites a fact that does not exist, or gives an expression that does not evaluate is rejected and the fallback is used."
+    },
+    {
+      "id": "S3.SS2.SSS0.Px2.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Segmentation, typing, embedding, and clustering involve no language model and no hand-picked segments; the clusters, and which segments belong to them, are decided by the clustering alone. The frontier model decides which operations the clusters show and drafts each primitive’s signature, prompt, verifier, and fallback from the clusters’ members. Names are the authors’. The claim is not that the primitives were recovered automatically; it is that each one is anchored to segments of the teacher’s traces, and that the whole library was authored from the kept traces at negligible compute."
+    },
+    {
+      "id": "S3.SS3.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Each kept trace gives, by code alone, the expert actions for its task: the sequence of state-changing actions the teacher took (a device action by the user, or a write or tool call by the agent), each with its arguments; reads are left out. A program is scored by running it on a task and comparing the conversation’s sequence of actions with the expert actions for the same task. The distance counts 1.0 for each expert action that is missing or has wrong arguments, 0.5 for each action out of order, 0.5 for each extra state-changing action, and 1.0 for an abnormal ending, divided by the number of expert actions. Lower is better, and a program’s score is the mean distance over the search set. This is the reference-action objective the search minimises; no model judges a conversation."
+    },
+    {
+      "id": "S3.SS4.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "A program is the seed plus a set of rules, each a line in the same form as the seed’s, and its primitives. The rules come from a library that Claude Sonnet 4.5 mines from the kept traces once, before the search: 61 rules from the tool-search traces and 64 from the telecom traces, each a one-line behaviour the expert shows (Appendix E ). The combined library of 125 rules is the candidate set for every block; the retail block has no library of its own and draws on the rules mined from the telecom and tool-search traces."
+    },
+    {
+      "id": "S3.SS4.p2.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "A ∗ starts from the seed. A successor inserts one rule, or one group of rules, from the library into the current program; it is kept only if the program still compiles and runs without errors. Partial programs are scored by the distance of § 3.3 plus a small cost per rule,"
+    },
+    {
+      "id": "S3.SS4.p2.2",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "where | P | |P| is the number of rules in the program and d ⁡ ( P ) d(P) is the mean distance to the expert actions over the search set, so of two programs at the same distance the smaller wins. The final program is the one with the best task outcome on the training tasks among those the search reached."
+    },
+    {
+      "id": "S3.SS4.SSS0.Px1.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "The search scored 32 programs for the telecom block, 87 for the retail block, and 9 for the tool-search block (the seed, six group edits, their merge, and the final program). Settings are in Appendix A ."
+    },
+    {
+      "id": "S3.SS4.SSS0.Px2.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "The seed is three hand-written blocks, one per subset of the training set, joined into one program. The telecom block walks the policy’s checklist in order, reads the system state before each fix rule, does not repeat a fix already in place, and re-runs the check until it passes. The tool-search block retrieves candidate tools for each request, picks one, fills its parameters, calls it, and checks whether the request is achieved. The retail block takes the base model’s proposed action each turn and checks it before it goes out: unknown tools and malformed ids are rejected, a change must take every value from a record that was read or from the customer’s words, the customer must be identified and own the record and the policy rule must hold, a change goes out only after the customer’s yes and is never made twice, and a claimed “done” without the call is retried. The search added rules to all three blocks. Both programs are listed in full in Appendix B . On Lightning, the seed scores 73.1% on Retail, 68.4% on Telecom, and 37.9% on LiveMCPBench; the final program 82.7%, 94.4%, and 50.5%."
+    },
+    {
+      "id": "S4.SS1.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "We train on the set of § 3.1 and evaluate on the official τ 2 \\tau^{2} -Bench Retail and Telecom test sets and on LiveMCPBench. τ 2 \\tau^{2} -Bench is multi-turn dialogue against a stated policy, judged by the benchmark’s user simulator, where a small tool set makes correctness turn on ordering and admissibility. LiveMCPBench is tool selection and invocation over a large MCP registry, where correctness turns on choosing the right tool from many and binding arguments that resolve. Each suite has a training subset in its format (§ 3.1 )."
+    },
+    {
+      "id": "S4.SS2.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "The primitives run on Granite-4.2-8B, frozen, each under its own prompt. The students are Nemotron 3.5 Lightning, Nemotron 3 Nano, and Nemotron 3 Super. Each receives every treatment: vanilla, fine-tuning on the traces, GEPA, the two token-matched baselines, and the program."
+    },
+    {
+      "id": "S4.SS3.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Every arm consumes the same kept teacher traces and the same synthetic training set; no arm uses any other demonstrations."
+    },
+    {
+      "id": "S4.SS3.SSS0.Px1.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "The student is fine-tuned on the traces in two variants. The process arm trains on the teacher’s reasoning followed by its final calls, so the student learns to reproduce the procedure before answering. The outcome arm trains on input to final calls only, with the reasoning removed. Learning rate, LoRA rank, and epoch are swept per model and variant and selected by solved count on the held-aside traces of each subset. One fine-tune per model is evaluated on the benchmarks and is the fine-tuning comparator in Table 2 . Construction and sweep are in Appendix C ."
+    },
+    {
+      "id": "S4.SS3.SSS0.Px2.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "The student’s own system prompt is optimised with GEPA ( Agrawal et al., 2026 ) on the training set, and the student is then run as a native tool-calling agent with no program. This tests whether optimising the student’s prompt alone reaches what the program reaches. Construction, budget, and the optimised prompt are in Appendix H ."
+    },
+    {
+      "id": "S4.SS3.SSS0.Px3.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "The student with chain-of-thought prompting and no other treatment. The program replaces this chain of thought, or checks the actions it leads to."
+    },
+    {
+      "id": "S4.SS3.SSS0.Px4.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Two arms spend the same tokens per task as the final program, with Granite-4.2-8B doing the extra work, so that the program is compared against other uses of the same budget on the same small model. ReAct runs a plan–act–reflect loop in the style of ReAct ( Yao et al., 2023 ) : each turn, Granite-4.2-8B plans, the student acts from that plan placed where its own reasoning would go, and Granite critics review the action, with up to two revisions; the loop runs under the program’s Granite token budget (Appendix F ). Sample-and-judge samples five candidate responses and has Granite-4.2-8B, as a judge, select one, so that the total tokens match the program’s. The judge prompt is in Appendix G ."
+    },
+    {
+      "id": "S4.SS4.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "The program is built once from the training set (§ 3.4 ) and held fixed. The program is evaluated three times on τ 2 \\tau^{2} Telecom and once on every other suite; every other arm is evaluated once per cell. Reported scores are means over those runs. Token counts per task are recorded for every arm, with the student’s and Granite’s tokens separated."
+    },
+    {
+      "id": "S5.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Table 2 reports every arm on τ 2 \\tau^{2} -Bench Retail and Telecom and LiveMCPBench, per suite. The program rows run the same program, the same primitives on the same frozen Granite-4.2-8B, in front of each student, with no weights changed anywhere. Every cell except the program’s Telecom cells is a single run, so differences of a few points between arms are not resolved; we describe them as competitive rather than ranking them."
+    },
+    {
+      "id": null,
+      "tag": "figcaption",
+      "classes": [
+        "ltx_caption",
+        "ltx_centering"
+      ],
+      "text": "Table 2 : Accuracy (%) by benchmark (pass@1 per run on τ 2 \\tau^{2} -Bench): Retail 114 tasks, Telecom 114, LiveMCPBench 95. The program’s Telecom cells are means over three runs; all other cells, including the Granite-as-student row, are one run. The best arm per student and column is in bold. Averages are arithmetic means of the displayed cells. The SFT row is the one fine-tune per model of § 4.3 , trained on the kept teacher traces. GEPA rows optimise the student’s own prompt with no program. ReAct and sample-and-judge rows spend the program’s token budget on Granite-4.2-8B without the program (§ 4.3 ). PLVR rows run the final program of § 3.4 ."
+    },
+    {
+      "id": "S5.T2.6.1",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "τ 2 \\tau^{2} -Bench"
+    },
+    {
+      "id": "S5.T2.6.2",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "System Retail Telecom LiveMCP Avg"
+    },
+    {
+      "id": "S5.T2.6.3",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Vanilla (chain-of-thought prompting)"
+    },
+    {
+      "id": "S5.T2.6.4",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Nemotron 3.5 Lightning 75.4 47.4 42.5 55.1"
+    },
+    {
+      "id": "S5.T2.6.5",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Nemotron 3 Nano 64.0 36.8 45.3 48.7"
+    },
+    {
+      "id": "S5.T2.6.6",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Nemotron 3 Super 79.8 51.8 34.4 55.3"
+    },
+    {
+      "id": "S5.T2.6.7",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "SFT on the kept teacher traces"
+    },
+    {
+      "id": "S5.T2.6.8",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Nemotron 3.5 Lightning 73.2 48.0 44.5 55.2"
+    },
+    {
+      "id": "S5.T2.6.9",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Nemotron 3 Nano 77.0 51.0 44.0 57.3"
+    },
+    {
+      "id": "S5.T2.6.10",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Nemotron 3 Super 86.3 50.0 57.4 64.6"
+    },
+    {
+      "id": "S5.T2.6.11",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Prompt optimisation (GEPA on the student’s prompt, no program)"
+    },
+    {
+      "id": "S5.T2.6.12",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Nemotron 3.5 Lightning 79.8 51.8 47.0 59.5"
+    },
+    {
+      "id": "S5.T2.6.13",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Nemotron 3 Nano 72.3 54.8 45.0 57.4"
+    },
+    {
+      "id": "S5.T2.6.14",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Nemotron 3 Super 80.7 58.2 41.0 60.0"
+    },
+    {
+      "id": "S5.T2.6.15",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "ReAct planner loop on Granite-4.2-8B, token-matched"
+    },
+    {
+      "id": "S5.T2.6.16",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Nemotron 3.5 Lightning 71.9 32.5 17.4 40.6"
+    },
+    {
+      "id": "S5.T2.6.17",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Nemotron 3 Nano 64.0 28.1 18.4 36.8"
+    },
+    {
+      "id": "S5.T2.6.18",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Nemotron 3 Super 69.3 28.1 23.7 40.4"
+    },
+    {
+      "id": "S5.T2.6.19",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Sample-and-judge, best of 5, Granite-4.2-8B as judge, token-matched"
+    },
+    {
+      "id": "S5.T2.6.20",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Nemotron 3.5 Lightning 82.5 55.3 42.1 60.0"
+    },
+    {
+      "id": "S5.T2.6.21",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Nemotron 3 Super 83.3 46.5 58.9 62.9"
+    },
+    {
+      "id": "S5.T2.6.22",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "PLVR , final program (after search; ours)"
+    },
+    {
+      "id": "S5.T2.6.23",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Nemotron 3.5 Lightning 82.7 94.4 50.5 75.9"
+    },
+    {
+      "id": "S5.T2.6.24",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Nemotron 3 Nano 83.3 93.3 45.3 74.0"
+    },
+    {
+      "id": "S5.T2.6.25",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Nemotron 3 Super 79.8 93.3 54.7 75.9"
+    },
+    {
+      "id": "S5.T2.6.26",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "PLVR , seed program (hand-written, before search)"
+    },
+    {
+      "id": "S5.T2.6.27",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Nemotron 3.5 Lightning 73.1 68.4 37.9 59.8"
+    },
+    {
+      "id": "S5.T2.6.28",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Granite-4.2-8B alone"
+    },
+    {
+      "id": "S5.T2.6.29",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Vanilla 77.2 43.0 28.4 49.5"
+    },
+    {
+      "id": "S5.T2.6.30",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "PLVR , Granite as the student 82.5 91.2 42.1 71.9"
+    },
+    {
+      "id": "S5.SS1.SSS0.Px1.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Run with Granite-4.2-8B as the student, producing the final response itself (one run per suite), the final program scores 82.5% on Retail, 91.2% on Telecom, and 42.1% on LiveMCPBench (Table 2 ). Granite untreated scores 77.2%, 43.0%, and 28.4%, so the program raises it by 5.3, 48.2, and 13.7 points. Against the Nemotron students under the same program, Granite is 2.1 to 3.2 points below on Telecom, within 2.7 points on Retail (above Super, below Lightning and Nano), and 3.2 to 12.6 points below on LiveMCPBench. On Telecom and Retail an 8B student under the program is level with the larger ones, and on Telecom it is within 3.2 points of the best result in the table; on LiveMCPBench the student still matters."
+    },
+    {
+      "id": "S5.SS1.SSS0.Px2.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "No part of the program is tuned to a particular student: the primitives run on Granite-4.2-8B, the search was run once, and the three program rows differ only in which model reads the chain of thought or has its actions checked. Untreated, the three students are spread over 15.8 points on Retail, 15.0 on Telecom, and 10.9 on LiveMCPBench (6.6 averaged over the suites). Under the program the spread is 3.5, 1.1, and 9.4 (1.9 averaged). The spread closes on the two suites where an 8B student is level with the larger ones and stays on the suite where the student matters."
+    },
+    {
+      "id": "S5.SS2.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Fine-tuning on the kept traces moves each student by a few points per suite; its largest single gain over the untreated student is 23.0 points (Super, LiveMCPBench). The program, built from the same traces, is ahead of the fine-tune on Telecom by 46.4, 42.3, and 43.3 points on Lightning, Nano, and Super. On Retail it is ahead by 9.5 and 6.3 points for Lightning and Nano and behind by 6.5 for Super (79.8% against 86.3%); on LiveMCPBench ahead by 6.0 and 1.3 for Lightning and Nano and behind by 2.7 for Super (54.7% against 57.4%). The program’s largest single gain over the untreated student is 56.5 points (Nano, Telecom)."
+    },
+    {
+      "id": "S5.SS3.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "GEPA optimises the student’s own prompt with no program. Its largest gains over the untreated student are on Nano (Telecom 36.8% to 54.8%, Retail 64.0% to 72.3%) and on Super’s Telecom and LiveMCPBench (51.8% to 58.2%, 34.4% to 41.0%). The program is ahead of GEPA on Telecom by 42.6, 38.5, and 35.1 points. On Retail it is ahead by 2.9 and 11.0 for Lightning and Nano and behind by 0.9 for Super (79.8% against 80.7%); on LiveMCPBench ahead by 3.5, 0.3, and 13.7."
+    },
+    {
+      "id": "S5.SS4.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "The two token-matched arms spend what the program spends, on the same Granite-4.2-8B, without the program. The ReAct planner loop is below the untreated student on every suite and every student except Nano on Retail (64.0% in both): spending the program’s budget on a plan–act–reflect loop makes the student worse, not better. Sample-and-judge with five candidates is the strongest baseline on Retail and on Super’s LiveMCPBench: on Retail it is 0.2 points below the program for Lightning (82.5% against 82.7%) and 3.5 above it for Super (83.3% against 79.8%); on LiveMCPBench 8.4 below it for Lightning and 4.2 above it for Super (58.9% against 54.7%); on Telecom 39.1 and 46.8 points below it. Against the best baseline in each cell, the program on Retail is within 0.2 points on Lightning, 6.3 above on Nano, and 6.5 below on Super; on LiveMCPBench 3.5 above on Lightning, level on Nano, and 4.2 below on Super. We read these two suites as competitive, not as a ranking."
+    },
+    {
+      "id": "S5.SS5.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "On Lightning, the hand-written seed program scores 73.1% on Retail, 68.4% on Telecom, and 37.9% on LiveMCPBench (Table 2 ); the searched program scores 82.7%, 94.4%, and 50.5%, a gain of 9.6, 26.0, and 12.6 points (59.8% to 75.9% averaged over the suites). The search added rules to all three blocks (Appendix B )."
+    },
+    {
+      "id": "S5.SS6.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "One variant removes both things the traces give the method: the expert actions that score the search, and the primitives Claude 5 Opus writes from the clustered traces. In their place Claude Sonnet 4.5 proposes the program itself. Both versions start from the same hand-written seed, which scores 73.1% on Retail and 68.4% on Telecom on Lightning. The proposer keeps a working memory of its own, a list of findings and rules that it updates after each proposed program is scored, and at each round proposes edits to the current program; programs are scored on task outcome on the training tasks, pass or fail as decided by each task’s own end-state check; nothing is compared with expert actions, and the proposer’s own judgement is never used as a score. The run made 25 proposer calls for telecom (518,200 prompt and 11,650 completion tokens) and 31 for retail (539,400 and 15,500)."
+    },
+    {
+      "id": "S5.SS6.p2.1.1",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Lightning Retail Telecom"
+    },
+    {
+      "id": "S5.SS6.p2.1.2",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "PLVR : A ∗ over mined rules and primitives, reference-action objective 82.7 94.4"
+    },
+    {
+      "id": "S5.SS6.p2.1.3",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Sonnet proposes the program, no traces, no primitives, outcome-scored 78.0 75.9"
+    },
+    {
+      "id": "S5.SS6.p3.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Without the traces and the primitives, the proposed program reaches 78.0% on Retail and 75.9% on Telecom on Lightning, against 82.7% and 94.4%: 4.7 points lower on Retail and 18.5 lower on Telecom. On Telecom it is above the seed (68.4%) and the fine-tune (48.0%) but well below the program built from the teacher’s actions. This bears on the procedure thesis in two ways. The seed alone takes Lightning from 47.4% to 68.4% on Telecom, and a frontier model’s edits from its own knowledge of the domain, with no traces, take it to 75.9%, so a large part of what the student lacks is procedure that can be written down without the teacher. The remaining 18.5 points come only when the procedure is taken from the teacher’s actions, so the traces supply procedure that neither the seed nor the frontier model’s prior knowledge does."
+    },
+    {
+      "id": null,
+      "tag": "figcaption",
+      "classes": [
+        "ltx_caption",
+        "ltx_centering"
+      ],
+      "text": "Table 3 : Tokens per task, mean over the τ 2 \\tau^{2} -Bench evaluation runs, counted with each model’s own tokenizer. Vanilla, SFT, and GEPA rows pool the τ 2 \\tau^{2} runs they were measured on (task counts shown); PLVR , ReAct, and sample-and-judge rows pool Retail and Telecom (228 tasks). For PLVR the student’s tokens and Granite-4.2-8B’s tokens (summed over the primitive calls in a task) are shown separately; for ReAct and sample-and-judge the Granite columns are the loop or the sampling and judging, and output includes reasoning tokens; their student columns are the student’s own calls under the loop or across the five samples. The program’s student output count is from Telecom, where it was counted exactly."
+    },
+    {
+      "id": "S5.T3.7.1",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Student Granite-4.2-8B"
+    },
+    {
+      "id": "S5.T3.7.2",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Student Arm Tasks Output Input Calls Output Input"
+    },
+    {
+      "id": "S5.T3.7.3",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Nemotron 3.5 Lightning Vanilla 278 2,323 45,907 – – –"
+    },
+    {
+      "id": "S5.T3.7.4",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "SFT 278 1,646 37,704 – – –"
+    },
+    {
+      "id": "S5.T3.7.5",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "GEPA 278 2,356 45,137 – – –"
+    },
+    {
+      "id": "S5.T3.7.6",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "ReAct 228 10,700 176,800 100 29,100 492,000"
+    },
+    {
+      "id": "S5.T3.7.7",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Sample-and-judge 228 25,700 532,700 99 29,500 634,000"
+    },
+    {
+      "id": "S5.T3.7.8",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "PLVR 228 1,300 249,200 112 9,000 377,000"
+    },
+    {
+      "id": "S5.T3.7.9",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Nemotron 3 Nano Vanilla 270 3,997 76,916 – – –"
+    },
+    {
+      "id": "S5.T3.7.10",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "SFT 278 4,518 83,366 – – –"
+    },
+    {
+      "id": "S5.T3.7.11",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "GEPA 181 3,546 40,498 – – –"
+    },
+    {
+      "id": "S5.T3.7.12",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "ReAct 228 15,100 183,800 107 35,700 522,000"
+    },
+    {
+      "id": "S5.T3.7.13",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Sample-and-judge 228 77,300 612,200 102 87,500 734,000"
+    },
+    {
+      "id": "S5.T3.7.14",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "PLVR 228 2,200 255,900 100 8,000 326,500"
+    },
+    {
+      "id": "S5.T3.7.15",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Nemotron 3 Super Vanilla 278 2,672 63,948 – – –"
+    },
+    {
+      "id": "S5.T3.7.16",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "SFT 278 2,640 56,071 – – –"
+    },
+    {
+      "id": "S5.T3.7.17",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "GEPA 278 2,747 63,682 – – –"
+    },
+    {
+      "id": "S5.T3.7.18",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "ReAct 228 9,400 175,800 97 26,400 479,000"
+    },
+    {
+      "id": "S5.T3.7.19",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Sample-and-judge 228 26,400 574,800 105 30,400 686,000"
+    },
+    {
+      "id": "S5.T3.7.20",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "PLVR 228 1,400 248,100 117 9,700 407,500"
+    },
+    {
+      "id": "S5.SS7.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Table 3 gives tokens per task on the two τ 2 \\tau^{2} domains. Under the program the student itself reads 248,100–255,900 input tokens per task and writes 1,300–2,200 output tokens; Granite-4.2-8B adds 100–117 primitive calls per task, reading 326,500–407,500 tokens and writing 8,000–9,700 in total. The untreated student reads 45,907–76,916 input tokens per task and writes 2,323–3,997; fine-tuning and GEPA are within the same range. The two token-matched arms make 97–107 Granite calls per task, against 100–117 for the program, and read 479,000–734,000 Granite input tokens against the program’s 326,500–407,500."
+    },
+    {
+      "id": "S5.SS7.SSS0.Px1.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "We count 2 × 2\\times active parameters × \\times tokens for inference and 6 × 6\\times active parameters × \\times token-passes for training, taking 3B active parameters for Lightning and Nano, 12B for Super, and 8B for Granite-4.2-8B. The input counts in Table 3 are cumulative over calls; Granite’s calls run with prefix caching and about 80% of its input tokens are served from cache, which we cost at zero. The student’s cached fraction was not measured, so student input is costed in full for every arm. Per task, a vanilla run costs 2.9 × 10 14 2.9\\times 10^{14} , 4.9 × 10 14 4.9\\times 10^{14} , and 1.6 × 10 15 1.6\\times 10^{15} FLOPs on Lightning, Nano, and Super; a run under the program costs 2.9 × 10 15 2.9\\times 10^{15} , 2.7 × 10 15 2.7\\times 10^{15} , and 7.5 × 10 15 7.5\\times 10^{15} , of which Granite is 1.4 × 10 15 1.4\\times 10^{15} , 1.2 × 10 15 1.2\\times 10^{15} , and 1.5 × 10 15 1.5\\times 10^{15} ; the ratios are 9.8, 5.6, and 4.7. Table 4 gives the cost of producing each arm. The fine-tuning sweep is 24 runs per student (Appendix C ), 8.9 × 10 8 8.9\\times 10^{8} token-passes each; the search is 383,783 Granite calls and 1.87 billion tokens over the three blocks (257,557 calls and 1,159M tokens for telecom, 96,814 and 605M for retail, 29,412 and 104M for tool-search; Appendix A ), run once for all three students. Mining the rule library took Claude Sonnet 4.5 16 calls: 6 for the tool-search traces (47,047 prompt and 17,685 completion tokens) and 10 for the telecom traces (239,600 and 29,500). It is an API model whose size is not public, so its FLOPs are not counted in Table 4 ."
+    },
+    {
+      "id": null,
+      "tag": "figcaption",
+      "classes": [
+        "ltx_caption",
+        "ltx_centering"
+      ],
+      "text": "Table 4 : Cost of producing each arm, in FLOPs. Fine-tuning is per student; the search is run once and its program is used by every student. The selected-run figure is the one fine-tune of Table 2 ; the sweep is all 24 runs that selection drew on."
+    },
+    {
+      "id": "S5.T4.5.1",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Lightning (3B) Nano (3B) Super (12B)"
+    },
+    {
+      "id": "S5.T4.5.2",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "SFT, selected run only 7.7 × 10 17 7.7\\times 10^{17} 7.7 × 10 17 7.7\\times 10^{17} 3.1 × 10 18 3.1\\times 10^{18}"
+    },
+    {
+      "id": "S5.T4.5.3",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "SFT, full sweep (24 runs) 1.6 × 10 19 1.6\\times 10^{19} 1.6 × 10 19 1.6\\times 10^{19} 6.4 × 10 19 6.4\\times 10^{19}"
+    },
+    {
+      "id": "S5.T4.5.4",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "PLVR search, Granite scoring, all three blocks 3.0 × 10 19 3.0\\times 10^{19} (once)"
+    },
+    {
+      "id": "S5.T4.5.5",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "PLVR rule mining (Claude Sonnet 4.5) 16 calls, 287k prompt and 47k completion tokens (once; FLOPs not counted)"
+    },
+    {
+      "id": "S6.SS0.SSS0.Px1.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "The three suites give different answers. On Telecom the program with Granite-4.2-8B as the student scores 91.2%, every Nemotron student under it 93.3–94.4%, and no other arm above 58.2%; the procedure is nearly the whole result, and on this suite an 8B model is enough to run it. The result is in-domain compositional generalisation: the program is built from synthetic tasks in the benchmark’s own environment, with its tools and policies, and is run on the benchmark’s test tasks, which it has not seen; it is not a claim about transfer to another domain. Telecom is also where the program’s student runs longest, about 40 turns per task against about 9 on Retail. On Retail the program with Granite as the student scores 82.5%, within 2.7 points of the Nemotron students, so there too the choice of student matters little under the program, though the program’s margin over the baselines is small. On LiveMCPBench the program with Granite as the student reaches 42.1% and the Nemotron students are 3.2 to 12.6 points ahead of it; the student’s tool choice and argument binding still count. We read the part of the gap between base models that the program closes as an estimate of how much of that gap is procedure; the program also carries the frontier models’ prior knowledge (§ 5.6 ), so the estimate is an upper bound."
+    },
+    {
+      "id": "S6.SS0.SSS0.Px2.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "The program is the same object in every row: the primitives run on Granite-4.2-8B, the search was run once, and no part of it is tuned to a student. Under it, the three Nemotron students land within 1.1 points of each other on Telecom and 3.5 on Retail, and Granite as the student lands within 3.2 points of them on both; on LiveMCPBench they stay 9.4 points apart. Where the base model still matters is where the student is doing part of the work."
+    },
+    {
+      "id": "S6.SS0.SSS0.Px3.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "The cost of the program is in inference tokens: the student reads 3.3 to 5.4 times as many input tokens as under the other arms, and Granite’s calls add more than that again; per task this is 4.7 to 9.8 times the FLOPs of a vanilla run. Producing the program cost 3.0 × 10 19 3.0\\times 10^{19} FLOPs in Granite scoring, counting every Granite token in full and excluding the rule-mining calls, once for all three students; producing one fine-tune cost 7.7 × 10 17 7.7\\times 10^{17} to 3.1 × 10 18 3.1\\times 10^{18} for the selected run and 1.6 × 10 19 1.6\\times 10^{19} to 6.4 × 10 19 6.4\\times 10^{19} for the sweep that selected it, per student. No weights change, and the search was run once and the resulting program is shared by every student."
+    },
+    {
+      "id": "S6.SS0.SSS0.Px4.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "The gain is not attributed to the traces alone. The hand-written seed, Claude 5 Opus (which writes the primitives), and Claude Sonnet 4.5 (which mines the rules) all contribute, and neither frontier model is a blank slate about customer service or tool use; the ablation that removes the traces and the primitives still reaches 75.9% on Telecom (§ 5.6 ), and that ablation covers Retail and Telecom only. All cells but the program’s Telecom cells are single runs, so differences of a few points are not resolved. The synthetic training tasks share the τ 2 \\tau^{2} Retail and Telecom domains with the test suites and the LiveMCPBench format with LiveMCPBench, so domain knowledge can pass from the training set into the primitives, the rules, and the fine-tunes. The training tasks and their answers are different from the test tasks; the authors verified this."
+    },
+    {
+      "id": "S7.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "We compiled a teacher’s procedure into a program rather than into a student’s weights: primitives authored by a frontier model from clusters of the teacher’s traces, each run by a small frozen model and verified as it runs, assembled by A ∗ over a rule library mined from the same traces under a reference-action objective, and used at inference to write the student’s chain of thought or to check the actions the student proposes. Run in front of three Nemotron base models and on its own, the one program estimates how much of each domain is procedure. On τ 2 \\tau^{2} Telecom the estimate is that nearly all of it is: Granite-4.2-8B as the student goes from 43.0% to 91.2%, every Nemotron student reaches 93.3–94.4%, and no other arm passes 58.2%; on that suite an 8B model is enough. This is in-domain compositional generalisation, from synthetic tasks in the benchmark’s environment to its unseen test tasks. On τ 2 \\tau^{2} Retail the 8B student under the program is within 2.7 points of the Nemotron students; on LiveMCPBench the Nemotron students are 3 to 13 points ahead of it. On those two suites the program is competitive with the best baseline. No weights are updated, the program is the same for every base model, and the spread between base models shrinks where the program does the work. The program was produced once, at 3.0 × 10 19 3.0\\times 10^{19} FLOPs, and costs 5 to 10 times a vanilla run to execute. Its output is a program rather than a checkpoint: it can be read at every step, it is the same for every base model, and it can be revised one primitive at a time. The next test is cross-domain transfer: a program built in one environment run in another."
+    },
+    {
+      "id": "Sx1.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "We thank Ram Shanmugam and Jay Vaghasiya for their help with the experiments and the paper."
+    },
+    {
+      "id": "Sx2.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "The method is specified in § 3 . The synthetic training set, the kept teacher traces, the primitive prompts, the programs, the search settings, and the baseline construction are in the appendices. The synthetic dataset, the program, the primitives, and the search code will be released following peer review."
+    },
+    {
+      "id": "A1.p1.1.1",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Item Value"
+    },
+    {
+      "id": "A1.p1.1.1.2.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Value"
+    },
+    {
+      "id": "A1.p1.1.2",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "state the seed plus a set of rules"
+    },
+    {
+      "id": "A1.p1.1.2.2.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "the seed plus a set of rules"
+    },
+    {
+      "id": "A1.p1.1.3",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "rule library 125 rules mined once by Claude Sonnet 4.5: 61 from the tool-search traces, 64 from the telecom traces (Appendix E ); the same library for every block, retail included"
+    },
+    {
+      "id": "A1.p1.1.3.2.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "125 rules mined once by Claude Sonnet 4.5: 61 from the tool-search traces, 64 from the telecom traces (Appendix E ); the same library for every block, retail included"
+    },
+    {
+      "id": "A1.p1.1.4",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "successor insert one rule, or one group of rules, from the library into the current program; kept only if the program still compiles and runs without errors"
+    },
+    {
+      "id": "A1.p1.1.4.2.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "insert one rule, or one group of rules, from the library into the current program; kept only if the program still compiles and runs without errors"
+    },
+    {
+      "id": "A1.p1.1.5",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "final pick best task outcome on the training tasks among the programs reached"
+    },
+    {
+      "id": "A1.p1.1.5.2.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "best task outcome on the training tasks among the programs reached"
+    },
+    {
+      "id": "A1.p1.1.6",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Granite scoring cost telecom 257,557 calls, 1,159M tokens; retail 96,814 calls, 605M tokens; tool-search 29,412 calls, 104M tokens"
+    },
+    {
+      "id": "A1.p1.1.6.2.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "telecom 257,557 calls, 1,159M tokens; retail 96,814 calls, 605M tokens; tool-search 29,412 calls, 104M tokens"
+    },
+    {
+      "id": "A1.p1.1.7",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "mining cost tool-search 6 calls, 47,047 prompt and 17,685 completion tokens; telecom 10 calls, 239,600 and 29,500"
+    },
+    {
+      "id": "A1.p1.1.7.2.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "tool-search 6 calls, 47,047 prompt and 17,685 completion tokens; telecom 10 calls, 239,600 and 29,500"
+    },
+    {
+      "id": "A1.p1.1.8",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "objective f = | P | + 100 ​ d f=|P|+100\\,d ; | P | |P| = rules in the program, d d = mean distance to the expert actions over the search set (§ 3.3 )"
+    },
+    {
+      "id": "A1.p1.1.8.2.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "f = | P | + 100 ​ d f=|P|+100\\,d ; | P | |P| = rules in the program, d d = mean distance to the expert actions over the search set (§ 3.3 )"
+    },
+    {
+      "id": "A1.SS0.SSS0.Px1.p1.1.1",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Block Programs scored"
+    },
+    {
+      "id": "A1.SS0.SSS0.Px1.p1.1.2",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Telecom 32"
+    },
+    {
+      "id": "A1.SS0.SSS0.Px1.p1.1.3",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Retail 87"
+    },
+    {
+      "id": "A1.SS0.SSS0.Px1.p1.1.4",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Tool-search 9: seed, six group edits, their merge, final"
+    },
+    {
+      "id": "A2.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "The program is three blocks, one per subset of the training set: a telecom block for troubleshooting, a retail block for multi-turn tool matching, and a tool-search block for the LiveMCPBench format. Each block is given here twice: the hand-written seed, and the final program after the search. In the final listings, a line with a leading + is a rule the search added from the mined library, written as the library gives it, with the library id for tool-search rules (Appendix E ); unmarked lines are from the seed. The retail block’s added rules come from the same library, mined from the telecom and tool-search traces."
+    },
+    {
+      "id": "A2.SS2.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "The base model proposes each turn’s action and the block checks it before it goes out."
+    },
+    {
+      "id": "A2.SS3.SSS0.Px3.p1.1.1",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Nemotron 3.5 Lightning Seed Final"
+    },
+    {
+      "id": "A2.SS3.SSS0.Px3.p1.1.2",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "τ 2 \\tau^{2} Retail 73.1% 82.7%"
+    },
+    {
+      "id": "A2.SS3.SSS0.Px3.p1.1.3",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "τ 2 \\tau^{2} Telecom 68.4% 94.4%"
+    },
+    {
+      "id": "A2.SS3.SSS0.Px3.p1.1.4",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "LiveMCPBench 37.9% 50.5%"
+    },
+    {
+      "id": "A3.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "The fine-tuning arm of the comparison is supervised fine-tuning of each Nemotron student on exactly the kept teacher traces of § 3.1 . This appendix gives its construction, sweep, and selection."
+    },
+    {
+      "id": "A3.SS1.SSS0.Px1.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Matched exactly: both arms see the 539 kept teacher traces of § 3.1 , and nothing else. No arm sees τ 2 \\tau^{2} -Bench’s official test sets or LiveMCPBench."
+    },
+    {
+      "id": "A3.SS1.SSS0.Px2.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Fine-tuning uses the kept teacher traces of the training split of each subset (Table 1 ): retail, one row per task; telecom and tool-search, one row per assistant turn, since those tasks are multi-turn. Validation uses the traces of the held-aside split. Maximum length is 16,384 tokens and no row was truncated in any run."
+    },
+    {
+      "id": "A3.SS1.SSS0.Px3.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "The three Nemotron students, fine-tuned directly: Nemotron 3.5 Lightning, Nemotron 3 Nano, Nemotron 3 Super."
+    },
+    {
+      "id": "A3.SS2.p1.1.1",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Student Checkpoint"
+    },
+    {
+      "id": "A3.SS2.p1.1.2",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Nemotron 3 Nano nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-BF16"
+    },
+    {
+      "id": "A3.SS2.p1.1.3",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Nemotron 3.5 Lightning nvidia/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-BF16"
+    },
+    {
+      "id": "A3.SS2.p1.1.4",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Nemotron 3 Super nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-BF16"
+    },
+    {
+      "id": "A3.SS3.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Every row shares a chat layout: the system instruction is identical throughout and names no primitive; the user message carries the environment state, tool schemas, and numbered turns exactly as the teacher saw them. The arms differ only in the assistant target. The outcome arm’s target is the final reply with the tool calls only. The process arm’s target is the teacher’s reasoning as a thinking block followed by the final calls. A third cell, process+outcome , has the same target as the process arm and was swept separately; the sweep for all three cells is reported below."
+    },
+    {
+      "id": "A3.SS4.p1.1.1",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Setting Value"
+    },
+    {
+      "id": "A3.SS4.p1.1.2",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "method LoRA"
+    },
+    {
+      "id": "A3.SS4.p1.1.3",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "loss cross-entropy on assistant tokens only"
+    },
+    {
+      "id": "A3.SS4.p1.1.4",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "optimiser Adam"
+    },
+    {
+      "id": "A3.SS4.p1.1.5",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "schedule linear decay to zero, lr × ( 1 − step / total ​ _ ​ steps ) \\mathrm{lr}\\times(1-\\mathrm{step}/\\mathrm{total\\_steps})"
+    },
+    {
+      "id": "A3.SS4.p1.1.6",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "batch 8"
+    },
+    {
+      "id": "A3.SS4.p1.1.7",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "max length 16,384 tokens"
+    },
+    {
+      "id": "A3.SS4.p1.1.8",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "seed 0"
+    },
+    {
+      "id": "A3.SS4.p1.1.9",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "validation sampling temperature 0; 8,192 max tokens"
+    },
+    {
+      "id": "A3.SS4.p1.1.10",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "swept lr ∈ { 1 , 3 , 10 , 30 } × 10 − 5 \\in\\{1,3,10,30\\}\\times 10^{-5} ; rank ∈ { 8 , 32 } \\in\\{8,32\\} ; 6 epochs (a few 1 or 8), checkpointed every epoch, epoch selected post hoc"
+    },
+    {
+      "id": "A3.SS4.p1.1.11",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "runs 72, 24 per student (8 configurations per cell)"
+    },
+    {
+      "id": "A3.SS5.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Selection maximises val_solved on the held-aside traces of the three subsets, breaking ties by lower validation NLL. An instance is solved when the predicted calls block exactly matches the ground truth (no type errors, loss 0). Selections:"
+    },
+    {
+      "id": "A3.SS5.p2.1.1",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Cell Student lr rank epoch"
+    },
+    {
+      "id": "A3.SS5.p2.1.2",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "process Nano 3 × 10 − 4 3\\times 10^{-4} 32 6"
+    },
+    {
+      "id": "A3.SS5.p2.1.3",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "outcome Nano 3 × 10 − 4 3\\times 10^{-4} 8 1"
+    },
+    {
+      "id": "A3.SS5.p2.1.4",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "process+outcome Nano 1 × 10 − 4 1\\times 10^{-4} 32 2"
+    },
+    {
+      "id": "A3.SS5.p2.1.5",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "process Lightning 1 × 10 − 4 1\\times 10^{-4} 8 2"
+    },
+    {
+      "id": "A3.SS5.p2.1.6",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "outcome Lightning 1 × 10 − 4 1\\times 10^{-4} 32 6"
+    },
+    {
+      "id": "A3.SS5.p2.1.7",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "process+outcome Lightning 1 × 10 − 4 1\\times 10^{-4} 8 3"
+    },
+    {
+      "id": "A3.SS5.p2.1.8",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "process Super 3 × 10 − 4 3\\times 10^{-4} 8 3"
+    },
+    {
+      "id": "A3.SS5.p2.1.9",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "outcome Super 1 × 10 − 4 1\\times 10^{-4} 32 1"
+    },
+    {
+      "id": "A3.SS5.p2.1.10",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "process+outcome Super 1 × 10 − 5 1\\times 10^{-5} 32 1"
+    },
+    {
+      "id": "A4.SS1.SSS1.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "The kept traces are split into 3,141 segments, each typed as a reason, a call, a message, or a question. Segmentation walks each trace’s message list. Only assistant messages produce segments, and each produces one segment per thing it emitted: a non-empty reasoning field gives one reason segment; each entry in the tool-call list gives one call segment; non-empty content gives one message segment, or a question segment if it ends in a question mark. User and tool messages produce no segments; they accumulate into the context (the last user message and the pending tool results) that is attached to the next assistant segment, and the pending results are cleared after each agent turn. The cut is therefore per emitted product rather than per turn: one assistant turn with reasoning, two calls, and a closing message becomes four segments. A segment is represented by the agent’s output at that point only, truncated to 2,000 characters: for a reason, the reasoning span; for a call, the literal name({json args}) ; for a message or question, the message text. The surrounding context (user message, tool results, turn, domain, function) rides on the segment and reaches the frontier-model stages but is never embedded. Segments are embedded with text-embedding-3-small (1,536 dimensions, L2-normalised); all similarities are cosine. Segments are clustered with k k -means within each kind, giving 35 clusters: 15 reason (876 segments), 8 call (1,064), 9 message (1,159), and 3 question (42)."
+    },
+    {
+      "id": "A4.SS1.SSS2.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Clusters locate which segments a primitive lives in; they do not separate which decision that segment witnesses. Claude 5 Opus post-processes the clusters: it decides which operations they show and writes each primitive’s prompt, input–output signature, verifier, and fallback. The 37 primitives are listed below by group, with the subsets they are used in (T = telecom, M = tool-search, R = retail), the number of segments assigned to them, and the clusters those segments come from."
+    },
+    {
+      "id": "A4.SS1.SSS2.Px1.p1.1.1",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Primitive Used in Seg. Clusters (segments each)"
+    },
+    {
+      "id": "A4.SS1.SSS2.Px1.p1.1.1.4.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Clusters (segments each)"
+    },
+    {
+      "id": "A4.SS1.SSS2.Px1.p1.1.2",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Split into requests T, M 12 reason9 (7), message0 (3), call5 (2)"
+    },
+    {
+      "id": "A4.SS1.SSS2.Px1.p1.1.2.4.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "reason9 (7), message0 (3), call5 (2)"
+    },
+    {
+      "id": "A4.SS1.SSS2.Px1.p1.1.3",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Classify one request T, M 9 reason8 (4), reason2 (2), message0 (2), reason12 (1)"
+    },
+    {
+      "id": "A4.SS1.SSS2.Px1.p1.1.3.4.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "reason8 (4), reason2 (2), message0 (2), reason12 (1)"
+    },
+    {
+      "id": "A4.SS1.SSS2.Px1.p1.1.4",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Order requests T, M 30 reason17 (10), reason9 (8), reason11 (5), message0 (4), reason15 (3)"
+    },
+    {
+      "id": "A4.SS1.SSS2.Px1.p1.1.4.4.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "reason17 (10), reason9 (8), reason11 (5), message0 (4), reason15 (3)"
+    },
+    {
+      "id": "A4.SS1.SSS2.Px1.p1.1.5",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Route a reply T 1 call13 (1)"
+    },
+    {
+      "id": "A4.SS1.SSS2.Px1.p1.1.5.4.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "call13 (1)"
+    },
+    {
+      "id": "A4.SS1.SSS2.Px1.p1.1.6",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Device reply T 195 message8 (68), reason16 (26), message2 (25), message4 (24), reason2 (21), call2 (8), question2 (5), question5 (5), call11 (4), call13 (3), message9 (2), reason9 (2), reason14 (1), call9 (1)"
+    },
+    {
+      "id": "A4.SS1.SSS2.Px1.p1.1.6.4.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "message8 (68), reason16 (26), message2 (25), message4 (24), reason2 (21), call2 (8), question2 (5), question5 (5), call11 (4), call13 (3), message9 (2), reason9 (2), reason14 (1), call9 (1)"
+    },
+    {
+      "id": "A4.SS1.SSS2.Px1.p1.1.7",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Check a claim T 2 reason10 (2)"
+    },
+    {
+      "id": "A4.SS1.SSS2.Px1.p1.1.7.4.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "reason10 (2)"
+    },
+    {
+      "id": "A4.SS1.SSS2.Px1.p1.1.8",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Parts M 25 call7 (23), call5 (2)"
+    },
+    {
+      "id": "A4.SS1.SSS2.Px1.p1.1.8.4.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "call7 (23), call5 (2)"
+    },
+    {
+      "id": "A4.SS1.SSS2.Px2.p1.1.1",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Primitive Used in Seg. Clusters (segments each)"
+    },
+    {
+      "id": "A4.SS1.SSS2.Px2.p1.1.1.4.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Clusters (segments each)"
+    },
+    {
+      "id": "A4.SS1.SSS2.Px2.p1.1.2",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Servers for the task M 59 call1 (26), call5 (17), call10 (16)"
+    },
+    {
+      "id": "A4.SS1.SSS2.Px2.p1.1.2.4.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "call1 (26), call5 (17), call10 (16)"
+    },
+    {
+      "id": "A4.SS1.SSS2.Px2.p1.1.3",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Search phrases M 7 call1 (5), call5 (2)"
+    },
+    {
+      "id": "A4.SS1.SSS2.Px2.p1.1.3.4.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "call1 (5), call5 (2)"
+    },
+    {
+      "id": "A4.SS1.SSS2.Px2.p1.1.4",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Widen tools M 4 reason5 (2), call5 (2)"
+    },
+    {
+      "id": "A4.SS1.SSS2.Px2.p1.1.4.4.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "reason5 (2), call5 (2)"
+    },
+    {
+      "id": "A4.SS1.SSS2.Px2.p1.1.5",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Pick the function T, M 35 call5 (17), call1 (16), call10 (2)"
+    },
+    {
+      "id": "A4.SS1.SSS2.Px2.p1.1.5.4.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "call5 (17), call1 (16), call10 (2)"
+    },
+    {
+      "id": "A4.SS1.SSS2.Px2.p1.1.6",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Plan steps T, M 26 reason17 (13), reason5 (6), reason9 (4), message0 (1), reason11 (1), reason8 (1)"
+    },
+    {
+      "id": "A4.SS1.SSS2.Px2.p1.1.6.4.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "reason17 (13), reason5 (6), reason9 (4), message0 (1), reason11 (1), reason8 (1)"
+    },
+    {
+      "id": "A4.SS1.SSS2.Px3.p1.1.1",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Primitive Used in Seg. Clusters (segments each)"
+    },
+    {
+      "id": "A4.SS1.SSS2.Px3.p1.1.1.4.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Clusters (segments each)"
+    },
+    {
+      "id": "A4.SS1.SSS2.Px3.p1.1.2",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Fill the parameters T, M, R 30 call9 (11), call5 (8), call10 (6), message1 (2), call1 (2), reason11 (1)"
+    },
+    {
+      "id": "A4.SS1.SSS2.Px3.p1.1.2.4.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "call9 (11), call5 (8), call10 (6), message1 (2), call1 (2), reason11 (1)"
+    },
+    {
+      "id": "A4.SS1.SSS2.Px3.p1.1.3",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Where a value comes from T, M 35 message0 (15), call9 (6), reason9 (3), reason3 (3), reason15 (1), message7 (1), reason17 (1), reason13 (1), message4 (1), reason8 (1), reason2 (1), reason1 (1)"
+    },
+    {
+      "id": "A4.SS1.SSS2.Px3.p1.1.3.4.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "message0 (15), call9 (6), reason9 (3), reason3 (3), reason15 (1), message7 (1), reason17 (1), reason13 (1), message4 (1), reason8 (1), reason2 (1), reason1 (1)"
+    },
+    {
+      "id": "A4.SS1.SSS2.Px3.p1.1.4",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "How to get a missing parameter T, M 27 reason2 (26), reason1 (1)"
+    },
+    {
+      "id": "A4.SS1.SSS2.Px3.p1.1.4.4.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "reason2 (26), reason1 (1)"
+    },
+    {
+      "id": "A4.SS1.SSS2.Px3.p1.1.5",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Question for a missing parameter T, R 20 reason2 (13), reason5 (3), reason11 (2), reason3 (2)"
+    },
+    {
+      "id": "A4.SS1.SSS2.Px3.p1.1.5.4.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "reason2 (13), reason5 (3), reason11 (2), reason3 (2)"
+    },
+    {
+      "id": "A4.SS1.SSS2.Px3.p1.1.6",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Device action arguments T 2 call5 (2)"
+    },
+    {
+      "id": "A4.SS1.SSS2.Px3.p1.1.6.4.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "call5 (2)"
+    },
+    {
+      "id": "A4.SS1.SSS2.Px3.p1.1.7",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Requests covered by the same call T 6 reason9 (2), reason17 (1), message0 (1), reason15 (1), reason11 (1)"
+    },
+    {
+      "id": "A4.SS1.SSS2.Px3.p1.1.7.4.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "reason9 (2), reason17 (1), message0 (1), reason15 (1), reason11 (1)"
+    },
+    {
+      "id": "A4.SS1.SSS2.Px3.p1.1.8",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Price terms T 9 message5 (4), reason5 (1), message9 (1), question4 (1), reason9 (1), message7 (1)"
+    },
+    {
+      "id": "A4.SS1.SSS2.Px3.p1.1.8.4.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "message5 (4), reason5 (1), message9 (1), question4 (1), reason9 (1), message7 (1)"
+    },
+    {
+      "id": "A4.SS1.SSS2.Px3.p1.1.9",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Which arguments failed T, M 1 call10 (1)"
+    },
+    {
+      "id": "A4.SS1.SSS2.Px3.p1.1.9.4.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "call10 (1)"
+    },
+    {
+      "id": "A4.SS1.SSS2.Px4.p1.1.1",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Primitive Used in Seg. Clusters (segments each)"
+    },
+    {
+      "id": "A4.SS1.SSS2.Px4.p1.1.1.4.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Clusters (segments each)"
+    },
+    {
+      "id": "A4.SS1.SSS2.Px4.p1.1.2",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Functions a policy section governs T, R 14 reason5 (9), reason4 (4), reason11 (1)"
+    },
+    {
+      "id": "A4.SS1.SSS2.Px4.p1.1.2.4.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "reason5 (9), reason4 (4), reason11 (1)"
+    },
+    {
+      "id": "A4.SS1.SSS2.Px4.p1.1.3",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Is the rule a condition T, R 3 reason14 (1), reason16 (1), reason9 (1)"
+    },
+    {
+      "id": "A4.SS1.SSS2.Px4.p1.1.3.4.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "reason14 (1), reason16 (1), reason9 (1)"
+    },
+    {
+      "id": "A4.SS1.SSS2.Px4.p1.1.4",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Is the rule about this action T 17 reason17 (8), reason5 (4), reason9 (2), message0 (2), reason11 (1)"
+    },
+    {
+      "id": "A4.SS1.SSS2.Px4.p1.1.4.4.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "reason17 (8), reason5 (4), reason9 (2), message0 (2), reason11 (1)"
+    },
+    {
+      "id": "A4.SS1.SSS2.Px4.p1.1.5",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Is the condition met T, R 7 reason9 (3), reason17 (2), reason3 (1), reason8 (1)"
+    },
+    {
+      "id": "A4.SS1.SSS2.Px4.p1.1.5.4.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "reason9 (3), reason17 (2), reason3 (1), reason8 (1)"
+    },
+    {
+      "id": "A4.SS1.SSS2.Px4.p1.1.6",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "User’s own premise or condition T 36 reason17 (16), reason11 (8), reason9 (5), reason5 (5), reason8 (2)"
+    },
+    {
+      "id": "A4.SS1.SSS2.Px4.p1.1.6.4.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "reason17 (16), reason11 (8), reason9 (5), reason5 (5), reason8 (2)"
+    },
+    {
+      "id": "A4.SS1.SSS2.Px4.p1.1.7",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Alternatives when blocked T 10 reason5 (9), reason9 (1)"
+    },
+    {
+      "id": "A4.SS1.SSS2.Px4.p1.1.7.4.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "reason5 (9), reason9 (1)"
+    },
+    {
+      "id": "A4.SS1.SSS2.Px4.p1.1.8",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Reply to a confirmation T 5 message0 (4), reason17 (1)"
+    },
+    {
+      "id": "A4.SS1.SSS2.Px4.p1.1.8.4.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "message0 (4), reason17 (1)"
+    },
+    {
+      "id": "A4.SS1.SSS2.Px5.p1.1.1",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Primitive Used in Seg. Clusters (segments each)"
+    },
+    {
+      "id": "A4.SS1.SSS2.Px5.p1.1.1.4.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Clusters (segments each)"
+    },
+    {
+      "id": "A4.SS1.SSS2.Px5.p1.1.2",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Copy the rule’s condition T 1 reason16 (1)"
+    },
+    {
+      "id": "A4.SS1.SSS2.Px5.p1.1.2.4.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "reason16 (1)"
+    },
+    {
+      "id": "A4.SS1.SSS2.Px5.p1.1.3",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Does one reading show the condition T 1 reason14 (1)"
+    },
+    {
+      "id": "A4.SS1.SSS2.Px5.p1.1.3.4.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "reason14 (1)"
+    },
+    {
+      "id": "A4.SS1.SSS2.Px5.p1.1.4",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Does the condition hold now T 11 reason17 (3), reason9 (3), message0 (2), reason14 (1), reason15 (1), reason4 (1)"
+    },
+    {
+      "id": "A4.SS1.SSS2.Px5.p1.1.4.4.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "reason17 (3), reason9 (3), message0 (2), reason14 (1), reason15 (1), reason4 (1)"
+    },
+    {
+      "id": "A4.SS1.SSS2.Px5.p1.1.5",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Is the condition true by the quote alone T 5 reason17 (1), reason3 (1), reason5 (1), message4 (1), message0 (1)"
+    },
+    {
+      "id": "A4.SS1.SSS2.Px5.p1.1.5.4.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "reason17 (1), reason3 (1), reason5 (1), message4 (1), message0 (1)"
+    },
+    {
+      "id": "A4.SS1.SSS2.Px5.p1.1.6",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Is the setting already as wanted T 14 message2 (5), reason4 (4), message8 (3), reason5 (2)"
+    },
+    {
+      "id": "A4.SS1.SSS2.Px5.p1.1.6.4.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "message2 (5), reason4 (4), message8 (3), reason5 (2)"
+    },
+    {
+      "id": "A4.SS1.SSS2.Px5.p1.1.7",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Is the problem fixed T 29 reason4 (9), message2 (7), message9 (4), message3 (4), message1 (2), question2 (2), reason17 (1)"
+    },
+    {
+      "id": "A4.SS1.SSS2.Px5.p1.1.7.4.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "reason4 (9), message2 (7), message9 (4), message3 (4), message1 (2), question2 (2), reason17 (1)"
+    },
+    {
+      "id": "A4.SS1.SSS2.Px6.p1.1.1",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Primitive Used in Seg. Clusters (segments each)"
+    },
+    {
+      "id": "A4.SS1.SSS2.Px6.p1.1.1.4.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Clusters (segments each)"
+    },
+    {
+      "id": "A4.SS1.SSS2.Px6.p1.1.2",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Is the request achieved M 3 reason17 (1), reason4 (1), message7 (1)"
+    },
+    {
+      "id": "A4.SS1.SSS2.Px6.p1.1.2.4.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "reason17 (1), reason4 (1), message7 (1)"
+    },
+    {
+      "id": "A4.SS1.SSS2.Px6.p1.1.3",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Audit M 171 message1 (118), message5 (31), message3 (20), message0 (2)"
+    },
+    {
+      "id": "A4.SS1.SSS2.Px6.p1.1.3.4.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "message1 (118), message5 (31), message3 (20), message0 (2)"
+    },
+    {
+      "id": "A4.SS1.SSS2.Px6.p1.1.4",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Can the question be answered T, M 2 reason5 (1), reason9 (1)"
+    },
+    {
+      "id": "A4.SS1.SSS2.Px6.p1.1.4.4.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "reason5 (1), reason9 (1)"
+    },
+    {
+      "id": "A4.SS1.SSS2.Px6.p1.1.5",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Write the reply T, M 9 message0 (7), call5 (2)"
+    },
+    {
+      "id": "A4.SS1.SSS2.Px6.p1.1.5.4.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "message0 (7), call5 (2)"
+    },
+    {
+      "id": "A4.T5.3.1",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Cluster Kind Size Domains # Primitives"
+    },
+    {
+      "id": "A4.T5.3.1.6.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Primitives"
+    },
+    {
+      "id": "A4.T5.3.2",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "reason9 reason 24 telecom 14 Alternatives when blocked, Can the question be answered, Device reply, Does the condition hold now, Is the condition met, Is the rule a condition, Is the rule about this action, Order requests, Plan steps, Price terms, Requests covered by the same call, Split into requests, User’s own premise or condition, Where a value comes from"
+    },
+    {
+      "id": "A4.T5.3.2.6.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Alternatives when blocked, Can the question be answered, Device reply, Does the condition hold now, Is the condition met, Is the rule a condition, Is the rule about this action, Order requests, Plan steps, Price terms, Requests covered by the same call, Split into requests, User’s own premise or condition, Where a value comes from"
+    },
+    {
+      "id": "A4.T5.3.3",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "message0 message 236 tool-search, retail, telecom 12 Audit, Classify one request, Does the condition hold now, Is the condition true by the quote alone, Is the rule about this action, Order requests, Plan steps, Reply to a confirmation, Requests covered by the same call, Split into requests, Where a value comes from, Write the reply"
+    },
+    {
+      "id": "A4.T5.3.3.6.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Audit, Classify one request, Does the condition hold now, Is the condition true by the quote alone, Is the rule about this action, Order requests, Plan steps, Reply to a confirmation, Requests covered by the same call, Split into requests, Where a value comes from, Write the reply"
+    },
+    {
+      "id": "A4.T5.3.4",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "reason17 reason 41 retail 12 Does the condition hold now, Is the condition met, Is the condition true by the quote alone, Is the problem fixed, Is the request achieved, Is the rule about this action, Order requests, Plan steps, Reply to a confirmation, Requests covered by the same call, User’s own premise or condition, Where a value comes from"
+    },
+    {
+      "id": "A4.T5.3.4.6.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Does the condition hold now, Is the condition met, Is the condition true by the quote alone, Is the problem fixed, Is the request achieved, Is the rule about this action, Order requests, Plan steps, Reply to a confirmation, Requests covered by the same call, User’s own premise or condition, Where a value comes from"
+    },
+    {
+      "id": "A4.T5.3.5",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "reason5 reason 117 tool-search, telecom 11 Alternatives when blocked, Can the question be answered, Functions a policy section governs, Is the condition true by the quote alone, Is the rule about this action, Is the setting already as wanted, Plan steps, Price terms, Question for a missing parameter, User’s own premise or condition, Widen tools"
+    },
+    {
+      "id": "A4.T5.3.5.6.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Alternatives when blocked, Can the question be answered, Functions a policy section governs, Is the condition true by the quote alone, Is the rule about this action, Is the setting already as wanted, Plan steps, Price terms, Question for a missing parameter, User’s own premise or condition, Widen tools"
+    },
+    {
+      "id": "A4.T5.3.6",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "call5 call 128 tool-search 9 Device action arguments, Fill the parameters, Parts, Pick the function, Search phrases, Servers for the task, Split into requests, Widen tools, Write the reply"
+    },
+    {
+      "id": "A4.T5.3.6.6.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Device action arguments, Fill the parameters, Parts, Pick the function, Search phrases, Servers for the task, Split into requests, Widen tools, Write the reply"
+    },
+    {
+      "id": "A4.T5.3.7",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "reason11 reason 102 telecom 8 Fill the parameters, Functions a policy section governs, Is the rule about this action, Order requests, Plan steps, Question for a missing parameter, Requests covered by the same call, User’s own premise or condition"
+    },
+    {
+      "id": "A4.T5.3.7.6.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Fill the parameters, Functions a policy section governs, Is the rule about this action, Order requests, Plan steps, Question for a missing parameter, Requests covered by the same call, User’s own premise or condition"
+    },
+    {
+      "id": "A4.T5.3.8",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "reason2 reason 89 telecom 5 Classify one request, Device reply, How to get a missing parameter, Question for a missing parameter, Where a value comes from"
+    },
+    {
+      "id": "A4.T5.3.8.6.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Classify one request, Device reply, How to get a missing parameter, Question for a missing parameter, Where a value comes from"
+    },
+    {
+      "id": "A4.T5.3.9",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "reason4 reason 88 tool-search, telecom 5 Does the condition hold now, Functions a policy section governs, Is the problem fixed, Is the request achieved, Is the setting already as wanted"
+    },
+    {
+      "id": "A4.T5.3.9.6.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Does the condition hold now, Functions a policy section governs, Is the problem fixed, Is the request achieved, Is the setting already as wanted"
+    },
+    {
+      "id": "A4.T5.3.10",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "reason8 reason 70 tool-search, retail 5 Classify one request, Is the condition met, Plan steps, User’s own premise or condition, Where a value comes from"
+    },
+    {
+      "id": "A4.T5.3.10.6.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Classify one request, Is the condition met, Plan steps, User’s own premise or condition, Where a value comes from"
+    },
+    {
+      "id": "A4.T5.3.11",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "call1 call 204 tool-search 4 Fill the parameters, Pick the function, Search phrases, Servers for the task"
+    },
+    {
+      "id": "A4.T5.3.11.6.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Fill the parameters, Pick the function, Search phrases, Servers for the task"
+    },
+    {
+      "id": "A4.T5.3.12",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "call10 call 179 tool-search 4 Fill the parameters, Pick the function, Servers for the task, Which arguments failed"
+    },
+    {
+      "id": "A4.T5.3.12.6.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Fill the parameters, Pick the function, Servers for the task, Which arguments failed"
+    },
+    {
+      "id": "A4.T5.3.13",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "reason14 reason 23 tool-search, telecom 4 Device reply, Does one reading show the condition, Does the condition hold now, Is the rule a condition"
+    },
+    {
+      "id": "A4.T5.3.13.6.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Device reply, Does one reading show the condition, Does the condition hold now, Is the rule a condition"
+    },
+    {
+      "id": "A4.T5.3.14",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "reason15 reason 38 retail 4 Does the condition hold now, Order requests, Requests covered by the same call, Where a value comes from"
+    },
+    {
+      "id": "A4.T5.3.14.6.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Does the condition hold now, Order requests, Requests covered by the same call, Where a value comes from"
+    },
+    {
+      "id": "A4.T5.3.15",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "reason3 reason 36 retail 4 Is the condition met, Is the condition true by the quote alone, Question for a missing parameter, Where a value comes from"
+    },
+    {
+      "id": "A4.T5.3.15.6.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Is the condition met, Is the condition true by the quote alone, Question for a missing parameter, Where a value comes from"
+    },
+    {
+      "id": "A4.T5.3.16",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "call9 call 51 telecom 3 Device reply, Fill the parameters, Where a value comes from"
+    },
+    {
+      "id": "A4.T5.3.16.6.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Device reply, Fill the parameters, Where a value comes from"
+    },
+    {
+      "id": "A4.T5.3.17",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "message1 message 125 tool-search 3 Audit, Fill the parameters, Is the problem fixed"
+    },
+    {
+      "id": "A4.T5.3.17.6.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Audit, Fill the parameters, Is the problem fixed"
+    },
+    {
+      "id": "A4.T5.3.18",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "message2 message 175 telecom 3 Device reply, Is the problem fixed, Is the setting already as wanted"
+    },
+    {
+      "id": "A4.T5.3.18.6.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Device reply, Is the problem fixed, Is the setting already as wanted"
+    },
+    {
+      "id": "A4.T5.3.19",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "message4 message 81 telecom 3 Device reply, Is the condition true by the quote alone, Where a value comes from"
+    },
+    {
+      "id": "A4.T5.3.19.6.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Device reply, Is the condition true by the quote alone, Where a value comes from"
+    },
+    {
+      "id": "A4.T5.3.20",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "message7 message 95 retail 3 Is the request achieved, Price terms, Where a value comes from"
+    },
+    {
+      "id": "A4.T5.3.20.6.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Is the request achieved, Price terms, Where a value comes from"
+    },
+    {
+      "id": "A4.T5.3.21",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "message9 message 197 tool-search, telecom 3 Device reply, Is the problem fixed, Price terms"
+    },
+    {
+      "id": "A4.T5.3.21.6.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Device reply, Is the problem fixed, Price terms"
+    },
+    {
+      "id": "A4.T5.3.22",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "reason16 reason 99 telecom 3 Copy the rule’s condition, Device reply, Is the rule a condition"
+    },
+    {
+      "id": "A4.T5.3.22.6.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Copy the rule’s condition, Device reply, Is the rule a condition"
+    },
+    {
+      "id": "A4.T5.3.23",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "call13 call 38 telecom 2 Device reply, Route a reply"
+    },
+    {
+      "id": "A4.T5.3.23.6.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Device reply, Route a reply"
+    },
+    {
+      "id": "A4.T5.3.24",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "message3 message 25 tool-search 2 Audit, Is the problem fixed"
+    },
+    {
+      "id": "A4.T5.3.24.6.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Audit, Is the problem fixed"
+    },
+    {
+      "id": "A4.T5.3.25",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "message5 message 34 tool-search 2 Audit, Price terms"
+    },
+    {
+      "id": "A4.T5.3.25.6.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Audit, Price terms"
+    },
+    {
+      "id": "A4.T5.3.26",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "message8 message 191 telecom 2 Device reply, Is the setting already as wanted"
+    },
+    {
+      "id": "A4.T5.3.26.6.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Device reply, Is the setting already as wanted"
+    },
+    {
+      "id": "A4.T5.3.27",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "question2 question 13 telecom 2 Device reply, Is the problem fixed"
+    },
+    {
+      "id": "A4.T5.3.27.6.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Device reply, Is the problem fixed"
+    },
+    {
+      "id": "A4.T5.3.28",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "reason1 reason 35 tool-search, telecom 2 How to get a missing parameter, Where a value comes from"
+    },
+    {
+      "id": "A4.T5.3.28.6.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "How to get a missing parameter, Where a value comes from"
+    },
+    {
+      "id": "A4.T5.3.29",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "call11 call 38 telecom 1 Device reply"
+    },
+    {
+      "id": "A4.T5.3.29.6.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Device reply"
+    },
+    {
+      "id": "A4.T5.3.30",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "call2 call 272 telecom 1 Device reply"
+    },
+    {
+      "id": "A4.T5.3.30.6.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Device reply"
+    },
+    {
+      "id": "A4.T5.3.31",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "call7 call 154 retail 1 Parts"
+    },
+    {
+      "id": "A4.T5.3.31.6.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Parts"
+    },
+    {
+      "id": "A4.T5.3.32",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "question4 question 4 telecom 1 Price terms"
+    },
+    {
+      "id": "A4.T5.3.32.6.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Price terms"
+    },
+    {
+      "id": "A4.T5.3.33",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "question5 question 25 telecom 1 Device reply"
+    },
+    {
+      "id": "A4.T5.3.33.6.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Device reply"
+    },
+    {
+      "id": "A4.T5.3.34",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "reason10 reason 27 tool-search 1 Check a claim"
+    },
+    {
+      "id": "A4.T5.3.34.6.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Check a claim"
+    },
+    {
+      "id": "A4.T5.3.35",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "reason12 reason 76 retail 1 Classify one request"
+    },
+    {
+      "id": "A4.T5.3.35.6.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Classify one request"
+    },
+    {
+      "id": "A4.T5.3.36",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "reason13 reason 11 tool-search, retail 1 Where a value comes from"
+    },
+    {
+      "id": "A4.T5.3.36.6.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Where a value comes from"
+    },
+    {
+      "id": "A5.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "For the search of § 3.4 , Claude Sonnet 4.5 mines a rule library from the kept traces in a few calls, and the two libraries below are used together, as one candidate set of 125 rules, for every block, including the retail block, which has no library of its own: several extraction calls over batches of traces, then one merge call. Each rule is a one-line behaviour the expert shows. The tool-search library (61 rules) took 6 calls (5 extraction, 1 merge; 47,047 tokens in, 17,685 out). The telecom library (64 rules) took 10 calls (9 extraction, 1 merge; 239,600 tokens in, 29,500 out)."
+    },
+    {
+      "id": "A5.T6.3.1",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Id Rule What the expert does"
+    },
+    {
+      "id": "A5.T6.3.1.3.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "What the expert does"
+    },
+    {
+      "id": "A5.T6.3.2",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "M01 Read before use Reads a source before doing anything with its contents"
+    },
+    {
+      "id": "A5.T6.3.2.3.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Reads a source before doing anything with its contents"
+    },
+    {
+      "id": "A5.T6.3.3",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "M02 Complete answer The final answer includes everything the task asked for"
+    },
+    {
+      "id": "A5.T6.3.3.3.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "The final answer includes everything the task asked for"
+    },
+    {
+      "id": "A5.T6.3.4",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "M03 Stop after answering Takes no further action after the final answer"
+    },
+    {
+      "id": "A5.T6.3.4.3.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Takes no further action after the final answer"
+    },
+    {
+      "id": "A5.T6.3.5",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "M04 Inputs before calculating Retrieves all input values, then computes locally"
+    },
+    {
+      "id": "A5.T6.3.5.3.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Retrieves all input values, then computes locally"
+    },
+    {
+      "id": "A5.T6.3.6",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "M05 No tools for simple logic Never searches for a tool to do arithmetic, parsing or filtering"
+    },
+    {
+      "id": "A5.T6.3.6.3.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Never searches for a tool to do arithmetic, parsing or filtering"
+    },
+    {
+      "id": "A5.T6.3.7",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "M06 Gather before writing Finishes all data gathering before writing an output"
+    },
+    {
+      "id": "A5.T6.3.7.3.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Finishes all data gathering before writing an output"
+    },
+    {
+      "id": "A5.T6.3.8",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "M07 Report the output The answer names where the output went and summarises it"
+    },
+    {
+      "id": "A5.T6.3.8.3.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "The answer names where the output went and summarises it"
+    },
+    {
+      "id": "A5.T6.3.9",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "M08 Only needed fields Takes only the fields needed from a structured result"
+    },
+    {
+      "id": "A5.T6.3.9.3.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Takes only the fields needed from a structured result"
+    },
+    {
+      "id": "A5.T6.3.10",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "M09 All sources first Retrieves from every source before composing the answer"
+    },
+    {
+      "id": "A5.T6.3.10.3.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Retrieves from every source before composing the answer"
+    },
+    {
+      "id": "A5.T6.3.11",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "M10 Direct lookup Retrieves a named entity directly, without searching first"
+    },
+    {
+      "id": "A5.T6.3.11.3.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Retrieves a named entity directly, without searching first"
+    },
+    {
+      "id": "A5.T6.3.12",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "M11 One fetch per entity Answers several questions about an entity from one result"
+    },
+    {
+      "id": "A5.T6.3.12.3.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Answers several questions about an entity from one result"
+    },
+    {
+      "id": "A5.T6.3.13",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "M12 One call per entity Uses a separate call for each entity of the same type"
+    },
+    {
+      "id": "A5.T6.3.13.3.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Uses a separate call for each entity of the same type"
+    },
+    {
+      "id": "A5.T6.3.14",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "M13 Superlatives by comparison Retrieves all values, then compares to find the top one"
+    },
+    {
+      "id": "A5.T6.3.14.3.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Retrieves all values, then compares to find the top one"
+    },
+    {
+      "id": "A5.T6.3.15",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "M14 Alternative after error Tries a different approach, not the same call again"
+    },
+    {
+      "id": "A5.T6.3.15.3.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Tries a different approach, not the same call again"
+    },
+    {
+      "id": "A5.T6.3.16",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "M15 Carry identifiers forward Uses an identifier from one result in the next call"
+    },
+    {
+      "id": "A5.T6.3.16.3.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Uses an identifier from one result in the next call"
+    },
+    {
+      "id": "A5.T6.3.17",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "M16 Build in order Creates the container, then its structure, then its content"
+    },
+    {
+      "id": "A5.T6.3.17.3.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Creates the container, then its structure, then its content"
+    },
+    {
+      "id": "A5.T6.3.18",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "M17 Preserve existing content Reads what exists, then writes old and new content together"
+    },
+    {
+      "id": "A5.T6.3.18.3.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Reads what exists, then writes old and new content together"
+    },
+    {
+      "id": "A5.T6.3.19",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "M18 Filter locally Reads the whole dataset and filters it itself"
+    },
+    {
+      "id": "A5.T6.3.19.3.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Reads the whole dataset and filters it itself"
+    },
+    {
+      "id": "A5.T6.3.20",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "M19 Count locally Reads the data and counts it itself"
+    },
+    {
+      "id": "A5.T6.3.20.3.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Reads the data and counts it itself"
+    },
+    {
+      "id": "A5.T6.3.21",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "M20 Exact text Uses text the task specifies word for word"
+    },
+    {
+      "id": "A5.T6.3.21.3.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Uses text the task specifies word for word"
+    },
+    {
+      "id": "A5.T6.3.22",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "M21 Exact output location Uses the output location exactly as given"
+    },
+    {
+      "id": "A5.T6.3.22.3.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Uses the output location exactly as given"
+    },
+    {
+      "id": "A5.T6.3.23",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "M22 Aggregate after reading Reads all data, computes, then writes results"
+    },
+    {
+      "id": "A5.T6.3.23.3.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Reads all data, computes, then writes results"
+    },
+    {
+      "id": "A5.T6.3.24",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "M23 Dependent values in order Gets each input a calculation depends on, in order, then calculates"
+    },
+    {
+      "id": "A5.T6.3.24.3.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Gets each input a calculation depends on, in order, then calculates"
+    },
+    {
+      "id": "A5.T6.3.25",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "M24 Inputs with the result States the inputs, the result and the factor used"
+    },
+    {
+      "id": "A5.T6.3.25.3.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "States the inputs, the result and the factor used"
+    },
+    {
+      "id": "A5.T6.3.26",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "M25 Resolve both ends before relating Resolves both entities before asking for the relation between them"
+    },
+    {
+      "id": "A5.T6.3.26.3.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Resolves both entities before asking for the relation between them"
+    },
+    {
+      "id": "A5.T6.3.27",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "M26 Entity before attribute Resolves an entity before querying an attribute of it"
+    },
+    {
+      "id": "A5.T6.3.27.3.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Resolves an entity before querying an attribute of it"
+    },
+    {
+      "id": "A5.T6.3.28",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "M27 Context before a dependent value Gets the context a value depends on, then asks for the value"
+    },
+    {
+      "id": "A5.T6.3.28.3.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Gets the context a value depends on, then asks for the value"
+    },
+    {
+      "id": "A5.T6.3.29",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "M28 Read each part Reads each part of a source separately, then combines"
+    },
+    {
+      "id": "A5.T6.3.29.3.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Reads each part of a source separately, then combines"
+    },
+    {
+      "id": "A5.T6.3.30",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "M29 Locate before updating Finds the items to change, then writes each one"
+    },
+    {
+      "id": "A5.T6.3.30.3.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Finds the items to change, then writes each one"
+    },
+    {
+      "id": "A5.T6.3.31",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "M30 Report the count changed States how many items were updated"
+    },
+    {
+      "id": "A5.T6.3.31.3.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "States how many items were updated"
+    },
+    {
+      "id": "A5.T6.3.32",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "M31 Include the artefact reference Puts the produced artefact’s reference in the answer"
+    },
+    {
+      "id": "A5.T6.3.32.3.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Puts the produced artefact’s reference in the answer"
+    },
+    {
+      "id": "A5.T6.3.33",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "M32 Shape data for the consumer Transforms earlier results into the format the next tool needs"
+    },
+    {
+      "id": "A5.T6.3.33.3.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Transforms earlier results into the format the next tool needs"
+    },
+    {
+      "id": "A5.T6.3.34",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "M33 Search then details Searches, then fetches details by the result’s identifier"
+    },
+    {
+      "id": "A5.T6.3.34.3.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Searches, then fetches details by the result’s identifier"
+    },
+    {
+      "id": "A5.T6.3.35",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "M34 Check state before changes Checks current state or history before making changes"
+    },
+    {
+      "id": "A5.T6.3.35.3.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Checks current state or history before making changes"
+    },
+    {
+      "id": "A5.T6.3.36",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "M35 Ordered change sequence Checks, stages, then commits a change with the given description"
+    },
+    {
+      "id": "A5.T6.3.36.3.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Checks, stages, then commits a change with the given description"
+    },
+    {
+      "id": "A5.T6.3.37",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "M36 Create then switch Creates a new context, then switches to it as a separate step"
+    },
+    {
+      "id": "A5.T6.3.37.3.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Creates a new context, then switches to it as a separate step"
+    },
+    {
+      "id": "A5.T6.3.38",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "M37 Exact names Resolves names exactly as given"
+    },
+    {
+      "id": "A5.T6.3.38.3.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Resolves names exactly as given"
+    },
+    {
+      "id": "A5.T6.3.39",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "M38 Required format Uses the value format the tool requires"
+    },
+    {
+      "id": "A5.T6.3.39.3.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Uses the value format the tool requires"
+    },
+    {
+      "id": "A5.T6.3.40",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "M39 Range query Uses one range query in place of a call per item"
+    },
+    {
+      "id": "A5.T6.3.40.3.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Uses one range query in place of a call per item"
+    },
+    {
+      "id": "A5.T6.3.41",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "M40 Specialised lookup Uses the dedicated lookup tool for an identifier system"
+    },
+    {
+      "id": "A5.T6.3.41.3.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Uses the dedicated lookup tool for an identifier system"
+    },
+    {
+      "id": "A5.T6.3.42",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "M41 Right reader for the format Uses the reader made for the source’s format, not a generic one"
+    },
+    {
+      "id": "A5.T6.3.42.3.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Uses the reader made for the source’s format, not a generic one"
+    },
+    {
+      "id": "A5.T6.3.43",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "M42 Fix after validation error Retries with parameters corrected from the error"
+    },
+    {
+      "id": "A5.T6.3.43.3.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Retries with parameters corrected from the error"
+    },
+    {
+      "id": "A5.T6.3.44",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "M43 Nearest valid input Tries the nearest valid input when the given one has no data"
+    },
+    {
+      "id": "A5.T6.3.44.3.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Tries the nearest valid input when the given one has no data"
+    },
+    {
+      "id": "A5.T6.3.45",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "M44 Different tool after empty result Moves to a more direct query or a known identifier"
+    },
+    {
+      "id": "A5.T6.3.45.3.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Moves to a more direct query or a known identifier"
+    },
+    {
+      "id": "A5.T6.3.46",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "M45 Read before editing Reads a source before making a precise edit"
+    },
+    {
+      "id": "A5.T6.3.46.3.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Reads a source before making a precise edit"
+    },
+    {
+      "id": "A5.T6.3.47",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "M46 Count before changing Counts occurrences, then makes the modification"
+    },
+    {
+      "id": "A5.T6.3.47.3.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Counts occurrences, then makes the modification"
+    },
+    {
+      "id": "A5.T6.3.48",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "M47 Read all before comparing Reads every source before a comparison or join"
+    },
+    {
+      "id": "A5.T6.3.48.3.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Reads every source before a comparison or join"
+    },
+    {
+      "id": "A5.T6.3.49",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "M48 Filter before random pick Filters first, then passes only that subset on"
+    },
+    {
+      "id": "A5.T6.3.49.3.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Filters first, then passes only that subset on"
+    },
+    {
+      "id": "A5.T6.3.50",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "M49 Computed values are own work Computed figures come from its own calculation on retrieved data"
+    },
+    {
+      "id": "A5.T6.3.50.3.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Computed figures come from its own calculation on retrieved data"
+    },
+    {
+      "id": "A5.T6.3.51",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "M50 Units in answer States units with quantities"
+    },
+    {
+      "id": "A5.T6.3.51.3.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "States units with quantities"
+    },
+    {
+      "id": "A5.T6.3.52",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "M51 Show the calculation Gives the formula or breakdown for computed results"
+    },
+    {
+      "id": "A5.T6.3.52.3.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Gives the formula or breakdown for computed results"
+    },
+    {
+      "id": "A5.T6.3.53",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "M52 Format for the target Formats structured data for the target’s type"
+    },
+    {
+      "id": "A5.T6.3.53.3.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Formats structured data for the target’s type"
+    },
+    {
+      "id": "A5.T6.3.54",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "M53 Current time from a service Retrieves the date or time; doesn’t assume it"
+    },
+    {
+      "id": "A5.T6.3.54.3.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Retrieves the date or time; doesn’t assume it"
+    },
+    {
+      "id": "A5.T6.3.55",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "M54 One call per target Converts separately for each target"
+    },
+    {
+      "id": "A5.T6.3.55.3.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Converts separately for each target"
+    },
+    {
+      "id": "A5.T6.3.56",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "M55 All calls then one answer Makes every needed call, then gives a combined answer"
+    },
+    {
+      "id": "A5.T6.3.56.3.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Makes every needed call, then gives a combined answer"
+    },
+    {
+      "id": "A5.T6.3.57",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "M56 One request if the split fails Treats the whole task as one request when the split gives nothing usable"
+    },
+    {
+      "id": "A5.T6.3.57.3.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Treats the whole task as one request when the split gives nothing usable"
+    },
+    {
+      "id": "A5.T6.3.58",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "M57 Search in the tool’s form Uses the form the search tool requires and never repeats a search unchanged"
+    },
+    {
+      "id": "A5.T6.3.58.3.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Uses the form the search tool requires and never repeats a search unchanged"
+    },
+    {
+      "id": "A5.T6.3.59",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "M58 Call values from the task or results Values in a call come from the task or a tool result"
+    },
+    {
+      "id": "A5.T6.3.59.3.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Values in a call come from the task or a tool result"
+    },
+    {
+      "id": "A5.T6.3.60",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "M59 Empty is not success Treats an empty result, or one that fails for every item, as not a success"
+    },
+    {
+      "id": "A5.T6.3.60.3.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Treats an empty result, or one that fails for every item, as not a success"
+    },
+    {
+      "id": "A5.T6.3.61",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "M60 Drop a dead source Does not use again a source that fails to connect or lacks the tool"
+    },
+    {
+      "id": "A5.T6.3.61.3.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Does not use again a source that fails to connect or lacks the tool"
+    },
+    {
+      "id": "A5.T6.3.62",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "M61 Budget in calls Counts the planner budget in calls per action, not seconds"
+    },
+    {
+      "id": "A5.T6.3.62.3.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Counts the planner budget in calls per action, not seconds"
+    },
+    {
+      "id": "A5.T7.3.1",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Rule What the expert does"
+    },
+    {
+      "id": "A5.T7.3.1.2.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "What the expert does"
+    },
+    {
+      "id": "A5.T7.3.2",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Identify first Looks up the user before anything else"
+    },
+    {
+      "id": "A5.T7.3.2.2.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Looks up the user before anything else"
+    },
+    {
+      "id": "A5.T7.3.3",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Target details first Reads the target record’s details before target-specific work"
+    },
+    {
+      "id": "A5.T7.3.3.2.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Reads the target record’s details before target-specific work"
+    },
+    {
+      "id": "A5.T7.3.4",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Confirm the fix at the end Runs the task’s success check to confirm the fix"
+    },
+    {
+      "id": "A5.T7.3.4.2.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Runs the task’s success check to confirm the fix"
+    },
+    {
+      "id": "A5.T7.3.5",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Grant each permission Grants each required permission separately"
+    },
+    {
+      "id": "A5.T7.3.5.2.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Grants each required permission separately"
+    },
+    {
+      "id": "A5.T7.3.6",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Clear the blocking state first Clears a state that blocks everything else before other troubleshooting"
+    },
+    {
+      "id": "A5.T7.3.6.2.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Clears a state that blocks everything else before other troubleshooting"
+    },
+    {
+      "id": "A5.T7.3.7",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Check detailed status Reads detailed state on connectivity problems"
+    },
+    {
+      "id": "A5.T7.3.7.2.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Reads detailed state on connectivity problems"
+    },
+    {
+      "id": "A5.T7.3.8",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Overview early Checks a quick overview early"
+    },
+    {
+      "id": "A5.T7.3.8.2.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Checks a quick overview early"
+    },
+    {
+      "id": "A5.T7.3.9",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Restart after a settings reset Always follows a settings reset with a restart"
+    },
+    {
+      "id": "A5.T7.3.9.2.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Always follows a settings reset with a restart"
+    },
+    {
+      "id": "A5.T7.3.10",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Enable on the account first Enables a feature on the account before the user toggles it on the device"
+    },
+    {
+      "id": "A5.T7.3.10.2.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Enables a feature on the account before the user toggles it on the device"
+    },
+    {
+      "id": "A5.T7.3.11",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Check app permissions Verifies the relevant app’s permissions"
+    },
+    {
+      "id": "A5.T7.3.11.2.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Verifies the relevant app’s permissions"
+    },
+    {
+      "id": "A5.T7.3.12",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Fix the mode setting Sets a restrictive mode to the preferred one"
+    },
+    {
+      "id": "A5.T7.3.12.2.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Sets a restrictive mode to the preferred one"
+    },
+    {
+      "id": "A5.T7.3.13",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Verify after changes Runs a check to verify service after changes"
+    },
+    {
+      "id": "A5.T7.3.13.2.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Runs a check to verify service after changes"
+    },
+    {
+      "id": "A5.T7.3.14",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Check configuration Verifies the configuration values"
+    },
+    {
+      "id": "A5.T7.3.14.2.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Verifies the configuration values"
+    },
+    {
+      "id": "A5.T7.3.15",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Reset bad configuration Resets and restarts when a configuration value is wrong"
+    },
+    {
+      "id": "A5.T7.3.15.2.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Resets and restarts when a configuration value is wrong"
+    },
+    {
+      "id": "A5.T7.3.16",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Verify usage before adding Checks usage before adding an allowance"
+    },
+    {
+      "id": "A5.T7.3.16.2.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Checks usage before adding an allowance"
+    },
+    {
+      "id": "A5.T7.3.17",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Enable the disabled service Turns a service on when it is disabled"
+    },
+    {
+      "id": "A5.T7.3.17.2.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Turns a service on when it is disabled"
+    },
+    {
+      "id": "A5.T7.3.18",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Reseat a missing component Asks the user to reseat a component that is not detected"
+    },
+    {
+      "id": "A5.T7.3.18.2.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Asks the user to reseat a component that is not detected"
+    },
+    {
+      "id": "A5.T7.3.19",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Find the right record Reads all records to match the user’s identifier"
+    },
+    {
+      "id": "A5.T7.3.19.2.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Reads all records to match the user’s identifier"
+    },
+    {
+      "id": "A5.T7.3.20",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Toggle on the device after the account Toggles the feature on the device after enabling it on the account"
+    },
+    {
+      "id": "A5.T7.3.20.2.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Toggles the feature on the device after enabling it on the account"
+    },
+    {
+      "id": "A5.T7.3.21",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Interfering feature off Turns off an interfering feature during troubleshooting"
+    },
+    {
+      "id": "A5.T7.3.21.2.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Turns off an interfering feature during troubleshooting"
+    },
+    {
+      "id": "A5.T7.3.22",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Check component status Verifies the component is active on service issues"
+    },
+    {
+      "id": "A5.T7.3.22.2.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Verifies the component is active on service issues"
+    },
+    {
+      "id": "A5.T7.3.23",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Read plan details When limits or prices matter"
+    },
+    {
+      "id": "A5.T7.3.23.2.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "When limits or prices matter"
+    },
+    {
+      "id": "A5.T7.3.24",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Check the problem early Confirms the reported problem before attempting fixes"
+    },
+    {
+      "id": "A5.T7.3.24.2.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Confirms the reported problem before attempting fixes"
+    },
+    {
+      "id": "A5.T7.3.25",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Check for interference Looks for interfering features during troubleshooting"
+    },
+    {
+      "id": "A5.T7.3.25.2.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Looks for interfering features during troubleshooting"
+    },
+    {
+      "id": "A5.T7.3.26",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Restart after resuming Asks for a restart right after resuming service"
+    },
+    {
+      "id": "A5.T7.3.26.2.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Asks for a restart right after resuming service"
+    },
+    {
+      "id": "A5.T7.3.27",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Disconnect a slow intermediary When an intermediary is connected and slow"
+    },
+    {
+      "id": "A5.T7.3.27.2.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "When an intermediary is connected and slow"
+    },
+    {
+      "id": "A5.T7.3.28",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Limiter off Turns a limiter off when it is on"
+    },
+    {
+      "id": "A5.T7.3.28.2.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Turns a limiter off when it is on"
+    },
+    {
+      "id": "A5.T7.3.29",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Maximum allowed amount Adds the maximum amount allowed"
+    },
+    {
+      "id": "A5.T7.3.29.2.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Adds the maximum amount allowed"
+    },
+    {
+      "id": "A5.T7.3.30",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Bills before resuming Checks for overdue bills on a suspended account"
+    },
+    {
+      "id": "A5.T7.3.30.2.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Checks for overdue bills on a suspended account"
+    },
+    {
+      "id": "A5.T7.3.31",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Diagnose before changing Runs user-side checks before account changes"
+    },
+    {
+      "id": "A5.T7.3.31.2.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Runs user-side checks before account changes"
+    },
+    {
+      "id": "A5.T7.3.32",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Mode setting early Checks the mode setting early in troubleshooting"
+    },
+    {
+      "id": "A5.T7.3.32.2.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Checks the mode setting early in troubleshooting"
+    },
+    {
+      "id": "A5.T7.3.33",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Read before changing a record Never changes settings without reading them first"
+    },
+    {
+      "id": "A5.T7.3.33.2.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Never changes settings without reading them first"
+    },
+    {
+      "id": "A5.T7.3.34",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Customer acts on their device Never calls user-side tools directly"
+    },
+    {
+      "id": "A5.T7.3.34.2.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Never calls user-side tools directly"
+    },
+    {
+      "id": "A5.T7.3.35",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Verify payment Confirms the bill shows as paid before proceeding"
+    },
+    {
+      "id": "A5.T7.3.35.2.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Confirms the bill shows as paid before proceeding"
+    },
+    {
+      "id": "A5.T7.3.36",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Payment request first Sends it before asking the user to pay"
+    },
+    {
+      "id": "A5.T7.3.36.2.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Sends it before asking the user to pay"
+    },
+    {
+      "id": "A5.T7.3.37",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Both permissions Grants every missing permission if any is missing"
+    },
+    {
+      "id": "A5.T7.3.37.2.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Grants every missing permission if any is missing"
+    },
+    {
+      "id": "A5.T7.3.38",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Toggle if still off When the device shows the feature off after enabling it"
+    },
+    {
+      "id": "A5.T7.3.38.2.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "When the device shows the feature off after enabling it"
+    },
+    {
+      "id": "A5.T7.3.39",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Locked component to a human Transfers at once when a component needs an unlock code"
+    },
+    {
+      "id": "A5.T7.3.39.2.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Transfers at once when a component needs an unlock code"
+    },
+    {
+      "id": "A5.T7.3.40",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Restart after setting changes After configuration or mode changes"
+    },
+    {
+      "id": "A5.T7.3.40.2.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "After configuration or mode changes"
+    },
+    {
+      "id": "A5.T7.3.41",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Underlying service first Fixes the underlying service first when both are reported"
+    },
+    {
+      "id": "A5.T7.3.41.2.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Fixes the underlying service first when both are reported"
+    },
+    {
+      "id": "A5.T7.3.42",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Reseat after restart fails On no-signal problems"
+    },
+    {
+      "id": "A5.T7.3.42.2.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "On no-signal problems"
+    },
+    {
+      "id": "A5.T7.3.43",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Check installed apps When the app’s name is uncertain"
+    },
+    {
+      "id": "A5.T7.3.43.2.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "When the app’s name is uncertain"
+    },
+    {
+      "id": "A5.T7.3.44",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Blocking state before toggles Never toggles services while a blocking state is on"
+    },
+    {
+      "id": "A5.T7.3.44.2.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Never toggles services while a blocking state is on"
+    },
+    {
+      "id": "A5.T7.3.45",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Ended contract to a human Transfers without trying to resume service"
+    },
+    {
+      "id": "A5.T7.3.45.2.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Transfers without trying to resume service"
+    },
+    {
+      "id": "A5.T7.3.46",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Cycle the blocking state Toggles it on then off before restarting, on no signal"
+    },
+    {
+      "id": "A5.T7.3.46.2.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Toggles it on then off before restarting, on no signal"
+    },
+    {
+      "id": "A5.T7.3.47",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "One step at a time Executes a procedure written as a list of steps one step at a time"
+    },
+    {
+      "id": "A5.T7.3.47.2.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Executes a procedure written as a list of steps one step at a time"
+    },
+    {
+      "id": "A5.T7.3.48",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Argument names the target An identifying argument names the target, not the change to make"
+    },
+    {
+      "id": "A5.T7.3.48.2.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "An identifying argument names the target, not the change to make"
+    },
+    {
+      "id": "A5.T7.3.49",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Refusal cites the rule A refusal cites a value the rule’s text mentions"
+    },
+    {
+      "id": "A5.T7.3.49.2.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "A refusal cites a value the rule’s text mentions"
+    },
+    {
+      "id": "A5.T7.3.50",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Quantities from records Every quantity is user-stated or computed from records"
+    },
+    {
+      "id": "A5.T7.3.50.2.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Every quantity is user-stated or computed from records"
+    },
+    {
+      "id": "A5.T7.3.51",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Target in the named state When the request names a state, the target chosen is in that state"
+    },
+    {
+      "id": "A5.T7.3.51.2.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "When the request names a state, the target chosen is in that state"
+    },
+    {
+      "id": "A5.T7.3.52",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Escalate after a failed attempt Escalates only after the action was attempted and refused or failed"
+    },
+    {
+      "id": "A5.T7.3.52.2.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Escalates only after the action was attempted and refused or failed"
+    },
+    {
+      "id": "A5.T7.3.53",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Dates computed in code Computes time conditions in code against the date the rules give"
+    },
+    {
+      "id": "A5.T7.3.53.2.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Computes time conditions in code against the date the rules give"
+    },
+    {
+      "id": "A5.T7.3.54",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Fill from the record Takes a value the user did not give from the record and confirms it"
+    },
+    {
+      "id": "A5.T7.3.54.2.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Takes a value the user did not give from the record and confirms it"
+    },
+    {
+      "id": "A5.T7.3.55",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "User’s fallback Applies the user’s stated fallback when the request cannot be met"
+    },
+    {
+      "id": "A5.T7.3.55.2.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Applies the user’s stated fallback when the request cannot be met"
+    },
+    {
+      "id": "A5.T7.3.56",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Permitted equivalent Uses an equivalent action a rule permits when the rule blocks the requested one"
+    },
+    {
+      "id": "A5.T7.3.56.2.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Uses an equivalent action a rule permits when the rule blocks the requested one"
+    },
+    {
+      "id": "A5.T7.3.57",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Refuse only on a rule Refuses only when the rule check produced the refusal"
+    },
+    {
+      "id": "A5.T7.3.57.2.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Refuses only when the rule check produced the refusal"
+    },
+    {
+      "id": "A5.T7.3.58",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Explicit agreement Agreement is explicit, covers one state change, and is not inferred from a choice among options or a qualified yes"
+    },
+    {
+      "id": "A5.T7.3.58.2.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Agreement is explicit, covers one state change, and is not inferred from a choice among options or a qualified yes"
+    },
+    {
+      "id": "A5.T7.3.59",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Confirm once Does not confirm an agreed state change a second time"
+    },
+    {
+      "id": "A5.T7.3.59.2.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Does not confirm an agreed state change a second time"
+    },
+    {
+      "id": "A5.T7.3.60",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Agreed change first Carries out an agreed state change before anything else"
+    },
+    {
+      "id": "A5.T7.3.60.2.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Carries out an agreed state change before anything else"
+    },
+    {
+      "id": "A5.T7.3.61",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Irreversible last Does irreversible actions last, after telling the user they are final"
+    },
+    {
+      "id": "A5.T7.3.61.2.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Does irreversible actions last, after telling the user they are final"
+    },
+    {
+      "id": "A5.T7.3.62",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Correction everywhere Applies a correction everywhere the corrected value appears"
+    },
+    {
+      "id": "A5.T7.3.62.2.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Applies a correction everywhere the corrected value appears"
+    },
+    {
+      "id": "A5.T7.3.63",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Drop a no-op Drops an action that would change nothing"
+    },
+    {
+      "id": "A5.T7.3.63.2.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Drops an action that would change nothing"
+    },
+    {
+      "id": "A5.T7.3.64",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Checks stay internal Does not surface internal checks to the user as questions"
+    },
+    {
+      "id": "A5.T7.3.64.2.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Does not surface internal checks to the user as questions"
+    },
+    {
+      "id": "A5.T7.3.65",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "No early escalation Does not escalate while the user is still willing to continue"
+    },
+    {
+      "id": "A5.T7.3.65.2.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Does not escalate while the user is still willing to continue"
+    },
+    {
+      "id": "A6.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Each customer turn runs the loop below until the student emits an action."
+    },
+    {
+      "id": "A6.p2.1.1",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Step What happens"
+    },
+    {
+      "id": "A6.p2.1.1.2.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "What happens"
+    },
+    {
+      "id": "A6.p2.1.2",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Plan Granite-4.2-8B reads the instructions, the tools, and the conversation and returns the situation, the applicable rules, and the next step."
+    },
+    {
+      "id": "A6.p2.1.2.2.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Granite-4.2-8B reads the instructions, the tools, and the conversation and returns the situation, the applicable rules, and the next step."
+    },
+    {
+      "id": "A6.p2.1.3",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Act The student continues from that plan, placed where its own reasoning would go, and emits one action."
+    },
+    {
+      "id": "A6.p2.1.3.2.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "The student continues from that plan, placed where its own reasoning would go, and emits one action."
+    },
+    {
+      "id": "A6.p2.1.4",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Reflect One Granite critic per aspect reviews the action; on a revise verdict the student retries with the critique. After the last revision round, the last action is returned."
+    },
+    {
+      "id": "A6.p2.1.4.2.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "One Granite critic per aspect reviews the action; on a revise verdict the student retries with the critique. After the last revision round, the last action is returned."
+    },
+    {
+      "id": "A6.p3.1.1",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Setting Value"
+    },
+    {
+      "id": "A6.p3.1.2",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Granite input-token budget per task 450,000 (estimated as characters / 4.2 + 60 /4.2+60 per call)"
+    },
+    {
+      "id": "A6.p3.1.3",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "critics policy, grounding"
+    },
+    {
+      "id": "A6.p3.1.4",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "maximum revision rounds 2"
+    },
+    {
+      "id": "A6.p3.1.5",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "critic share of the budget 0.5"
+    },
+    {
+      "id": "A6.p3.1.6",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "planning on"
+    },
+    {
+      "id": "A6.p3.1.7",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "tool-description cap 500 characters"
+    },
+    {
+      "id": "A6.p3.1.8",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "planner calls per customer turn 60"
+    },
+    {
+      "id": "A6.p3.1.9",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "student max_tokens 3,000"
+    },
+    {
+      "id": "A7.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "The judge is Granite-4.2-8B. Identical candidate next steps are pooled, and each option is shown with the number of the five samples that proposed it."
+    },
+    {
+      "id": "A8.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "The prompt-optimisation arm of § 4.3 : the student’s own system prompt is optimised with GEPA ( Agrawal et al., 2026 ) and the student is then run as a native tool-calling agent with no program. The budget was 10 iterations; the held-aside score was plateauing by then, so more iterations were not run."
+    },
+    {
+      "id": "A8.p2.1.1",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Setting Value"
+    },
+    {
+      "id": "A8.p2.1.2",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "data the training and held-aside splits of § 3.1 , the same as the SFT arm"
+    },
+    {
+      "id": "A8.p2.1.3",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "budget 10 iterations, minibatch 16, 8 workers"
+    },
+    {
+      "id": "A8.p2.1.4",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "reflection model openai/gpt-4.1"
+    },
+    {
+      "id": "A8.p2.1.5",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "reward outcome only: exact call-set match; no process reward"
+    },
+    {
+      "id": "A8.p2.1.6",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "parent selection Pareto front over per-instance scores; max ⁡ ( pareto ⁡ ( pool ) , key = mean ) \\max(\\mathrm{pareto}(\\mathrm{pool}),\\mathrm{key}=\\mathrm{mean})"
+    },
+    {
+      "id": "A8.p2.1.7",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "accept rule child’s minibatch mean exceeds parent’s; accepted children join the pool"
+    },
+    {
+      "id": "A8.p2.1.8",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "selection best score on the held-aside split"
+    },
+    {
+      "id": "A8.SS0.SSS0.Px1.p1.1.1",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Student Best train Best val"
+    },
+    {
+      "id": "A8.SS0.SSS0.Px1.p1.1.2",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Nemotron 3 Super 0.838 0.950"
+    },
+    {
+      "id": "A8.SS0.SSS0.Px1.p1.1.3",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Nemotron 3 Nano 0.818 0.906"
+    },
+    {
+      "id": "A8.SS0.SSS0.Px1.p1.1.4",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Nemotron 3.5 Lightning 0.800 0.805"
+    }
+  ]
+}

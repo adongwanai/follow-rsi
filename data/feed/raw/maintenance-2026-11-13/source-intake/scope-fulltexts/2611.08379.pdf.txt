@@ -1,0 +1,2435 @@
+Module-Aware Optimization for Graph Neural
+Networks
+Guy Hadad
+Ben-Gurion University of the Negev
+Beer-Sheva, Israel
+guyhada@post.bgu.ac.il
+Haggai Roitman
+Ben-Gurion University of the Negev
+Beer-Sheva, Israel
+haggair@gmail.com
+Moshe Eliasof
+Ben-Gurion University of the Negev
+Beer-Sheva, Israel
+eliasof@bgu.ac.il
+Bracha Shapira
+Ben-Gurion University of the Negev
+Beer-Sheva, Israel
+bshapira@bgu.ac.il
+Abstract
+Different optimizers impose different geometries on parameter updates. Adap-
+tive methods such as Adam and AdamW use coordinate-wise updates, while
+matrix-aware optimizers such as Muon utilize weight-matrix structure through or-
+thogonalized updates. For Graph Neural Networks (GNNs), however, the effective
+geometry of its weight matrices is shaped not only by its learned channel-mixing
+weights, but also by the graph-propagated representations it acts on. Thus, even
+if an update is well normalized as a matrix, its effect on the layer output can be
+amplified when applied to graph-propagated features. To address this gap, we
+introduce GraphMuon, a graph-aware optimizer that adapts Muon’s matrix up-
+dates to the covariance structure of graph-propagated layer inputs. GraphMuon
+performs orthogonalization in a metric defined by these propagated representa-
+tions and normalizes step sizes according to the update’s induced effect on the
+layer representation. We show that theoretically, vanilla Muon can suffer from
+graph-induced update amplification, while our GraphMuon can mitigate this effect.
+As such, our GraphMuon yields a graph-metric analogue of Muon’s polar update
+step. Empirically, GraphMuon achieves 1.32×–2.42× validation-loss time-to-
+target speedups over AdamW on three large-scale OGB benchmarks. Across 15
+dataset–architecture configurations spanning node classification, inductive graph
+classification, and graph regression, it achieves lower time-to-target in 13 cases,
+while maintaining competitive or superior predictive performance. Code is avail-
+able at https://github.com/guy-hadad/GraphMuon.
+1
+Introduction
+Optimizers define the geometry in which neural-network updates are measured. Classical SGD
+uses a global Euclidean scale [26], adaptive methods such as Adam and AdamW normalize updates
+coordinate-wise [17, 20], and preconditioned methods such as Shampoo exploit matrix statistics to
+approximate richer curvature information [10]. More recently, matrix-aware optimizers such as Muon
+treat weight matrices as structured operators and replace raw momentum updates with approximately
+orthogonalized matrix directions [16]. Muon has also been shown to improve compute efficiency
+in large language-model training [19, 29, 30]. These developments suggest a broader principle: the
+geometry used by an optimizer should depend not only on the shape of a parameter tensor, but also
+on the module in which that parameter appears [1].
+40th Conference on Neural Information Processing Systems (NeurIPS 2026).
+arXiv:2611.08379v1  [cs.LG]  5 Nov 2026
+
+Graph neural networks provide a setting where this module dependence is especially important. In a
+standard feed-forward layer, a weight matrix acts on representations produced by previous neural
+layers. In a GNN layer, however, the trainable matrix acts on graph-propagated representations. For a
+propagation operator S and node representation H, the effective input to the weight matrix is
+Xg = SH.
+(1)
+Therefore, the effect of an update ∆W is governed by the induced representation-level perturbation
+Xg∆W, rather than by the parameter-space norm of ∆W alone. Since Xg depends on the graph
+topology, neighborhood aggregation, feature smoothing, and the current training state, two updates
+with the same Euclidean matrix scale can induce very different changes in the layer output.
+This observation exposes a gap in existing optimizers for GNNs. AdamW adapts updates through
+coordinate-wise gradient moments, but does not explicitly distinguish directions that are amplified by
+graph propagation from directions that are attenuated in the propagated feature distribution. Muon
+improves over coordinate-wise updates by using the matrix structure of W, but its orthogonalization
+is still input-agnostic: the same Euclidean matrix geometry is used whether the matrix acts on dense
+features, tokens, or graph-propagated node representations. For GNNs, the relevant object is not only
+the standalone matrix W, but the graph-conditioned map
+W 7→XgW.
+(2)
+The geometry of this map is determined by the covariance of the propagated inputs,
+Cg = 1
+nX⊤
+g Xg.
+(3)
+Directions aligned with high-energy eigenspaces of Cg produce large representation-level perturba-
+tions, while directions in low-energy eigenspaces have much smaller immediate effect [12]. Thus, an
+optimizer for GNN weight matrices should be both matrix-aware and graph-aware: it should exploit
+the matrix structure of W, while calibrating update direction and scale to the graph-induced geometry
+of the representations on which W actually acts.
+Inspired by this observation, we introduce GraphMuon, a graph-aware extension of Muon for GNN
+optimization. GraphMuon adapts Muon’s matrix-orthogonalized updates to the layer-wise geometry
+induced by graph-propagated inputs. It has two complementary components. First, graph-aware
+orthogonalization applies the polar-style Muon update in a metric defined by the covariance of
+Xg. Second, graph-aware step normalization scales each update by its induced representation-level
+perturbation, rather than by its parameter-space magnitude alone. Together, these mechanisms align
+the optimizer geometry with the actual forward map of a GNN layer.
+Our analysis in Section 4.3 shows that this modification is principled: a vanilla Muon update, although
+normalized in Euclidean matrix space, can still be amplified in representation space by the dominant
+eigenspaces of Cg. In contrast, our GraphMuon directly controls the quantity ∥Xg∆W∥F /√n,
+which is the perturbation induced in the pre-activation representation of the GNN layer. We further
+show that the graph-aware orthogonalization step is the graph-metric analogue of Muon’s polar
+update, rather than an ad hoc rescaling.
+Figure 1 illustrates the resulting mismatch and our correction. A Muon update can be well normalized
+as a matrix while still causing a large graph-propagated perturbation. GraphMuon addresses this by
+using Cg to adapt both the update geometry and its scale.
+We evaluate GraphMuon across graph-learning benchmarks spanning node classification, inductive
+graph classification, and graph regression, using GCN, GAT, GINE, and GraphGPS architectures.
+Under a fixed validation-loss time-to-target protocol, GraphMuon achieves 1.32×–2.42× wall-clock
+speedups over AdamW on the three large-scale OGB benchmarks. Across a broader evaluation of
+15 dataset–architecture configurations, GraphMuon improves epoch-level time-to-target in all cases
+and achieves faster wall-clock convergence in 13 of 15, while maintaining competitive or superior
+predictive performance.
+Main Contributions. Our contributions are as follows:
+1. We identify a graph-induced optimization mismatch: standard optimizers normalize updates
+in parameter space, whereas the effect of a GNN weight update is determined by its
+perturbation of graph-propagated representations.
+2
+
+(a) Graph propagation can change
+the geometry seen by a GNN layer
+Balanced graph
+Hub-dominated graph
+Xg = SH
+Xg = SH
+x1
+x2
+x1
+x2
+graph and feature statistics jointly shape
+the propagated-input geometry
+(b) Muon is graph-agnostic
+Balanced example
+(near-isotropic)
+Hub-dominated example
+(anisotropic)
+x1
+x2
+x1
+x2
+fixed Muon update ∆W
+∥Xg∆W∥F/√n
+∥Xg∆W∥F/√n
+x1
+x2
+x1
+x2
+moderate
+amplified
+a fixed parameter-space update can yield
+different representation-space effects
+(c) GraphMuon adapts to
+graph-induced geometry
+Balanced example
+(near-isotropic)
+Hub-dominated example
+(anisotropic)
+x1
+x2
+x1
+x2
+Cg = XT
+g Xg
+n
+Cg = XT
+g Xg
+n
+GraphMuon
+¯Cτ
+g -metric orthogonalization
+sg-based step normalization
+x1
+x2
+x1
+x2
+bounded
+bounded
+metric-aware direction and step normalization
+adapt to propagated-input geometry
+Figure 1: Motivation for graph-aware optimization. A GNN weight matrix acts on the graph-
+propagated input Xg = SH, whose geometry depends on graph structure and propagated feature
+statistics. As a result, a Muon update that is well normalized in Euclidean matrix space can still
+produce an amplified representation-level perturbation ∥Xg∆W∥F . GraphMuon addresses this
+mismatch by adapting the update geometry to the graph-induced covariance Cg = X⊤
+g Xg/n and
+scaling each step by its induced effect on graph-propagated representations.
+2. We introduce GraphMuon, a graph-aware extension of Muon that adapts matrix-update
+geometry to the layer-wise covariance of graph-propagated representations and normalizes
+updates by their representation-level effect.
+3. We prove that GraphMuon controls graph-induced representation perturbations and yields a
+graph-metric analogue of Muon’s polar update.
+4. We demonstrate faster validation-loss convergence across diverse graph-learning regimes,
+including inductive graph-level tasks and multiple GNN architectures, with wall-clock
+improvements in 13 of 15 evaluated configurations and competitive or superior predictive
+performance.
+2
+Related Work
+Graph neural networks. GNNs extend deep learning to graph-structured data by interleaving
+learnable transformations with neighborhood aggregation [9, 27]. Scalable spatial methods, including
+GCN [18], GraphSAGE [11], GAT [32], and GIN [33], have become the dominant paradigm, with
+subsequent work extending these ideas to heterogeneous graphs [28] and heterophilous graphs where
+connected nodes tend to differ in class [36]. Across these architectures, weight matrices act not on raw
+node features but on representations smoothed and mixed by graph propagation. This distinguishes
+GNN training from standard deep-network optimization: the geometry seen by each weight matrix is
+shaped not only by network depth, but also by graph topology and its induced propagation operator,
+which is precisely the mismatch GraphMuon is designed to address.
+Matrix-aware optimization. Classical SGD and momentum update parameters in Euclidean space,
+while AdaGrad, Adam, and AdamW normalize updates coordinate-wise using accumulated gradient
+statistics [4, 17, 20]. Structured optimizers exploit richer geometry: K-FAC uses Kronecker-factored
+curvature [22], Shampoo uses matrix preconditioners [10], and Muon applies momentum followed
+by approximate matrix orthogonalization [16]. Muon is the closest predecessor, but remains module-
+agnostic: it uses the same Euclidean matrix geometry for dense features, tokens, and graph-propagated
+representations. GraphMuon instead tests whether update geometry should match the module-induced
+3
+
+operator, which for GNNs is the graph-conditioned map W 7→XgW, rather than the standalone
+matrix W.
+Graph-aware modules and optimization. A central theme in GNN research is adapting neural-
+network components to graph structure: GCNs [18], GAT [32], and GIN [33] do so architecturally, as
+do graph-specific normalization and modular designs [3, 25]. Izadi et al. [15] show that optimization
+itself can be graph-aware by deriving natural-gradient updates for graph-based semi-supervised
+learning. GraphMuon follows this optimizer-level view but targets a different setting: rather than
+a natural-gradient method, it adapts Muon’s matrix-aware geometry to the layer-wise covariance
+of graph-propagated representations, the optimizer-level analogue of graph-adaptive GNN design.
+Additional related work is discussed in Appendix B.
+3
+Background and Preliminaries
+Notations. Let G = (V, E) be a graph with adjacency matrix A ∈Rn×n and node representations
+H(ℓ) ∈Rn×dℓ. Adding self-loops and symmetrically normalizing gives:
+S = eD−1/2 eA eD−1/2,
+eA = A + I,
+where eD is the degree matrix of eA. Each GNN weight matrix W (ℓ) acts on the graph-propagated
+representation X(ℓ)
+g
+= SH(ℓ), so the geometry seen by W (ℓ) is shaped by both the node features and
+the graph structure in S.
+Muon. Muon [16] is an optimizer for matrix-valued parameters. Given gradient Gt = ∇W L(Wt),
+it maintains momentum Bt = µBt−1 + Gt and forms Mt = Gt + µBt (Nesterov) or Mt = Bt
+otherwise. It replaces Mt with an approximately orthogonalized direction via K Newton–Schulz
+(NS) iterations,
+Dt = NSK(Mt),
+(4)
+and updates Wt+1 = Wt −ηDt (optionally with decoupled weight decay; see Appendix A.3). The
+key property is that Dt has more balanced singular values than Mt. However, vanilla Muon treats
+W as a generic matrix and does not account for the graph-induced geometry of X(ℓ)
+g . For additional
+background, see Appendix A.
+4
+GraphMuon
+In this section we formalize GraphMuon - a Muon-based optimizer specialized for GNNs. Because
+W (ℓ) acts on graph-propagated features, i.e., X(ℓ)
+g
+= SH(ℓ), the impact of an update depends on
+the graph-induced feature geometry. We adapt Muon in two ways: graph-aware orthogonalization
+(Section 4.1) adjusts the update direction using this geometry, and graph-aware step normalization
+(Section 4.2) controls the resulting representation-level perturbation. We conclude this section with a
+discussion on GraphMuon’s theoretical properties (Section 4.3).
+4.1
+Graph-aware Orthogonalization
+For layer ℓ, define the graph-induced covariance C(ℓ)
+g
+= 1
+nX(ℓ)⊤
+g
+X(ℓ)
+g , where 1/n removes depen-
+dence on graph size. Since C(ℓ)
+g
+may be singular or ill-conditioned, we use the trace-normalized and
+regularized matrix:
+¯C(ℓ)
+g
+=
+C(ℓ)
+g
+tr(C(ℓ)
+g )/dℓ
++ ϵcovI,
+(5)
+where dℓis the input dimension of W (ℓ) and ϵcov > 0 is a small regularizer. We compute ( ¯C(ℓ)
+g )τ/2 via
+eigendecomposition ¯C(ℓ)
+g
+= V ΛV ⊤, caching eigenbases and recomputing only when ∥∆¯C(ℓ)
+g ∥F > δ.
+For dℓ> dmax, we substitute the diagonal approximation diag(¯cτ/2
+i
+), reducing cost from O(d3
+ℓ) to
+O(dℓ).
+Graph-aware orthogonalization maps the momentum into the graph metric, orthogonalizes, then maps
+back:
+4
+
+D(ℓ)
+g,τ,t =
+
+¯C(ℓ)
+g
+−τ/2
+NSK
+
+¯C(ℓ)
+g
+τ/2
+M (ℓ)
+t
+
+.
+(6)
+The hyperparameter τ ∈[0, 1] controls graph-awareness strength. In particular, τ = 0 implements
+standard Muon, while larger τ increasingly respects the graph-propagated feature geometry. The
+sensitivity of GraphMuon to this hyperparameter is studied in Appendix F.1.
+4.2
+Graph-aware Step Normalization
+Because W (ℓ) acts on X(ℓ)
+g , update size should be measured by the induced representation perturba-
+tion ∥X(ℓ)
+g ∆W (ℓ)∥F , not by ∥∆W (ℓ)∥F alone. We use the raw (not trace-normalized) covariance
+C(ℓ)
+g
+to preserve the true layer-wise feature scale (see Appendix D). Given update direction D(ℓ),
+GraphMuon computes the graph-aware scale:
+s(ℓ)
+g
+=
+v
+u
+u
+ttr
+
+D(ℓ)⊤C(ℓ)
+g D(ℓ)
+
+∥D(ℓ)∥2
+F
++ ϵscale,
+(7)
+where ϵscale > 0 is a small constant. Since tr(D(ℓ)⊤C(ℓ)
+g D(ℓ)) = 1
+n∥X(ℓ)
+g D(ℓ)∥2
+F , the scale s(ℓ)
+g
+can
+be computed directly from graph-propagated features without forming C(ℓ)
+g .
+Following the original Muon implementation, we apply the shape-dependent correction r =
+max(1, dℓ/dℓ+1)1/2, which compensates for the scale change introduced by a semi-orthogonal
+update on rectangular matrices. The GraphMuon update is given by:
+W (ℓ)
+t+1 =
+ 1 −η rλ
+
+W (ℓ)
+t
+−η r D(ℓ)
+s(ℓ)
+g
+,
+(8)
+where η is the learning rate and λ is the decoupled weight-decay coefficient.
+4.3
+Theoretical Properties
+We summarize the main theoretical properties of GraphMuon: it controls the perturbation induced in
+the representation space actually used by each GNN layer, and its graph-aware orthogonalization is
+the natural graph-metric analogue of Muon’s polar update. All proofs are in Appendix E.
+For the realized GNN module W 7→SHW, the covariance Cg = H⊤S⊤SH/n is the exact pullback
+of the normalized output-space geometry, whereas CH = H⊤H/n describes the pre-propagation
+map W 7→HW. Thus, graph propagation changes the induced geometry through S⊤S, while the
+underlying module-aware principle may also extend beyond GNNs; further theoretical motivation is
+provided in Appendix E.
+Representation-level perturbation. The key motivation is that, in GNNs, update scale should be
+measured by the perturbation induced after graph propagation, not by parameter-space magnitude
+alone. Let D denote the update direction and α = η r(dℓ, dℓ+1) the scalar multiplying D in Eq. (8).
+The quantity governing how an update perturbs a layer’s pre-activation is
+1
+√n∥Xg∆W∥F , not the
+parameter-space norm ∥∆W∥F . For a vanilla Muon step ∆WMuon = −αD,
+1
+√n ∥Xg∆WMuon∥F ≤α
+q
+λmax(Cg) ∥D∥F .
+(9)
+Thus, even a matrix-normalized Muon direction can be amplified by the dominant eigenvalue of the
+graph-induced covariance.
+Graph-aware step control. The normalization in Eq. (7) removes this amplification.
+Theorem 1 (Graph-representation perturbation control). For any nonzero direction D, the Graph-
+Muon step ∆WGraph = −αD/sg satisfies:
+1
+√n ∥Xg∆WGraph∥F ≤α∥D∥F .
+(10)
+If ϵscale = 0 and XgD ̸= 0, equality holds.
+5
+
+Figure 2: Empirical validation of GraphMuon’s representation-level perturbation control. Left:
+before graph-aware normalization, Euclidean-orthogonalized directions induce graph-dependent
+perturbations whose magnitude varies across datasets and values of τ. Right: after scaling by sg, the
+normalized perturbation is tightly controlled near the theoretical bound from Theorem 1, confirming
+that GraphMuon calibrates updates by their effect on Xg rather than by Euclidean parameter-space
+scale alone.
+Unlike Muon, which normalizes in Euclidean matrix space, GraphMuon rescales each direction by
+its induced effect on the graph-propagated representations, so two directions with equal Frobenius
+norm produce explicitly calibrated layer-level perturbations, as empirically validated in Figure 2.
+Figure 3: Empirical sharpness of Muon’s graph-
+induced amplification. For each dataset and layer,
+we construct the polar direction D⋆from the
+top eigenspaces of the raw graph-induced co-
+variance Cg = X⊤
+g Xg/n. The measured am-
+plification, ∥XgD⋆∥F /√n, matches the spec-
+tral prediction
+  Pdℓ+1
+i=1 λi(Cg)
+1/2. The near-
+diagonal agreement confirms that the amplifica-
+tion term in Proposition 1 is attainable on real
+graph-propagated representations, rather than a
+loose worst-case bound.
+Sharpness of Muon’s graph amplification. The
+p
+λmax(Cg) factor in Eq. (9) is not a loose artifact
+of the analysis: there exist valid polar directions
+for which it is attained up to dimension-dependent
+constants.
+Proposition 1 (Sharpness of Muon graph ampli-
+fication). Assume dℓ≥dℓ+1, and let λ1 ≥· · · ≥
+λdℓbe the eigenvalues of Cg. There exists a matrix
+D⋆with orthonormal columns (a feasible polar-
+factor direction) such that:
+1
+√n ∥XgD⋆∥F =
+v
+u
+u
+t
+dℓ+1
+X
+i=1
+λi ≥
+q
+λmax(Cg).
+(11)
+When dℓ+1 = 1, the
+p
+λmax(Cg) amplification is
+attained exactly.
+Proposition 1 shows that Muon’s Euclidean polar
+constraint alone does not prevent graph-amplified
+representation updates. Such directions are feasi-
+ble under Muon’s geometry and are not explicitly
+controlled, motivating the graph-aware normaliza-
+tion in GraphMuon.
+Figure 3 therefore supports the central motivation
+for GraphMuon: controlling the Euclidean geome-
+try of a matrix update does not necessarily control
+its induced perturbation after graph propagation.
+Graph-metric orthogonalization. The preceding results focus on update scale. We now justify the
+graph-aware orthogonalization step in Eq. (6). Vanilla Muon can be interpreted as applying a polar
+projection in Euclidean matrix geometry. GraphMuon replaces this with the corresponding polar
+projection under the graph-induced metric. We analyze the ideal exact-polar version of the update,
+replacing the Newton–Schulz approximation with the exact polar factor P(·).
+6
+
+Theorem 2 (Graph-metric polar optimality). Assume dℓ≥dℓ+1, ¯Cg ≻0, and ¯Cτ/2
+g
+M has full
+column rank. The exact graph-aware direction Dg,τ = ¯C−τ/2
+g
+P
+
+¯Cτ/2
+g
+M
+
+satisfies
+D⊤
+g,τ ¯Cτ
+g Dg,τ = I,
+(12)
+and solves the graph-metric Procrustes problem
+Dg,τ = arg
+max
+D⊤¯
+Cτ
+g D=I tr
+ D⊤¯Cτ
+g M
+
+.
+(13)
+Theorem 2 shows that the graph-aware direction is not an ad hoc modification of Muon. It is the
+polar/Muon update obtained after replacing Euclidean orthogonality by graph-metric orthogonality.
+τ interpolates between vanilla Muon at τ = 0 and graph-metric orthogonalization as τ increases.
+Main Takeaways. Our theoretical results show that GraphMuon modifies Muon in two principled
+ways. Step normalization controls the representation-level perturbation Xg∆W, while graph-aware
+orthogonalization computes a polar direction under the graph-induced metric. In contrast, vanilla
+Muon balances updates in Euclidean parameter space and does not explicitly account for the graph-
+propagated geometry seen by each GNN layer. The complete layer-wise update is provided in
+Appendix C, with additional empirical analyses of the theoretical properties in Appendix F.
+5
+Experiments
+In this section, we conduct an extensive set of experiments to demonstrate the effectiveness of
+GRAPHMUON as an optimizer that adapts GNN updates to graph-propagated representations.
+Concretely, our experiments address the following questions:
+(Q1) Does graph-conditioned optimization improve over parameter-space optimization? We
+compare GRAPHMUON with AdamW, Muon, Shampoo, and graph-aware natural-gradient baselines
+to test whether adapting update direction and scale to the graph-propagated covariance improves
+the main optimization outcome: quicker optimization that maintains competitive or superior test
+accuracy. This question captures the central distinction of GRAPHMUON: it does not merely change
+the optimizer family, but changes the geometry in which GNN weight updates are measured.
+(Q2) Which component of GRAPHMUON is responsible for the gains? We ablate graph-aware
+orthogonalization and graph-aware step normalization to determine if improvements come from
+changing the update direction, controlling the representation-level step size, or their combination.
+(Q3) Do empirical diagnostics support the theoretical motivation? We measure representation-
+level perturbations and graph-induced spectral quantities to test whether Euclidean-normalized matrix
+updates can indeed be amplified by graph-propagated covariance, and if GRAPHMUON controls it.
+5.1
+Experimental Setup
+Datasets. We evaluate GraphMuon across nine graph-learning benchmarks, covering transductive
+node classification, heterophilous node classification, inductive graph classification, and graph regres-
+sion. The node-classification datasets include OGBN-ARXIV, OGBN-PRODUCTS, and OGBN-MAG [14],
+together with QUESTIONS [24], Cora, and Citeseer. To assess generalization beyond transductive
+node prediction, we additionally evaluate on the molecular graph-classification benchmarks OGBG-
+MOLBACE and OGBG-MOLTOX21, and the graph-regression benchmark ZINC. Additional dataset
+information is provided in Appendix G.1.
+Backbones. We evaluate multiple GNN architectures, including GCN, GAT [31], GINE, and
+GraphGPS [25]. GCN provides the primary comparison on the large-scale OGB node-classification
+benchmarks. GAT and GraphGPS extend the evaluation to learned attention-based propagation,
+while GINE is used for molecular graph-level tasks. Additional experiments examine GraphGCN
+and deeper GNNs. Within each dataset–architecture configuration, all optimizers use the same
+backbone, training budget, and evaluation protocol, isolating the optimizer as the varying component.
+Architectural details are provided in Appendix G.2.
+Baselines.
+The primary validation-loss time-to-target comparison includes AdamW [20] and
+Muon [16]. AdamW is a strong adaptive first-order baseline with decoupled weight decay, while
+7
+
+Table 1: Validation-loss time-to-target across graph-learning tasks. The target is the minimum mean
+validation loss achieved by AdamW for each dataset–architecture configuration. Entries report epochs
+/ cumulative wall-clock seconds to reach the target. Speedup is relative to AdamW; higher is better.
+Bold indicates the fastest optimizer. “–” denotes failure to reach the target within the training budget.
+Dataset
+Backbone
+Target loss
+AdamW (ep / s)
+Muon (ep / s)
+GraphMuon (ep / s)
+Speedup
+Large-scale node classification
+OGBN-ARXIV
+GCN
+0.8753
+433 / 30.3
+188 / 16.6
+164 / 13.1
+2.32×
+OGBN-MAG
+GCN
+2.6930
+100 / 58.3
+65 / 38.1
+41 / 24.1
+2.42×
+OGBN-PRODUCTS
+GCN
+0.3182
+300 / 1663.5
+–
+226 / 1257.3
+1.32×
+Heterophilous node classification
+QUESTIONS
+GAT
+0.1217
+481 / 15.2
+320 / 10.2
+167 / 7.1
+2.14×
+Inductive graph classification
+OGBG-MOLBACE
+GINE
+0.6212
+65 / 59.1
+–
+22 / 29.8
+1.98×
+OGBG-MOLTOX21
+GINE
+0.2946
+9 / 22.3
+6 / 22.6
+4 / 18.6
+1.20×
+Graph regression
+ZINC
+GINE
+0.2502
+293 / 946.6
+242 / 1038.4
+106 / 679.0
+1.39×
+Table 2: Generalization across GNN architectures and tasks. Results are test performance (mean ±
+standard deviation over five seeds). Higher is better for accuracy and ROC-AUC; lower is better for
+MAE. Bold indicates the best result.
+Dataset / Backbone
+Metric
+AdamW
+Muon
+GraphMuon
+ogbn-arxiv / GAT
+Acc. ↑
+.6928 ± .0027
+.6911 ± .0021
+.6926 ± .0027
+ogbn-mag / GraphGPS
+Acc. ↑
+.2939 ± .0018
+.3250 ± .0032
+.3296 ± .0050
+Tox21 / GINE
+ROC-AUC ↑
+.6633 ± .0223
+.6553 ± .0074
+.6644 ± .0175
+BACE / GINE
+ROC-AUC ↑
+.7127 ± .0570
+.7810 ± .0194
+.7927 ± .0429
+ZINC / GINE
+MAE ↓
+.2303 ± .01742
+.1929 ± .00213
+.1897 ± .00112
+Muon is the closest matrix-aware baseline, applying approximate orthogonalization to momen-
+tum updates. We also consider structured preconditioning with Shampoo [10] and graph-aware
+natural-gradient optimization [15], with implementation details provided in Appendix G.3.
+Evaluation. We follow the corresponding benchmark evaluation protocols and report predictive
+performance using test accuracy for node classification, ROC-AUC for molecular classification,
+and MAE for graph regression. For optimization efficiency, we adopt a fixed validation-loss time-
+to-target protocol. For each dataset–architecture configuration, the target is the minimum mean
+validation loss attained by AdamW across seeds. We measure the first epoch and corresponding
+cumulative wall-clock training time at which each optimizer’s mean validation-loss trajectory reaches
+this target. Wall-clock speedup is defined as the ratio of AdamW’s time-to-target to that of the
+compared optimizer. Configurations that do not reach the target within the training budget are marked
+as “–”. Additional evaluation results and per-configuration timings are provided in Appendix G.
+5.2
+Main Results
+For the primary comparison, we report validation-loss time-to-target across the large-scale OGB
+benchmarks, heterophilous node classification, and inductive graph-level tasks. Table 1 shows that
+GraphMuon reaches AdamW’s validation-loss target faster across all seven reported configurations.
+On the three large-scale OGB benchmarks, GraphMuon achieves wall-clock speedups of 2.32× on
+OGBN-ARXIV, 2.42× on OGBN-MAG, and 1.32× on OGBN-PRODUCTS. The corresponding 95%
+bootstrap confidence intervals are [2.01, 2.69], [2.29, 2.53], and [1.19, 1.37], respectively. These
+results demonstrate faster convergence to a fixed validation-loss target rather than to a potentially
+variable accuracy threshold.
+The improvements also extend beyond transductive GCNs. On QUESTIONS with GAT, GraphMuon
+achieves a 2.14× wall-clock speedup. On the inductive molecular graph-classification benchmarks
+OGBG-MOLBACE and OGBG-MOLTOX21, it achieves 1.98× and 1.20× speedups, respectively.
+On ZINC with GINE, GraphMuon reaches the validation-loss target 1.39× faster than AdamW,
+demonstrating applicability to graph regression.
+8
+
+Figure 4: Training dynamics on OGBN-MAG. The left panel shows validation loss and the right
+panel shows validation accuracy over training. GRAPHMUON makes faster progress in both metrics:
+it reduces validation loss earlier and reaches strong validation accuracy in fewer epochs than AdamW
+and Muon, suggesting that graph-induced update geometry can accelerate GNN learning.
+Table 3: Ablation of GraphMuon components on OGB benchmarks. Speedup is measured relative to
+vanilla Muon under a fixed rounded-down Muon validation target; higher is better.
+Dataset↓/ Method →
+Muon
++ Graph-aware Orthog.
++ Graph-aware Step Norm.
+GraphMuon (Ours)
+ogbn-arxiv
+1.00×
+5.39 ± 0.31×
+8.34 ± 0.85×
+9.02 ± 0.80×
+ogbn-mag
+1.00×
+1.07 ± 0.04×
+2.28 ± 0.22×
+3.60 ± 0.12×
+ogbn-products
+1.00×
+1.03 ± 0.02×
+1.51 ± 0.05×
+1.90 ± 0.06×
+Additional experiments with GAT, GINE, GraphGPS, and GraphGCN are reported in Appendix G.8.
+Across all 15 dataset–architecture configurations, GraphMuon reaches the target in fewer epochs
+than AdamW in every case and achieves the lowest wall-clock time-to-target in 13 of 15 cases,
+with an arithmetic-mean wall-clock speedup of 4.62×. These findings indicate that adapting the
+optimizer to graph-propagated representation geometry improves optimization efficiency across
+different architectures and graph-learning tasks.
+Overall, GraphMuon validates our central understanding: normalizing updates in the graph-
+propagated layer geometry improves GNN time-to-target without sacrificing competitive final accu-
+racy. Figure 4 further shows that these gains come from faster optimization dynamics.
+Generalization across architectures and tasks. To evaluate generalization beyond GCN-based node
+classification, we extend the evaluation to GAT, GINE, and GraphGPS, covering node classification,
+inductive graph classification, and graph regression. As shown in Table 2, GraphMuon achieves the
+best numerical performance in four of five configurations and remains competitive with AdamW on
+GAT. The improvements on GINE and GraphGPS demonstrate that the method also applies to graph-
+level prediction and learned attention-based architectures. Additional validation-loss time-to-target
+results across 15 configurations are provided in Appendix G.8.
+5.3
+Ablation Study
+We ablate the two main components of GraphMuon: graph-aware orthogonalization and graph-aware
+step normalization. To focus on optimization speed, we use a relaxed time-to-target metric. For
+each dataset, the target is the best validation loss reached by vanilla Muon, rounded down to two
+decimal places (e.g., 0.723 7→0.72). This threshold is close to the converged Muon performance
+while avoiding sensitivity to small validation fluctuations. We then measure the wall-clock time
+required to first reach this threshold and report speedup relative to vanilla Muon.
+Table 3 reports the main ablation on the OGB benchmarks, where the relaxed target is not saturated
+and therefore distinguishes the contribution of each component. The QUESTIONS ablation is omitted
+from the main table because all graph-aware variants reach the rounded Muon target after a single
+optimization step, making the time-to-target metric uninformative for component comparison.
+9
+
+6
+Conclusions
+We motivate our GraphMuon by a representation-space view of optimization in GNNs. For a layer
+with graph-propagated input Xg = SH, the effective update size is not ∥∆W∥F , but the induced
+perturbation ∥Xg∆W∥F /√n. Our analysis shows that a Euclidean-normalized Muon update can
+still be amplified by the graph-induced covariance Cg = X⊤
+g Xg/n, through its dominant eigenspaces.
+GraphMuon addresses this by normalizing the update according to its induced representation-level
+effect and by replacing Euclidean matrix geometry with a graph-metric analogue.
+This theory also explains when GraphMuon may provide less benefit. The method is most useful when
+Cg is stable, anisotropic, and informative. On very small graphs, however, Cg may be low-rank and
+noisy, especially when the number of nodes is small relative to the hidden dimension. In this regime,
+the graph-induced metric can be poorly estimated, and controlling ∥Xg∆W∥F does not necessarily
+imply faster convergence or better generalization. AdamW can therefore remain competitive, since
+its coordinate-wise moment estimates do not rely on estimating a graph-level covariance.
+This limitation is particularly relevant for small inductive graph-level tasks, where each graph contains
+few node representations. In such settings, the main optimization challenge may be dominated by
+sparse local features, atom or bond types, and mini-batch variability rather than by graph-induced
+update amplification. A natural direction for future work is to adapt the strength of graph awareness
+to the reliability of Cg, for example, using effective rank, spectral anisotropy, or covariance stability
+to interpolate between vanilla Muon and fully graph-aware updates.
+Acknowledgments and Disclosures
+ME acknowledges support from the the Israel Science Foundation through a personal grant (ISF
+3062/26) and an equipment grant (ISF 3066/26), as well as support from the Israeli Ministry of
+Innovation, Science & Technology. The authors declare no competing interests.
+References
+[1] Jeremy Bernstein. Modular manifolds. Thinking Machines Lab: Connectionism, 2025. doi:
+10.64434/tml.20250926. https://thinkingmachines.ai/blog/modular-manifolds/.
+[2] Rajendra Bhatia. Matrix Analysis, volume 169 of Graduate Texts in Mathematics. Springer,
+New York, 1997.
+[3] Tianle Cai, Shengjie Luo, Keyulu Xu, Di He, Tie-yan Liu, and Liwei Wang. Graphnorm: A
+principled approach to accelerating graph neural network training. In International Conference
+on Machine Learning, pages 1204–1215. PMLR, 2021.
+[4] John Duchi, Elad Hazan, and Yoram Singer. Adaptive subgradient methods for online learning
+and stochastic optimization. Journal of machine learning research, 12(7), 2011.
+[5] Moshe Eliasof, Beatrice Bevilacqua, Carola-Bibiane Schönlieb, and Haggai Maron. Granola:
+Adaptive normalization for graph neural networks. Advances in Neural Information Processing
+Systems, 37:90514–90551, 2024.
+[6] Moshe Eliasof, Alessio Gravina, Andrea Ceni, Claudio Gallicchio, Davide Bacciu, and Carola-
+Bibiane Schönlieb. Graph adaptive autoregressive moving average models. In Forty-second
+International Conference on Machine Learning, 2025.
+[7] Ky Fan, Alan J Hoffman, et al. Some metric inequalities in the space of matrices. In Proc. Amer.
+Math. Soc, volume 6, pages 111–116. World Scientific, 1955.
+[8] Matthias Fey and Jan Eric Lenssen. Fast graph representation learning with pytorch geometric.
+arXiv preprint arXiv:1903.02428, 2019.
+[9] Justin Gilmer, Samuel S. Schoenholz, Patrick F. Riley, Oriol Vinyals, and George E. Dahl.
+Neural message passing for quantum chemistry. In Proceedings of the 34th International
+Conference on Machine Learning, volume 70 of Proceedings of Machine Learning Research,
+pages 1263–1272. PMLR, 2017.
+10
+
+[10] Vineet Gupta, Tomer Koren, and Yoram Singer. Shampoo: Preconditioned stochastic tensor
+optimization. In International Conference on Machine Learning, pages 1842–1850. PMLR,
+2018.
+[11] William L. Hamilton, Zhitao Ying, and Jure Leskovec. Inductive representation learning on large
+graphs. In Advances in Neural Information Processing Systems, volume 30, pages 1024–1034,
+2017.
+[12] Roger A. Horn and Charles R. Johnson. Matrix Analysis. Cambridge University Press, 2 edition,
+2012.
+[13] W Hu, B Liu, J Gomes, M Zitnik, P Liang, V Pande, and J Leskovec. Strategies for pre-training
+graph neural networks. In International Conference on Learning Representations (ICLR), 2020.
+[14] Weihua Hu, Matthias Fey, Marinka Zitnik, Yuxiao Dong, Hongyu Ren, Bowen Liu, Michele
+Catasta, and Jure Leskovec. Open graph benchmark: Datasets for machine learning on graphs.
+Advances in neural information processing systems, 33:22118–22133, 2020.
+[15] Mohammad Rasool Izadi, Yihao Fang, Robert Stevenson, and Lizhen Lin. Optimization of
+graph neural networks with natural gradient descent. In 2020 IEEE international conference on
+big data (big data), pages 171–179. IEEE, 2020.
+[16] Keller Jordan, Yuchen Jin, Vlado Boza, Jiacheng You, Franz Cesista, Laker Newhouse, and
+Jeremy Bernstein. Muon: An optimizer for hidden layers in neural networks, 2024. URL
+https://kellerjordan.github.io/posts/muon/.
+[17] Diederik P Kingma and Jimmy Ba. Adam: A method for stochastic optimization. arXiv preprint
+arXiv:1412.6980, 2014.
+[18] Thomas N Kipf and Max Welling. Semi-supervised classification with graph convolutional
+networks. arXiv preprint arXiv:1609.02907, 2016.
+[19] Jingyuan Liu, Jianlin Su, Xingcheng Yao, Zhejun Jiang, Guokun Lai, Yulun Du, Yidao Qin,
+Weixin Xu, Enzhe Lu, Junjie Yan, et al. Muon is scalable for llm training. arXiv preprint
+arXiv:2502.16982, 2025.
+[20] Ilya Loshchilov and Frank Hutter. Decoupled weight decay regularization. arXiv preprint
+arXiv:1711.05101, 2017.
+[21] Krishna S Mantri, Xinzhi Wang, Carola-Bibiane Schönlieb, Bruno Ribeiro, Beatrice Bevilacqua,
+and Moshe Eliasof. Digraf: Diffeomorphic graph-adaptive activation function. Advances in
+Neural Information Processing Systems, 37:3649–3681, 2024.
+[22] James Martens and Roger Grosse. Optimizing neural networks with kronecker-factored approx-
+imate curvature. In International conference on machine learning, pages 2408–2417. PMLR,
+2015.
+[23] Adam Paszke, Sam Gross, Francisco Massa, Adam Lerer, James Bradbury, Gregory Chanan,
+Trevor Killeen, Zeming Lin, Natalia Gimelshein, Luca Antiga, et al. Pytorch: An imperative
+style, high-performance deep learning library. Advances in neural information processing
+systems, 32, 2019.
+[24] Oleg Platonov, Denis Kuznedelev, Michael Diskin, Artem Babenko, and Liudmila
+Prokhorenkova. A critical look at the evaluation of gnns under heterophily: Are we really
+making progress? arXiv preprint arXiv:2302.11640, 2023.
+[25] Ladislav Rampášek, Michael Galkin, Vijay Prakash Dwivedi, Anh Tuan Luu, Guy Wolf, and
+Dominique Beaini. Recipe for a general, powerful, scalable graph transformer. Advances in
+Neural Information Processing Systems, 35:14501–14515, 2022.
+[26] Herbert Robbins and Sutton Monro. A stochastic approximation method. The annals of
+mathematical statistics, pages 400–407, 1951.
+[27] Franco Scarselli, Marco Gori, Ah Chung Tsoi, Markus Hagenbuchner, and Gabriele Monfardini.
+The Graph Neural Network model. IEEE Transactions on Neural Networks, 20(1):61–80, 2009.
+11
+
+[28] Michael Schlichtkrull, Thomas N. Kipf, Peter Bloem, Rianne van den Berg, Ivan Titov, and
+Max Welling. Modeling relational data with graph convolutional networks. In The Semantic
+Web:15th International Conference, ESWC 2018, pages 593–607. Springer, 2018.
+[29] Kimi Team, Yifan Bai, Yiping Bao, Y Charles, Cheng Chen, Guanduo Chen, Haiting Chen,
+Huarong Chen, Jiahao Chen, Ningxin Chen, et al. Kimi k2: Open agentic intelligence. arXiv
+preprint arXiv:2507.20534, 2025.
+[30] Kimi Team, Tongtong Bai, Yifan Bai, Yiping Bao, SH Cai, Yuan Cao, Y Charles, HS Che,
+Cheng Chen, Guanduo Chen, et al. Kimi k2. 5: Visual agentic intelligence. arXiv preprint
+arXiv:2602.02276, 2026.
+[31] Petar Veliˇckovi´c, Guillem Cucurull, Arantxa Casanova, Adriana Romero, Pietro Lio, and Yoshua
+Bengio. Graph attention networks. arXiv preprint arXiv:1710.10903, 2017.
+[32] Petar Veliˇckovi´c, Guillem Cucurull, Arantxa Casanova, Adriana Romero, Pietro Liò, and Yoshua
+Bengio. Graph attention networks. In International Conference on Learning Representations,
+2018.
+[33] Keyulu Xu, Weihua Hu, Jure Leskovec, and Stefanie Jegelka. How powerful are graph neural
+networks? arXiv preprint arXiv:1810.00826, 2018.
+[34] Keyulu Xu, Mozhi Zhang, Stefanie Jegelka, and Kenji Kawaguchi. Optimization of graph
+neural networks: Implicit acceleration by skip connections and more depth. In International
+conference on machine learning, pages 11592–11602. PMLR, 2021.
+[35] Chenxiao Yang, Qitian Wu, David Wipf, Ruoyu Sun, and Junchi Yan. How graph neural
+networks learn: Lessons from training dynamics. In International Conference on Machine
+Learning, pages 56594–56623. PMLR, 2024.
+[36] Jiong Zhu, Yujun Yan, Lingxiao Zhao, Mark Heimann, Leman Akoglu, and Danai Koutra.
+Beyond homophily in graph neural networks: Current limitations and effective designs. In
+Advances in Neural Information Processing Systems, volume 33, pages 7793–7804, 2020.
+12
+
+A
+Background
+Here we provide complete definitions and implementation details for the methods referenced in the
+main paper. We give the standard GCN layer formulation, the Adam and AdamW update rules, and
+the full Muon algorithm including the Newton–Schulz iteration and its practical implementation
+details.
+A.1
+GCN Layer Definition
+Given the symmetrically normalized adjacency S (defined in Section 3), a standard GCN layer
+computes
+H(ℓ+1) = σ
+
+SH(ℓ)W (ℓ)
+,
+(14)
+where W (ℓ) ∈Rdℓ×dℓ+1 is the trainable weight matrix and σ(·) is a nonlinear activation. The degree
+matrix entries are
+eDii =
+n
+X
+j=1
+eAij = 1 +
+n
+X
+j=1
+Aij.
+A.2
+Adam and AdamW
+Let θt be the parameters and gt = ∇θL(θt) the stochastic gradient. Adam maintains first and second
+moment estimates:
+mt = β1mt−1 + (1 −β1)gt,
+(15)
+vt = β2vt−1 + (1 −β2)(gt ⊙gt).
+(16)
+With bias correction, the update is
+θt+1 = θt −η
+bmt
+√bvt + ϵ.
+(17)
+AdamW decouples weight decay:
+θt+1 = (1 −ηλ)θt −η
+bmt
+√bvt + ϵ.
+(18)
+Adam-based optimizers operate coordinate-wise, normalizing each parameter independently, and do
+not exploit matrix structure or graph-induced geometry.
+A.3
+Muon: Full Details
+The polar factor of a matrix M is
+P(M) = M(M ⊤M)−1/2,
+(19)
+with the analogous expression (MM ⊤)−1/2M when din < dout. Muon approximates this via
+Newton–Schulz iterations. Starting from
+X0 =
+Mt
+∥Mt∥F + ϵ,
+(20)
+it applies the quintic iteration for k = 0, . . . , K −1:
+Ak = XkX⊤
+k ,
+(21)
+Xk+1 = aXk + bAkXk + cA2
+kXk,
+(22)
+with coefficients
+a = 3.4445,
+b = −4.7750,
+c = 2.0315,
+(23)
+selected via an ad-hoc gradient-based search in the original implementation [16] to rapidly approx-
+imate the polar factor. When din > dout, Mt is transposed before the iteration (so the squared
+matrix is formed over the smaller dimension) and transposed back afterward, reducing the dominant
+matrix-multiplication cost. After K = 5 iterations the direction is Dt = NSK(Mt). The vanilla
+Muon update with decoupled weight decay is
+Wt+1 = (1 −ηλ)Wt −ηDt.
+(24)
+13
+
+Algorithm 1 Full GRAPHMUON update for GNN weight matrices
+Require: Learning rate η, momentum µ, weight decay λ, Newton–Schulz steps K, graph-awareness
+strength τ, regularization constants ϵcov and ϵscale; normalized adjacency S; layer representations
+{H(ℓ)}ℓ; parameters {W (ℓ)
+t
+}ℓ; momentum buffers {B(ℓ)
+t−1}ℓ
+Ensure: Updated parameters {W (ℓ)
+t+1}ℓ
+1: for each matrix-valued GNN layer ℓdo
+2:
+G(ℓ)
+t
+←∇W (ℓ)Lt {gradient}
+3:
+B(ℓ)
+t
+←µB(ℓ)
+t−1 + G(ℓ)
+t
+{momentum buffer}
+4:
+M (ℓ)
+t
+←G(ℓ)
+t
++ µB(ℓ)
+t
+{Nesterov momentum matrix}
+5:
+X(ℓ)
+g
+←SH(ℓ) {graph-propagated layer input}
+6:
+C(ℓ)
+g
+←1
+nX(ℓ)⊤
+g
+X(ℓ)
+g
+{graph-induced covariance}
+7:
+¯C(ℓ)
+g
+←C(ℓ)
+g
+ 
+tr(C(ℓ)
+g )/dℓ
+
++ ϵcovI {trace-normalize and regularize}
+8:
+A(ℓ)
+± ←MatPow
+
+¯C(ℓ)
+g , τ/2
+
+{covariance half-powers}
+9:
+D(ℓ) ←A(ℓ)
+−NSK
+
+A(ℓ)
++ M (ℓ)
+t
+
+{graph-aware Muon direction}
+10:
+s(ℓ)
+g
+←
+r
+tr
+
+D(ℓ)⊤C(ℓ)
+g D(ℓ)
+ 
+∥D(ℓ)∥2
+F + ϵscale {graph-aware scale}
+11:
+αℓ←η r(dℓ, dℓ+1) {shape-corrected layerwise step size}
+12:
+W (ℓ)
+t+1 ←(1 −αℓλ) W (ℓ)
+t
+−αℓD(ℓ)/s(ℓ)
+g
+{decoupled weight decay and update}
+13: end for
+14: return {W (ℓ)
+t+1}ℓ
+B
+Additional Related Work
+Graph-adaptive neural components. A broad line of work adapts standard neural-network com-
+ponents to graph-structured data. GCNs use normalized adjacency propagation [18], GAT adapts
+attention to graph neighborhoods [32], and GIN studies aggregation from the perspective of expressive
+power [33]. Graph-specific design has also been extended to normalization and modular architectures.
+GraphNorm introduces graph-specific normalization [3], GRANOLA uses neighborhood-structure-
+based normalization [5], GraphGPS combines local message passing with global attention and
+positional encodings [25], GRAMA [6] learns a graph-adaptive autoregressive moving average filter-
+ing technique, and DiGRAF learns graph-adaptive activation functions [21]. These works support the
+broader principle that generic deep-learning components often benefit from graph-specific adaptation.
+GraphMuon applies this principle to optimization rather than architecture.
+GNN training dynamics. Several works study why GNN optimization differs from optimization in
+standard Euclidean architectures. Natural-gradient methods exploit information-geometric structure
+in graph-based semi-supervised learning [15]; skip connections, depth, and label distributions have
+been shown to affect GNN convergence [34]; and recent training-dynamics analyses show that
+gradient descent can implicitly exploit graph structure through kernel–graph alignment [35]. These
+results motivate our representation-space view of optimization: the effect of a weight update in a
+GNN is determined not only by the update matrix itself, but by the graph-propagated representations
+on which it acts.
+C
+GRAPHMUON Full Algorithm
+Algorithm 1 gives the complete GRAPHMUON update for matrix-valued GNN weight matrices. The
+algorithm follows the update defined in Section 4: for each layer, it computes the graph-propagated
+input, forms the corresponding graph-induced covariance, applies graph-aware orthogonalization to
+the Muon momentum direction, and rescales the resulting update by its induced representation-level
+perturbation. Non-matrix parameters, such as biases or normalization parameters, can be updated
+with the accompanying base optimizer.
+14
+
+D
+Step Normalization: Use of Raw vs. Normalized Covariance
+The trace-normalized covariance ¯C(ℓ)
+g
+used in Eq. (6) removes the layer-wise average feature energy
+so that orthogonalization depends only on the anisotropy of the graph-propagated features. Step
+normalization has the opposite goal: it should measure the actual representation-level perturbation
+induced by the update. Since
+tr
+
+D(ℓ)⊤C(ℓ)
+g D(ℓ)
+= 1
+n
+X(ℓ)
+g D(ℓ)
+2
+F ,
+using the raw C(ℓ)
+g
+makes s(ℓ)
+g
+equal (up to ϵscale) to the RMS pre-activation perturbation per column
+of X(ℓ)
+g D(ℓ). Substituting ¯C(ℓ)
+g
+would divide out the average feature energy and remove precisely the
+layer-wise scale that the normalization is intended to control.
+E
+Proofs of Theoretical Results
+Throughout this appendix we drop the layer superscript (ℓ) and write α = η r(dℓ, dℓ+1) for the
+effective per-layer step size. We denote by din = dℓand dout = dℓ+1 the input and output dimensions
+of the weight matrix W ∈Rdin×dout.
+E.1
+Shared Setup
+Graph-induced covariance. Given graph-propagated features Xg = SH ∈Rn×din, define the
+graph-induced covariance
+Cg = 1
+n X⊤
+g Xg ∈Rdin×din.
+(25)
+Cg is positive semidefinite.
+Let λ1 ≥λ2 ≥· · · ≥λdin ≥0 denote its eigenvalues and
+V
+= [v1, . . . , vdin] the corresponding orthonormal eigenvectors, so that Cg = V ΛV ⊤with
+Λ = diag(λ1, . . . , λdin).
+Key identity. For any matrix ∆W ∈Rdin×dout,
+1
+n
+Xg∆W
+2
+F = 1
+n tr
+ ∆W ⊤X⊤
+g Xg ∆W
+
+= tr
+ ∆W ⊤Cg ∆W
+
+.
+(26)
+Spectral bound. For any positive semidefinite C and any matrix V with columns vj,
+tr(V ⊤CV ) =
+X
+j
+v⊤
+j Cvj ≤λmax(C)
+X
+j
+∥vj∥2
+2 = λmax(C) ∥V ∥2
+F .
+(27)
+Module-induced geometry. Consider the realized GNN module Fg(W) = SHW, with S and H
+fixed at the current step. Its Jacobian maps a parameter perturbation ∆W to SH∆W. Consequently,
+the normalized Frobenius geometry of the module output induces the parameter-space inner product
+1
+n⟨SH∆W1, SH∆W2⟩F = tr(∆W ⊤
+1 Cg∆W2),
+Cg = 1
+nH⊤S⊤SH.
+(28)
+In contrast, the pre-propagation map W 7→HW induces CH = H⊤H/n, with
+Cg −CH = 1
+nH⊤(S⊤S −I)H.
+(29)
+The two metrics coincide when propagation is isometric on the feature subspace, including S = I.
+Otherwise, CH does not capture the amplification or attenuation introduced by graph propagation.
+Connection to the optimization objective. Let Z = SHW, and assume the loss L is locally
+β-smooth in Z under the normalized output norm ∥U∥out = ∥U∥F /√n. Then
+L(Z + SH∆W) ≤L(Z) + ⟨∇ZL, SH∆W⟩F
++ β
+2 tr(∆W ⊤Cg∆W).
+(30)
+15
+
+Thus, ∥SH∆W∥F /√n is precisely the perturbation magnitude governing this local smoothness
+bound. A parameter-space norm alone cannot distinguish directions with different effects on the
+realized module: for any unit eigenvector vi of Cg with eigenvalue λi and any unit vector q, the
+perturbation ∆Wi = viq⊤satisfies ∥∆Wi∥2 = 1, while ∥SH∆Wi∥2
+F /n = λi. This motivates con-
+trolling representation-level perturbations rather than relying exclusively on Euclidean normalization
+of the parameter update.
+Classical orthogonal Procrustes result.
+Lemma 1 (Orthogonal Procrustes, [7]). Let A ∈Rm×k with m ≥k and A = UΣV ⊤its (thin) SVD.
+Then
+max
+Q∈Rm×k
+Q⊤Q=I
+tr(Q⊤A) = tr(Σ),
+(31)
+and the unique maximiser (assuming A has full column rank) is the polar factor P(A) = UV ⊤.
+This classical result (see also [2]) is used in the proof of Theorem 2.
+E.2
+Proof of Theorem 1 (Graph-Representation Perturbation Control)
+Proof. The GraphMuon step is ∆WGraph = −αD/sg, where
+sg =
+s
+tr(D⊤CgD)
+∥D∥2
+F
++ ϵscale.
+(32)
+Step 1: apply the trace identity. By (26),
+1
+n
+Xg ∆WGraph
+2
+F = α2
+s2g
+tr(D⊤CgD).
+(33)
+Step 2: bound 1/s2
+g. Since ϵscale ≥0, the definition (32) gives
+s2
+g = tr(D⊤CgD)
+∥D∥2
+F
++ ϵscale ≥tr(D⊤CgD)
+∥D∥2
+F
+,
+(34)
+and therefore
+1
+s2g
+≤
+∥D∥2
+F
+tr(D⊤CgD).
+(35)
+Step 3: combine. Substituting (35) into (33),
+1
+n
+Xg ∆WGraph
+2
+F ≤
+α2∥D∥2
+F
+tr(D⊤CgD) · tr(D⊤CgD) = α2 ∥D∥2
+F .
+(36)
+Taking square roots establishes the inequality
+1
+√n∥Xg ∆WGraph∥F ≤α∥D∥F .
+Equality case. When ϵscale = 0, the bound (35) holds with equality, so every inequality above is an
+equality provided the common factor tr(D⊤CgD) is nonzero. We have tr(D⊤CgD) = 1
+n∥XgD∥2
+F ,
+which is zero if and only if XgD = 0. Hence, when ϵscale = 0 and XgD ̸= 0, the inequality holds
+with equality.
+E.3
+Proof of Proposition 1 (Sharpness of Muon Graph Amplification)
+Proof. Recall the eigendecomposition Cg = V ΛV ⊤with eigenvalues λ1 ≥· · · ≥λdin ≥0 and
+orthonormal eigenvectors v1, . . . , vdin.
+Construction of D⋆. Define
+D⋆=
+
+v1 | v2 | · · · | vdout
+
+∈Rdin×dout.
+(37)
+Since the eigenvectors are orthonormal, D⋆⊤D⋆= Idout, so D⋆has orthonormal columns. A matrix
+with orthonormal columns is the polar factor of itself, making D⋆a feasible polar-factor direction
+under Muon’s geometry.
+16
+
+Representation energy of D⋆. Applying the trace identity (26) and the eigendecomposition,
+1
+n
+XgD⋆2
+F = tr(D⋆⊤Cg D⋆)
+= tr
+
+[v1 · · · vdout]⊤V ΛV ⊤[v1 · · · vdout]
+
+=
+dout
+X
+i=1
+v⊤
+i V ΛV ⊤vi =
+dout
+X
+i=1
+λi.
+(38)
+Taking square roots,
+1
+√n
+XgD⋆
+F =
+v
+u
+u
+t
+dout
+X
+i=1
+λi.
+(39)
+Comparison with
+p
+λmax(Cg). Because λ1 = λmax(Cg) and all λi ≥0,
+dout
+X
+i=1
+λi ≥λ1 = λmax(Cg),
+(40)
+so
+1
+√n∥XgD⋆∥F ≥
+p
+λmax(Cg).
+Case dout = 1. When dout = 1, we have D⋆= v1 and
+1
+√n∥XgD⋆∥F = √λ1 =
+p
+λmax(Cg), so
+the amplification is attained exactly.
+Implication for Muon.
+The vanilla Muon bound in (9) reads
+1
+√n∥Xg∆WMuon∥F
+≤
+α
+p
+λmax(Cg)∥D∥F . The construction above shows that D⋆, which is feasible under Muon’s Eu-
+clidean polar constraint (D⋆⊤D⋆= I), achieves
+1
+√n∥XgD⋆∥F =
+qPdout
+i=1 λi ≥
+p
+λmax(Cg).
+Hence, the dependence on λmax(Cg) cannot be removed by Muon’s matrix-normalization alone,
+confirming that the bound is not a loose artifact.
+Moreover, for any positive diagonal matrix Σ, the momentum matrix M = D⋆Σ has polar factor
+P(M) = D⋆, confirming that the construction corresponds to a feasible exact Muon update.
+E.4
+Proof of Theorem 2 (Graph-Metric Polar Optimality)
+Proof. Throughout, let ˜
+M = ¯Cτ/2
+g
+M and Q = P( ˜
+M) be the polar factor of ˜
+M, so that Dg,τ =
+¯C−τ/2
+g
+Q by definition. Since ¯Cg ≻0 and ˜
+M has full column rank (by assumption), Q is unique and
+satisfies Q⊤Q = Idout.
+Part 1: D⊤
+g,τ ¯Cτ
+g Dg,τ = I.
+Direct computation:
+D⊤
+g,τ ¯Cτ
+g Dg,τ =
+  ¯C−τ/2
+g
+Q
+⊤¯Cτ
+g
+  ¯C−τ/2
+g
+Q
+
+= Q⊤¯C−τ/2
+g
+¯Cτ
+g ¯C−τ/2
+g
+Q
+= Q⊤Q
+= I.
+(41)
+Here we used that ¯Cg ≻0 so its matrix powers commute and ¯C−τ/2
+g
+¯Cτ
+g ¯C−τ/2
+g
+= I.
+Part 2: Dg,τ solves the graph-metric Procrustes problem.
+We wish to show
+Dg,τ =
+arg max
+D∈Rdin×dout
+D⊤¯
+Cτ
+g D=I
+tr
+ D⊤¯Cτ
+g M
+
+.
+(42)
+Change of variables. Let ˜D = ¯Cτ/2
+g
+D. Since ¯Cg ≻0, the map D 7→˜D is a bijection on Rdin×dout.
+17
+
+The constraint D⊤¯Cτ
+g D = I transforms as
+˜D⊤˜D = D⊤¯Cτ/2
+g
+¯Cτ/2
+g
+D · (by ¯Cg ≻0) = D⊤¯Cτ
+g D = I.
+(43)
+Hence the constraint becomes ˜D⊤˜D = I, i.e., ˜D has orthonormal columns.
+The objective transforms as
+tr(D⊤¯Cτ
+g M) = tr(D⊤¯Cτ/2
+g
+¯Cτ/2
+g
+M) = tr( ˜D⊤˜
+M),
+(44)
+where ˜
+M = ¯Cτ/2
+g
+M.
+Apply Lemma 1. The reformulated problem is
+max
+˜
+D⊤˜
+D=I
+tr( ˜D⊤˜
+M),
+(45)
+which is exactly the orthogonal Procrustes problem. By Lemma 1, the unique maximiser is ˜D⋆=
+P( ˜
+M) = Q.
+Map back. Returning to the original variable, D⋆= ¯C−τ/2
+g
+˜D⋆= ¯C−τ/2
+g
+Q = Dg,τ, which estab-
+lishes (42).
+Recovery of vanilla Muon at τ = 0. When τ = 0, the covariance factors become ¯C0
+g = I, so
+˜
+M = M, and Dg,0 = P(M), which is the exact polar factor used by vanilla Muon. The constraint
+D⊤D = I is then the standard Euclidean orthonormality constraint, confirming that Theorem 2
+generalizes vanilla Muon’s polar update.
+Output-space interpretation. The graph-metric Procrustes solution also minimizes the distance to
+the momentum matrix in the same metric:
+Dg,τ = arg
+min
+D⊤¯
+Cτg D=I
+ ¯Cτ/2
+g
+(D −M)
+
+2
+F .
+(46)
+At τ = 1, let c = tr(Cg)/din. Since ¯Cg = Cg/c + ϵcovI, the graph-metric orthogonality constraint
+implies
+1
+n(XgDg,1)⊤(XgDg,1) = c
+ I −ϵcovD⊤
+g,1Dg,1
+
+.
+(47)
+In the unregularized full-rank case, the realized update therefore has orthogonal columns of equal
+squared RMS magnitude. Graph-metric orthogonalization thus transfers Muon’s singular-value bal-
+ancing from parameter space to the module-output space. While this component balances the realized
+update directions, graph-aware step normalization separately controls their overall representation-level
+magnitude.
+F
+Additional GRAPHMUON Diagnostics
+This appendix provides additional diagnostics for the graph-induced covariance used by GraphMuon.
+These results are not required for the main correctness claims, but they help interpret when graph-
+aware optimization is expected to matter and how the graph-awareness parameter τ affects the update
+geometry.
+F.1
+Effect of Graph-Awareness Strength
+GraphMuon uses the interpolation parameter τ to control the strength of graph-aware orthogonal-
+ization. When τ = 0, the covariance factors vanish and the update reduces to vanilla Muon. As τ
+increases, the update direction increasingly respects the geometry induced by the graph-propagated
+covariance.
+18
+
+Figure 5: Effect of the graph-awareness parameter τ on representation-level perturbations. The
+plot reports the perturbation ratio between GraphMuon and vanilla Muon as τ varies. Values below
+one indicate that the graph-aware direction induces a smaller representation-level perturbation than
+the corresponding Euclidean Muon direction. Across datasets, increasing τ generally moves the
+update away from the Euclidean Muon geometry and toward the graph-induced metric, supporting
+the interpretation of τ as a continuous control over graph awareness.
+(a) Dominant eigenvalue.
+(b) Normalized effective rank.
+Figure 6: Spectral diagnostics of the graph-induced covariance across datasets and layers. Left: the
+dominant eigenvalue of ¯Cg identifies high-energy graph-propagated directions along which Euclidean-
+normalized updates can induce large representation-level perturbations. Right: the normalized
+effective rank measures how broadly the energy of ¯Cg is distributed across directions. Lower effective
+rank indicates that the graph-propagated representation is concentrated in fewer dominant modes,
+making Euclidean matrix geometry less aligned with the actual representation geometry. Together,
+these diagnostics support the motivation for GraphMuon: the covariance seen by each GNN layer
+is often anisotropic and layer-dependent, so update normalization should account for the graph-
+propagated input geometry.
+F.2
+Spectral Diagnostics of Graph-Induced Covariance
+The behavior of GraphMuon depends on the spectral structure of the graph-induced covariance
+Cg = X⊤
+g Xg/n. The dominant eigenvalue measures the largest graph-amplified direction, while
+the effective rank measures how concentrated or distributed the graph-propagated representation is
+across spectral directions. These diagnostics help explain both the benefits and the limitations of
+graph-aware optimization.
+Controlled spectral analysis. To isolate the interaction between graph propagation and feature
+alignment, we additionally evaluate GraphMuon on four-block stochastic block model (SBM) graphs
+with varying alignment between node features and planted communities. Table 4 shows that as
+alignment weakens, the community Rayleigh score decreases from 0.708 to 0.174, while the planted
+19
+
+Table 4: Spectral analysis on four-block stochastic block model (SBM) graphs with varying feature-
+community alignment. We report the Rayleigh score of the planted community signal, its contribution
+to the graph-induced covariance Cg, and the update energy in dominant Cg directions before and
+after GraphMuon scaling.
+Alignment
+Community
+Rayleigh
+Planted share
+of Cg
+Top-Cg energy
+Muon →GraphMuon
+Strong
+0.708
+20.3%
+2.18% →0.47%
+Medium
+0.401
+9.7%
+2.37% →0.43%
+Weak
+0.174
+2.6%
+1.06% →0.18%
+(a) ogbn-products
+(b) ogbn-mag
+(c) ogbn-arxiv
+Figure 7: Sensitivity of GraphMuon to the graph-metric exponent τ. Each panel shows validation
+accuracy as a function of training epoch for several values of τ, with the learning rate fixed within each
+dataset. GraphMuon is generally robust to τ, although the most effective value is dataset-dependent.
+On ogbn-arxiv, all values achieve nearly identical final accuracy. On ogbn-products, moder-
+ate values yield slightly faster optimization and marginally better final performance. On ogbn-mag,
+larger values of τ provide clearer gains, suggesting that stronger graph-aware geometry is more
+beneficial in this setting.
+contribution to Cg decreases from 20.3% to 2.6%. Across all three regimes, GraphMuon substantially
+reduces update energy in the dominant graph-amplified directions relative to Muon. These findings
+demonstrate that the graph-induced geometry depends jointly on spectral propagation strength and
+feature alignment, and provide controlled empirical support for graph-aware update normalization.
+F.3
+Sensitivity to the Graph-Metric Exponent τ
+We study the sensitivity of GraphMuon to the graph-metric exponent τ, which controls the strength
+of the graph-aware metric transformation. Smaller values of τ keep the update geometry closer to
+vanilla Muon, while larger values place more emphasis on the graph-induced covariance structure.
+We evaluate several values of τ on representative OGB node-classification benchmarks and plot the
+validation accuracy over training.
+Figure 7 shows that GraphMuon is reasonably robust to the choice of τ, although the best value
+is somewhat dataset-dependent. On ogbn-arxiv, all tested values produce very similar final
+validation accuracy, with only minor differences in early training speed. On ogbn-products,
+moderate values (τ ∈[0.1, 0.3]) yield slightly stronger early progress and marginally better final
+validation performance than the smallest tested value. On ogbn-mag, the effect of τ is more
+pronounced: larger values generally improve optimization and lead to better validation accuracy,
+while very small values converge more slowly and to slightly weaker solutions.
+Overall, these results indicate that GraphMuon is not overly brittle to the choice of τ, but that tuning
+τ can provide additional gains, especially on more challenging or structurally heterogeneous datasets
+such as ogbn-mag. In practice, a small grid over τ is sufficient to identify a strong configuration.
+20
+
+G
+Additional Experimental Setup
+G.1
+Dataset Statistics
+Table 5 reports the statistics of the node-classification benchmarks used in our experiments. These
+datasets cover homogeneous citation and co-purchase graphs, a heterogeneous academic graph, and a
+heterophilous benchmark. For all datasets, we follow the official splits and evaluation protocols from
+the corresponding benchmark release.
+Table 5: Dataset statistics for the node-classification benchmarks. For OGBN-MAG, node and edge
+counts are reported over all node and relation types, while features and targets correspond to the
+target paper nodes.
+Dataset
+Graph regime
+#Nodes
+#Edges
+#Features
+#Targets
+OGBN-ARXIV
+Homogeneous citation
+169,343
+1,166,243
+128
+40
+OGBN-PRODUCTS
+Homogeneous co-purchase
+2,449,029
+61,859,140
+100
+47
+OGBN-MAG
+Heterogeneous academic
+1,939,743
+21,111,007
+128
+349
+QUESTIONS
+Heterophilous benchmark
+48,921
+153,540
+301
+2
+G.2
+Architectures
+Unless stated otherwise, all experiments follow the architecture, data splits, evaluation protocol,
+and training setup specified in the original benchmark papers. This design keeps the benchmark
+setting fixed and isolates the effect of the optimizer being compared [14, 24]. Table 6 summarizes the
+backbone used for each dataset.
+GCN backbone (transductive node classification). We use an L-layer GCN with symmetric
+normalized propagation. Given the adjacency matrix A with added self-loops, we form ˆA =
+˜D−1/2(A + I) ˜D−1/2 and compute
+H(l+1) = σ
+
+ˆA H(l) W (l)
+,
+l = 0, . . . , L −2,
+(48)
+with a linear readout at layer L. Weight matrices are stored in Rdin×dout (i.e. the propagated feature
+matrix multiplies on the right) and initialized with Xavier uniform initialization. Intermediate layers
+apply ReLU activation, dropout, and residual connections whenever din = dout. Default settings are
+depth L = 2, hidden dimension d = 64, and dropout rate p = 0.5. Layer normalization is disabled
+unless noted otherwise. The final-layer logits are passed to a cross-entropy loss over the training-mask
+nodes.
+GINE backbone (QUESTIONS). For the heterophilous QUESTIONS benchmark we follow the
+architecture of Platonov et al. [24] and use a GINE backbone [13] adapted for transductive node
+classification. Each layer applies the update
+h(l+1)
+v
+= MLP(l)
+
+(1 + ε(l)) h(l)
+v +
+X
+u∈N (v)
+ReLU
+
+h(l)
+u + euv
+
+
+,
+(49)
+where euv are learned edge feature embeddings and ε(l) is a trainable scalar.
+Node features
+are projected to the hidden dimension by a linear input encoder; edge features are embed-
+ded by a learned QUESTIONS-specific edge encoder.
+Unlike the molecular GINE setup, no
+AtomEncoder/BondEncoder or graph-level pooling is used: the final-layer node embeddings
+are passed directly through a linear head to produce per-node logits, and a binary cross-entropy
+loss is computed over the training-mask nodes following the official QUESTIONS protocol. For
+graph-aware optimizer variants, each GINE layer’s first MLP weight matrix is treated as the
+graph-conditioned operator, with its graph covariance computed from the aggregated GINE in-
+put (1 + ε(l)) h(l)
+v + P
+u∈N(v) ReLU(h(l)
+u + euv); subsequent MLP weight matrices are treated as
+standard dense layers and use the post-activation hidden representation as their input.
+Heterogeneous graphs. For datasets with heterogeneous structure (e.g. ogbn-mag) we follow the
+standard preprocessing and backbone established for the corresponding OGB benchmark, including
+paper-node subgraph extraction for ogbn-mag.
+21
+
+Table 6: Dataset–architecture configurations in the expanded evaluation. The original GCN/GINE
+settings are retained, with additional architectures and graph-level tasks introduced in the rebuttal.
+Dataset
+Task
+Backbones
+ogbn-arxiv
+Node classification
+GCN, GAT, GraphGPS
+ogbn-mag
+Node classification
+GCN, GAT, GraphGPS
+ogbn-products
+Node classification
+GCN
+Questions
+Node classification
+GINE, GAT
+Cora, Citeseer
+Node classification
+GCN
+ogbg-molbace
+Graph classification
+GINE
+ogbg-moltox21
+Graph classification
+GINE
+ZINC
+Graph regression
+GINE, GraphGPS, GraphGCN
+G.3
+Optimizer Hyperparameters and Implementation Details
+Hyperparameter selection protocol. All optimizers were tuned using the same validation protocol
+and the official validation split for each dataset. For each optimizer and dataset, the base learning rate
+was selected from
+{0.001, 0.003, 0.01, 0.03, 0.1 , 0.15}.
+The configuration with the best validation accuracy was used for test accuracy reporting. The same
+selected configuration was then used for time-to-target evaluation, without additional retuning for the
+target metric.
+Best-validation versus fastest-target configurations. For optimizer variants reported without a
+superscript, hyperparameters are selected by the highest validation accuracy on the official validation
+split. Thus, GRAPHMUON denotes the configuration selected by best validation performance, using
+the same model-selection criterion as the other optimizers.
+Rows marked with a superscript ∗report the fastest configuration within the same hyperparameter
+grid. Specifically, GRAPHMUON∗denotes the GraphMuon configuration that reaches the AdamW
+best-validation target in the shortest wall-clock time. This configuration is used only for time-to-target
+analysis and is reported separately from the best-validation configuration to distinguish predictive
+model selection from optimization speed selection.
+Training budget. For each dataset, we use the training budget specified by the corresponding
+benchmark implementation. Time-to-target is computed only within these benchmark budgets; runs
+that do not reach the target within the corresponding budget are marked as not reaching the target.
+Table 7: Dataset-specific training budgets used in our experiments.
+Dataset
+Benchmark source
+Training budget
+OGBN-ARXIV
+OGB official [14]
+500 epochs
+OGBN-PRODUCTS
+OGB official [14]
+300 epochs
+OGBN-MAG
+OGB official [14]
+100 epochs
+QUESTIONS
+Platonov et al. benchmark [24]
+300 epochs
+Common settings. Unless otherwise noted, all experiments share the hyperparameters in Table 8.
+AdamW. AdamW uses β1 = 0.9, β2 = 0.999, ε = 10−8, and decoupled weight decay λ = 5×10−4.
+Muon. Muon uses momentum µ = 0.95, Nesterov momentum, and K = 5 Newton–Schulz
+orthogonalization iterations. Matrix-valued weight parameters are updated with Muon. Bias vectors
+and all non-matrix parameters are updated with AdamW using the same selected base learning rate
+and λother = 0.
+GraphMuon. GraphMuon uses the same momentum, Nesterov, Newton–Schulz, and weight-decay
+settings as Muon. The graph-awareness parameter is selected from
+τ ∈{0.1, 0.2, 0.3, 0.5}
+for each dataset using validation accuracy.
+In our implementation, this corresponds to the
+muon_graph_lr optimizer variant.
+22
+
+Table 8: Shared training hyperparameters.
+Hyperparameter
+Value
+Depth L
+2
+Hidden dimension d
+64
+Dropout p
+0.5
+Weight decay λ
+5 × 10−4
+Residual connections
+enabled when dimensions match
+Layer normalization
+disabled
+LR scheduler
+none
+Early-stopping patience
+100
+Seeds
+10
+Let W (ℓ) ∈Rdin×dout denote the weight matrix of layer ℓ, and let G(ℓ)
+t
+= ∇W (ℓ)Lt be its stochastic
+gradient at step t. For readability, we omit the layer superscript below.
+Nesterov momentum. GraphMuon first forms the Muon momentum matrix
+Bt = µBt−1 + Gt,
+(50)
+Mt = Gt + µBt,
+(51)
+with µ = 0.95 and B0 = 0.
+Graph covariance. For each GNN layer, let
+Hprop = Xg = SH
+denote the graph-propagated input to the weight matrix. The raw graph-induced covariance is
+Cg = 1
+N H⊤
+propHprop,
+(52)
+when all N propagated node representations are used. For scalability, when N > m, a subset
+H′ ∈Rm×d is drawn uniformly without replacement from all N rows of Hprop at every optimizer
+step, using a fresh sample for each update. In this case, we estimate
+Cg = 1
+mH′⊤H′.
+(53)
+Both Cg and ¯C are computed from this single draw; no second sample is taken for the step-
+normalization term.
+For graph-metric orthogonalization, we use the trace-normalized and regularized covariance
+¯C =
+Cg
+tr(Cg)/din
++ εmetricI.
+(54)
+A single regularization constant
+εmetric = 10−5
+is used throughout: it is added to the diagonal of ¯C for covariance regularization, used to clamp
+eigenvalues away from zero when computing fractional matrix powers, and added inside the graph
+step norm sg to prevent division by zero. All uses share the same value and are denoted uniformly by
+εmetric.
+For din ≤512, fractional matrix powers of ¯C are computed by eigendecomposition. For larger input
+dimensions, we use the diagonal approximation described in Section 4.1.
+Graph-metric orthogonalization. GraphMuon maps the momentum matrix into the graph metric,
+applies Newton–Schulz orthogonalization, and maps the result back:
+Ot = ¯C−τ/2NSKK
+
+¯Cτ/2Mt
+
+,
+(55)
+where K = 5 and NSKK denotes K Newton–Schulz orthogonalization steps. Setting τ = 0 recovers
+the vanilla Muon orthogonalization direction.
+23
+
+Graph-aware learning-rate scaling. After orthogonalization, GraphMuon rescales the update
+according to its induced perturbation under the raw graph covariance:
+sg =
+s
+tr(O⊤
+t CgOt)
+∥Ot∥2
+F
++ εmetric.
+(56)
+Here Cg is the raw, unnormalized covariance from Eq. (52) or Eq. (53), not the trace-normalized
+covariance ¯C. Thus, sg measures the root-mean-square graph-metric energy of the update direction.
+Directions aligned with high-variance graph-propagated features receive a smaller effective step,
+while directions aligned with lower-energy graph directions receive a relatively larger step.
+Shape-dependent learning-rate correction. Following Muon, we apply the rectangular-matrix
+correction
+r(din, dout) =
+s
+max
+
+1, din
+dout
+
+,
+(57)
+which compensates for the RMS scale of semi-orthogonal updates.
+Parameter update. Weight decay is applied in decoupled form before the gradient step, using the
+shape-corrected rate and without graph learning-rate scaling:
+Wt+1 =
+ 1 −η r λ
+
+Wt −η r · Ot
+sg
+,
+(58)
+where r = r(din, dout), λ = 5 × 10−4 is weight decay, and η is the grid-searched base learning rate.
+Weight decay is applied only to matrix weights; bias vectors and other non-matrix parameters are
+updated by AdamW with λother = 0.
+Shampoo [10]. Shampoo uses momentum 0.0, ε = 10−4, and preconditioner update frequency of
+one step.
+Natural Gradient [15]. The natural-gradient baseline uses Tikhonov regularization εkfac = 0.01,
+covariance update frequency of 50 steps, no running-average smoothing (α = 1.0), and π-correction
+disabled.
+G.4
+Efficiency of the Graph-Aware Muon Implementation
+We describe the implementation mechanisms used to keep the additional cost of GraphMuon modest
+relative to vanilla Muon. The key design choice is that the optimizer reuses graph-propagated
+activations already computed during the ordinary forward pass, and only estimates low-dimensional
+covariance statistics from them.
+Activation reuse. For a GCN layer, the forward pass computes the graph-propagated input
+Hprop = ˆAH
+before applying the learnable weight matrix. Our implementation stores a detached reference to
+this tensor as cached_h_prop. The optimizer then reads this cached tensor at step time. Thus,
+GraphMuon does not perform an additional forward pass and does not apply an additional graph
+propagation inside the optimizer. The extra runtime cost at this stage is only the detach/reference
+operation, while the extra memory cost is the lifetime of the cached Hprop tensor until the optimizer
+step.
+Subsampled covariance estimation. Let N denote the number of available node representations and
+let m = metric_sample_size denote the covariance-estimation budget (default m = 2048).
+When N > m, we sample m rows of Hprop without replacement and form the covariance estimate
+Cg = 1
+mH′⊤H′,
+where H′ ∈Rm×din contains the sampled rows. This reduces the covariance cost from O(Nd2
+in) to
+O(md2
+in). When N ≤m, the full set of nodes is used. The same sampled rows are used both for Cg
+and for the normalized metric ¯C, so only one sample is drawn per optimizer step.
+Full and diagonal covariance paths. When din ≤max_full_dim, GraphMuon forms the
+full din × din covariance and computes its eigendecomposition. For larger input dimensions, the
+24
+
+Table 9: Efficiency-related GraphMuon hyperparameters.
+Hyperparameter
+Default
+Role
+metric_sample_size
+2 048
+Maximum number of nodes used to estimate Cg
+per step. Setting it to 0 disables subsampling and
+uses all nodes.
+max_full_dim
+512
+Input dimension threshold for forming the full
+din × din covariance. Above this threshold, a diag-
+onal approximation is used.
+eigen_refresh_steps
+10
+Maximum number of optimizer steps for which a
+cached eigendecomposition of ¯C may be reused.
+Setting it to ≤0 disables caching.
+eigen_change_tol
+0.05
+Relative Frobenius-change threshold used to trig-
+ger an early refresh of the eigendecomposition.
+torch_foreach
+true
+Enables PyTorch foreach kernels for weight de-
+cay and parameter updates, reducing Python and
+kernel-launch overhead.
+implementation falls back to a diagonal metric. In this case, writing c = diag(H′⊤H′)/m, we use
+the diagonal approximation
+¯Cdiag = diag
+
+c
+c + εmetric
++ εmetric
+
+,
+where c is the mean diagonal entry. This reduces memory from O(d2
+in) to O(din) and avoids the
+O(d3
+in) eigendecomposition. Fractional metric powers and graph-aware step normalization are then
+applied element-wise. In our standard benchmark configurations, din ≤128, so the full covariance
+path is used.
+Eigendecomposition caching. For the full covariance path, computing the eigendecomposition of ¯C
+costs O(d3
+in) per layer. GraphMuon caches the eigenvectors and eigenvalues of ¯C in the optimizer
+state and reuses them when the metric has not changed substantially. Specifically, if the cached
+decomposition is less than eigen_refresh_steps steps old and
+∥¯Ct −¯Ct−k∥F
+∥¯Ct−k∥F + εmetric
+≤eigen_change_tol,
+the cached decomposition is reused. Otherwise, the eigendecomposition is recomputed and the cache
+age is reset. The staleness check costs O(d2
+in), which is dominated by covariance formation whenever
+m is nontrivial. We also cache the power vectors λτ/2
+i
+and λ−τ/2
+i
+for the current value of τ; these are
+invalidated whenever the eigendecomposition is refreshed.
+Foreach update path. With torch_foreach=true, weight decay and parameter updates are
+applied using PyTorch multi-tensor kernels. Parameters are grouped by their shape-corrected learning
+rate η r(din, dout), and all tensors in the same group are updated in a single foreach call. This
+does not fuse the graph-aware metric computation itself, but it reduces Python overhead and GPU
+kernel-launch latency in the final update stage.
+Per-step cost. Table 10 summarizes the per-layer optimizer cost for the full-covariance path with
+active eigen caching. The Newton–Schulz orthogonalization has the same asymptotic cost as in
+vanilla Muon. The extra GraphMuon-specific terms are covariance estimation, occasional eigende-
+composition, metric application, and graph-aware step normalization. These terms are controlled by
+node subsampling, the full/diagonal covariance switch, and eigendecomposition caching.
+Scalability with covariance sampling. GraphMuon reuses the propagated representations computed
+during the forward pass, avoiding additional graph propagation. For a covariance sampling budget m
+and input dimension d, covariance construction requires O(md2) operations, while cached eigende-
+composition adds an amortized O(d3/r) cost for a refresh interval of r steps. For dimensions above
+the full-metric threshold, the diagonal approximation avoids the cubic eigendecomposition cost.
+Table 11 evaluates the effect of increasing m eightfold, from 512 to 4,096 rows. Optimization remains
+stable, reaching the fixed validation-loss target within 145–153 epochs across all budgets. Best
+25
+
+Table 10: Asymptotic per-layer optimizer cost for the full-covariance GraphMuon path. Here m is
+the number of sampled nodes, d = din, and k is the number of Newton–Schulz iterations.
+Operation
+Cost
+Notes
+Read cached Hprop
+O(1)
+Tensor already computed in the forward pass
+Node subsampling
+O(N)
+Due to torch.randperm
+Covariance Cg
+O(md2)
+Gram matrix of sampled propagated features
+Staleness check
+O(d2)
+Relative Frobenius change of ¯C
+Eigendecomposition
+O(d3)
+Amortized by caching
+Power scales λ±τ/2
+O(d)
+Cached for fixed τ
+Metric application
+O(d2dout)
+Two applications of Q(s ⊙Q⊤M)
+Newton–Schulz
+O(kddout min(d, dout))
+Same order as vanilla Muon
+Step normalization
+O(d2dout)
+Computes tr(O⊤CgO)
+Parameter update
+O(ddout)
+Foreach-batched when enabled
+Table 11: Scalability with covariance sampling budget on OGBN-ARXIV. We vary the number of
+sampled rows m used to estimate the graph-induced covariance. Direction cosine and graph-energy
+error are measured relative to the full-covariance reference.
+Rows m
+Best val.
+loss ↓
+Epochs to
+target ↓
+Test
+acc. ↑
+Direction
+cosine ↑
+Graph-energy
+error ↓
+512
+0.8591
+153
+0.7187
+0.9996
+0.0098
+1,024
+0.8599
+151
+0.7203
+0.9998
+0.0045
+2,048
+0.8592
+148
+0.7196
+0.9999
+0.0024
+4,096
+0.8598
+145
+0.7198
+1.0000
+0.0012
+validation loss varies only between 0.8591 and 0.8599, while test accuracy remains between 0.7187
+and 0.7203. Larger sampling budgets improve approximation fidelity: direction cosine increases from
+0.9996 to 1.0000, while graph-energy error decreases from 0.0098 to 0.0012. These results indicate
+that accurate graph-aware updates can be obtained using relatively small covariance samples.
+The large-scale memory profile in Table 12 provides complementary evidence on OGBN-PRODUCTS.
+GraphMuon adds approximately 0.005 GB of optimizer-owned memory relative to Muon, without
+increasing peak CUDA memory, and incurs only 2.8% additional per-step runtime (1.411 versus
+1.372 seconds). Thus, covariance sampling and eigendecomposition caching keep the additional
+graph-aware optimization overhead modest in the evaluated settings.
+G.5
+Hardware, Software, and Baseline Implementations
+All experiments were run on a single NVIDIA RTX 6000 GPU. GraphMuon was implemented
+in PyTorch and integrated into a shared training pipeline used by all optimizers. Unless stated
+otherwise, all methods use the same model architectures, dataset splits, input features, batching
+scheme, evaluation protocol, and hyperparameter tuning budget.
+For baselines, AdamW is the standard PyTorch implementation (torch.optim.AdamW). Muon
+and GraphMuon are implemented directly in PyTorch within our training code. Shampoo is im-
+plemented using the pytorch-optimizer library. For any remaining optimizer baselines, we
+use the official or original reference implementations when available, adapting only the optimizer
+interface required for compatibility with our training code. These adaptations do not change the
+mathematical update rules of the baselines.
+Runtime is measured on the same hardware for all methods. In time-to-target experiments, wall-clock
+time is measured until the validation target is first reached. One-time dataset preprocessing is excluded
+from the timing. We synchronize CUDA before recording timed intervals to avoid artifacts from
+asynchronous GPU execution. All reported averages and standard deviations are computed over the
+same set of random seeds.
+26
+
+Table 12: Memory footprint and per-step runtime on an ogbn-products-scale input configuration
+with approximately 1.2M nodes and hidden dimension 512. GraphMuon increases optimizer-owned
+memory because it stores a small graph-metric cache, but the absolute overhead is only a few
+megabytes. Persistent CUDA memory is nearly unchanged, and peak CUDA memory is identical
+across the profiled optimizers.
+Optimizer
+State
+Graph cache
+Owned
+Persistent
+Peak CUDA
+Step time (s)
+AdamW
+0.0025
+0.000
+0.0025
+15.807
+28.211
+1.076
+Muon
+0.0013
+0.000
+0.0013
+15.806
+28.211
+1.372
+GraphMuon
+0.0013
+0.005
+0.0063
+15.811
+28.211
+1.411
+Software environment. All experiments were conducted with up-to-date stable versions of Python,
+PyTorch [23] (offered under BSD-3 Clause license), CUDA, PyTorch Geometric [8] (offered under
+MIT license), OGB, and pytorch-optimizer as of May 2026.
+G.6
+Memory Footprint
+We profile the memory footprint of GraphMuon relative to AdamW and vanilla Muon on an
+ogbn-products-scale input configuration with approximately 1.2M nodes and hidden dimen-
+sion 512. Table 12 reports optimizer state memory, GraphMuon-specific graph-cache memory,
+optimizer-owned memory, persistent CUDA memory, peak CUDA memory, and average step time.
+Optimizer-owned memory includes both optimizer state and any GraphMuon-specific cached metric
+quantities. Persistent CUDA memory measures the memory that remains allocated during training,
+while peak CUDA memory reports the maximum CUDA allocation observed during the profiled step.
+GraphMuon adds 0.0050 GB of graph-cache memory in this profiling run, bringing its total optimizer-
+owned memory to 0.0063 GB. Although this is larger than AdamW in relative terms, the absolute
+increase is small compared to the total training memory. Persistent CUDA memory increases only
+from 15.8077 GB for AdamW to 15.8115 GB for GraphMuon, corresponding to a negligible end-
+to-end memory increase. Peak CUDA memory is identical across all three optimizers at 28.2111
+GB.
+GraphMuon has a slightly higher per-step time than vanilla Muon in this setting (1.411s vs. 1.372s),
+reflecting the additional covariance estimation, metric application, and graph-aware normalization.
+This overhead is small in absolute terms and does not materially increase peak GPU memory usage.
+G.7
+Selected GraphMuon Configurations
+Table 13 reports the learning rate and graph-awareness strength τ used for the selected GraphMuon
+configurations. For each dataset, GraphMuon denotes the configuration selected by best validation
+accuracy, while GraphMuon∗denotes the fastest configuration that reaches AdamW’s validation
+target. If no GraphMuon∗row is shown, the two selection criteria choose the same configuration.
+Table 13: Selected learning rate and graph-awareness strength τ for GraphMuon. GraphMuon denotes
+the validation-selected configuration, while GraphMuon∗denotes the fastest configuration reaching
+AdamW’s validation target.
+Dataset
+Optimizer
+Learning rate
+τ
+ogbn-arxiv
+GraphMuon
+0.01
+0.1
+ogbn-mag
+GraphMuon
+0.10
+0.5
+GraphMuon∗
+0.15
+0.5
+ogbn-products
+GraphMuon
+0.01
+0.1
+GraphMuon∗
+0.03
+0.3
+questions
+GraphMuon
+0.03
+0.5
+GraphMuon∗
+0.03
+0.3
+27
+
+Table 14: Complete validation-loss time-to-target results across 15 dataset–architecture configurations.
+Each optimizer entry reports epochs / wall-clock seconds. Speedups are measured against AdamW’s
+wall-clock time; bold indicates configurations where GraphMuon achieves the lowest time-to-target.
+– denotes failure to reach the target within the training budget.
+Dataset
+Arch.
+Target
+AdamW (ep/s)
+Muon (ep/s)
+Muon ×
+GraphMuon (ep/s)
+GraphMuon ×
+ogbn-arxiv
+GAT
+1.0118
+122 / 1478.8
+–
+–
+12 / 161.2
+9.17
+ogbn-arxiv
+GCN
+0.8753
+433 / 30.3
+188 / 16.6
+1.83
+164 / 13.1
+2.32
+ogbn-arxiv
+GraphGPS
+1.7066
+24 / 1345.2
+2 / 121.1
+11.11
+1 / 83.7
+16.07
+ogbn-mag
+GAT
+2.7167
+69 / 1857.4
+6 / 160.4
+11.58
+3 / 110.2
+16.85
+ogbn-mag
+GCN
+2.6930
+100 / 58.3
+65 / 38.1
+1.53
+41 / 24.1
+2.42
+ogbn-mag
+GraphGPS
+3.0715
+21 / 1978.3
+3 / 406.3
+4.87
+1 / 223.9
+8.84
+ogbn-products
+GCN
+0.3182
+300 / 1663.5
+–
+–
+226 / 1257.3
+1.32
+cora
+GCN
+0.6873
+18 / 0.0922
+313 / 1.8
+0.05
+10 / 0.0807
+1.14
+questions
+GAT
+0.1217
+481 / 15.2
+320 / 10.2
+1.49
+167 / 7.1
+2.14
+ogbg-molbace
+GINE
+0.6212
+65 / 59.1
+–
+–
+22 / 29.8
+1.98
+ogbg-moltox21
+GINE
+0.2946
+9 / 22.3
+6 / 22.6
+0.99
+4 / 18.6
+1.20
+ZINC
+GINE
+0.2502
+293 / 946.6
+242 / 1038.4
+0.91
+106 / 679.0
+1.39
+ZINC
+GraphGPS
+0.1584
+179 / 3176.7
+78 / 2062.1
+1.54
+34 / 1192.1
+2.66
+citeseer
+GCN
+1.0150
+14 / 0.0738
+24 / 0.2
+0.37
+11 / 0.0904
+0.82
+ZINC
+GraphGCN
+0.2921
+490 / 1487.8
+–
+–
+458 / 1566.1
+0.95
+Mean GraphMuon speedup (15 configurations)
+4.62
+G.8
+Additional Architecture and Task Results
+We extend the time-to-target evaluation across 15 configurations, covering GCN, GAT, GINE,
+GraphGPS, and GraphGCN, as well as node classification, graph classification, and graph regression.
+For each configuration, the target is the minimum mean validation loss attained by AdamW. We
+report the first epoch and corresponding cumulative wall-clock time at which each optimizer reaches
+this target.
+Across all 15 configurations, GraphMuon reaches AdamW’s validation-loss target in fewer epochs,
+and achieves the lowest wall-clock time-to-target in 13 of 15 configurations. It reaches the target in all
+15 configurations, compared with 11 of 15 for Muon. The arithmetic-mean wall-clock speedup over
+AdamW is 4.62× across all configurations. The strongest improvements include GAT on OGBN-MAG
+(16.85×) and GraphGPS on OGBN-ARXIV (16.07×).
+The gains are not universal in wall-clock time. On Citeseer with GCN and ZINC with GraphGCN,
+GraphMuon requires fewer epochs but is slightly slower than AdamW in cumulative time. These
+cases illustrate that improved epoch-level optimization does not always translate into wall-clock
+acceleration, particularly when optimizer overhead is substantial relative to the model’s training cost.
+28
+
+Table 15: Time-to-target comparison. The target is AdamW’s best validation accuracy on each dataset.
+Results are mean ± standard deviation across seeds. Speedup is AdamW mean wall-clock time
+divided by optimizer mean time-to-target. Unmarked rows are selected by best validation accuracy;
+∗marks the fastest configuration reaching AdamW’s target. If no ∗appears, the two coincide. “–”
+indicates failure to reach the target within budget.
+Dataset
+Optimizer
+Test Acc.
+Epochs to Target
+Walltime (s)
+Speedup vs. AdamW
+ogbn-arxiv
+AdamW
+0.7222 ± 0.0022
+433.4 ± 59.3
+30.427 ± 4.010
+1.00×
+Muon
+0.7197 ± 0.0017
+284.5 ± 26.8
+19.734 ± 2.176
+1.54×
+Muon∗
+0.7200 ± 0.0010
+198.4 ± 54.3
+13.442 ± 3.677
+2.26×
+Natural Gradient
+0.7194 ± 0.0005
+264.5 ± 15.6
+17.563 ± 1.106
+1.73×
+Shampoo
+0.7177 ± 0.0027
+–
+–
+–
+GraphMuon
+0.7196 ± 0.0009
+130.2 ± 8.8
+10.171 ± 0.781
+2.99×
+ogbn-mag
+AdamW
+0.3267 ± 0.0031
+90.1 ± 9.2
+52.576 ± 5.398
+1.00×
+Muon
+0.3441 ± 0.0081
+43.6 ± 6.8
+25.587 ± 3.977
+2.05×
+Muon∗
+0.3426 ± 0.0051
+42.7 ± 6.4
+25.068 ± 3.763
+2.10×
+Natural Gradient
+0.3457 ± 0.0019
+35.8 ± 2.0
+20.986 ± 1.172
+2.51×
+Shampoo
+0.1632 ± 0.0108
+–
+–
+–
+GraphMuon (Ours)
+0.3590 ± 0.0048
+25.8 ± 1.4
+15.207 ± 0.825
+3.46×
+GraphMuon∗(Ours) 0.3532 ± 0.0093
+18.6 ± 2.3
+11.067 ± 1.359
+4.75×
+ogbn-products
+AdamW
+0.7455 ± 0.0029
+266.0 ± 28.7
+1474.944 ± 159.170
+1.00×
+Muon
+0.7462 ± 0.0031
+165.4 ± 9.0
+915.521 ± 49.218
+1.61×
+Muon∗
+0.7417 ± 0.0031
+148.7 ± 13.7
+824.160 ± 75.388
+1.79×
+Natural Gradient
+0.7462 ± 0.0027
+176.0 ± 26.4
+979.136 ± 146.911
+1.51×
+Shampoo
+0.6004 ± 0.0131
+–
+–
+–
+GraphMuon (Ours)
+0.7598 ± 0.0032
+209.5 ± 7.3
+1165.575 ± 40.489
+1.27×
+GraphMuon∗(Ours) 0.7458 ± 0.0043
+124.8 ± 8.2
+694.053 ± 45.522
+2.13×
+questions
+AdamW
+0.9707 ± 0.0004 226.0 ± 135.8
+2.834 ± 1.649
+1.00×
+Muon
+0.9708 ± 0.0002
+94.3 ± 7.7
+1.256 ± 0.106
+2.26×
+Muon∗
+0.9702 ± 0.0005
+55.0 ± 0.0
+0.747 ± 0.000
+3.79×
+Natural Gradient
+0.9707 ± 0.0003
+35.5 ± 9.2
+0.463 ± 0.122
+6.12×
+Shampoo
+0.9709 ± 0.0001
+72.5 ± 13.4
+6.317 ± 1.260
+0.45×
+GraphMuon (Ours)
+0.9709 ± 0.0002
+14.8 ± 3.6
+0.436 ± 0.106
+6.50×
+GraphMuon∗(Ours) 0.9709 ± 0.0002
+13.0 ± 0.8
+0.384 ± 0.025
+7.38×
+29

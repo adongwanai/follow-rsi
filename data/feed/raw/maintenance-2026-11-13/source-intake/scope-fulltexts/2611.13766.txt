@@ -1,0 +1,307 @@
+FAME⁢"-"⁢QP: A GPU-Accelerated Quadratic-Programming Solver for Real-Time Model Predictive Control Skip to main content Report GitHub Issue × Title: Content selection saved. Describe the issue below: Description: Submit without GitHub Submit in GitHub Why HTML? Report Issue Back to Abstract Download PDF Contents Reading mode Colour theme Abstract I Introduction I-A Related Work II Preliminaries II-A Solving the QP with ADMM II-B LMPC as a QP Problem III FAME ​ - ​ QP \mathrm{FAME}\text{-}\mathrm{QP} Method III-A Constraint Structures III-B Two Operator Forms III-C The Penalty Bank: Adaptation and Probing III-D Execution Modes III-E Automatic Mode Selection III-F Updates, Warm Starts, and Precision IV Experimental Results IV-A Numerical Experiments: Random QP and LMPC IV-B Closed-Loop LMPC on MuJoCo Robotic Systems. IV-C Ablation Study V Conclusion References License: CC BY 4.0 arXiv:2611.13766v1 [cs.RO] 10 Nov 2026 FAME ​ - ​ QP \mathrm{FAME}\text{-}\mathrm{QP} : A GPU-Accelerated
+Quadratic-Programming Solver for Real-Time Model Predictive Control Santosh Mohan Rajkumar † † thanks: Authors are with the Department of Mechanical & Aerospace Engineering, The Ohio State University, Columbus, OH, USA. E-mail:{ rajkumar.36, goswami.78, stockar.1 } @osu.edu Debdipta Goswami Stephanie Stockar † † thanks: Open Source Code: https://github.com/santoshrajkumar/fame-qp Abstract We present FAME-QP, a GPU-accelerated solver for dense quadratic programs arising in linear model predictive control. FAME-QP combines constraint-dependent operator representations with fused single- and two-kernel iterations replayed through CUDA graphs, automatically selecting the execution configuration through device calibration and problem-specific timing. It probes a cached operator bank to select the initial penalty and updates operators lazily when problem matrices change. Numerical benchmarks and simulated humanoid and quadrotor control experiments demonstrate reduced latency relative to competing GPU solvers while maintaining solution accuracy and control performance. I Introduction Quadratic programming (QP) problems arise in a wide range of applications, including statistics, machine learning, finance, and model predictive control (MPC) for robotic and control systems [ 1 , 2 , 3 ] . They also appear as subproblems in nonlinear optimization algorithms, such as sequential quadratic programming (SQP). Many of these applications lead to convex QP problems. Among these applications, MPC requires solving an optimization problem within each control sampling period, making computational efficiency critical for real-time operation [ 4 ] . With linear prediction models, convex quadratic costs, and linear constraints, each MPC update requires solving a convex QP problem, yielding a formulation commonly referred to as linear MPC (LMPC). Common solution approaches for QP problems include interior-point (IP), active-set (AS), operator-splitting (OS), and proximal methods.
+Representative IP methods include HPIPM [ 5 ] , qpSWIFT [ 6 ] , PIQP [ 7 ] , and Clarabel [ 8 ] (with QP as a special case). Although IP methods often converge in relatively few iterations, each iteration requires solving a potentially expensive linear system. They are also generally more difficult to warm start, limiting their ability to exploit similarities between successive QP problems in MPC [ 9 ] . AS methods, such as qpOASES [ 10 ] and DAQP [ 11 ] , readily support warm starting and can be highly efficient when initialized with the correct active set. However, their combinatorial worst-case complexity in the number of constraints can limit their scalability to large-scale QPs [ 9 ] . OS methods based on the alternating direction method of multipliers (ADMM), such as OSQP [ 2 ] , and related proximal methods, such as ProxQP [ 12 ] , are increasingly used in robotic MPC owing to their ease of warm starting and suitability for applications requiring moderate solution accuracy [ 13 , 14 ] . Moreover, their computational structure offers opportunities for parallelization. Nevertheless, their convergence rates can be slower than those of other methods, particularly when high-accuracy solutions are required [ 7 ] . Fig. 1: Cold-solve times on dense random QPs at matched accuracy,
+excluding setup. Lines show medians and bands min–max ranges across
+five instances, each timed by its median over repeated cold solves.
+All solvers use float64 except cuOSQP ( float32 ). Although most established QP solvers are CPU-based, GPUs offer opportunities to accelerate large-scale QP solving through massive parallelism and higher memory bandwidth, enabling concurrent execution of independent computations and faster data movement [ 13 ] . Growing interest in MPC for robotics and control using world models [ 15 , 16 ] , locally linear latent dynamics [ 17 ] , and Koopman-based linear, bilinear, or semi-linear representations [ 18 , 19 , 20 ] further motivates GPU acceleration to meet the real-time computational demands of large-scale MPCs. Moreover, modern robotics increasingly relies on GPUs for parallel simulation, inference, and learning [ 21 , 22 , 23 ] . Integrating CPU-native QP solvers into such pipelines can introduce additional latency through frequent CPU–GPU data transfers [ 24 ] . Together, these considerations motivate GPU-native QP solvers that keep optimization data and computations on the device. This work presents FAME ​ - ​ QP \mathrm{FAME}\text{-}\mathrm{QP} , F used A DMM with M ultimode E xecution for Q P solution, a GPU solver for the dense QPs of linear MPC. Its contributions are: (i) constraint-dependent operator representations that reduce operator storage by up to 4 × 4\times and iteration time by up to 3 × 3\times , relative to treating all constraint rows as dense; (ii) fused single- and two-kernel iterations with CUDA graph replay and automatic selection using device calibration and problem-specific timing; (iii) initial penalty selection through cached-operator probing and lazy operator updates for changing QP matrices; (iv) numerical and simulated robotic MPC evaluations demonstrating lower latency than the competing GPU methods evaluated in each benchmark, with matched solution accuracy on random QPs and comparable closed-loop control performance; and (v) an open-source implementation. I-A Related Work GPU QP solvers. cuOSQP [ 13 ] parallelizes OSQP through indirect linear solves, while qpax [ 25 ] and CuPIQP [ 26 ] implement IP methods on GPUs, with CuPIQP exploiting kernel fusion and CUDA graph replay.
+The closest approach is ReLU-QP [ 9 ] , which reformulates ADMM as a weight-tied neural network and caches pre-inverted operators for penalty adaptation.
+Its dense operator and repeated dispatch introduce computational and execution overhead, while its offline precomputation limits online matrix updates. FAME ​ - ​ QP \mathrm{FAME}\text{-}\mathrm{QP} retains the pre-inversion and penalty-bank approach but uses smaller, constraint-dependent operators, fused graph-replayed iterations, and lazy operator updates. GPU MPC solvers. MPCGPU [ 27 ] and TurboMPC [ 28 ] accelerate nonlinear MPC through GPU implementations of SQP and structured linear algebra. π \pi MPC [ 29 ] exploits parallelism across the prediction horizon through consensus ADMM, while CUDA MPC [ 30 ] reduces execution overhead using a persistent cooperative kernel and CUDA graphs.
+These methods exploit structure at the optimal-control level, whereas FAME ​ - ​ QP \mathrm{FAME}\text{-}\mathrm{QP} accepts dense convex QPs directly, including general constraint matrices and online matrix changes. Positioning. Our contribution lies in combining constraint-dependent operator representations with automatic selection between fused single- and two-kernel iterations, initial penalty probing, and lazy matrix updates.
+The execution configuration is selected through device calibration and problem-specific timing, targeting the latency of individual MPC solves. II Preliminaries Notations. Define ℕ 0 := { 0 } ∪ ℕ \mathbb{N}_{0}:=\{0\}\cup\mathbb{N} . Let 𝕊 + n \mathbb{S}^{n}_{+} be the set of symmetric positive semi-definite matrices of dimension n × n n\times n . For a , b ∈ ℕ 0 a,b\!\in\!\mathbb{N}_{0} with b ≥ a b\!\geq\!a , define [ a : b ] := { a , … , b } [a:b]:=\{a,\ldots,b\} . Let 𝟎 \mathbf{0} and I I denote the zero vector or matrix and the identity matrix, respectively, of appropriate dimensions. For a matrix or vector, a space or comma separates columns, and a semicolon separates rows, where applicable. Convex QP problem. A convex QP problem takes the following form [ 31 ] min z ∈ ℝ n ⁡ 1 2 ​ z ⊤ ​ P ​ z + q ⊤ ​ z s.t. l ≤ G ​ z ≤ h , \displaystyle\min_{z\in\mathbb{R}^{n}}\tfrac{1}{2}z^{\top}Pz+q^{\top}z\quad\text{s.t.}\quad l\leq Gz\leq h, (1) where z z is the decision variable, P ∈ 𝕊 + n P\in\mathbb{S}^{n}_{+} , G ∈ ℝ m × n G\in\mathbb{R}^{m\times n} , q ∈ ℝ n q\in\mathbb{R}^{n} , l ∈ ( ℝ ∪ { − ∞ } ) m l\in(\mathbb{R}\cup\{-\infty\})^{m} , and h ∈ ( ℝ ∪ { + ∞ } ) m h\in(\mathbb{R}\cup\{+\infty\})^{m} . LMPC. Consider the discrete-time linear system x k + 1 = A ​ x k + B ​ u k x_{k+1}=Ax_{k}+Bu_{k} ,
+where x k ∈ ℝ n x x_{k}\!\in\!\mathbb{R}^{n_{x}} and u k ∈ ℝ n u u_{k}\!\in\!\mathbb{R}^{n_{u}} denote the state
+and input, respectively. At each sampling instant, LMPC measures
+the current state x ^ \hat{x} and solves the following optimal control problem (OCP) over a prediction horizon of N N steps [ 31 ] : min x , u \displaystyle\min_{x,u}\; 1 2 ​ ∑ k = 0 N − 1 ( x k ⊤ ​ Q ​ x k + u k ⊤ ​ R ​ u k ) + 1 2 ​ x N ⊤ ​ Q N ​ x N \displaystyle\tfrac{1}{2}\textstyle\sum_{k=0}^{N-1}\bigl(x_{k}^{\top}Qx_{k}+u_{k}^{\top}Ru_{k}\bigr)+\tfrac{1}{2}x_{N}^{\top}Q_{N}x_{N} (2a) s.t. x 0 = x ^ , x k + 1 = A x k + B u k , k ∈ [ 0 : N − 1 ] , \displaystyle x_{0}=\hat{x},\ x_{k+1}=Ax_{k}+Bu_{k},\ k\in[0:N-1], (2b) u ¯ ≤ u k ≤ u ¯ , k ∈ [ 0 : N − 1 ] , \displaystyle\underline{u}\leq u_{k}\leq\overline{u},\quad k\in[0:N-1], (2c) x ¯ ≤ x k ≤ x ¯ , k ∈ [ 1 : N ] , \displaystyle\underline{x}\leq x_{k}\leq\overline{x},\quad k\in[1:N], (2d) with x = { x k } k = 0 N x=\{x_{k}\}_{k=0}^{N} and u = { u k } k = 0 N − 1 u=\{u_{k}\}_{k=0}^{N-1} . Here, Q , Q N ⪰ 0 Q,Q_{N}\succeq 0 and R ≻ 0 R\succ 0 are the state, terminal,
+and input weighting matrices, respectively. The controller applies
+the first optimal input u 0 ⋆ u_{0}^{\star} , shifts the horizon forward
+by one step, and repeats the procedure at the next sampling instant. GPU computation. We restrict attention to NVIDIA GPUs and the CUDA programming model [ 32 ] . GPU computations execute as kernels : functions typically launched by the host and executed in parallel by threads grouped into blocks [ 33 ] . Threads within a block share fast on-chip memory and synchronize efficiently, while communication between blocks typically uses global memory. Successive kernels in the same stream execute in order, making kernel boundaries a standard way to synchronize all blocks between computational stages [ 32 ] . A CUDA graph represents a workflow of GPU operations, such as kernel
+launches and data transfers, and the dependencies between them.
+The workflow is prepared once and can then be executed repeatedly with a single host call, reducing host-side launch overhead [ 32 ] . When a kernel is launched, its thread blocks are scheduled onto
+the GPU’s streaming multiprocessors (SMs), where threads execute
+in groups of 32 called warps, using values held in registers.
+Global memory accesses may be served by GPU caches, while
+threads within a block can exchange data through on-chip shared
+memory. Registers and shared memory have thread and block
+lifetimes, respectively, so intermediate results passed between
+kernels are typically stored in global memory [ 32 ] . The runtime of a computation expressed
+as a sequence of kernels therefore depends on arithmetic, data
+movement through the memory hierarchy, and launch and scheduling
+overhead. Kernel fusion combines operations that would
+otherwise execute in separate kernels into a single kernel,
+allowing some intermediate results to remain in registers or
+shared memory. This can reduce both the number of kernel
+launches and global memory accesses [ 34 ] . II-A Solving the QP with ADMM To solve ( 1 ), we employ the ADMM formulation proposed in [ 2 ] . Introducing an auxiliary
+variable s ∈ ℝ m s\in\mathbb{R}^{m} yields the equivalent problem min z , s ⁡ 1 2 ​ z ⊤ ​ P ​ z + q ⊤ ​ z + ℐ 𝒞 ​ ( s ) s.t. G ​ z = s , \displaystyle\min_{z,s}\tfrac{1}{2}z^{\top}Pz+q^{\top}z+\mathscr{I}_{\mathcal{C}}(s)\quad\text{s.t.}\quad Gz=s, (3) where ℐ 𝒞 ​ ( s ) = { 0 ​ if ​ s ∈ 𝒞 , + ∞ ​ otherwise } \mathscr{I}_{\mathcal{C}}(s)=\{0\text{ if }s\in\mathcal{C},\ +\infty\text{ otherwise}\} and 𝒞 := { s : l ≤ s ≤ h } \mathcal{C}:=\{s:\ l\leq s\leq h\} .
+With auxiliary variables z ~ ∈ ℝ n \tilde{z}\in\mathbb{R}^{n} and s ~ ∈ ℝ m \tilde{s}\in\mathbb{R}^{m} , ( 3 ) can be rewritten as min z , s , s ~ , z ~ \displaystyle\min_{z,s,\tilde{s},\tilde{z}}\ 𝒥 = 1 2 ​ z ~ ⊤ ​ P ​ z ~ + q ⊤ ​ z ~ + ℐ 𝒞 ​ ( s ) + ℐ ℰ ​ ( z ~ , s ~ ) \displaystyle\mathcal{J}=\tfrac{1}{2}\tilde{z}^{\top}P\tilde{z}+q^{\top}\tilde{z}+\mathscr{I}_{\mathcal{C}}(s)+\mathscr{I}_{\mathcal{E}}(\tilde{z},\tilde{s}) (4a) s.t. ( z ~ , s ~ ) = ( z , s ) , \displaystyle\text{s.t.}\quad(\tilde{z},\tilde{s})=(z,s), (4b) where ℐ ℰ ​ ( z ~ , s ~ ) = { 0 ​ if ​ G ​ z ~ = s ~ , + ∞ ​ otherwise } \mathscr{I}_{\mathcal{E}}(\tilde{z},\tilde{s})=\{0\text{ if }G\tilde{z}=\tilde{s},\ +\infty\text{ otherwise}\} and ℰ := { ( z ~ , s ~ ) : s ~ = G ​ z ~ } \mathcal{E}:=\{(\tilde{z},\tilde{s}):\tilde{s}=G\tilde{z}\} . Let μ ∈ ℝ n \mu\in\mathbb{R}^{n} and λ ∈ ℝ m \lambda\in\mathbb{R}^{m} be the Lagrange
+multipliers associated with z ~ = z \tilde{z}=z and s ~ = s \tilde{s}=s ,
+respectively. The augmented Lagrangian, omitting terms constant in the primal variables, is ℒ = 𝒥 + σ 2 ​ ‖ z ~ − z + μ / σ ‖ 2 2 + 1 2 ​ ‖ s ~ − s + 𝝆 − 1 ​ λ ‖ 𝝆 2 \displaystyle\mathcal{L}=\mathcal{J}+\tfrac{\sigma}{2}\|\tilde{z}-z+\mu/\sigma\|_{2}^{2}+\tfrac{1}{2}\|\tilde{s}-s+\bm{\rho}^{-1}\lambda\|^{2}_{\bm{\rho}} (5) where σ > 0 \sigma>0 is the proximal regularization parameter, 𝝆 = diag ⁡ ( ρ 1 , … , ρ m ) ≻ 0 \bm{\rho}=\operatorname{diag}(\rho_{1},\ldots,\rho_{m})\succ 0 is the diagonal penalty matrix, and ‖ v ‖ 𝝆 2 = v ⊤ ​ 𝝆 ​ v \|v\|_{\bm{\rho}}^{2}=v^{\top}\bm{\rho}v . Given the iterate ( z j , s j , μ j , λ j ) (z^{j},s^{j},\mu^{j},\lambda^{j}) at iteration j ∈ ℕ 0 j\in\mathbb{N}_{0} and a relaxation parameter α ∈ ( 0 , 2 ) \alpha\in(0,2) , ADMM involves the following steps ( z ~ j + 1 , s ~ j + 1 ) \displaystyle(\tilde{z}^{j+1},\tilde{s}^{j+1}) = arg ​ min z ~ , s ~ ⁡ ℒ ​ ( z ~ , s ~ , z j , s j , μ j , λ j ) , \displaystyle=\argmin_{\tilde{z},\tilde{s}}\,\mathcal{L}(\tilde{z},\tilde{s},z^{j},s^{j};\mu^{j},\lambda^{j}), (6a) z j + 1 \displaystyle z^{j+1} = α ​ z ~ j + 1 + ( 1 − α ) ​ z j + σ − 1 ​ μ j , \displaystyle=\alpha\tilde{z}^{j+1}+(1-\alpha)z^{j}+\sigma^{-1}\mu^{j}, (6b) s j + 1 \displaystyle s^{j+1} = arg ​ min s ∈ 𝒞 ⁡ 1 2 ​ ‖ s ^ j + 1 − s + 𝝆 − 1 ​ λ j ‖ 𝝆 2 , \displaystyle=\argmin_{s\in\mathcal{C}}\,\tfrac{1}{2}\|\hat{s}^{j+1}-s+\bm{\rho}^{-1}\lambda^{j}\|_{\bm{\rho}}^{2}, (6c) μ j + 1 \displaystyle\mu^{j+1} = μ j + σ ⁡ ( α ​ z ~ j + 1 + ( 1 − α ) ​ z j − z j + 1 ) , \displaystyle=\mu^{j}+\sigma\bigl(\alpha\tilde{z}^{j+1}+(1-\alpha)z^{j}-z^{j+1}\bigr), (6d) λ j + 1 \displaystyle\lambda^{j+1} = λ j + 𝝆 ⁡ ( s ^ j + 1 − s j + 1 ) , \displaystyle=\lambda^{j}+\bm{\rho}\bigl(\hat{s}^{j+1}-s^{j+1}\bigr), (6e) where s ^ j + 1 := α ​ s ~ j + 1 + ( 1 − α ) ​ s j \hat{s}^{j+1}:=\alpha\tilde{s}^{j+1}+(1-\alpha)s^{j} .
+The z z -update implies μ j + 1 = 𝟎 \mu^{j+1}=\mathbf{0} ; hence,
+initializing μ 0 = 𝟎 \mu^{0}=\mathbf{0} eliminates μ \mu from all iterations. Closed form. Substituting s ~ = G ​ z ~ \tilde{s}=G\tilde{z} into
+( 6a ) and setting the gradient with respect to z ~ \tilde{z} to zero yields K ​ z ~ j + 1 = σ ​ z j − μ j − q + G ⊤ ​ ( 𝝆 ​ s j − λ j ) , \displaystyle K\tilde{z}^{j+1}=\sigma z^{j}-\mu^{j}-q+G^{\top}(\bm{\rho}s^{j}-\lambda^{j}), (7) where K := P + σ ​ I + G ⊤ ​ 𝝆 ​ G ≻ 0 K:=P+\sigma I+G^{\top}\bm{\rho}G\succ 0 .
+Moreover, since 𝝆 \bm{\rho} is positive diagonal and 𝒞 \mathcal{C} is a box,
+( 6c ) separates into scalar minimizations solved
+by componentwise clipping. With μ 0 = 𝟎 \mu^{0}=\mathbf{0} and s 0 ∈ 𝒞 s^{0}\in\mathcal{C} , one ADMM iteration reduces to z ~ j + 1 \displaystyle\tilde{z}^{j+1} = M ⁡ [ σ ​ z j − q + G ⊤ ​ ( 𝝆 ​ s j − λ j ) ] , \displaystyle=M[\sigma z^{j}-q+G^{\top}(\bm{\rho}s^{j}-\lambda^{j})], (8a) s ~ j + 1 \displaystyle\tilde{s}^{j+1} = G ​ z ~ j + 1 , \displaystyle=G\tilde{z}^{j+1}, (8b) z j + 1 \displaystyle z^{j+1} = α ​ z ~ j + 1 + ( 1 − α ) ​ z j , \displaystyle=\alpha\tilde{z}^{j+1}+(1-\alpha)z^{j}, (8c) ζ j + 1 \displaystyle\zeta^{j+1} = α ​ s ~ j + 1 + ( 1 − α ) ​ s j + 𝝆 − 1 ​ λ j , \displaystyle=\alpha\tilde{s}^{j+1}+(1-\alpha)s^{j}+\bm{\rho}^{-1}\lambda^{j}, (8d) s j + 1 \displaystyle s^{j+1} = Π 𝒞 ​ ( ζ j + 1 ) , \displaystyle=\Pi_{\mathcal{C}}(\zeta^{j+1}), (8e) λ j + 1 \displaystyle\lambda^{j+1} = 𝝆 ⁡ ( ζ j + 1 − s j + 1 ) , \displaystyle=\bm{\rho}(\zeta^{j+1}-s^{j+1}), (8f) where Π 𝒞 ​ ( ζ ) = min ⁡ { max ⁡ { ζ , l } , h } \Pi_{\mathcal{C}}(\zeta)=\min\{\max\{\zeta,l\},h\} acts componentwise and M = K − 1 M=K^{-1} . Here, ζ j + 1 \zeta^{j+1} is the unconstrained
+minimizer of the quadratic in ( 6c ), and 𝝆 − 1 ​ λ j + 1 \bm{\rho}^{-1}\lambda^{j+1} is the projection
+residual. Consequently, λ i j + 1 > 0 \lambda_{i}^{j+1}>0 implies s i j + 1 = h i s_{i}^{j+1}=h_{i} , λ i j + 1 < 0 \lambda_{i}^{j+1}<0 implies s i j + 1 = l i s_{i}^{j+1}=l_{i} , and l i < s i j + 1 < h i l_{i}<s_{i}^{j+1}<h_{i} implies λ i j + 1 = 0 \lambda_{i}^{j+1}=0 . Optimality and termination. At a fixed point of ( 8 ), z ~ = z \tilde{z}=z and s ~ = s = G ​ z \tilde{s}=s=Gz , yielding P ​ z + q + G ⊤ ​ λ = 𝟎 Pz+q+G^{\top}\lambda=\mathbf{0} and s = Π 𝒞 ​ ( s + 𝝆 − 1 ​ λ ) s=\Pi_{\mathcal{C}}(s+\bm{\rho}^{-1}\lambda) .
+These are the KKT conditions of ( 1 ); σ \sigma and 𝝆 \bm{\rho} affect convergence
+but not these conditions. The iteration terminates when r prim j := ‖ G ​ z j − s j ‖ ∞ \displaystyle r_{\rm prim}^{j}:=\|Gz^{j}-s^{j}\|_{\infty} ≤ ϵ abs + ϵ rel ​ η p j , \displaystyle\leq\epsilon_{\rm abs}+\epsilon_{\rm rel}\eta_{\rm p}^{j}, (9a) r dual j := ‖ P ​ z j + q + G ⊤ ​ λ j ‖ ∞ \displaystyle r_{\rm dual}^{j}:=\|Pz^{j}+q+G^{\top}\lambda^{j}\|_{\infty} ≤ ϵ abs + ϵ rel ​ η d j , \displaystyle\leq\epsilon_{\rm abs}+\epsilon_{\rm rel}\eta_{\rm d}^{j}, (9b) where η p j := max ⁡ { ‖ G ​ z j ‖ ∞ , ‖ s j ‖ ∞ } \eta_{\rm p}^{j}:=\max\{\|Gz^{j}\|_{\infty},\|s^{j}\|_{\infty}\} , η d j := max ⁡ { ‖ P ​ z j ‖ ∞ , ‖ G ⊤ ​ λ j ‖ ∞ , ‖ q ‖ ∞ } \eta_{\rm d}^{j}:=\max\{\|Pz^{j}\|_{\infty},\|G^{\top}\lambda^{j}\|_{\infty},\|q\|_{\infty}\} ,
+and ϵ abs , ϵ rel > 0 \epsilon_{\rm abs},\epsilon_{\rm rel}>0 are the absolute and relative tolerances, respectively. II-B LMPC as a QP Problem With the predicted states and inputs stacked into the decision vector z = col ⁡ ( x 0 , u 0 , … , x N − 1 , u N − 1 , x N ) z=\operatorname{col}(x_{0},u_{0},\ldots,x_{N-1},u_{N-1},x_{N}) , the OCP ( 2 ) admits a sparse QP formulation of the general form ( 1 ) [ 31 , Sec. 14.2.2] .
+The sparse QP formulation of LMPC has n = ( N + 1 ) ​ n x + N ​ n u n=(N+1)n_{x}+Nn_{u} decision variables and m = N ​ n x + n m=Nn_{x}+n constraint rows. Eliminating the predicted states through the dynamics yields a condensed QP formulation of ( 2 ) with only n = N ​ n u n=Nn_{u} input variables [ 35 ] , whose dense matrix structure is well suited to GPU-accelerated operations in standard machine-learning libraries. Let U = col ⁡ ( u 0 , … , u N − 1 ) U=\operatorname{col}(u_{0},\ldots,u_{N-1}) and X = col ⁡ ( x 1 , … , x N ) X=\operatorname{col}(x_{1},\ldots,x_{N}) . The linear dynamics give X = 𝒜 ​ x ^ + ℬ ​ U X=\mathcal{A}\hat{x}+\mathcal{B}U , where 𝒜 = [ A A 2 A N ] , ℬ = [ B 𝟎 ⋯ 𝟎 A ​ B B ⋯ 𝟎 ⋱ A N − 1 ​ B A N − 2 ​ B ⋯ B ] , \displaystyle\mathcal{A}=\begin{bmatrix}\scriptstyle A\\
+\scriptstyle A^{2}\\
+\scriptstyle\vdots\\
+\scriptstyle A^{N}\end{bmatrix},\qquad\mathcal{B}=\begin{bmatrix}\scriptstyle B&\scriptstyle\mathbf{0}&\scriptstyle\cdots&\scriptstyle\mathbf{0}\\
+\scriptstyle AB&\scriptstyle B&\scriptstyle\cdots&\scriptstyle\mathbf{0}\\
+\scriptstyle\vdots&\scriptstyle\vdots&\scriptstyle\ddots&\scriptstyle\vdots\\
+\scriptstyle A^{N-1}B&\scriptstyle A^{N-2}B&\scriptstyle\cdots&\scriptstyle B\end{bmatrix}, (10) with 𝒜 ∈ ℝ N ​ n x × n x \mathcal{A}\in\mathbb{R}^{Nn_{x}\times n_{x}} and ℬ ∈ ℝ N ​ n x × N ​ n u \mathcal{B}\in\mathbb{R}^{Nn_{x}\times Nn_{u}} .
+With 𝒬 = blkdiag ⁡ ( Q , … , Q , Q N ) ∈ ℝ N ​ n x × N ​ n x \mathcal{Q}\!=\!\operatorname{blkdiag}(Q,\ldots,Q,Q_{N})\in\mathbb{R}^{Nn_{x}\times Nn_{x}} and ℛ = blkdiag ⁡ ( R , … , R ) \mathcal{R}\!=\!\operatorname{blkdiag}(R,\ldots,R) ,
+the condensed QP takes the form ( 1 ) with z = U z=U and P = ℬ ⊤ ​ 𝒬 ​ ℬ + ℛ , q = ℬ ⊤ ​ 𝒬 ​ 𝒜 ​ x ^ , G = [ ℬ ; I ] , \displaystyle P=\mathcal{B}^{\top}\mathcal{Q}\mathcal{B}+\mathcal{R},\quad q=\mathcal{B}^{\top}\mathcal{Q}\mathcal{A}\hat{x},\quad G=[\mathcal{B};\ I], l = [ X ¯ − 𝒜 ​ x ^ ; U ¯ ] , h = [ X ¯ − 𝒜 ​ x ^ ; U ¯ ] , \displaystyle l=[\underline{X}-\mathcal{A}\hat{x};\ \underline{U}],\quad h=[\overline{X}-\mathcal{A}\hat{x};\ \overline{U}], (11) where X ¯ , X ¯ ∈ ℝ N ​ n x \underline{X},\overline{X}\in\mathbb{R}^{Nn_{x}} and U ¯ , U ¯ ∈ ℝ N ​ n u \underline{U},\overline{U}\in\mathbb{R}^{Nn_{u}} stack the state and input bounds over the horizon, so G G has m = N ⁡ ( n x + n u ) m=N(n_{x}+n_{u}) rows. The constant terms independent of U U are omitted from the objective. We use the condensed QP formulation of LMPC in this work and recommend LQR pre-stabilization [ 35 , Sec. IV] where needed to mitigate ill-conditioning for open-loop unstable systems. III FAME ​ - ​ QP \mathrm{FAME}\text{-}\mathrm{QP} Method FAME ​ - ​ QP \mathrm{FAME}\text{-}\mathrm{QP} implements the ADMM iteration ( 8 ) with the pre-inverted matrix M = K − 1 M=K^{-1} , and concentrates
+on how that iteration is executed on the GPU. At setup, the problem is scaled once by a modified Ruiz equilibration [ 36 , 2 ] : P → c ​ T ​ P ​ T P\to cTPT , q → c ​ T ​ q q\to cTq , G → V ​ G ​ T G\to VGT , ( l , h ) → ( V ​ l , V ​ h ) (l,h)\to(Vl,Vh) , with positive diagonal T ∈ ℝ n × n T\in\mathbb{R}^{n\times n} and V ∈ ℝ m × m V\in\mathbb{R}^{m\times m} equilibrating the columns and rows of [ P G ⊤ G 𝟎 ] \bigl[\begin{smallmatrix}P&G^{\top}\\
+G&\mathbf{0}\end{smallmatrix}\bigr] in ten
+passes and c > 0 c>0 normalizing the cost. The iteration runs on the scaled
+problem, whose solution ( z ′ , s ′ , λ ′ ) (z^{\prime},s^{\prime},\lambda^{\prime}) maps back as z = T ​ z ′ z=Tz^{\prime} , s = V − 1 ​ s ′ s=V^{-1}s^{\prime} , λ = c − 1 ​ V ​ λ ′ \lambda=c^{-1}V\lambda^{\prime} ; the test ( 9 ) is evaluated on the
+unscaled residuals, and later problem data are scaled with the same T , V , c T,V,c . The penalty matrix is parameterized by a single scalar ρ > 0 \rho>0 as 𝝆 = ρ ​ diag ⁡ ( b ) \bm{\rho}=\rho\diag(b) . For each i ∈ [ 1 : m ] i\in[1:m] , let b i b_{i} , l i l_{i} , and h i h_{i} denote the i i th entries of b b , l l , and h h , respectively. We set b i = 10 3 b_{i}=10^{3} if l i = h i l_{i}=h_{i} (an equality constraint) and b i = 1 b_{i}=1 otherwise. Algorithm 1 summarizes the setup and solve phases. III-A Constraint Structures FAME ​ - ​ QP \mathrm{FAME}\text{-}\mathrm{QP} exploits constraint rows that act on individual decision variables
+and distinguishes three structures of G ∈ ℝ m × n G\in\mathbb{R}^{m\times n} : box , G = D := diag ⁡ ( d ) G=D:=\diag(d) with d ∈ ℝ n d\in\mathbb{R}^{n} , d i ≠ 0 d_{i}\neq 0 for all i ∈ [ 1 : n ] i\in[1:n] ,
+so m = n m=n ; split , G = [ D ; C ] G=[D;C] after a row permutation, with D ∈ ℝ n × n D\in\mathbb{R}^{n\times n} nonsingular diagonal and C ∈ ℝ m c × n C\in\mathbb{R}^{m_{c}\times n} the
+remaining rows, m c > 0 m_{c}>0 , so m = n + m c m=n+m_{c} ; and general , with no complete
+diagonal block, where all rows are handled as dense, C = G C=G and m c = m m_{c}=m .
+Under standard condensing, LMPC with input bounds
+alone has the box structure and adding state bounds yields the split structure. LQR pre-stabilization [ 35 ] couples the input constraints and produces the general structure.
+In split form, for each i ∈ [ n + 1 : m ] i\in[n+1:m] (corresponding to the rows of C C only), we set b i = 10 3 ​ γ b_{i}=10^{3}\gamma if l i = h i l_{i}=h_{i} (equality constraints) and b i = γ b_{i}=\gamma otherwise, with γ > 0 \gamma>0 . III-B Two Operator Forms The first two updates in ( 8 ) couple different entries through
+matrix–vector products; the remaining updates are elementwise because 𝝆 \bm{\rho} is diagonal and 𝒞 \mathcal{C} is a box. Omitting the iteration index j j , we describe the operators for each constraint structure. General structure. With C = G C=G and m c = m m_{c}=m , define r = [ σ ​ z − q ; 𝝆 ​ s − λ ] ∈ ℝ n + m r=[\sigma z-q;\;\bm{\rho}s-\lambda]\in\mathbb{R}^{n+m} .
+Then ( 8a ) and ( 8b ) admit the stacked form [ z ~ ; s ~ ] = W ​ r , W = [ M , M ​ G ⊤ ; G ​ M , G ​ M ​ G ⊤ ] , \displaystyle[\tilde{z};\tilde{s}]=Wr,\quad W=[M,\;MG^{\top};\;GM,\;GMG^{\top}], (12) which computes both updates in one matrix–vector product.
+The factored form stores F = [ M , M ​ G ⊤ ] F=[M,\;MG^{\top}] and G G , and computes z ~ = F ​ r \tilde{z}=Fr followed by s ~ = G ​ z ~ \tilde{s}=G\tilde{z} . Split structure. For G = [ D ; C ] G=[D;C] , partition 𝝆 \bm{\rho} , s s , and λ \lambda conformally.
+Since D = diag ⁡ ( d ) D=\diag(d) , its contribution can be absorbed elementwise into r = [ σ ​ z − q + d ∘ ( 𝝆 d ​ s d − λ d ) ; 𝝆 c ​ s c − λ c ] ∈ ℝ n + m c r=[\sigma z-q+d\circ(\bm{\rho}_{d}s_{d}-\lambda_{d});\;\bm{\rho}_{c}s_{c}-\lambda_{c}]\in\mathbb{R}^{n+m_{c}} ,
+where ∘ \circ denotes elementwise multiplication.
+The stacked form ( 12 ) then applies with G G replaced by C C and s ~ \tilde{s} by s ~ c \tilde{s}_{c} ; the factored form uses F = [ M , M ​ C ⊤ ] F=[M,\;MC^{\top}] followed by s ~ c = C ​ z ~ \tilde{s}_{c}=C\tilde{z} .
+Both recover s ~ d = d ∘ z ~ \tilde{s}_{d}=d\circ\tilde{z} , so D D need not be stored
+in either operator. Box structure. With G = D G=D and m c = 0 m_{c}=0 , define r = σ ​ z − q + d ∘ ( 𝝆 ​ s − λ ) r=\sigma z-q+d\circ(\bm{\rho}s-\lambda) .
+Both forms reduce to z ~ = M ​ r \tilde{z}=Mr and s ~ = d ∘ z ~ \tilde{s}=d\circ\tilde{z} ,
+using one fused kernel per iteration. Only the dense matrix M M and
+the diagonal vector d d are stored, requiring n 2 + n n^{2}+n entries in total.
+Compared with treating D D as dense, this reduces storage from 4 ​ n 2 4n^{2} entries for the stacked form or 3 ​ n 2 3n^{2} for the factored form.
+After exploiting the diagonal structure, the two forms are identical. For the split and general structures, the stacked operator contains ( n + m c ) 2 (n+m_{c})^{2} entries, whereas F F and C C together contain n ⁡ ( n + 2 ​ m c ) n(n+2m_{c}) .
+Thus, the factored form reads ( n + m c ) 2 − n ⁡ ( n + 2 ​ m c ) = m c 2 (n+m_{c})^{2}-n(n+2m_{c})=m_{c}^{2} (13) fewer operator entries per iteration, at the cost of two sequential
+kernels instead of one fused kernel. III-C The Penalty Bank: Adaptation and Probing FAME ​ - ​ QP \mathrm{FAME}\text{-}\mathrm{QP} precomputes the operators for a bank of five penalties,
+spaced by factors of 10 10 and initially centered at ρ 0 = 0.1 \rho_{0}=0.1 .
+Adapting ρ \rho during a solve therefore selects a stored operator
+rather than recomputing an inverse. After each convergence check,
+OSQP’s residual-balancing rule proposes ρ new = ρ ​ r prim ​ η d / ( r dual ​ η p ) \rho_{\rm new}=\rho\sqrt{r_{\rm prim}\eta_{\rm d}/(r_{\rm dual}\eta_{\rm p})} ,
+using the residual norms and scales in ( 9 ).
+If the proposal differs from the current ρ \rho by more than a
+factor of 5 5 , it is snapped to the nearest bank entry.
+The multiplier λ \lambda is retained across switches, since its
+optimal value is independent of ρ \rho .
+The penalty grid remains fixed during each solve. The same bank is also used to select the starting penalty.
+At setup, each entry initializes a trial of at most 400 400 iterations
+from zero, with adaptation enabled. Each trial records the time and
+iteration count needed to satisfy 1 / 100 1/100 , 1 / 10 1/10 , and 1 1 times
+the requested tolerances. Trials are compared at the tightest
+tolerance reached by any trial; the fastest determines the starting ρ \rho , and its iteration count provides the estimate j est j_{\rm est} used in
+Sec. III-E . Ties favor the first tested entry.
+If an endpoint wins, the bank is re-centered there and probed again,
+with at most two rebuilds. This search adds setup cost but no
+per-solve probing. For split constraints, input bounds are often active while state
+bounds are mostly inactive, so a common penalty can overweight
+the dense rows. We therefore probe γ ∈ { 10 − 3 , … , 10 } \gamma\in\{10^{-3},\ldots,10\} at the selected ρ \rho , then
+re-probe ρ \rho with the selected γ \gamma .
+The resulting γ \gamma is fixed in every bank entry; in-solve
+adaptation changes only the scalar ρ \rho . III-D Execution Modes Both modes perform the complete ADMM iteration ( 8 )
+on the GPU, fusing the elementwise updates with the operator products. Single-kernel iteration. With the stacked operator, one fused kernel computes W ​ r Wr and
+completes the iteration. Each thread block evaluates its assigned
+output rows, then immediately applies the corresponding updates:
+primal rows relax z ~ \tilde{z} to update z z ; constraint rows form ζ \zeta , project it onto [ l , h ] [l,h] to update s s , and update λ \lambda .
+For split constraints, the primal rows also compute s ~ d = d ∘ z ~ \tilde{s}_{d}=d\circ\tilde{z} and complete the diagonal constraint
+updates. Each block then constructs its portion of the next r r .
+Two buffers alternate as input and output, preventing writes from
+overwriting entries that other blocks are still reading.
+For box constraints, the same kernel uses M M and handles all
+constraint updates elementwise. Two-kernel iteration. With the factored operator, the first kernel computes z ~ = F ​ r \tilde{z}=Fr ,
+updates z z , and completes any diagonal constraint updates.
+It stores z ~ \tilde{z} for the second kernel, which computes s ~ c = C ​ z ~ \tilde{s}_{c}=C\tilde{z} and immediately performs the dense constraint
+projection and dual update. Each kernel constructs the corresponding
+portion of the next r r . The kernel boundary ensures that all entries
+of z ~ \tilde{z} are available before evaluating C ​ z ~ C\tilde{z} .
+Box constraints require no second kernel. CUDA-graph replay. At setup, j chk j_{\rm chk} complete iterations followed by the
+termination test ( 9 ) are captured as a CUDA graph.
+Each replay executes this sequence with one host (CPU) call, preserving
+the dependencies between kernels and iterations.
+The test computes P ​ z Pz , G ​ z Gz , and G ⊤ ​ λ G^{\top}\lambda on the device,
+followed by two reduction kernels that produce the residual norms,
+their scales η p , η d \eta_{\rm p},\eta_{\rm d} , and a stop flag.
+The host reads these five values once per replay to terminate,
+declare a stall (no 10 % 10\% residual decrease in 12 12 checks), or
+adapt ρ \rho using the penalty bank.
+After a penalty switch, r r is rebuilt before replay resumes.
+Thus, fusion reduces kernels per iteration, while graph replay
+reduces host dispatch and synchronization to once per j chk j_{\rm chk} iterations. III-E Automatic Mode Selection FAME ​ - ​ QP \mathrm{FAME}\text{-}\mathrm{QP} selects the operator form and tunes its kernel tile
+configuration once per problem shape. The iteration-time model is t iter ≈ n ker ​ τ + t stream ​ ( b op ) , t_{\rm iter}\approx n_{\rm ker}\tau+t_{\rm stream}(b_{\rm op}), (14) where n ker ∈ { 1 , 2 } n_{\rm ker}\in\{1,2\} , τ \tau is the overhead per kernel node
+in a replayed graph, and b op b_{\rm op} is the operator size in bytes.
+Once per device and precision, FAME ​ - ​ QP \mathrm{FAME}\text{-}\mathrm{QP} measures τ \tau , the
+host-read cost t read t_{\rm read} , and t stream t_{\rm stream} over feasible
+operator sizes from 0.25 ​ – ​ 64 ​ MB 0.25\text{--}64\,\mathrm{MB} , stopping if
+memory allocation fails. Outside the measured range, t stream t_{\rm stream} is extrapolated linearly at the bandwidth of
+the nearest endpoint. These measurements are cached. For box constraints, the forms coincide and only the single-kernel
+configuration is tuned. For split and general constraints, stacking
+saves one launch but reads β ​ m c 2 \beta m_{c}^{2} additional bytes, where β \beta is the number of bytes per value. Under a constant-bandwidth
+approximation, the stacked form is predicted to be faster when m c < τ ​ BW / β m_{c}<\sqrt{\tau\,{\rm BW}/\beta} , with BW {\rm BW} denoting the
+effective memory bandwidth. An operator form is first excluded if its estimated penalty-bank
+storage exceeds 60 % 60\% of currently free GPU memory; setup fails
+if neither form fits. Among feasible forms, those predicted more
+than 1.5 1.5 times slower than the best are discarded.
+The remaining forms and their tile configurations are timed inside
+CUDA graphs using placeholder operators of the actual dimensions.
+The single-kernel mode is retained unless the measured two-kernel
+time is more than 10 % 10\% shorter. Thus, the model prunes the search,
+while measured timings determine the final selection.
+Using the measured t iter t_{\rm iter} , the predicted time for j est j_{\rm est} iterations is T graph = ⌈ j est j chk ⌉ ​ ( j chk ​ t iter + t check + t read ) , T_{\rm graph}=\left\lceil\tfrac{j_{\rm est}}{j_{\rm chk}}\right\rceil\bigl(j_{\rm chk}t_{\rm iter}+t_{\rm check}+t_{\rm read}\bigr), (15) where t check t_{\rm check} is the device-side termination-test time. III-F Updates, Warm Starts, and Precision Between solves, new q , l , h q,l,h are scaled using the stored T , V , c T,V,c ,
+and r r is rebuilt. Changes to P P or G G that
+preserve the constraint structure trigger rescaling and in-place
+re-inversion of either the full bank or, in lazy mode , only the
+active entry. Other entries are marked stale and recomputed when
+selected by a penalty switch. The captured graph is retained,
+and ρ \rho carries over between solves.
+A warm start initializes z , λ z,\lambda and reconstructs s = Π 𝒞 ​ ( G ​ z ) s=\Pi_{\mathcal{C}}(Gz) , optionally after shifting the previous
+solution one stage along the horizon. The bank is always inverted in float64 , while operators
+and iterates use float32 or float64 .
+Single-precision residuals may stagnate near 10 − 6 10^{-6} ;
+a stalled solve returns solved_inaccurate if it satisfies
+the termination test at 100 100 times the requested tolerances. The working precision is either fixed by the user or selected
+automatically before the setup of Algorithm 1 . In automatic
+mode, FAME ​ - ​ QP \mathrm{FAME}\text{-}\mathrm{QP} estimates the condition number κ ⁡ ( K ) = λ max ​ ( K ) / λ min ​ ( K ) \kappa(K)=\lambda_{\max}(K)/\lambda_{\min}(K) by power iterations.
+For target accuracy ϵ \epsilon and u 32 = 2 − 24 u_{32}=2^{-24} , it selects float32 if u 32 ​ κ ​ ( K ) ≤ 0.01 ​ ϵ u_{32}\kappa(K)\leq 0.01\epsilon and float64 if u 32 ​ κ ​ ( K ) ≥ ϵ u_{32}\kappa(K)\geq\epsilon . Otherwise, the setup is run in both
+precisions, which are compared by T graph T_{\rm graph} in ( 15 ),
+preferring float64 when its prediction is within 20 % 20\% of float32 . Algorithm 1 FAME ​ - ​ QP \mathrm{FAME}\text{-}\mathrm{QP} 1: data P , q , G , l , h P,q,G,l,h ;  tolerances ϵ abs , ϵ rel \epsilon_{\rm abs},\epsilon_{\rm rel} ;  parameters σ , α \sigma,\alpha ; 
+check interval j chk j_{\rm chk} ;  iteration limit j max j_{\max} ; precision 2: ( z , s , λ ) (z,s,\lambda) and status 3: Setup (once) 4: Detect constraint structure; Ruiz-scale data ⊳ \triangleright Sec. III-A 5: Select execution mode ⊳ \triangleright Sec. III-E 6: Build penalty bank; capture j chk j_{\rm chk} iterations and
+test ( 9 ) as a CUDA graph ⊳ \triangleright Sec. III-C , III-D 7: Probe ρ \rho (and γ \gamma if split); re-center bank as needed 8: Solve (each QP) 9: Scale new data; if P P or G G changed, refresh the bank
+fully or lazily ⊳ \triangleright Sec. III-F 10: Initialize z , λ z,\lambda from zero or a warm start; s ← Π 𝒞 ​ ( G ​ z ) s\leftarrow\Pi_{\mathcal{C}}(Gz) 11: Form r r as in Sec. III-B ; j ← 0 j\leftarrow 0 12: repeat ⊳ \triangleright one graph replay per pass 13: for j chk j_{\rm chk} iterations do 14: if m c = 0 m_{c}=0 then ⊳ \triangleright box 15: z ~ ← M ​ r \tilde{z}\leftarrow Mr 16: else if stacked form then ⊳ \triangleright single-kernel 17: [ z ~ ; s ~ c ] ← W ​ r [\tilde{z};\tilde{s}_{c}]\leftarrow Wr 18: else ⊳ \triangleright factored form, two-kernel 19: z ~ ← F ​ r \tilde{z}\leftarrow Fr ; s ~ c ← C ​ z ~ \tilde{s}_{c}\leftarrow C\tilde{z} 20: end if 21: s ~ ← [ d ∘ z ~ ; s ~ c ] \tilde{s}\leftarrow[d\circ\tilde{z};\,\tilde{s}_{c}] ⊳ \triangleright blocks present 22: z ← α ​ z ~ + ( 1 − α ) ​ z z\leftarrow\alpha\tilde{z}+(1-\alpha)z ; ζ ← α ​ s ~ + ( 1 − α ) ​ s + 𝝆 − 1 ​ λ \zeta\leftarrow\alpha\tilde{s}+(1-\alpha)s+\bm{\rho}^{-1}\lambda 23: s ← Π 𝒞 ​ ( ζ ) s\leftarrow\Pi_{\mathcal{C}}(\zeta) ; λ ← 𝝆 ⁡ ( ζ − s ) \lambda\leftarrow\bm{\rho}(\zeta-s) ;  form next r r 24: end for 25: Evaluate ( 9 ) on the GPU; j ← j + j chk j\leftarrow j+j_{\rm chk} 26: Host reads the norms, scales, and stop flag 27: if continuing then adapt ρ \rho as in Sec. III-C 28: if ρ \rho switched then refresh
+a stale entry; rebuild r r 29: until converged, stalled, or j ≥ j max j\geq j_{\max} 30: return unscaled ( z , s , λ ) (z,s,\lambda) and status IV Experimental Results We evaluate FAME ​ - ​ QP \mathrm{FAME}\text{-}\mathrm{QP} through numerical benchmarks and closed-loop robotic control experiments in high-fidelity MuJoCo simulations.
+The CPU QP baselines are OSQP [ 2 ] ,
+PIQP [ 7 ] , ProxQP [ 12 ] ,
+Clarabel [ 8 ] , and DAQP [ 11 ] .
+The GPU baselines include the QP solvers cuOSQP [ 13 ] , ReLU-QP [ 9 ] ,
+qpax [ 25 ] , and CuPIQP [ 26 ] ,
+and the MPC solvers CUDA MPC [ 30 ] and π \pi MPC [ 29 ] .
+We use the original implementations, except for CUDA MPC,
+which we reimplement because its source code was unavailable.
+All experiments run on a system equipped with an NVIDIA RTX 3080
+Laptop GPU (48 SMs, 16 ​ GB 16\,\mathrm{GB} VRAM) and an Intel
+Core i7-11850H processor with 32 ​ GB 32\,\mathrm{GB} RAM. Unless stated otherwise, FAME ​ - ​ QP \mathrm{FAME}\text{-}\mathrm{QP} runs in float64 with σ = 10 − 6 \sigma=10^{-6} , α = 1.6 \alpha=1.6 , ϵ abs = ϵ rel = ϵ \epsilon_{\rm abs}=\epsilon_{\rm rel}=\epsilon for a stated tolerance ϵ \epsilon , j chk = 10 j_{\rm chk}=10 , and j max = 2 × 10 4 j_{\max}=2\times 10^{4} ( 10 5 10^{5} in the closed-loop random-LMPC and Unitree G1 experiments), with penalty
+adaptation and probing enabled; lazy updates are used where the QP matrices
+change at every step (KQ-LMPC). IV-A Numerical Experiments: Random QP and LMPC Dense random QPs. We use the dense random QPs of [ 9 ] , with n / 4 n/4 dense equality rows and n / 4 n/4 dense one-sided inequality rows (approximately 30 % 30\% of the inequalities active), using five random seeds per problem size n n . To match solution accuracy across solvers, we sweep each solver’s tolerance over { 10 − 3 , … , 10 − 8 } \{10^{-3},\ldots,10^{-8}\} and select the loosest value yielding an ℓ ∞ \ell_{\infty} solution error of at most 10 − 3 10^{-3} on all five instances, relative to Clarabel solutions computed at tolerance 10 − 10 10^{-10} . We report the mean across instances of their median solve times. FAME ​ - ​ QP \mathrm{FAME}\text{-}\mathrm{QP} is set up, including penalty probing, on a held-out instance of the same size. Setup time is excluded for all solvers; only solve time is reported. Figure 1 shows the median across five instances of
+their per-instance median cold-solve times, with min–max bands.
+Using the mean of these per-instance medians for numerical comparisons, FAME ​ - ​ QP \mathrm{FAME}\text{-}\mathrm{QP} in float64 outperforms all GPU baselines at every
+tested size and all CPU baselines for n ≥ 220 n\geq 220 .
+Over n = 220 n=220 – 1400 1400 , its speedups are 1.2 1.2 – 25.9 × 25.9\times over
+DAQP and 1.5 1.5 – 4.3 × 4.3\times over ReLU-QP, the best CPU and
+competing GPU baselines, respectively. Since cuOSQP’s native implementation uses float32 ,
+we also evaluate FAME ​ - ​ QP \mathrm{FAME}\text{-}\mathrm{QP} in this precision under the same
+accuracy criterion. Single precision further reduces its solve
+time at most sizes, although float64 remains faster
+at n = 600 n=600 and 800 800 . At n = 1400 n=1400 , the mean solve time is 1.95 1.95 ms in float32 , compared with 5.01 5.01 ms in float64 and 326 326 ms for cuOSQP. GPU LMPC on random systems. Following [ 9 ] , we consider random unstable linear
+systems with n u ∈ { 10 , 20 , 30 , 40 , 50 } n_{u}\in\{10,20,30,40,50\} , n x = 3 ​ n u n_{x}=3n_{u} , spectral radius 1.05 1.05 , and horizon N = 40 N=40 , with Q = I Q=I , R = 0.1 ​ I R=0.1I , an LQR terminal cost,
+and input bounds | u | ≤ 1 |u|\leq 1 . Initial states are chosen so that input bounds
+are active on at least 30 % 30\% of the steps under exact MPC. We compare FAME ​ - ​ QP \mathrm{FAME}\text{-}\mathrm{QP} with ReLU-QP and CuPIQP, the two fastest GPU QP baselines in the
+random-QP benchmark, and with the GPU MPC methods CUDA MPC and π \pi MPC.
+The QP solvers receive the same LQR pre-stabilized condensed QP
+( n = 40 ​ n u n=40n_{u} ); the MPC methods receive the original OCP. Each method runs 50 50 closed-loop steps in float64 after one
+untimed solve at x 0 x_{0} . Where supported, step 0 reuses that solution and
+later steps shift the previous solution one stage; CuPIQP accepts no
+starting point and uses its native IP initialization. The QP solvers use
+tolerance 10 − 3 10^{-3} in their native stopping tests: absolute and relative
+for FAME ​ - ​ QP \mathrm{FAME}\text{-}\mathrm{QP} and CuPIQP, and absolute only for ReLU-QP, whose thresholds
+scale with m \sqrt{m} and n \sqrt{n} . π \pi MPC uses its native fixed-point
+test with tolerance 10 − 6 10^{-6} at every iteration, and CUDA MPC, which has
+no convergence test, its fixed budget of 500 500 iterations. Timings exclude
+setup and the initialization solve but include data updates, warm-start
+shifts, and transfer of the first input to the host. Table I shows that FAME ​ - ​ QP \mathrm{FAME}\text{-}\mathrm{QP} achieves the lowest
+mean step time at every size, from 0.658 0.658 to 4.23 4.23 ms. It is 3.2 3.2 – 7.3 × 7.3\times faster than ReLU-QP, the closest QP baseline, and 3.2 3.2 – 13.8 × 13.8\times faster than π \pi MPC, the fastest MPC baseline, with
+smaller timing standard deviations than both at every size. Since the
+stopping tests are not equivalent, we also compare the accuracy achieved:
+closed-loop costs of all methods agree within 0.06 % 0.06\% , and the largest
+bound violation of the returned input is at most 2.0 × 10 − 3 2.0\times 10^{-3} for FAME ​ - ​ QP \mathrm{FAME}\text{-}\mathrm{QP} , against 1.4 1.4 – 4.3 × 10 − 2 4.3\times 10^{-2} for ReLU-QP, about 10 − 4 10^{-4} for π \pi MPC, and below 10 − 6 10^{-6} for CuPIQP and CUDA MPC. TABLE I: Online MPC step times [ms], mean ± \pm standard deviation
+over 50 50 steps. Setup and initialization are excluded;
+fastest means are bold. Solver / n n 400 800 1200 1600 2000 FAME ​ - ​ QP \mathrm{FAME}\text{-}\mathrm{QP} 0.658 ± 0.066 \mathbf{0.658\pm 0.066} 1.19 ± 0.04 \mathbf{1.19\pm 0.04} 2.05 ± 0.45 \mathbf{2.05\pm 0.45} 2.92 ± 0.09 \mathbf{2.92\pm 0.09} 4.23 ± 0.21 \mathbf{4.23\pm 0.21} ReLU-QP 2.10 ± 0.37 2.10\pm 0.37 6.06 ± 1.02 6.06\pm 1.02 11.6 ± 1.9 11.6\pm 1.9 20.0 ± 3.9 20.0\pm 3.9 30.9 ± 6.1 30.9\pm 6.1 CuPIQP 23.7 ± 7.0 23.7\pm 7.0 58.9 ± 11.3 58.9\pm 11.3 178 ± 42 178\pm 42 248 ± 63 248\pm 63 449 ± 120 449\pm 120 CUDA MPC 22.7 ± 0.1 22.7\pm 0.1 59.9 ± 0.5 59.9\pm 0.5 82.8 ± 0.8 82.8\pm 0.8 103 ± 0 103\pm 0 138 ± 3 138\pm 3 π \pi MPC 9.06 ± 12.39 9.06\pm 12.39 8.90 ± 12.88 8.90\pm 12.88 6.78 ± 5.67 6.78\pm 5.67 15.4 ± 23.9 15.4\pm 23.9 13.4 ± 18.1 13.4\pm 18.1 IV-B Closed-Loop LMPC on MuJoCo Robotic Systems. Unitree G1 humanoid push recovery. We evaluate balance recovery of the Unitree G1 in MuJoCo
+(29 position-controlled joints, 70 states) at a 2 ​ ms 2\,\mathrm{ms} control period.
+The prediction model is the discrete linearization of the full
+MuJoCo step about a bent-knee stance. The cost penalizes CoM
+displacement and joint deviations, with an LQR terminal cost
+and pre-stabilizing gain. Joint-target offsets are bounded by
+rated torque divided by actuator gain
+( 0.01 ​ – ​ 0.28 ​ rad 0.01\text{--}0.28\,\mathrm{rad} ).
+The resulting condensed QP has n = m = 29 ​ N n=m=29N and general constraint
+structure. We compare against ReLU-QP, the fastest competing
+GPU QP solver in the random-QP benchmark. Both use float64 and tolerance 10 − 4 10^{-4} , with convergence checked
+every 10 10 and 25 25 iterations, respectively. An 80 ​ N 80\,\mathrm{N} torso push lasting 0.1 ​ s 0.1\,\mathrm{s} tests recovery over 5 ​ s 5\,\mathrm{s} ( Figure 2 ). FAME ​ - ​ QP \mathrm{FAME}\text{-}\mathrm{QP} reduces mean QP time by 2.3 2.3 – 3.1 × 3.1\times ,
+remaining below the 2 ​ ms 2\,\mathrm{ms} control period
+at every tested horizon, whereas ReLU-QP exceeds it for N ≥ 15 N\geq 15 .
+Thus, FAME ​ - ​ QP \mathrm{FAME}\text{-}\mathrm{QP} doubles the largest tested horizon within the
+mean-time budget, from N = 10 N=10 to N = 20 N=20 .
+Both methods achieve comparable balance recovery, with CoM RMS
+deviations of 18.7 ​ – ​ 20.5 ​ mm 18.7\text{--}20.5\,\mathrm{mm} ( Table II ). TABLE II: Unitree G1 push recovery. QP times are mean ± \pm std,
+excluding the first step. N N ( n n ) QP time [ms] CoM RMS [mm] FAME ​ - ​ QP \mathrm{FAME}\text{-}\mathrm{QP} ReLU-QP FAME ​ - ​ QP \mathrm{FAME}\text{-}\mathrm{QP} ReLU-QP 10 (290) 0.650 ± 0.091 \mathbf{0.650\pm 0.091} 1.47 ± 0.05 1.47\pm 0.05 18.7 18.7 15 (435) 0.763 ± 0.116 \mathbf{0.763\pm 0.116} 2.26 ± 0.12 2.26\pm 0.12 19.1 19.2 20 (580) 1.04 ± 0.20 \mathbf{1.04\pm 0.20} 3.25 ± 0.13 3.25\pm 0.13 20.5 19.5 Fig. 2: Unitree G1 push recovery in MuJoCo with FAME ​ - ​ QP \mathrm{FAME}\text{-}\mathrm{QP} : torso push,
+maximum lean, return, and final stance. Quadrotor trajectory tracking in MuJoCo. We evaluate FAME ​ - ​ QP \mathrm{FAME}\text{-}\mathrm{QP} with changing prediction matrices using
+KQ-LMPC [ 20 ] , which constructs time-varying
+LMPC from analytically derived Koopman-lifted dynamics.
+The Skydio X2 tracks the supplied lemniscate trajectory for 20 ​ s 20\,\mathrm{s} , starting on the reference, at 50 ​ Hz 50\,\mathrm{Hz} .
+With four inputs and N = 70 N=70 , the condensed QP has n = 280 n=280 variables, and a 1.4 ​ s 1.4\,\mathrm{s} prediction horizon. Both the Hessian and the constraint matrix
+change at every step. We compare against CuPIQP, the second-fastest GPU QP baseline
+in the random-QP benchmark. ReLU-QP is excluded because its
+native interface does not support matrix updates between solves.
+Both solvers use float64 and tolerance 10 − 4 10^{-4} ,
+with setup and one initial solve performed before timing. FAME ​ - ​ QP \mathrm{FAME}\text{-}\mathrm{QP} uses shifted warm starts; CuPIQP computes its own
+IP starting point at each solve. Fig. 3: Skydio X2 trajectory tracking in MuJoCo with FAME ​ - ​ QP \mathrm{FAME}\text{-}\mathrm{QP} . Including matrix updates, warm-start shifts, and host transfer, FAME ​ - ​ QP \mathrm{FAME}\text{-}\mathrm{QP} achieves a mean QP time of 12.5 ± 3.2 12.5\pm 3.2 ms
+(mean ± \pm standard deviation), compared with 59.2 ± 4.8 59.2\pm 4.8 ms
+for CuPIQP, a 4.7 × 4.7\times speedup. Its 99th-percentile latency
+is 17.6 ​ ms 17.6\,\mathrm{ms} , below the 20 ​ ms 20\,\mathrm{ms} control period, versus 72.1 ​ ms 72.1\,\mathrm{ms} for CuPIQP.
+Despite the changing QP matrices, FAME ​ - ​ QP \mathrm{FAME}\text{-}\mathrm{QP} maintains accurate
+tracking, with position RMSE of 2.7 ​ mm 2.7\,\mathrm{mm} versus 3.4 ​ mm 3.4\,\mathrm{mm} for CuPIQP; both have a maximum
+tracking error of 8.5 ​ mm 8.5\,\mathrm{mm} . Figure 3 shows the Skydio X2 quadrotor tracking the lemniscate trajecotry with FAME ​ - ​ QP \mathrm{FAME}\text{-}\mathrm{QP} . IV-C Ablation Study We isolate GPU execution, constraint structure, operator selection,
+penalty probing, and matrix updates. Fixed-budget experiments time 200 200 iterations at a fixed penalty without termination checks; complete solves
+include convergence checks and transfer of the solution to the host.
+Within each comparison, the problem data and all other settings are
+identical. Fusion and graph replay. We compare separate operations and fused kernels, each with ordinary
+launches or CUDA graph replay, on the same stacked operator with m c = n / 4 m_{c}=n/4 . Table III shows that the two are complementary:
+at n = 128 n=128 , replay reduces the unfused iteration time from 140 140 to 24.6 ​ μ 24.6\,\mu s and fusion further to 4.37 ​ μ 4.37\,\mu s, replacing 14 14 kernels
+per iteration with one. The gain shrinks as the operator grows and the
+matrix–vector product dominates. All variants produce the same iterates
+to within 3 × 10 − 10 3\times 10^{-10} . TABLE III: Execution and penalty ablations. Execution:
+median device time per iteration over 100 100 repetitions.
+Probing: mean iteration counts and mean per-instance median
+wall times over five test instances, with 20 20 cold solves
+per instance. Setup is excluded. Execution time per iteration [ μ \mu s] n n Unfused Unfused Fused Fused eager graph eager graph 128 140 24.6 21.1 4.37 512 146 33.4 21.8 17.4 1028 145 72.9 54.4 53.4 Starting-penalty probing, common bank, ϵ = 10 − 5 \epsilon=10^{-5} Iterations Solve time [ms] n n Default Probed Default Probed 250 74 46 1.10 0.79 600 98 48 3.78 1.88 1000 128 40 10.6 3.21 Constraint structure. For QPs with G = [ I ; C ] G=[I;C] , m c ∈ { 0 , n / 4 , n } m_{c}\in\{0,n/4,n\} , and both operator forms, we
+compare treating every row as dense against extracting the diagonal rows.
+Extraction reduces operator storage by 1.67 1.67 – 4.00 × 4.00\times and iteration
+time by 1.07 1.07 – 3.03 × 3.03\times , with unchanged iteration counts and
+solutions (within 10 − 12 10^{-12} ). At n = 512 n=512 and m c = 128 m_{c}=128 , the stacked
+operator shrinks from 10.1 10.1 to 3.12 3.12 MiB and the iteration time from 49.8 49.8 to 17.3 ​ μ 17.3\,\mu s, whereas ReLU-QP’s ( n + 2 ​ m ) 2 (n+2m)^{2} operator needs 24.5 24.5 MiB and 86.3 ​ μ 86.3\,\mu s under the same graph replay; overall, it is 1.6 1.6 – 5.8 × 5.8\times slower per iteration than the extracted operator. Automatic operator selection. We sweep m c m_{c} from 16 16 to 1024 1024 for n ∈ { 128,512 , 1028 } n\in\{128,512,1028\} and compare
+the stacked, factored, and automatically selected forms. Automatic
+selection picks the faster form at 30 30 of 36 36 points; the six misses
+fall within the 10 % 10\% retention margin of Sec. III-E , and the
+selected configuration is at most 9.5 % 9.5\% slower than the faster fixed
+form, whereas always stacking or always factoring is up to 2.2 × 2.2\times or 1.5 × 1.5\times slower. Pruning never excludes the faster form, but the model
+alone misplaces the crossover by about a factor of two, hence the final
+choice by measured timings. Penalty probing. To separate the starting penalty from bank re-centering, we compare
+default and probed starts on the dense random QPs, with one bank spanning
+both ranges. At tolerance 10 − 5 10^{-5} , the probed start reduces iterations
+by 1.6 1.6 – 3.2 × 3.2\times and complete-solve time by 1.4 1.4 – 3.3 × 3.3\times (Table III ); widening the bank alone changes iteration
+counts by at most 5 % 5\% . A separate run crosses unfused and fused
+iterations with and without the full probe (start and re-centered bank).
+Iteration counts do not depend on fusion, so the gains multiply: from n = 250 n=250 to 1000 1000 , fusion contributes 2.00 × 2.00\times falling to 1.26 × 1.26\times and the probe 1.40 × 1.40\times rising to 3.35 × 3.35\times , for 2.8 2.8 – 4.2 × 4.2\times combined, with the setup cost recovered after about 36 36 – 122 122 solves. Probed FAME ​ - ​ QP \mathrm{FAME}\text{-}\mathrm{QP} and default ReLU-QP reach 10 − 3 10^{-3} accuracy in similar iteration counts ( 30 30 – 38 38 versus 30 30 – 32 32 ), so
+the speedup over ReLU-QP stems mainly from per-iteration cost. For split constraints, we replay a recorded quadrotor KQ-LMPC sequence
+( N = 50 N=50 ) whose QP matrices change at every step. Probing ρ \rho lowers
+the median and tail step times relative to the default penalty; probing γ \gamma as well leaves the median essentially unchanged but further
+shortens the tail and nearly eliminates in-solve penalty switches. Lazy matrix updates. In KQ-LMPC, P P and G G change at every step, so the pre-inverted
+operators must be rebuilt before each solve. Replaying the recorded
+quadrotor QPs with identical data and warm starts, we compare full
+refresh, which re-inverts all five bank entries at every step, with lazy
+refresh, which re-inverts only the active entry and the others when a
+penalty switch selects them. Full refresh makes the update, not the
+iterations, the dominant cost of a step; lazy refresh roughly halves the
+update and median step times and shortens the tail, with identical
+iteration counts, solutions equal to numerical precision, and unchanged
+closed-loop tracking error. V Conclusion FAME-QP accelerates dense MPC quadratic programs through constraint-dependent operators, fused GPU execution with automatic configuration selection, penalty probing, and lazy matrix updates. Numerical and simulated robotic experiments demonstrate reduced latency while maintaining solution accuracy and control performance, including with changing prediction matrices. Future work will explore sparse and horizon-structured formulations to improve scalability. References [1] B. A. Turlach and S. J. Wright (2015) Quadratic programming . Wiley Interdiscip. Rev. Comput. Stat. 7 ( 2 ), pp. 153–159 . Cited by: §I . [2] B. Stellato et al. (2020) OSQP: an operator splitting solver for quadratic programs . Math. Program. Comput. 12 ( 4 ), pp. 637–672 . Cited by: §I , §I , §II-A , §III , §IV . [3] P. M. Wensing et al. (2024) Optimization-based control for dynamic legged robots . IEEE Trans. Robot. 40 , pp. 43–63 . Cited by: §I . [4] Y. Wang and S. Boyd (2010) Fast model predictive control using online optimization . IEEE Trans. Control Syst. Technol. 18 ( 2 ), pp. 267–278 . Cited by: §I . [5] G. Frison et al. (2020) HPIPM: a high-performance quadratic programming framework for model predictive control . IFAC-PapersOnLine 53 ( 2 ), pp. 6563–6569 . Cited by: §I . [6] A. G. Pandala et al. (2019) qpSWIFT: a real-time sparse quadratic program solver for robotic applications . IEEE Robot. Autom. Lett. 4 ( 4 ), pp. 3355–3362 . Cited by: §I . [7] R. Schwan et al. (2023) PIQP: a proximal interior-point quadratic programming solver . In Proc. IEEE Conf. Decis. Control , Cited by: §I , §I , §IV . [8] P. J. Goulart and Y. Chen (2026) Clarabel: an interior-point solver for conic programs with quadratic objectives . Math. Program. Comput. , pp. 1–83 . Cited by: §I , §IV . [9] A. L. Bishop et al. (2024) ReLU-QP: a GPU-accelerated quadratic programming solver for model-predictive control . In Proc. IEEE Int. Conf. Robot. Autom. , pp. 13285–13292 . Cited by: §I-A , §I , §I , §IV-A , §IV-A , §IV . [10] H. J. Ferreau et al. (2014) qpOASES: a parametric active-set algorithm for quadratic programming . Math. Program. Comput. 6 ( 4 ), pp. 327–363 . Cited by: §I . [11] D. Arnström et al. (2022) A dual active-set solver for embedded quadratic programming using recursive L ​ D ​ L ⊤ LDL^{\top} updates . IEEE Trans. Autom. Control 67 ( 8 ), pp. 4362–4369 . Cited by: §I , §IV . [12] A. Bambade et al. (2022) PROX-QP: yet another quadratic programming solver for robotics and beyond . In Proc. Robot.: Sci. Syst. , Cited by: §I , §IV . [13] M. Schubiger et al. (2020) GPU acceleration of ADMM for large-scale quadratic programming . J. Parallel Distrib. Comput. 144 , pp. 55–67 . Cited by: §I-A , §I , §I , §IV . [14] V. N. Dinh (2025) Real-time QP solvers: a concise review and practical guide towards legged robots . arXiv preprint arXiv:2510.21773 . Cited by: §I . [15] N. Hansen et al. (2024) TD-MPC2: scalable, robust world models for continuous control . In Proc. Int. Conf. Learn. Represent. (ICLR) , Cited by: §I . [16] S. M. Rajkumar et al. (2026) K-PWM: control-oriented structured bilinear world models under partial observation . arXiv preprint arXiv:2611.11521 . Cited by: §I . [17] M. Watter et al. (2015) Embed to control: a locally linear latent dynamics model for control from raw images . In Adv. Neural Inf. Process. Syst. , Vol. 28 . Cited by: §I . [18] M. Korda and I. Mezić (2018) Linear predictors for nonlinear dynamical systems: Koopman operator meets model predictive control . Automatica 93 , pp. 149–160 . Cited by: §I . [19] D. Goswami and D. A. Paley (2022) Bilinearization, reachability, and optimal control of control-affine nonlinear systems: a Koopman spectral approach . IEEE Trans. Autom. Control 67 ( 6 ), pp. 2715–2728 . Cited by: §I . [20] S. M. Rajkumar et al. (2025) Real-time linear MPC for quadrotors on SE(3): an analytical Koopman-based realization . IEEE Robot. Autom. Lett. 10 ( 12 ), pp. 13018–13025 . Cited by: §I , §IV-B . [21] V. Makoviychuk et al. (2021) Isaac Gym: high performance GPU based physics simulation for robot learning . In Proc. NeurIPS Datasets Benchmarks Track , Cited by: §I . [22] N. Rudin et al. (2022) Learning to walk in minutes using massively parallel deep reinforcement learning . In Proc. Conf. Robot Learn. (CoRL) , Cited by: §I . [23] A. O’Neill et al. (2024) Open X-Embodiment: robotic learning datasets and RT-X models . In Proc. IEEE Int. Conf. Robot. Autom. (ICRA) , Cited by: §I . [24] H. Lu, Z. Peng, and J. Yang (2025) MPAX: mathematical programming in JAX . In NeurIPS Workshop GPU-Accelerated Scalable Optim. , Cited by: §I . [25] K. Tracy and Z. Manchester (2024) On the differentiability of the primal-dual interior-point method . Note: arXiv:2406.11749 Cited by: §I-A , §IV . [26] F. Song, R. Schwan, Y. Chen, Y. Jiang, and C. N. Jones (2026) CuPIQP: a batched and differentiable QP solver on GPUs for robot learning and control . Note: arXiv:2610.41021 Cited by: §I-A , §IV . [27] E. Adabag et al. (2024) MPCGPU: real-time nonlinear model predictive control through preconditioned conjugate gradient on the GPU . In Proc. IEEE Int. Conf. Robot. Autom. , Cited by: §I-A . [28] G. Bravo-Palacios et al. (2026) TurboMPC: fast, scalable, and differentiable model predictive control on the GPU . Note: arXiv:2606.24039 Cited by: §I-A . [29] L. Wu et al. (2026) π \pi MPC: a parallel-in-horizon and construction-free NMPC solver . Note: arXiv:2601.14414 Cited by: §I-A , §IV . [30] B. Akbari et al. (2026) CUDA MPC: a GPU-native solver for model predictive control . Note: arXiv:2608.03051 Cited by: §I-A , §IV . [31] F. Borrelli, A. Bemporad, and M. Morari (2017) Predictive control for linear and hybrid systems . Cambridge University Press . Cited by: §II-B , §II , §II . [32] NVIDIA Corporation CUDA C++ programming guide . Note: Accessed: Nov. 8, 2026 External Links: Link Cited by: §II , §II . [33] J. Nickolls et al. (2008) Scalable parallel programming with CUDA . In Proc. ACM SIGGRAPH Classes , pp. 1–14 . External Links: Document Cited by: §II . [34] J. Filipovič et al. (2015) Optimizing CUDA code by kernel fusion: application on BLAS . J. Supercomput. 71 , pp. 3934–3957 . External Links: Document Cited by: §II . [35] J. L. Jerez, E. C. Kerrigan, and G. A. Constantinides (2011) A condensed and sparse QP formulation for predictive control . In Proc. IEEE Conf. Decis. Control Eur. Control Conf. , pp. 5217–5222 . Cited by: §II-B , §II-B , §III-A . [36] D. Ruiz (2001) A scaling algorithm to equilibrate both rows and columns norms in matrices . Technical report Rutherford Appleton Lab. . Cited by: §III . Experimental support, please view the build logs for errors. Generated by L A T E xml . Instructions for reporting errors We are continuing to improve HTML versions of papers, and your feedback helps enhance accessibility and mobile
+      support. To report errors in the HTML that will help us improve conversion and rendering, choose any of the
+      methods listed below: Click the "Report Issue" ( ) button, located in the page header. Tip: You can select the relevant text first, to include it in your report. Our team has already identified the following issues . We appreciate your time reviewing and reporting rendering errors we
+      may not have found yet. Your efforts will help us improve the HTML versions for all readers, because disability
+      should not be a barrier to accessing research. Thank you for your continued support in championing open access for
+      all. Have a free development cycle? Help support accessibility at arXiv! Our collaborators at LaTeXML maintain a list of packages that need conversion , and welcome developer contributions . We gratefully acknowledge support from our major funders , member institutions , ,
+        and all contributors. About · Help · Contact · Subscribe · Copyright · Privacy · Accessibility · Operational Status (opens in new tab)
