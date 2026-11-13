@@ -1,0 +1,4646 @@
+{
+  "id": "arxiv:2610.20431",
+  "version": 3,
+  "raw_receipt": {
+    "id": "arxiv:2610.20431",
+    "version": 3,
+    "kind": "html",
+    "url": "https://arxiv.org/html/2610.20431v3",
+    "requested_at": "2026-11-13T00:11:10.620724+00:00",
+    "finished_at": "2026-11-13T00:11:11.486701+00:00",
+    "http_status": "200",
+    "returncode": 0,
+    "stderr": "",
+    "file": "build/maintenance-2026-11-13/backlog-audit/priority-version-sources/2610.20431v3.html.html",
+    "sha256": "ebecce8e358774fbf6465259c57ba744a52dd57cba95666cb4b63e047f90e99f",
+    "bytes": 488057,
+    "paid": false,
+    "html_close_present": true,
+    "title": "SwarmRSI: Recursive Self-Improvement through Evolving Scientific Agent Swarm",
+    "document_version_mentions": [
+      "2610.20431v3"
+    ]
+  },
+  "blocks": [
+    {
+      "id": "abstract1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Recursive self-improvement (RSI) in scientific research aims to improve agents’ research capabilities through their own experimental experience. Scientific agent swarms can pursue this goal when one agent’s findings and implementations advance another’s research. Two obstacles stand in the way. A failed experiment does not reveal whether its hypothesis or its implementation was at fault, and a program without overall gains can hide components that other agents need. We introduce SwarmRSI , a framework in which a swarm improves its research by evolving the research states its agents inherit, including hypotheses, programs and experimental evidence. Feedback-Guided Swarm Mutation uses other agents’ feedback to decide whether to revise a hypothesis or its program. Complementary Swarm Recombination tests retained hypotheses on other agents’ programs and combines complementary components. Recursive Swarm Evolution returns every outcome to a shared graph that guides which state each agent updates next. SwarmRSI achieves state-of-the-art performance across three benchmarks, scoring 76.2 on OpenProblems, attaining a 44.4% Match-SOTA rate on NatureBench, and earning medals on 81.8% of MLE-Bench Lite tasks. Across 90 NatureBench tasks, 77% of the best programs descend from feedback-guided mutation or recombination. Biologists further validate two generated programs in studies of intestinal and splenic immunity. The code is available 1 1 1 https://github.com/EvoScientist/SwarmRSI ."
+    },
+    {
+      "id": "p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": ""
+    },
+    {
+      "id": null,
+      "tag": "figcaption",
+      "classes": [
+        "ltx_caption",
+        "ltx_centering"
+      ],
+      "text": "Figure 1: Two limitations motivating SwarmRSI . In the top example, a poor result does not show whether the hypothesis or its implementation needs revision, and a promising hypothesis is abandoned. In the bottom example, a program without overall gains holds components useful to another agent’s later research. Dashed links mark open revisions and potential reuse."
+    },
+    {
+      "id": "S1.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Recursive self-improvement (RSI) in scientific research aims to improve agents’ research capabilities through their own experimental experience ( Guo et al., 2026a ; Srikanth et al., 2026 ) . Scientific agent swarms offer a way to pursue this goal by coordinating idea generation, implementation, and evaluation across specialized agents ( Yang et al., 2025 ; Tang et al., 2025 ; Yamada et al., 2025 ; Lee et al., 2026 ) . Persistent memories and shared histories retain experimental experience for later research ( Lyu et al., 2026 ; Zhu et al., 2026 ; Du et al., 2026 ; Weng et al., 2026 ) , and accumulated histories can also support improvements to exploration strategies ( Zheng et al., 2026 ) . Together, these capabilities create an opportunity for agents exploring different directions to use one another’s findings and implementations in subsequent research."
+    },
+    {
+      "id": "S1.p2.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "However, sharing experience does not ensure that agents use it to make better research decisions. Program evolution refines executable candidates through execution feedback ( Jiang et al., 2025 ; Nam et al., 2025 ; Novikov et al., 2025 ; Liu et al., 2025 ) , while hypothesis evolution improves research directions through iterative generation and evaluation ( Gottweis et al., 2026 ; Wang et al., 2026a ; Liu et al., 2026 ; Jin et al., 2026 ) . As Figure 1 illustrates, promising hypotheses are abandoned after inadequate implementations, and useful components are overlooked in programs that perform poorly overall."
+    },
+    {
+      "id": "S1.p3.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "We hypothesize that these limitations arise from two interrelated dependencies in scientific research. The value of a hypothesis depends on how it is implemented and how rigorously it is tested. An unsuccessful experiment therefore leaves unclear whether the research direction or its implementation needs revision ( Ma et al., 2026 ; Koo et al., 2026 ) , and feedback from other agents identifies which changes are worth pursuing. Intermediate results also become stepping stones for other search paths ( Wang et al., 2019 ; Wang et al., 2020 ) , and their value depends on combinations with later findings or implementations. Their current performance thus underestimates their contribution to other agents’ future research. This leads to our central question of how scientific agent swarms can evolve toward recursive self-improvement."
+    },
+    {
+      "id": "S1.p4.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "To address this, we introduce SwarmRSI , a framework that evolves scientific agent swarms for recursive self-improvement. Each agent uses its hypotheses, programs, experimental evidence, and unresolved needs to plan further research, and a shared graph records these inheritable research states. In Feedback-Guided Swarm Mutation, agents revise hypotheses and programs using other agents’ experimental feedback. Performance differences inform hypothesis revision, and unmet research needs guide implementation changes. In Complementary Swarm Recombination, agents revisit retained hypotheses on other agents’ implementations and combine program components with complementary strengths. Recursive Swarm Evolution evaluates the resulting candidates, retains useful results, feedback and unresolved needs in the shared graph, and uses these states to decide which hypotheses agents revisit and which programs they refine. Each experiment thus updates the states that later agents start from."
+    },
+    {
+      "id": "S1.p5.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "We evaluate SwarmRSI on OpenProblems ( Luecken et al., 2025 ) , NatureBench ( Wang et al., 2026b ) and MLE-Bench Lite ( Chan et al., 2025 ) , 118 scientific coding and machine-learning engineering tasks, with two backbones. It achieves SOTA results on OpenProblems and NatureBench and outperforms hypothesis and program evolution agents with the same backbone. With DeepSeek-V4-Pro in one seed over all 90 NatureBench tasks, about 77% of its final best programs descend from a rebase, a crossover or an update triggered by feedback. Biologists reproduce two of its programs and use them in follow-up analyses of intestinal and splenic immunity."
+    },
+    {
+      "id": null,
+      "tag": "figcaption",
+      "classes": [
+        "ltx_caption",
+        "ltx_centering"
+      ],
+      "text": "Figure 2: Overview of SwarmRSI . Scientific agents use research states assembled from a shared graph. Feedback-Guided Swarm Mutation revises a hypothesis and implements the revision, or retains the hypothesis and repairs its program. Highlighted lines show local modifications. Complementary Swarm Recombination preserves a hypothesis while adapting another agent’s valid program base (rebase), or compares results across instances and adapts components from complementary programs into one new program (crossover). Blue and green code lines indicate crossover sources. The comparisons and code layouts are schematic. All candidates undergo execution and evaluation, and all attempts, whether successful, failed or without gain, update the graph and the next agent’s state s t + 1 s_{t+1} ."
+    },
+    {
+      "id": "S1.p6.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Our main contributions are:"
+    },
+    {
+      "id": "S1.I1.i1.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "We formulate RSI for scientific agent swarms as evolving inheritable research states, so that each experiment updates the hypotheses, programs and evidence that later agents start from."
+    },
+    {
+      "id": "S1.I1.i2.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "We introduce SwarmRSI , which updates these states through Feedback-Guided Swarm Mutation, Complementary Swarm Recombination and Recursive Swarm Evolution."
+    },
+    {
+      "id": "S1.I1.i3.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "SwarmRSI achieves SOTA results on OpenProblems and NatureBench, most of its final NatureBench programs build on inherited states, and biologists reproduce its programs for immune analyses."
+    },
+    {
+      "id": "S2.SS1.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "LLM agents automate scientific research through hypothesis generation, experiment implementation, and result evaluation ( Tang et al., 2025 ; Yamada et al., 2025 ) . Agents centred on programs search over or refine code with execution feedback ( Jiang et al., 2025 ; Nam et al., 2025 ) , R&D-Agent coordinates proposal generation and implementation through specialized roles ( Yang et al., 2025 ) , and systems with memory carry execution experience into later experiments ( Zhu et al., 2026 ; Du et al., 2026 ) . Closest to our setting, Arbor links explicit hypotheses to programs and experimental evidence in a persistent hypothesis tree ( Jin et al., 2026 ) , and SAGE evaluates competing failure explanations to direct interventions toward hypotheses, experimental design, or implementation ( Ma et al., 2026 ) . SwarmRSI likewise grounds hypotheses in experiments and lets agents use one another’s feedback and partial results."
+    },
+    {
+      "id": "S2.SS2.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Recursive self-improvement uses an agent’s own experience to improve the mechanisms that guide its subsequent activity. AIDE 2 retains accepted code modifications as the basis for further self-improvement ( Srikanth et al., 2026 ) , Dream-RSI refines exploration policies with replay simulators built from historical discovery trees ( Zheng et al., 2026 ) , MASS alternates workflow evolution with model fine-tuning ( Lee et al., 2026 ) , and AQuA uses recorded experiments to guide later research proposals ( Guo et al., 2026a ) . These methods improve the agent’s code, policy, workflow, or proposals. SwarmRSI instead evolves the research states that agents inherit, revising them with other agents’ feedback and reusing retained hypotheses and program components across agents."
+    },
+    {
+      "id": "S3.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "SwarmRSI evolves scientific agent swarms by updating the research states agents inherit. Feedback-Guided Swarm Mutation uses other agents’ feedback to guide revisions, and Complementary Swarm Recombination reuses their hypotheses and program components. Recursive Swarm Evolution evaluates every candidate and retains its outcome, so each experiment informs subsequent research. Figure 2 shows the shared research state and the execution loop that updates it."
+    },
+    {
+      "id": "S3.SS1.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Scientific research task. Given a research goal q q , a starter program p 0 p_{0} , and budget B B , we seek a valid program with high utility. A hypothesis h h specifies a modeling or algorithmic mechanism, and a program p p implements it under the task’s constraints. Different programs may test the same hypothesis. Let 𝒫 valid ​ ( B ) \\mathcal{P}_{\\mathrm{valid}}(B) contain the valid programs found and evaluated within budget. The system returns"
+    },
+    {
+      "id": "S3.SS1.p1.2",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "where u ⁡ ( p ) u(p) is the utility measured under the task’s evaluation protocol."
+    },
+    {
+      "id": "S3.SS1.p2.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Scientific agent swarm. A scientific agent is a research policy for hypothesis proposal, program development, or evidence analysis. At research step t t , the acting agent uses a research state"
+    },
+    {
+      "id": "S3.SS1.p2.2",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "containing the hypotheses, programs, experimental evidence, and unresolved needs available for its current action. It assembles this state from relevant records in the shared graph 𝒢 t \\mathcal{G}_{t} , including other agents’ results, and unresolved research needs. Each record ξ i = ( H i , P i , X i , E i ) \\xi_{i}=(H_{i},P_{i},X_{i},E_{i}) contains the tested hypothesis, parent and resulting programs, outcome, and execution and implementation evidence. The graph retains failed attempts and attempts without gain, and its edges track hypothesis–program associations and parent or reuse relations. Mutation and recombination use s t s_{t} to generate subsequent candidates."
+    },
+    {
+      "id": "S3.SS2.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "To guide revisions of hypotheses and their implementations, Feedback-Guided Swarm Mutation uses experimental feedback from the swarm. An unsuccessful run points to an implementation barrier, and differences across instances point to a revised research direction. At step t t , the agent uses the selected parent pair ( h t , p t ) (h_{t},p_{t}) and state s t s_{t} , which provides outcomes, implementation evidence, and unresolved needs from its own and other agents’ records."
+    },
+    {
+      "id": "S3.SS2.p2.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "The agent proposes a hypothesis and a revision plan:"
+    },
+    {
+      "id": "S3.SS2.p2.2",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "where δ t \\delta_{t} describes the intended changes and their rationale. Differences across instances guide hypothesis revisions, and execution failures or unrealized interventions guide program repair. We call a revision that changes the hypothesis an H-mutation , and one that keeps it ( h ~ t = h t \\tilde{h}_{t}=h_{t} ) and repairs only the implementation a P-mutation . The agent then implements the plan on the parent program using relevant state information:"
+    },
+    {
+      "id": "S3.SS2.p3.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "The resulting candidate ( h ~ t , p ~ t ) (\\tilde{h}_{t},\\tilde{p}_{t}) retains its parent relation and revision rationale in the shared research state. It then enters the shared evaluation loop, which tests validity and measures utility."
+    },
+    {
+      "id": "S3.SS3.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Complementary Swarm Recombination reuses partial results across agents, including programs whose overall scores did not improve."
+    },
+    {
+      "id": "S3.SS3.p2.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Hypothesis reuse. For a hypothesis h t h_{t} with unresolved implementation needs, an agent selects a valid base b t b_{t} from another agent by matching these needs to program mechanisms ( Wiegand et al., 2001 ) . The rebase operation keeps h t h_{t} and adapts its implementation to b t b_{t} , giving ( h ~ t , p ~ t ) = ( h t , Rebase ⁡ ( h t , b t , s t ) ) (\\tilde{h}_{t},\\tilde{p}_{t})=(h_{t},\\operatorname{Rebase}(h_{t},b_{t};s_{t})) ."
+    },
+    {
+      "id": "S3.SS3.p3.2",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Program recombination. Crossover combines programs with complementary strengths across instances ( Holland, 1975 ; Goldberg, 1989 ) . For each dataset or subtask k k , let p k ⋆ p_{k}^{\\star} be the valid program with the highest utility u k u_{k} observed by step t t . Donors are the programs that outperform the parent on some instance, ranked by their largest advantage,"
+    },
+    {
+      "id": "S3.SS3.p3.3",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Each instance takes its components from the highest ranked donor that outperforms the parent there and keeps the parent’s components elsewhere. Both operations record their sources and send the new candidate to the shared evaluation loop."
+    },
+    {
+      "id": "S3.T2.2.1",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Method Backbone Denoise Label Batch SVG Decomp Visual Avg ↑ \\uparrow"
+    },
+    {
+      "id": "S3.T2.2.1.3.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "Denoise"
+    },
+    {
+      "id": "S3.T2.2.1.4.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "Label"
+    },
+    {
+      "id": "S3.T2.2.1.5.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "Batch"
+    },
+    {
+      "id": "S3.T2.2.1.6.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "SVG"
+    },
+    {
+      "id": "S3.T2.2.1.7.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "Decomp"
+    },
+    {
+      "id": "S3.T2.2.1.8.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "Visual"
+    },
+    {
+      "id": "S3.T2.2.1.9.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "Avg ↑ \\uparrow"
+    },
+    {
+      "id": "S3.T2.2.2",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Human Expert Task-specific 28.0 85.0 71.0 66.0 49.0 44.0 57.2"
+    },
+    {
+      "id": "S3.T2.2.2.3.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "28.0"
+    },
+    {
+      "id": "S3.T2.2.2.4.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "85.0"
+    },
+    {
+      "id": "S3.T2.2.2.5.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "71.0"
+    },
+    {
+      "id": "S3.T2.2.2.6.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "66.0"
+    },
+    {
+      "id": "S3.T2.2.2.7.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "49.0"
+    },
+    {
+      "id": "S3.T2.2.2.8.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "44.0"
+    },
+    {
+      "id": "S3.T2.2.2.9.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "57.2"
+    },
+    {
+      "id": "S3.T2.2.3",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Biomni Claude 4 Sonnet 16.0 89.0 82.0 16.0 53.0 35.0 48.5"
+    },
+    {
+      "id": "S3.T2.2.3.3.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "16.0"
+    },
+    {
+      "id": "S3.T2.2.3.4.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "89.0"
+    },
+    {
+      "id": "S3.T2.2.3.5.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "82.0"
+    },
+    {
+      "id": "S3.T2.2.3.6.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "16.0"
+    },
+    {
+      "id": "S3.T2.2.3.7.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "53.0"
+    },
+    {
+      "id": "S3.T2.2.3.8.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "35.0"
+    },
+    {
+      "id": "S3.T2.2.3.9.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "48.5"
+    },
+    {
+      "id": "S3.T2.2.4",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "ChatGPT GPT-5 3.0 81.0 83.0 60.0 74.0 38.0 56.5"
+    },
+    {
+      "id": "S3.T2.2.4.3.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "3.0"
+    },
+    {
+      "id": "S3.T2.2.4.4.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "81.0"
+    },
+    {
+      "id": "S3.T2.2.4.5.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "83.0"
+    },
+    {
+      "id": "S3.T2.2.4.6.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "60.0"
+    },
+    {
+      "id": "S3.T2.2.4.7.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "74.0"
+    },
+    {
+      "id": "S3.T2.2.4.8.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "38.0"
+    },
+    {
+      "id": "S3.T2.2.4.9.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "56.5"
+    },
+    {
+      "id": "S3.T2.2.5",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "AIDE † DeepSeek-V4-Pro 27.4 70.6 78.0 72.8 46.1 39.8 55.8"
+    },
+    {
+      "id": "S3.T2.2.5.3.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "27.4"
+    },
+    {
+      "id": "S3.T2.2.5.4.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "70.6"
+    },
+    {
+      "id": "S3.T2.2.5.5.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "78.0"
+    },
+    {
+      "id": "S3.T2.2.5.6.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "72.8"
+    },
+    {
+      "id": "S3.T2.2.5.7.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "46.1"
+    },
+    {
+      "id": "S3.T2.2.5.8.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "39.8"
+    },
+    {
+      "id": "S3.T2.2.5.9.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "55.8"
+    },
+    {
+      "id": "S3.T2.2.6",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "TusoAI † DeepSeek-V4-Pro 31.5 58.7 79.5 79.0 84.1 69.8 67.1"
+    },
+    {
+      "id": "S3.T2.2.6.3.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "31.5"
+    },
+    {
+      "id": "S3.T2.2.6.4.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "58.7"
+    },
+    {
+      "id": "S3.T2.2.6.5.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "79.5"
+    },
+    {
+      "id": "S3.T2.2.6.6.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "79.0"
+    },
+    {
+      "id": "S3.T2.2.6.7.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "84.1"
+    },
+    {
+      "id": "S3.T2.2.6.8.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "69.8"
+    },
+    {
+      "id": "S3.T2.2.6.9.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "67.1"
+    },
+    {
+      "id": "S3.T2.2.7",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "DeepSeek-V4-Pro 33.6 74.2 82.5 83.9 86.0 84.8 74.2"
+    },
+    {
+      "id": "S3.T2.2.7.3.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "33.6"
+    },
+    {
+      "id": "S3.T2.2.7.4.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "74.2"
+    },
+    {
+      "id": "S3.T2.2.7.5.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "82.5"
+    },
+    {
+      "id": "S3.T2.2.7.6.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "83.9"
+    },
+    {
+      "id": "S3.T2.2.7.7.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "86.0"
+    },
+    {
+      "id": "S3.T2.2.7.8.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "84.8"
+    },
+    {
+      "id": "S3.T2.2.7.9.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "74.2"
+    },
+    {
+      "id": "S3.T2.2.8",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "SwarmRSI † Gemini 3.1 Pro Preview 40.2 80.7 78.8 87.8 83.4 86.4 76.2"
+    },
+    {
+      "id": "S3.T2.2.8.3.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "40.2"
+    },
+    {
+      "id": "S3.T2.2.8.4.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "80.7"
+    },
+    {
+      "id": "S3.T2.2.8.5.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "78.8"
+    },
+    {
+      "id": "S3.T2.2.8.6.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "87.8"
+    },
+    {
+      "id": "S3.T2.2.8.7.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "83.4"
+    },
+    {
+      "id": "S3.T2.2.8.8.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "86.4"
+    },
+    {
+      "id": "S3.T2.2.8.9.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "76.2"
+    },
+    {
+      "id": null,
+      "tag": "figcaption",
+      "classes": [
+        "ltx_caption"
+      ],
+      "text": "Table 1: Main results on the six OpenProblems tasks. Scores are normalized and scaled by 100. Avg is the six-task mean, recomputed from reported task scores for published references. † \\dagger denotes our means over three seeds. Bold and underlined values indicate best and second best results, including ties at the reported precision."
+    },
+    {
+      "id": "S3.T2.7.1",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "All Protein Cellular Physical Molec. Relat. Biomed."
+    },
+    {
+      "id": "S3.T2.7.2",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Method Backbone S ↑ \\uparrow M ↑ \\uparrow S ↑ \\uparrow M ↑ \\uparrow S ↑ \\uparrow M ↑ \\uparrow S ↑ \\uparrow M ↑ \\uparrow S ↑ \\uparrow M ↑ \\uparrow S ↑ \\uparrow M ↑ \\uparrow S ↑ \\uparrow M ↑ \\uparrow"
+    },
+    {
+      "id": "S3.T2.7.2.3.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "S ↑ \\uparrow"
+    },
+    {
+      "id": "S3.T2.7.2.4.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "M ↑ \\uparrow"
+    },
+    {
+      "id": "S3.T2.7.2.5.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "S ↑ \\uparrow"
+    },
+    {
+      "id": "S3.T2.7.2.6.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "M ↑ \\uparrow"
+    },
+    {
+      "id": "S3.T2.7.2.7.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "S ↑ \\uparrow"
+    },
+    {
+      "id": "S3.T2.7.2.8.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "M ↑ \\uparrow"
+    },
+    {
+      "id": "S3.T2.7.2.9.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "S ↑ \\uparrow"
+    },
+    {
+      "id": "S3.T2.7.2.10.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "M ↑ \\uparrow"
+    },
+    {
+      "id": "S3.T2.7.2.11.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "S ↑ \\uparrow"
+    },
+    {
+      "id": "S3.T2.7.2.12.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "M ↑ \\uparrow"
+    },
+    {
+      "id": "S3.T2.7.2.13.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "S ↑ \\uparrow"
+    },
+    {
+      "id": "S3.T2.7.2.14.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "M ↑ \\uparrow"
+    },
+    {
+      "id": "S3.T2.7.2.15.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "S ↑ \\uparrow"
+    },
+    {
+      "id": "S3.T2.7.2.16.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "M ↑ \\uparrow"
+    },
+    {
+      "id": "S3.T2.7.3",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Claude Code DeepSeek-V4-Pro 4.4 23.3 6.3 37.5 9.7 29.0 0.0 7.7 0.0 9.1 0.0 60.0 0.0 7.1"
+    },
+    {
+      "id": "S3.T2.7.3.3.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "4.4"
+    },
+    {
+      "id": "S3.T2.7.3.4.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "23.3"
+    },
+    {
+      "id": "S3.T2.7.3.5.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "6.3"
+    },
+    {
+      "id": "S3.T2.7.3.6.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "37.5"
+    },
+    {
+      "id": "S3.T2.7.3.7.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "9.7"
+    },
+    {
+      "id": "S3.T2.7.3.8.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "29.0"
+    },
+    {
+      "id": "S3.T2.7.3.9.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "0.0"
+    },
+    {
+      "id": "S3.T2.7.3.10.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "7.7"
+    },
+    {
+      "id": "S3.T2.7.3.11.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "0.0"
+    },
+    {
+      "id": "S3.T2.7.3.12.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "9.1"
+    },
+    {
+      "id": "S3.T2.7.3.13.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "0.0"
+    },
+    {
+      "id": "S3.T2.7.3.14.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "60.0"
+    },
+    {
+      "id": "S3.T2.7.3.15.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "0.0"
+    },
+    {
+      "id": "S3.T2.7.3.16.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "7.1"
+    },
+    {
+      "id": "S3.T2.7.4",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "MiniMax-M3 6.7 27.8 6.3 37.5 12.9 29.0 7.7 15.4 0.0 36.4 0.0 60.0 0.0 7.1"
+    },
+    {
+      "id": "S3.T2.7.4.2.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "6.7"
+    },
+    {
+      "id": "S3.T2.7.4.3.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "27.8"
+    },
+    {
+      "id": "S3.T2.7.4.4.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "6.3"
+    },
+    {
+      "id": "S3.T2.7.4.5.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "37.5"
+    },
+    {
+      "id": "S3.T2.7.4.6.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "12.9"
+    },
+    {
+      "id": "S3.T2.7.4.7.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "29.0"
+    },
+    {
+      "id": "S3.T2.7.4.8.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "7.7"
+    },
+    {
+      "id": "S3.T2.7.4.9.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "15.4"
+    },
+    {
+      "id": "S3.T2.7.4.10.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "0.0"
+    },
+    {
+      "id": "S3.T2.7.4.11.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "36.4"
+    },
+    {
+      "id": "S3.T2.7.4.12.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "0.0"
+    },
+    {
+      "id": "S3.T2.7.4.13.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "60.0"
+    },
+    {
+      "id": "S3.T2.7.4.14.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "0.0"
+    },
+    {
+      "id": "S3.T2.7.4.15.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "7.1"
+    },
+    {
+      "id": "S3.T2.7.5",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "GLM-5.2 13.3 35.6 12.5 43.8 22.6 41.9 15.4 15.4 0.0 36.4 0.0 60.0 7.1 21.4"
+    },
+    {
+      "id": "S3.T2.7.5.2.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "13.3"
+    },
+    {
+      "id": "S3.T2.7.5.3.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "35.6"
+    },
+    {
+      "id": "S3.T2.7.5.4.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "12.5"
+    },
+    {
+      "id": "S3.T2.7.5.5.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "43.8"
+    },
+    {
+      "id": "S3.T2.7.5.6.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "22.6"
+    },
+    {
+      "id": "S3.T2.7.5.7.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "41.9"
+    },
+    {
+      "id": "S3.T2.7.5.8.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "15.4"
+    },
+    {
+      "id": "S3.T2.7.5.9.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "15.4"
+    },
+    {
+      "id": "S3.T2.7.5.10.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "0.0"
+    },
+    {
+      "id": "S3.T2.7.5.11.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "36.4"
+    },
+    {
+      "id": "S3.T2.7.5.12.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "0.0"
+    },
+    {
+      "id": "S3.T2.7.5.13.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "60.0"
+    },
+    {
+      "id": "S3.T2.7.5.14.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "7.1"
+    },
+    {
+      "id": "S3.T2.7.5.15.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "21.4"
+    },
+    {
+      "id": "S3.T2.7.6",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Kimi K3 14.4 33.3 6.3 31.3 22.6 38.7 15.4 15.4 9.1 36.4 0.0 60.0 14.3 28.6"
+    },
+    {
+      "id": "S3.T2.7.6.2.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "14.4"
+    },
+    {
+      "id": "S3.T2.7.6.3.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "33.3"
+    },
+    {
+      "id": "S3.T2.7.6.4.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "6.3"
+    },
+    {
+      "id": "S3.T2.7.6.5.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "31.3"
+    },
+    {
+      "id": "S3.T2.7.6.6.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "22.6"
+    },
+    {
+      "id": "S3.T2.7.6.7.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "38.7"
+    },
+    {
+      "id": "S3.T2.7.6.8.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "15.4"
+    },
+    {
+      "id": "S3.T2.7.6.9.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "15.4"
+    },
+    {
+      "id": "S3.T2.7.6.10.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "9.1"
+    },
+    {
+      "id": "S3.T2.7.6.11.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "36.4"
+    },
+    {
+      "id": "S3.T2.7.6.12.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "0.0"
+    },
+    {
+      "id": "S3.T2.7.6.13.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "60.0"
+    },
+    {
+      "id": "S3.T2.7.6.14.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "14.3"
+    },
+    {
+      "id": "S3.T2.7.6.15.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "28.6"
+    },
+    {
+      "id": "S3.T2.7.7",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Qwen 3.8 Max 0902 17.8 35.6 12.5 37.5 25.8 38.7 23.1 23.1 0.0 27.3 0.0 60.0 21.4 35.7"
+    },
+    {
+      "id": "S3.T2.7.7.2.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "17.8"
+    },
+    {
+      "id": "S3.T2.7.7.3.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "35.6"
+    },
+    {
+      "id": "S3.T2.7.7.4.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "12.5"
+    },
+    {
+      "id": "S3.T2.7.7.5.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "37.5"
+    },
+    {
+      "id": "S3.T2.7.7.6.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "25.8"
+    },
+    {
+      "id": "S3.T2.7.7.7.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "38.7"
+    },
+    {
+      "id": "S3.T2.7.7.8.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "23.1"
+    },
+    {
+      "id": "S3.T2.7.7.9.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "23.1"
+    },
+    {
+      "id": "S3.T2.7.7.10.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "0.0"
+    },
+    {
+      "id": "S3.T2.7.7.11.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "27.3"
+    },
+    {
+      "id": "S3.T2.7.7.12.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "0.0"
+    },
+    {
+      "id": "S3.T2.7.7.13.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "60.0"
+    },
+    {
+      "id": "S3.T2.7.7.14.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "21.4"
+    },
+    {
+      "id": "S3.T2.7.7.15.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "35.7"
+    },
+    {
+      "id": "S3.T2.7.8",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Codex GPT-5.4 6.7 24.4 6.3 37.5 9.7 22.6 15.4 23.1 0.0 18.2 0.0 60.0 0.0 7.1"
+    },
+    {
+      "id": "S3.T2.7.8.3.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "6.7"
+    },
+    {
+      "id": "S3.T2.7.8.4.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "24.4"
+    },
+    {
+      "id": "S3.T2.7.8.5.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "6.3"
+    },
+    {
+      "id": "S3.T2.7.8.6.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "37.5"
+    },
+    {
+      "id": "S3.T2.7.8.7.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "9.7"
+    },
+    {
+      "id": "S3.T2.7.8.8.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "22.6"
+    },
+    {
+      "id": "S3.T2.7.8.9.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "15.4"
+    },
+    {
+      "id": "S3.T2.7.8.10.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "23.1"
+    },
+    {
+      "id": "S3.T2.7.8.11.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "0.0"
+    },
+    {
+      "id": "S3.T2.7.8.12.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "18.2"
+    },
+    {
+      "id": "S3.T2.7.8.13.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "0.0"
+    },
+    {
+      "id": "S3.T2.7.8.14.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "60.0"
+    },
+    {
+      "id": "S3.T2.7.8.15.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "0.0"
+    },
+    {
+      "id": "S3.T2.7.8.16.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "7.1"
+    },
+    {
+      "id": "S3.T2.7.9",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "GPT-5.5 4.4 25.6 6.3 31.3 9.7 25.8 0.0 7.7 0.0 18.2 0.0 60.0 0.0 28.6"
+    },
+    {
+      "id": "S3.T2.7.9.2.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "4.4"
+    },
+    {
+      "id": "S3.T2.7.9.3.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "25.6"
+    },
+    {
+      "id": "S3.T2.7.9.4.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "6.3"
+    },
+    {
+      "id": "S3.T2.7.9.5.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "31.3"
+    },
+    {
+      "id": "S3.T2.7.9.6.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "9.7"
+    },
+    {
+      "id": "S3.T2.7.9.7.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "25.8"
+    },
+    {
+      "id": "S3.T2.7.9.8.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "0.0"
+    },
+    {
+      "id": "S3.T2.7.9.9.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "7.7"
+    },
+    {
+      "id": "S3.T2.7.9.10.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "0.0"
+    },
+    {
+      "id": "S3.T2.7.9.11.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "18.2"
+    },
+    {
+      "id": "S3.T2.7.9.12.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "0.0"
+    },
+    {
+      "id": "S3.T2.7.9.13.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "60.0"
+    },
+    {
+      "id": "S3.T2.7.9.14.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "0.0"
+    },
+    {
+      "id": "S3.T2.7.9.15.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "28.6"
+    },
+    {
+      "id": "S3.T2.7.10",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Gemini CLI Gemini 3.5 Flash 10.0 25.6 6.3 31.3 16.1 32.3 23.1 23.1 0.0 18.2 0.0 60.0 0.0 0.0"
+    },
+    {
+      "id": "S3.T2.7.10.3.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "10.0"
+    },
+    {
+      "id": "S3.T2.7.10.4.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "25.6"
+    },
+    {
+      "id": "S3.T2.7.10.5.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "6.3"
+    },
+    {
+      "id": "S3.T2.7.10.6.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "31.3"
+    },
+    {
+      "id": "S3.T2.7.10.7.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "16.1"
+    },
+    {
+      "id": "S3.T2.7.10.8.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "32.3"
+    },
+    {
+      "id": "S3.T2.7.10.9.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "23.1"
+    },
+    {
+      "id": "S3.T2.7.10.10.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "23.1"
+    },
+    {
+      "id": "S3.T2.7.10.11.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "0.0"
+    },
+    {
+      "id": "S3.T2.7.10.12.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "18.2"
+    },
+    {
+      "id": "S3.T2.7.10.13.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "0.0"
+    },
+    {
+      "id": "S3.T2.7.10.14.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "60.0"
+    },
+    {
+      "id": "S3.T2.7.10.15.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "0.0"
+    },
+    {
+      "id": "S3.T2.7.10.16.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "0.0"
+    },
+    {
+      "id": "S3.T2.7.11",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Arbor † DeepSeek-V4-Pro 12.2 36.7 ∗ 6.3 31.3 16.1 48.4 23.1 23.1 0.0 27.3 0.0 60.0 14.3 28.6"
+    },
+    {
+      "id": "S3.T2.7.11.3.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "12.2"
+    },
+    {
+      "id": "S3.T2.7.11.4.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "36.7 ∗"
+    },
+    {
+      "id": "S3.T2.7.11.5.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "6.3"
+    },
+    {
+      "id": "S3.T2.7.11.6.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "31.3"
+    },
+    {
+      "id": "S3.T2.7.11.7.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "16.1"
+    },
+    {
+      "id": "S3.T2.7.11.8.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "48.4"
+    },
+    {
+      "id": "S3.T2.7.11.9.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "23.1"
+    },
+    {
+      "id": "S3.T2.7.11.10.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "23.1"
+    },
+    {
+      "id": "S3.T2.7.11.11.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "0.0"
+    },
+    {
+      "id": "S3.T2.7.11.12.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "27.3"
+    },
+    {
+      "id": "S3.T2.7.11.13.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "0.0"
+    },
+    {
+      "id": "S3.T2.7.11.14.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "60.0"
+    },
+    {
+      "id": "S3.T2.7.11.15.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "14.3"
+    },
+    {
+      "id": "S3.T2.7.11.16.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "28.6"
+    },
+    {
+      "id": "S3.T2.7.12",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "AIDE † DeepSeek-V4-Pro 10.0 27.8 ∗ 6.3 25.0 16.1 35.5 15.4 15.4 0.0 27.3 0.0 60.0 7.1 14.3"
+    },
+    {
+      "id": "S3.T2.7.12.3.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "10.0"
+    },
+    {
+      "id": "S3.T2.7.12.4.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "27.8 ∗"
+    },
+    {
+      "id": "S3.T2.7.12.5.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "6.3"
+    },
+    {
+      "id": "S3.T2.7.12.6.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "25.0"
+    },
+    {
+      "id": "S3.T2.7.12.7.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "16.1"
+    },
+    {
+      "id": "S3.T2.7.12.8.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "35.5"
+    },
+    {
+      "id": "S3.T2.7.12.9.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "15.4"
+    },
+    {
+      "id": "S3.T2.7.12.10.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "15.4"
+    },
+    {
+      "id": "S3.T2.7.12.11.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "0.0"
+    },
+    {
+      "id": "S3.T2.7.12.12.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "27.3"
+    },
+    {
+      "id": "S3.T2.7.12.13.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "0.0"
+    },
+    {
+      "id": "S3.T2.7.12.14.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "60.0"
+    },
+    {
+      "id": "S3.T2.7.12.15.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "7.1"
+    },
+    {
+      "id": "S3.T2.7.12.16.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "14.3"
+    },
+    {
+      "id": "S3.T2.7.13",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "DeepSeek-V4-Pro 15.6 44.4 0.0 37.5 22.6 48.4 53.8 53.8 0.0 45.5 0.0 60.0 0.0 28.6"
+    },
+    {
+      "id": "S3.T2.7.13.3.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "15.6"
+    },
+    {
+      "id": "S3.T2.7.13.4.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "44.4"
+    },
+    {
+      "id": "S3.T2.7.13.5.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "0.0"
+    },
+    {
+      "id": "S3.T2.7.13.6.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "37.5"
+    },
+    {
+      "id": "S3.T2.7.13.7.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "22.6"
+    },
+    {
+      "id": "S3.T2.7.13.8.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "48.4"
+    },
+    {
+      "id": "S3.T2.7.13.9.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "53.8"
+    },
+    {
+      "id": "S3.T2.7.13.10.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "53.8"
+    },
+    {
+      "id": "S3.T2.7.13.11.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "0.0"
+    },
+    {
+      "id": "S3.T2.7.13.12.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "45.5"
+    },
+    {
+      "id": "S3.T2.7.13.13.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "0.0"
+    },
+    {
+      "id": "S3.T2.7.13.14.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "60.0"
+    },
+    {
+      "id": "S3.T2.7.13.15.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "0.0"
+    },
+    {
+      "id": "S3.T2.7.13.16.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "28.6"
+    },
+    {
+      "id": "S3.T2.7.14",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "SwarmRSI † Gemini 3.1 Pro Preview 14.4 44.4 6.3 43.8 22.6 38.7 23.1 61.5 9.1 54.5 20.0 80.0 0.0 21.4"
+    },
+    {
+      "id": "S3.T2.7.14.3.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "14.4"
+    },
+    {
+      "id": "S3.T2.7.14.4.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "44.4"
+    },
+    {
+      "id": "S3.T2.7.14.5.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "6.3"
+    },
+    {
+      "id": "S3.T2.7.14.6.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "43.8"
+    },
+    {
+      "id": "S3.T2.7.14.7.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "22.6"
+    },
+    {
+      "id": "S3.T2.7.14.8.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "38.7"
+    },
+    {
+      "id": "S3.T2.7.14.9.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "23.1"
+    },
+    {
+      "id": "S3.T2.7.14.10.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "61.5"
+    },
+    {
+      "id": "S3.T2.7.14.11.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "9.1"
+    },
+    {
+      "id": "S3.T2.7.14.12.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "54.5"
+    },
+    {
+      "id": "S3.T2.7.14.13.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "20.0"
+    },
+    {
+      "id": "S3.T2.7.14.14.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "80.0"
+    },
+    {
+      "id": "S3.T2.7.14.15.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "0.0"
+    },
+    {
+      "id": "S3.T2.7.14.16.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "21.4"
+    },
+    {
+      "id": null,
+      "tag": "figcaption",
+      "classes": [
+        "ltx_caption"
+      ],
+      "text": "Table 2: Main results on all 90 NatureBench tasks. S and M denote Surpass-SOTA and Match-SOTA rates (%). † \\dagger denotes our means over three seeds. ∗ * marks All-M differences from SwarmRSI with the same backbone significant at p < 0.05 p<0.05 (McNemar test). Bold and underlined values indicate best and second best rates, including ties."
+    },
+    {
+      "id": "S3.T3.2.1",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Method Backbone Above Median ↑ \\uparrow Bronze Silver Gold ↑ \\uparrow Any-Medal ↑ \\uparrow"
+    },
+    {
+      "id": "S3.T3.2.1.3.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "Above Median ↑ \\uparrow"
+    },
+    {
+      "id": "S3.T3.2.1.7.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "Any-Medal ↑ \\uparrow"
+    },
+    {
+      "id": "S3.T3.2.2",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "MLEvolve DeepSeek-V4-Pro † 81.8 9.1 27.3 36.4 72.7"
+    },
+    {
+      "id": "S3.T3.2.2.3.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "81.8"
+    },
+    {
+      "id": "S3.T3.2.2.7.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "72.7"
+    },
+    {
+      "id": "S3.T3.2.3",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Gemini 3.1 Pro Preview – – – – 80.3"
+    },
+    {
+      "id": "S3.T3.2.3.2.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "–"
+    },
+    {
+      "id": "S3.T3.2.3.6.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "80.3"
+    },
+    {
+      "id": "S3.T3.2.4",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Arbor DeepSeek-V4-Pro † 86.4 4.5 31.8 40.9 77.3"
+    },
+    {
+      "id": "S3.T3.2.4.3.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "86.4"
+    },
+    {
+      "id": "S3.T3.2.4.7.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "77.3"
+    },
+    {
+      "id": "S3.T3.2.5",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "GPT-5.5 95.5 0.0 9.1 77.3 86.4"
+    },
+    {
+      "id": "S3.T3.2.5.2.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "95.5"
+    },
+    {
+      "id": "S3.T3.2.5.6.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "86.4"
+    },
+    {
+      "id": "S3.T3.2.6",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "ML-Master 2.0 DeepSeek-V3.2-Speciale 84.9 13.6 31.8 30.3 75.8"
+    },
+    {
+      "id": "S3.T3.2.6.3.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "84.9"
+    },
+    {
+      "id": "S3.T3.2.6.7.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "75.8"
+    },
+    {
+      "id": "S3.T3.2.7",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Famou-Agent 2.0 Gemini 3 Pro Preview 93.9 12.1 18.2 50.0 80.3"
+    },
+    {
+      "id": "S3.T3.2.7.3.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "93.9"
+    },
+    {
+      "id": "S3.T3.2.7.7.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "80.3"
+    },
+    {
+      "id": "S3.T3.2.8",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "DeepSeek-V4-Pro 90.9 9.1 27.3 45.5 81.8"
+    },
+    {
+      "id": "S3.T3.2.8.3.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "90.9"
+    },
+    {
+      "id": "S3.T3.2.8.7.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "81.8"
+    },
+    {
+      "id": "S3.T3.2.9",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "SwarmRSI † Gemini 3.1 Pro Preview 86.4 9.1 31.8 40.9 81.8"
+    },
+    {
+      "id": "S3.T3.2.9.3.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "86.4"
+    },
+    {
+      "id": "S3.T3.2.9.7.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p",
+        "ltx_align_center"
+      ],
+      "text": "81.8"
+    },
+    {
+      "id": null,
+      "tag": "figcaption",
+      "classes": [
+        "ltx_caption"
+      ],
+      "text": "Table 3: Main results on 22 MLE-Bench Lite tasks (%). † \\dagger denotes our means over three seeds. Any-Medal combines exclusive medal rates before rounding, and – denotes unreported values. Bold and underlined values indicate best and second best Above Median, Gold, and Any-Medal rates, including ties."
+    },
+    {
+      "id": "S3.SS4.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Recursive Swarm Evolution decides which update to make next and returns every outcome to the shared graph. It maintains a hypothesis frontier ℱ H \\mathcal{F}_{H} of active hypotheses and a program frontier ℱ P \\mathcal{F}_{P} of valid program representatives. For H/P selection , which decides whether the next step revises a hypothesis (H) or a program (P), it scores each feasible frontier f ∈ { H , P } f\\in\\{H,P\\} with a discounted-UCB index ( Auer et al., 2002 ; Garivier and Moulines, 2011 )"
+    },
+    {
+      "id": "S3.SS4.p1.2",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "where μ ^ f \\hat{\\mu}_{f} is recent improvement per token cost, N f N_{f} is the discounted experiment count, and ψ f \\psi_{f} is the saturated pressure from unresolved needs that f f can address. The weights β \\beta and γ \\gamma set exploration and request pressure. Untried frontiers and frontiers that have waited long take priority over the score."
+    },
+    {
+      "id": "S3.SS4.p2.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Each candidate is executed and evaluated under the task protocol. Execution checks test completion and task compliance, and source and output comparisons check whether the intended change was implemented. The record ξ t \\xi_{t} of every attempt, including failed ones and those without gain, updates the graph to 𝒢 t + 1 \\mathcal{G}_{t+1} , from which the next acting agent assembles its state s t + 1 s_{t+1} . An implementation failure keeps the hypothesis and requests program repair, mixed gains and losses across instances request a revised hypothesis, and a new incumbent requests that retained hypotheses be realized on it. The loop repeats until budget B B is exhausted and returns the best valid program."
+    },
+    {
+      "id": "S4.SS1.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "We address four research questions and illustrate biological applications through case studies: RQ1 : How does SwarmRSI perform across benchmarks and backbones, and at what token cost? RQ2 : How do Feedback-Guided Swarm Mutation, Complementary Swarm Recombination, and Recursive Swarm Evolution contribute to performance? RQ3 : How do experimental feedback and reused intermediate results guide the swarm’s subsequent research within and across tasks? RQ4 : What are the main failure modes, and how frequent are they?"
+    },
+    {
+      "id": null,
+      "tag": "figcaption",
+      "classes": [
+        "ltx_caption",
+        "ltx_centering"
+      ],
+      "text": "Figure 3: SwarmRSI with two backbones. Full bars give Match-SOTA and Any-Medal rates (%), and solid portions give Surpass-SOTA and Gold rates."
+    },
+    {
+      "id": "S4.T4.2.1",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Variant Match Surpass Mean g g"
+    },
+    {
+      "id": "S4.T4.2.2",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "SwarmRSI 44.4 15.6 12.8"
+    },
+    {
+      "id": "S4.T4.2.3",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Feedback-Guided Swarm Mutation"
+    },
+    {
+      "id": "S4.T4.2.4",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "w/o H-mutation 34.4 8.9 7.2"
+    },
+    {
+      "id": "S4.T4.2.5",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "w/o P-mutation 31.1 6.7 5.4"
+    },
+    {
+      "id": "S4.T4.2.6",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Complementary Swarm Recombination"
+    },
+    {
+      "id": "S4.T4.2.7",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "w/o recombination 37.8 7.8 7.6"
+    },
+    {
+      "id": "S4.T4.2.8",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Recursive Swarm Evolution"
+    },
+    {
+      "id": "S4.T4.2.9",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "w/o shared graph 36.7 10.0 8.1"
+    },
+    {
+      "id": "S4.T4.2.10",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "w/o H/P selection 35.6 8.9 4.6"
+    },
+    {
+      "id": null,
+      "tag": "figcaption",
+      "classes": [
+        "ltx_caption",
+        "ltx_centering"
+      ],
+      "text": "Table 4: NatureBench ablations on all 90 tasks with DeepSeek-V4-Pro, averaged over three seeds and grouped by the mechanism each variant removes. Match and Surpass are Match-SOTA and Surpass-SOTA rates (%), and mean g g is scaled by 100."
+    },
+    {
+      "id": "S4.SS2.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "We evaluate SwarmRSI on scientific coding and machine-learning engineering tasks across three benchmarks. OpenProblems ( Luecken et al., 2025 ) contains six single-cell analysis tasks following TusoAI ( Turcan et al., 2026 ) . NatureBench ( Wang et al., 2026b ) contains all 90 scientific coding tasks across six domains. MLE-Bench Lite ( Chan et al., 2025 ) contains 22 competitions from its low-complexity split."
+    },
+    {
+      "id": "S4.SS3.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "We compare against program evolution agents (AIDE and MLEvolve), hypothesis evolution agents (Arbor), domain-specific scientific agents (TusoAI and Biomni ( Huang et al., 2026 ) ), and general coding agents (Claude Code ( Anthropic, 2026 ) , Codex ( OpenAI, 2026a ) and Gemini CLI ( Google, 2026 ) )."
+    },
+    {
+      "id": "S4.SS4.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "OpenProblems reports normalized task scores scaled by 100 and their unweighted mean. NatureBench reports Match-SOTA ( g ≥ 0 g\\geq 0 ) and Surpass-SOTA ( g > 0.1 g>0.1 ) rates, where g g is the official direction-adjusted improvement over SOTA. MLE-Bench Lite reports Above Median and medal rates from official grading on the private test split. Rates retain all tasks in the denominator, including invalid or missing results. Match-SOTA comparisons with Arbor and AIDE on NatureBench use 95% paired bootstrap confidence intervals and McNemar tests, and other comparisons are descriptive. Token cost sums uncached input and output tokens over all LLM calls in a search."
+    },
+    {
+      "id": "S4.SS5.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "SwarmRSI and rerun baselines use DeepSeek-V4-Pro ( DeepSeek, 2026 ) under matched settings for each benchmark. Results from our runs in Tables 2 – 3 are averaged over three random seeds. Published results keep the settings of their sources. We additionally evaluate SwarmRSI with Gemini 3.1 Pro Preview ( Google DeepMind, 2026 ) . In each run, all agents share one backbone and advance lineages that exchange results through the shared graph."
+    },
+    {
+      "id": "S5.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "To answer our research questions, we compare benchmark performance, conduct component ablations, examine search trajectories, analyze annotated failures, and report biological case studies."
+    },
+    {
+      "id": "S5.SS1.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Tables 2 , 2 and 3 summarize benchmark performance, and we make three observations."
+    },
+    {
+      "id": "S5.I1.i1.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "SwarmRSI outperforms domain-specific and general coding agents. With DeepSeek-V4-Pro, it reaches an OpenProblems average of 74.2 against 67.1 for TusoAI and exceeds Claude Code with the same backbone by 21.1 percentage points (pp) in NatureBench Match-SOTA."
+    },
+    {
+      "id": "S5.I1.i2.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "SwarmRSI outperforms hypothesis and program evolution agents. With the same backbone, its NatureBench Match-SOTA rate exceeds Arbor by 7.8 pp and AIDE by 16.7 pp, both significantly. Its 81.8% Any-Medal rate on MLE-Bench Lite also exceeds Arbor and MLEvolve, and, as shown in Section B.6 , it uses fewer tokens than TusoAI and Arbor."
+    },
+    {
+      "id": "S5.I1.i3.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "SwarmRSI remains strong across backbones. As shown in Figure 3 , with Gemini 3.1 Pro Preview it reaches the highest OpenProblems average of 76.2 and the same 44.4% NatureBench Match-SOTA rate as with DeepSeek-V4-Pro, which exceeds every compared method, and it keeps the 81.8% Any-Medal rate on MLE-Bench Lite."
+    },
+    {
+      "id": "S5.SS2.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Table 4 compares SwarmRSI with five variants on all 90 NatureBench tasks using DeepSeek-V4-Pro, grouped by the mechanism they remove and otherwise unchanged. w/o H-mutation only repairs programs under existing hypotheses, w/o P-mutation only revises hypotheses, w/o recombination disables rebase and crossover, w/o shared graph removes agents’ access to one another’s records, and w/o H/P selection replaces adaptive H/P selection with fixed H/P alternation. As shown in Table 6 , all variants lower mean g g with paired 95% CIs excluding zero, and we make three observations."
+    },
+    {
+      "id": "S5.I2.i1.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Feedback-Guided Swarm Mutation needs both revision modes. Removing H- or P-mutation lowers Match-SOTA by 10.0 and 13.3 pp, respectively. The two modes are complementary, and program repair contributes more."
+    },
+    {
+      "id": "S5.I2.i2.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Complementary Swarm Recombination improves solution quality. Disabling rebase and crossover lowers Match-SOTA by 6.7 pp and Surpass-SOTA from 15.6% to 7.8%, and its drop in mean g g excludes zero. RQ3 traces this gain to reused hypotheses and program components in most final programs."
+    },
+    {
+      "id": "S5.I2.i3.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Recursive Swarm Evolution depends on the shared graph and H/P selection. Match-SOTA drops by 7.8 pp without the shared graph, through which agents use other agents’ records, and by 8.9 pp without H/P selection, which also causes the largest drop in mean g g ."
+    },
+    {
+      "id": null,
+      "tag": "figcaption",
+      "classes": [
+        "ltx_caption",
+        "ltx_centering"
+      ],
+      "text": "Figure 4: Search behaviour on NatureBench with DeepSeek-V4-Pro. (a) Failure recovery, the share of failed implementations whose later refinement yields a new best, over 90 tasks. (b) Nested shares of proposed hypotheses that are implemented (white), evaluated (light) and improved (hatched). (c, d) Best-so-far g g of one recorded run per method on symmetric log axes."
+    },
+    {
+      "id": "S5.SS3.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "We examine how SwarmRSI uses feedback and retained research states during search. Figure 4 a,b compares diagnostics with AIDE and Arbor on all 90 NatureBench tasks, and Figure 4 c,d shows one run per method on two tasks."
+    },
+    {
+      "id": "S5.I3.i1.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "SwarmRSI recovers more failed implementations and turns more of its hypotheses into improvements. Later refinement turns 35% of failed implementations into new best valid programs, compared with 12% for AIDE and 5% for Arbor. Of its proposed hypotheses, 62% lead to an improvement, against 17% for Arbor."
+    },
+    {
+      "id": "S5.I3.i2.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "SwarmRSI revises with prior feedback. In one NatureBench seed with DeepSeek-V4-Pro, updates triggered by performance feedback or unresolved implementation requests reach a 28.4% rate of new bests, against 21.9% over all updates. On 00917, after nine candidates without improvement, two successive hypothesis mutations revise the program’s readout and reach Surpass-SOTA."
+    },
+    {
+      "id": "S5.I3.i3.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "SwarmRSI reuses partial results across research trajectories. In the same seed, about 77% of final best programs descend from at least one rebase, crossover or update triggered by feedback, and these updates yield new bests more often than other updates at every stage of search. On 00639, crossover combines components from three programs to reach Match-SOTA, and a later rebase step activates retained message-passing and ranking-loss code that the program had not executed, further improving g g . On 00795, rebase tests an unrealized hypothesis on a later program, and crossover then reuses a component from a program that had not improved overall."
+    },
+    {
+      "id": "S5.I3.i4.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Inherited research states transfer to new tasks. As shown in Section C.2 , the state inherited after three generations of source tasks raises mean g g on 12 held-out NatureBench tasks from 12.01 to 21.89 and Match-SOTA from 41.7% to 86.1% over cold start."
+    },
+    {
+      "id": "S5.SS4.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "We annotate 644 failed attempts from 35 SwarmRSI task trajectories that fall below Match-SOTA on NatureBench or earn no medal on MLE-Bench Lite. Two annotators judge implementation fidelity, execution success and improvement over the preceding best valid result, with Cohen’s κ = 0.92 \\kappa=0.92 . Most failures are faithful interventions without gains. They account for 93.3% of these failures, and implementation or execution problems for 6.7%. A valid score can hide such a problem, as on task 00838, where downstream code overwrites a proposed amino-acid substitution that the evaluation thus never tests, which is why Feedback-Guided Swarm Mutation reads implementation evidence alongside scores. On task 02316, by contrast, a negative-binomial mixture with a Potts spatial prior runs correctly but collapses all locations into one cluster, a faithful intervention without gain."
+    },
+    {
+      "id": null,
+      "tag": "figcaption",
+      "classes": [
+        "ltx_caption",
+        "ltx_centering"
+      ],
+      "text": "Figure 5: Biological case studies. (a–c) UMAP of the reproduced SwarmRSI representation for 833 target enterocytes, coloured by source and by MHC-II/Cd74 and antimicrobial RNA scores (mean normalized log RNA). Green and pink denote helminth day-10 and Salmonella sources. (d–f) BALBc-1 spleen with manual annotations, SwarmRSI program partitions, and expert neighbourhood groups E1 (B/follicular-dendritic-cell-rich), E2 (myeloid/erythroid-rich) and E3 (T-cell-rich)."
+    },
+    {
+      "id": "S5.SS5.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "We examine the scientific utility of programs evolved by SwarmRSI . Biologists reproduced two of its programs and interpreted them with measured RNA and protein."
+    },
+    {
+      "id": "S5.SS5.p2.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Enterocyte: infection-associated immune expression. On the contrastiveVI task ( Weinberger et al., 2023 ) , the evolved program removes from each infected cell the mean of its healthy neighbours before reducing the residuals. On the Haber intestinal instance ( Haber et al., 2017 ) , measured enterocyte RNA shows higher MHC-II scores in helminth day 10 than Salmonella infection, with means of 1.17 and 0.34. Figure 5 a–c shows the corresponding expression gradients on the reproduced representation. Within the two helminth day-10 sources, MHC-II scores are locally more coherent on this representation than on RNA PCA, with Spearman’s ρ \\rho after covariate adjustment of 0.77 and 0.69 against 0.65 and 0.40, whereas antimicrobial scores are less locally coherent than on RNA PCA in each of the four sources."
+    },
+    {
+      "id": "S5.SS5.p3.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "CytoCommunity: spatial context without consistent marker shifts. On the CytoCommunity task ( Hu et al., 2024 ) , the evolved program combines anatomical priors derived from phenotypes with an anatomically constrained Markov random field, raising g g from 0.045 to 0.102. Figure 5 d–f compares its partitions with manual anatomy and experts’ subsequent grouping of B-cell neighbourhoods by local cell composition. Across three spleen images, 20–21% of B cells in the manually annotated marginal zone occupy myeloid/erythroid-rich neighbourhoods. Goltsev et al. (2018) reported that B220 and CD79b levels on splenic B cells vary with the local neighbourhood across the spleen. Within the marginal zone, after matching these B cells on location and phenotype within each image, these and four other markers show no consistent shift between neighbourhoods across the three images, and the B220 effect changes sign."
+    },
+    {
+      "id": "S6.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "We began with two obstacles for scientific agent swarms. A failed experiment does not show whether its hypothesis or its implementation was at fault, and a program without overall gains can still hold a component that another agent needs. SwarmRSI addresses both. Feedback-Guided Swarm Mutation uses other agents’ feedback to decide whether to revise a hypothesis or repair its program, and Complementary Swarm Recombination carries retained hypotheses and useful components into other agents’ work. Recursive Swarm Evolution returns every outcome to the shared graph, so each experiment changes the states that later agents start from. It achieves SOTA results on OpenProblems and NatureBench and outperforms baselines with the same backbone, most final NatureBench programs build on such reuse, and biologists reproduce its programs for follow-up analyses of intestinal and splenic immunity. A swarm thus improves its own research by evolving what its agents inherit."
+    },
+    {
+      "id": "A1.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "This section supplements Section 3 with details of Recursive Swarm Evolution, execution feedback, and Complementary Swarm Recombination."
+    },
+    {
+      "id": null,
+      "tag": "figcaption",
+      "classes": [
+        "ltx_caption"
+      ],
+      "text": "Algorithm 1 SwarmRSI search loop"
+    },
+    {
+      "id": "A1.SS1.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "The hypothesis frontier ℱ H \\mathcal{F}_{H} retains active hypotheses balanced across mechanism families. The program frontier ℱ P \\mathcal{F}_{P} retains the incumbent p ⋆ p^{\\star} and the best program of each realized family. H-mutation revises the hypothesis toward an alternative modeling or algorithmic mechanism, whereas P-mutation keeps the hypothesis and refines an existing program lineage."
+    },
+    {
+      "id": "A1.SS1.p2.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Table 5 lists the shared selection settings for DeepSeek-V4-Pro and Gemini 3.1 Pro Preview across all three benchmarks."
+    },
+    {
+      "id": "A1.T5.2.1",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Parameter Value"
+    },
+    {
+      "id": "A1.T5.2.1.1.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Parameter"
+    },
+    {
+      "id": "A1.T5.2.2",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Discount factor ρ \\rho 0.9"
+    },
+    {
+      "id": "A1.T5.2.2.1.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Discount factor ρ \\rho"
+    },
+    {
+      "id": "A1.T5.2.3",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Exploration weight β \\beta 0.5"
+    },
+    {
+      "id": "A1.T5.2.3.1.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Exploration weight β \\beta"
+    },
+    {
+      "id": "A1.T5.2.4",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Request-pressure weight γ \\gamma 0.25"
+    },
+    {
+      "id": "A1.T5.2.4.1.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Request-pressure weight γ \\gamma"
+    },
+    {
+      "id": "A1.T5.2.5",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Request-pressure saturation K K 4"
+    },
+    {
+      "id": "A1.T5.2.5.1.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Request-pressure saturation K K"
+    },
+    {
+      "id": "A1.T5.2.6",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Eligible-wait threshold W W 8"
+    },
+    {
+      "id": "A1.T5.2.6.1.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Eligible-wait threshold W W"
+    },
+    {
+      "id": "A1.T5.2.7",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Tokens per cost unit T T 1,000"
+    },
+    {
+      "id": "A1.T5.2.7.1.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Tokens per cost unit T T"
+    },
+    {
+      "id": "A1.T5.2.8",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Improvement scale s s 1.0"
+    },
+    {
+      "id": "A1.T5.2.8.1.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Improvement scale s s"
+    },
+    {
+      "id": "A1.T5.2.9",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Active hypotheses / program representatives 4 / 8"
+    },
+    {
+      "id": "A1.T5.2.9.1.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Active hypotheses / program representatives"
+    },
+    {
+      "id": "A1.T5.2.10",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Candidate pairs per hypothesis 2"
+    },
+    {
+      "id": "A1.T5.2.10.1.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Candidate pairs per hypothesis"
+    },
+    {
+      "id": "A1.T5.2.11",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Sources per hypothesis adaptation 1"
+    },
+    {
+      "id": "A1.T5.2.11.1.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Sources per hypothesis adaptation"
+    },
+    {
+      "id": "A1.T5.2.12",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Scored local continuations / local attempts 2 / 4"
+    },
+    {
+      "id": "A1.T5.2.12.1.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Scored local continuations / local attempts"
+    },
+    {
+      "id": "A1.T5.2.13",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Local stagnation patience 1"
+    },
+    {
+      "id": "A1.T5.2.13.1.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Local stagnation patience"
+    },
+    {
+      "id": "A1.T5.2.14",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Initial root drafts 3"
+    },
+    {
+      "id": "A1.T5.2.14.1.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Initial root drafts"
+    },
+    {
+      "id": null,
+      "tag": "figcaption",
+      "classes": [
+        "ltx_caption",
+        "ltx_centering"
+      ],
+      "text": "Table 5: Shared H/P-selection parameters and search limits across both backbones and all three benchmarks."
+    },
+    {
+      "id": "A1.SS1.p3.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Improvement and computational cost. For an experiment initiated by frontier a t ∈ { H , P } a_{t}\\in\\{H,P\\} , let u t u_{t} be its utility and u t − u_{t}^{-} the preceding incumbent utility. Reward and normalized token cost are"
+    },
+    {
+      "id": "A1.SS1.p3.2",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "where τ t \\tau_{t} includes the experiment’s planner and coder tokens. Without a prior incumbent, reward is zero. Failed or unscored outcomes receive zero reward and keep their cost, and infrastructure failures leave the statistics unchanged."
+    },
+    {
+      "id": "A1.SS1.p4.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Selection score updates. Initialize N f = G f = C f = 0 N_{f}=G_{f}=C_{f}=0 for both frontiers. After each experiment other than an infrastructure failure, update both frontiers:"
+    },
+    {
+      "id": "A1.SS1.p4.2",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "The controller scores each sampled, feasible frontier using Equation 6 , with μ ^ f = G f / C f \\hat{\\mu}_{f}=G_{f}/C_{f} as recent improvement per cost. For U f U_{f} unresolved requests addressable by frontier f f , request pressure is ψ f = min ⁡ ( U f , K ) / K \\psi_{f}=\\min(U_{f},K)/K . These requests are generated by experiments in both frontiers, coupling their allocation. Setting γ = 0 \\gamma=0 removes request pressure from the index. Discounting emphasizes recent outcomes, while request pressure saturates at K = 4 K=4 ."
+    },
+    {
+      "id": "A1.SS1.p5.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Frontier scheduling. A sole feasible frontier is selected directly. When both are feasible, frontiers without an updated sample take priority, with H preceding P. Subsequently, a frontier waiting for W W eligible choices takes priority. Otherwise, the highest index wins. Ties favor lower discounted selection count, then H. Waiting counters advance only when both frontiers compete. Local program refinement may precede the next frontier choice, subject to the continuation, attempt, and stagnation limits in Table 5 . The index adapts discounted UCB to allocation between the hypothesis and program frontiers."
+    },
+    {
+      "id": "A1.SS1.p6.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Ablation without H/P selection. The w/o H/P selection variant in Table 4 replaces this allocation rule with H/P alternation, starting with H and selecting the other frontier if the scheduled one is infeasible. Both frontiers, H- and P-mutation, the shared graph, audits, local refinement, recombination, and total search budget remain unchanged."
+    },
+    {
+      "id": "A1.SS2.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "The execution harness and search controller perform the online audits automatically. The code audit uses execution status, artifact validity and evaluator feedback to check execution and the task contract. The scientific audit screens implementation evidence by comparing parent and offspring source code and recorded submitted outputs. It flags unchanged source or syntax trees, newly added functions without static name references, or identical submitted outputs when comparable output records are available. The controller uses these source/output flags to gate hypothesis credit. A valid scored candidate without such a flag receives hypothesis credit ( Potter and De Jong, 2000 ) . Flagged or unscored attempts retain program-level evidence and unresolved implementation requests. Hypothesis credit records a valid scored candidate passing the source/output checks. Improvement per cost drives H/P selection. Failed states and states without gain remain available in the graph together with their resulting programs, outcomes, and audit evidence."
+    },
+    {
+      "id": "A1.SS2.p2.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "An implementation failure retains the hypothesis and emits a deepen request for program refinement. Mixed per-instance gains and losses emit a broaden request for hypothesis exploration. An improved incumbent also creates deepen requests for hypotheses previously realized on older programs. These requests retain unresolved needs for later mutation or recombination."
+    },
+    {
+      "id": "A1.SS3.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Rebase selection. Rebase preserves hypothesis content and selects a different program from ℱ P \\mathcal{F}_{P} as its implementation base. Candidates are ranked by the overlap between the recorded need and mechanism labels associated with scored, unflagged programs. A request triggered by a new incumbent directly targets that program. The coder then realizes the hypothesis on the selected base, so that for a selected base b t b_{t}"
+    },
+    {
+      "id": "A1.SS3.p2.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Crossover selection. Equation 5 defines candidate donors and their priorities from observed per-instance utilities. At most two donors are selected by their largest per-instance advantage. Let 𝒟 ^ t \\widehat{\\mathcal{D}}_{t} contain the selected donors. Sources are assigned before implementation as"
+    },
+    {
+      "id": "A1.SS3.p2.2",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "so the offspring uses donor components on the instances they win and retains the parent’s components elsewhere. This assignment is fixed from measured feedback before implementation. Crossover is inactive for aggregate-only feedback. Both operators produce new candidates evaluated through the shared execution and audit loop."
+    },
+    {
+      "id": "A1.SS3.p3.2",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "State update. After each evaluation, the record ξ t \\xi_{t} updates the shared graph, the next acting agent assembles its state, and a mutation or recombination operation generates the next candidate,"
+    },
+    {
+      "id": "A1.SS3.p3.3",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Update \\operatorname{Update} retains the record and refreshes the associated research needs, Assemble \\operatorname{Assemble} collects the records relevant to the next agent, and Generate \\operatorname{Generate} applies an eligible operation to the selected sources."
+    },
+    {
+      "id": "A2.SS1.SSS0.Px1.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "OpenProblems follows the six-task single-cell panel used by TusoAI ( Turcan et al., 2026 ) : denoising, label prediction, batch integration, spatially variable gene identification, decomposition and visualization."
+    },
+    {
+      "id": "A2.SS1.SSS0.Px2.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "NatureBench ( Wang et al., 2026b ) includes 90 tasks in protein biology, cellular omics, physical modeling, molecular design, relational reasoning and biomedical modeling."
+    },
+    {
+      "id": "A2.SS1.SSS0.Px3.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "MLE-Bench Lite ( Chan et al., 2025 ) comprises 22 low-complexity competitions involving model construction and competition submission."
+    },
+    {
+      "id": "A2.SS2.SSS0.Px1.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "On OpenProblems, we compare with expert-designed methods and ChatGPT reported by TusoAI ( Turcan et al., 2026 ) , Biomni ( Huang et al., 2026 ) , AIDE ( Jiang et al., 2025 ) , and TusoAI. On NatureBench, we compare with Claude Code ( Anthropic, 2026 ) , Codex and Gemini CLI ( Wang et al., 2026b ) , Arbor ( Jin et al., 2026 ) , and AIDE. NatureBench results without † \\dagger in Table 2 are taken from the official NatureBench leaderboard ( FrontisAI, 2026 ) (accessed 7 October 2026). These entries follow NatureBench’s standard protocol. Comparisons with published results are descriptive. On MLE-Bench Lite, we compare with MLEvolve ( Du et al., 2026 ) , ML-Master 2.0 ( Zhu et al., 2026 ) , Arbor ( Jin et al., 2026 ) , and Famou-Agent 2.0 ( Li et al., 2025 ) . Reported competition results are taken from the official MLE-Bench leaderboard ( OpenAI, 2026b ) or the original papers ( Jin et al., 2026 ; Du et al., 2026 ) ."
+    },
+    {
+      "id": "A2.SS2.SSS0.Px2.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "We rerun AIDE and TusoAI on OpenProblems, AIDE and Arbor on NatureBench, and MLEvolve and Arbor on MLE-Bench Lite using DeepSeek-V4-Pro. We do not rerun MLEvolve on NatureBench because its harness uses MLE-Bench’s competition submission and grading format ( Du et al., 2026 ) . AIDE serves as the program-evolution representative on NatureBench."
+    },
+    {
+      "id": "A2.SS3.SSS0.Px1.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "OpenProblems uses each task’s official evaluator. NatureBench results are assessed by the benchmark’s validity judge before computing Match-SOTA and Surpass-SOTA rates. MLE-Bench Lite submissions are graded by the official grader on the private test split."
+    },
+    {
+      "id": "A2.SS3.SSS0.Px2.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "OpenProblems uses the normalized task scores reported by TusoAI ( Turcan et al., 2026 ) , with higher values indicating better performance. Scores are scaled by 100. Avg is the unweighted mean over the six tasks, using each task’s benchmark-defined normalization. For NatureBench, the instance-level direction-adjusted improvement is"
+    },
+    {
+      "id": "A2.SS3.SSS0.Px2.p1.2",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "where m i m_{i} is the score, m i SOTA m_{i}^{\\mathrm{SOTA}} is its reference and d i ∈ { − 1 , + 1 } d_{i}\\in\\{-1,+1\\} specifies the metric direction. A task’s g g averages its instance-level improvements. Match-SOTA counts judge-valid tasks with g ≥ 0 g\\geq 0 . Surpass-SOTA counts those with g > 0.1 g>0.1 . Both rates use all 90 tasks, retaining invalid and missing results in the denominator. S and M denote Surpass-SOTA and Match-SOTA. For the ablations, Mean g g (%) is 100 × 1 90 ∑ j = 1 90 g j 100\\times\\frac{1}{90}\\sum_{j=1}^{90}g_{j} , where g j g_{j} is task j j ’s relative improvement. All ablation tasks have valid results. MLE-Bench Lite reports Above Median, exclusive Bronze, Silver and Gold rates, and Any-Medal, the fraction of all 22 tasks earning any medal. Invalid or missing submissions receive no medal. All rates use the full task set."
+    },
+    {
+      "id": "A2.SS3.SSS0.Px3.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "For SwarmRSI and matched-backbone reruns in Tables 2 – 3 , we compute each benchmark metric separately for each of three seeds, then average the three values equally. Each seed covers the same six OpenProblems tasks, 90 NatureBench tasks, or 22 MLE-Bench Lite competitions. Task scores and domain-specific rates are averaged in the same way. Results in Tables 2 – 3 are reported to one decimal place after aggregation. Published reference results retain their original reporting protocols. Medal rates are rounded independently, so their displayed sum may differ from Any-Medal by 0.1 pp."
+    },
+    {
+      "id": "A2.SS3.SSS0.Px4.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "For Figure 6 , we sum uncached input and output tokens from all LLM calls throughout each task’s search. We report the mean over all tasks in each benchmark and the three seeds, in millions of tokens per task. Arbor’s token consumption is on the same scale as the 20.19M tokens per task reported in its original paper ( Jin et al., 2026 ) ."
+    },
+    {
+      "id": "A2.SS3.SSS0.Px5.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "We compare NatureBench Match-SOTA outcomes for SwarmRSI , Arbor and AIDE with DeepSeek-V4-Pro, using the 90 tasks as paired units. Each task contributes its mean binary Match-SOTA outcome across the three runs. As Section B.7 explains, each method’s task-level Match-SOTA outcomes are identical across its three seeds. We resample the 90 paired task means with replacement 10,000 times and recompute the rate difference in each replicate ( Koehn, 2004 ) . The 2.5th and 97.5th percentiles give the 95% paired bootstrap confidence interval. The Match-SOTA improvement over Arbor is 7.8 pp (95% CI [2.2, 13.3]). The improvement over AIDE is 16.7 pp (95% CI [8.9, 24.4]). Exact McNemar tests use the discordant task pairs: SwarmRSI -only/baseline-only successes are 7/0 against Arbor and 15/0 against AIDE. The resulting p p -values are 0.015625 0.015625 and 0.0000610 0.0000610 , respectively. Differences are computed before rounding the displayed rates. Other benchmark and leaderboard comparisons are reported descriptively."
+    },
+    {
+      "id": "A2.SS4.SSS0.Px1.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "SwarmRSI and the rerun baselines use DeepSeek-V4-Pro ( DeepSeek, 2026 ) . Additional SwarmRSI runs use Gemini 3.1 Pro Preview ( Google DeepMind, 2026 ) ."
+    },
+    {
+      "id": "A2.SS4.SSS0.Px2.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "We set per-task time limits to 8 hours on OpenProblems ( Turcan et al., 2026 ) , 4 hours on NatureBench ( Wang et al., 2026b ) , and 12 hours on MLE-Bench Lite ( Du et al., 2026 ) . Within each benchmark, SwarmRSI and rerun baselines share the evaluation protocol and time limit."
+    },
+    {
+      "id": "A2.SS4.SSS0.Px3.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "SwarmRSI and rerun baselines use the same hardware within each benchmark. OpenProblems runs use 4 CPU threads and 50 GB of memory, each of the 87 NatureBench tasks that require a GPU uses one GPU, and MLE-Bench Lite runs use 21 vCPUs, 234 GB of RAM and one GPU. These follow the published protocols for OpenProblems ( Turcan et al., 2026 ) , NatureBench ( Wang et al., 2026b ) , and MLE-Bench Lite ( Du et al., 2026 ) ."
+    },
+    {
+      "id": "A2.SS5.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "The variants in Table 4 use the same planner, coder, evaluator and total search budget. The w/o shared graph variant preserves hypotheses, executable programs, and experimental feedback while disabling their graph-based organization and reuse. The w/o H-mutation variant only repairs programs under existing hypotheses ( h ~ t = h t \\tilde{h}_{t}=h_{t} ), while w/o P-mutation only revises hypotheses. The w/o recombination variant disables both rebase and crossover in Complementary Swarm Recombination, retaining within-trajectory evolution. The w/o H/P selection variant, described in Section A.1 , retains both frontiers and replaces adaptive H/P selection with fixed H/P alternation."
+    },
+    {
+      "id": "A2.SS5.p2.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "For seed s s , let n s M n_{s}^{M} and n s S n_{s}^{S} count judge-valid tasks with g ≥ 0 g\\geq 0 and g > 0.1 g>0.1 , respectively. The reported rates are 100 3 ​ ∑ s = 1 3 n s M / 90 \\frac{100}{3}\\sum_{s=1}^{3}n_{s}^{M}/90 and 100 3 ​ ∑ s = 1 3 n s S / 90 \\frac{100}{3}\\sum_{s=1}^{3}n_{s}^{S}/90 . Mean g g is 100 270 ​ ∑ s = 1 3 ∑ t = 1 90 g s , t \\frac{100}{270}\\sum_{s=1}^{3}\\sum_{t=1}^{90}g_{s,t} . All ablation tasks have valid results. Thus, each seed contributes equally, and values are rounded to one decimal place only after averaging."
+    },
+    {
+      "id": "A2.SS6.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Figure 6 plots benchmark performance against mean tokens per task for SwarmRSI and the rerun baselines with DeepSeek-V4-Pro."
+    },
+    {
+      "id": null,
+      "tag": "figcaption",
+      "classes": [
+        "ltx_caption",
+        "ltx_centering"
+      ],
+      "text": "Figure 6: Performance against mean tokens per task for SwarmRSI and rerun baselines with DeepSeek-V4-Pro. OpenProblems reports normalized average scores scaled by 100, and NatureBench and MLE-Bench Lite report Match-SOTA and Any-Medal rates (%)."
+    },
+    {
+      "id": "A2.SS7.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Table 6 reports, for each ablation in Table 4 , the drop Δ ​ g \\Delta g in mean g g from SwarmRSI with a task-paired bootstrap 95% confidence interval over the 90 NatureBench tasks. All intervals exclude zero."
+    },
+    {
+      "id": "A2.T6.2.1",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Variant Δ ​ g \\Delta g 95% CI"
+    },
+    {
+      "id": "A2.T6.2.2",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "w/o H-mutation 5.6 [1.2, 10.2]"
+    },
+    {
+      "id": "A2.T6.2.3",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "w/o P-mutation 7.4 [3.0, 11.9]"
+    },
+    {
+      "id": "A2.T6.2.4",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "w/o recombination 5.2 [2.5, 7.9]"
+    },
+    {
+      "id": "A2.T6.2.5",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "w/o shared graph 4.7 [0.3, 9.3]"
+    },
+    {
+      "id": "A2.T6.2.6",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "w/o H/P selection 8.2 [4.2, 12.4]"
+    },
+    {
+      "id": null,
+      "tag": "figcaption",
+      "classes": [
+        "ltx_caption",
+        "ltx_centering"
+      ],
+      "text": "Table 6: Drop in mean g g (scaled by 100) from SwarmRSI for each ablation, with task-paired bootstrap 95% CIs."
+    },
+    {
+      "id": "A2.SS7.p2.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "We evaluate all methods marked with † \\dagger in Table 2 using three independent random seeds. We report the mean performance and compute 95% confidence intervals using the Student’s t t -distribution:"
+    },
+    {
+      "id": "A2.SS7.p2.2",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "where x ¯ \\bar{x} and s s denote the sample mean and sample standard deviation across the three seeds, respectively. Table 7 reports the per-seed OpenProblems scores, and Table 8 reports their 95% CI half-widths. The Avg CI is computed from the three per-seed averages before rounding."
+    },
+    {
+      "id": "A2.SS7.SSS0.Px1.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "In the main experiments of Tables 2 – 3 and Table 4 , task-level g g scores varied across three independent seeds, with per-task ranges of 0.0123 0.0123 – 0.0781 0.0781 . However, no task crossed the Match-SOTA ( g = 0 g=0 ) or Surpass-SOTA ( g = 0.1 g=0.1 ) threshold, and no MLE-Bench Lite competition crossed an Above-Median or medal boundary. Consequently, the thresholded success rates remained identical across seeds, despite variation in the underlying continuous scores."
+    },
+    {
+      "id": "A2.T7.2.1",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Method Seed Denoise Label Batch SVG Decomp Visual Avg"
+    },
+    {
+      "id": "A2.T7.2.2",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "SwarmRSI (DeepSeek) 1 34.1 74.6 83.1 84.7 85.6 85.2 74.55"
+    },
+    {
+      "id": "A2.T7.2.3",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "2 33.5 73.5 82.8 83.8 86.6 84.6 74.13"
+    },
+    {
+      "id": "A2.T7.2.4",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "3 33.3 74.4 81.6 83.1 85.8 84.7 73.82"
+    },
+    {
+      "id": "A2.T7.2.5",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "SwarmRSI (Gemini) 1 40.2 81.5 79.0 86.6 82.7 85.5 75.92"
+    },
+    {
+      "id": "A2.T7.2.6",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "2 40.2 80.7 78.1 88.8 84.0 86.1 76.32"
+    },
+    {
+      "id": "A2.T7.2.7",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "3 40.3 80.0 79.4 88.1 83.6 87.5 76.48"
+    },
+    {
+      "id": "A2.T7.2.8",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "AIDE (DeepSeek) 1 27.3 70.5 78.6 72.2 46.6 40.4 55.93"
+    },
+    {
+      "id": "A2.T7.2.9",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "2 28.5 70.2 77.5 74.5 45.4 39.6 55.95"
+    },
+    {
+      "id": "A2.T7.2.10",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "3 26.4 71.2 77.9 71.6 46.4 39.5 55.50"
+    },
+    {
+      "id": "A2.T7.2.11",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "TusoAI (DeepSeek) 1 29.3 57.5 79.5 79.0 84.6 69.9 66.63"
+    },
+    {
+      "id": "A2.T7.2.12",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "2 32.9 59.1 78.8 80.1 83.9 69.7 67.42"
+    },
+    {
+      "id": "A2.T7.2.13",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "3 32.2 59.5 80.1 77.9 83.9 69.9 67.25"
+    },
+    {
+      "id": null,
+      "tag": "figcaption",
+      "classes": [
+        "ltx_caption",
+        "ltx_centering"
+      ],
+      "text": "Table 7: Per-seed OpenProblems scores for all † \\dagger entries in Table 2 . Scores are normalized and scaled by 100. Avg is the six-task mean, shown to two decimal places. DeepSeek and Gemini denote DeepSeek-V4-Pro and Gemini 3.1 Pro Preview, respectively."
+    },
+    {
+      "id": "A2.T8.2.1",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Method Denoise Label Batch SVG Decomp Visual Avg"
+    },
+    {
+      "id": "A2.T8.2.2",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "SwarmRSI (DeepSeek) 1.03 1.46 1.97 1.99 1.31 0.80 0.91"
+    },
+    {
+      "id": "A2.T8.2.3",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "SwarmRSI (Gemini) 0.14 1.86 1.65 2.79 1.65 2.55 0.72"
+    },
+    {
+      "id": "A2.T8.2.4",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "AIDE (DeepSeek) 2.62 1.27 1.38 3.80 1.60 1.23 0.63"
+    },
+    {
+      "id": "A2.T8.2.5",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "TusoAI (DeepSeek) 4.74 2.63 1.62 2.73 1.00 0.29 1.03"
+    },
+    {
+      "id": null,
+      "tag": "figcaption",
+      "classes": [
+        "ltx_caption",
+        "ltx_centering"
+      ],
+      "text": "Table 8: 95% CI half-widths for the OpenProblems means over three seeds in Table 2 , computed using the Student’s t t -distribution from Table 7 . Intervals are the unrounded means ± \\pm these half-widths, on the score scale of Table 2 ."
+    },
+    {
+      "id": "A3.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Section C.1 gives trajectory construction and operator-level evidence for Section 5.3 , and Section C.3 gives aggregate search statistics."
+    },
+    {
+      "id": "A3.SS1.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "We analyze one recorded run per method and task. The two examples in Figure 4 c,d illustrate successive hypothesis mutations on 00917, and crossover followed by rebase on 00639. The plotted runs use DeepSeek-V4-Pro. Candidate scores and operator sequences accompany the plotting code."
+    },
+    {
+      "id": "A3.SS1.p2.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Trajectory construction. For each method, a scored evaluation is a recorded finite score accepted by its evaluator interface. AIDE nodes marked buggy or worst are excluded from this axis. We plot B k = max i ≤ k ⁡ g i B_{k}=\\max_{i\\leq k}g_{i} over these records, with stepwise interpolation and no extrapolation beyond the last observation. Unscored records are retained in the source data and counted separately below. Arbor records evaluator calls, whereas AIDE records candidate nodes. The plot uses scored evaluations for both methods."
+    },
+    {
+      "id": "A3.T9.2.1",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Task Method Scored/records Best g g"
+    },
+    {
+      "id": "A3.T9.2.2",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "00917 SwarmRSI 18/18 0.1807"
+    },
+    {
+      "id": "A3.T9.2.3",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Arbor 3/4 -0.2007"
+    },
+    {
+      "id": "A3.T9.2.4",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "AIDE 49/50 -0.4742"
+    },
+    {
+      "id": "A3.T9.2.5",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "00639 SwarmRSI 19/21 0.0644"
+    },
+    {
+      "id": "A3.T9.2.6",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Arbor 2/3 0.0434"
+    },
+    {
+      "id": "A3.T9.2.7",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "AIDE 8/28 0.0552"
+    },
+    {
+      "id": null,
+      "tag": "figcaption",
+      "classes": [
+        "ltx_caption",
+        "ltx_centering"
+      ],
+      "text": "Table 9: Selected runs with their scored evaluations, recorded events and best observed g g ."
+    },
+    {
+      "id": "A3.SS1.p3.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Analysis of search operators. Operator markers use the frontier episodes associated with each candidate’s action ID. In 00917, candidate 3 is a program mutation of candidate 1. Its g = − 0.9903 g=-0.9903 does not improve the incumbent ( g = − 0.0501 g=-0.0501 ). In 00917, candidate 6 retains the recurrent shell-sequence program at g = − 0.0162 g=-0.0162 . Candidates 7–15 do not improve this incumbent. Hypothesis-mutation candidates 16 and 17 descend from candidates 6 and 16, respectively, replacing the readout with normalized allocation and then a saturating absorption–yield readout. Both modify the executed readout and are reevaluated, reaching g = 0.0928 g=0.0928 (Match-SOTA) and 0.1807 0.1807 (Surpass-SOTA). In 00639, candidate 8 (zero-based index, scored evaluation 7) uses candidate 4 for esol, freesolv, and lipophilicity, candidate 1 for fluorescence and stability, and candidate 0 for the two reaction instances. Its code reuses separate descriptor, neural-sequence, and hashed-reaction branches from the source programs. Candidate 19 includes message-passing and ranking-loss functions, but its entry-point routing does not execute them. Candidate 20, recorded as rebase, activates those paths for lipophilicity and fluorescence, respectively. Their instance improvements change from 0.1002581 0.1002581 to 0.1337743 0.1337743 and from − 0.0201618 -0.0201618 to − 0.0056382 -0.0056382 . The other five instance scores remain unchanged. The mean consequently rises from 0.0575466 0.0575466 to 0.0644094 0.0644094 . The activated functions were already present in candidate 19 and absent from retrieved source 16. The step repairs their entry-point routing."
+    },
+    {
+      "id": "A3.SS1.p4.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "A retained hypothesis on a new program base. As shown in Table 10 , task 00795 provides a complete sequence linking an implementation request, a changed program base, executable transfer and per-instance evaluation. Candidate 4 proposes using a source program’s molecular-function predictor on one instance while retaining the parent’s other four predictors. Its submitted outputs are identical to candidate 3’s, so the controller retains the hypothesis with an unresolved implementation request. Candidate 8 subsequently improves the program through hypothesis mutation. Rebase candidate 9 returns to the retained hypothesis on this newer base, with source program 1 supplying the implementation context. The code disables the ranking-loss term for the target predictor and adopts the source’s 30-threshold public-validation checkpoint rule. The target branch executes these settings and writes its predictions. The target Fmax rises from 0.5032 0.5032 to 0.5087 0.5087 , while the other four instance scores remain unchanged. This raises g g from − 0.06388 -0.06388 to − 0.06186 -0.06186 ."
+    },
+    {
+      "id": "A3.T10.2.1",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Candidate Recorded change g g"
+    },
+    {
+      "id": "A3.T10.2.1.2.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Recorded change"
+    },
+    {
+      "id": "A3.T10.2.2",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "4 Retained hypothesis. Outputs unchanged from 3 − 0.08323 -0.08323"
+    },
+    {
+      "id": "A3.T10.2.2.2.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Retained hypothesis. Outputs unchanged from 3"
+    },
+    {
+      "id": "A3.T10.2.3",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "8 Hypothesis mutation produces a new program base − 0.06388 -0.06388"
+    },
+    {
+      "id": "A3.T10.2.3.2.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Hypothesis mutation produces a new program base"
+    },
+    {
+      "id": "A3.T10.2.4",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "9 Rebase: target predictor uses source training and checkpoint rules − 0.06186 -0.06186"
+    },
+    {
+      "id": "A3.T10.2.4.2.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Rebase: target predictor uses source training and checkpoint rules"
+    },
+    {
+      "id": "A3.T10.2.5",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "11 Crossover: source 5 supplies a second instance predictor − 0.05573 -0.05573"
+    },
+    {
+      "id": "A3.T10.2.5.2.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Crossover: source 5 supplies a second instance predictor"
+    },
+    {
+      "id": "A3.T10.2.6",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "15 Rebase: target predictor implemented without fallback − 0.05408 -0.05408"
+    },
+    {
+      "id": "A3.T10.2.6.2.1.1",
+      "tag": "span",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Rebase: target predictor implemented without fallback"
+    },
+    {
+      "id": null,
+      "tag": "figcaption",
+      "classes": [
+        "ltx_caption",
+        "ltx_centering"
+      ],
+      "text": "Table 10: Recorded process on 00795. Candidate indices are zero-based. Each g g comes from a valid evaluation of the resulting program."
+    },
+    {
+      "id": "A3.SS1.p5.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Crossover candidate 11 then adds source 5’s predictor on a second instance, reproducing its Fmax of 0.3773 0.3773 and preserving candidate 9’s other four scores. Its execution log records another fit and prediction pass for the first transferred predictor, retaining its Fmax of 0.5087 0.5087 . Source 5 had a lower aggregate score than its incumbent, yet its component remains useful in this new program. Candidates 13 and 14 attempt another transfer but retain candidate 11’s submitted outputs. Their implementation requests remain open. Candidate 15 realizes the retained target predictor without falling back to the incumbent’s outputs, increasing its Fmax to 0.5133 0.5133 while preserving the other four scores. The sequence shows how an untested hypothesis survives its first implementation, is tested on a later program base, and contributes to subsequent component reuse and refinement."
+    },
+    {
+      "id": "A3.SS1.p6.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Feedback-linked updates and component reuse. We analyze one complete seed (90 runs) with DeepSeek-V4-Pro and recorded request identifiers. These runs cover all 90 NatureBench tasks and comprise 1,948 search attempts and 426 new-best candidates. Program feedback prompted hypothesis mutations, while unresolved implementation requests for retained hypotheses prompted rebase updates on the program frontier. We matched these updates to their originating requests using recorded request and episode identifiers. These updates comprised 296 attempts (15.2%) and produced 84 new-best candidates (19.7%), a 28.4% new-best rate versus the overall 21.9%. Including crossover, the union of these events comprised 731 attempts (37.5%) and produced 173 new-best candidates (40.6%)."
+    },
+    {
+      "id": "A3.SS1.p7.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Cumulative progress across search stages. To examine whether progress builds on inherited research states, we trace each run’s final best program through its recorded code-parent and intervention-source edges. In about 77% of runs, this lineage contains at least one rebase, crossover, or update triggered by feedback. Table 11 further divides each run’s attempts into early, middle and late thirds by step order. Reuse and update triggered by feedbacks achieve higher new-best rates than other updates in every stage, and their share of new-best candidates increases slightly over the course of search. The overall new-best rate declines as search proceeds, consistent with diminishing returns as the incumbent improves."
+    },
+    {
+      "id": "A3.T11.2.1",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Stage Reuse hit Other hit Reuse share"
+    },
+    {
+      "id": "A3.T11.2.2",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Early 32.0 25.8 40.5"
+    },
+    {
+      "id": "A3.T11.2.3",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Middle 18.2 16.8 41.1"
+    },
+    {
+      "id": "A3.T11.2.4",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Late 18.1 15.0 42.6"
+    },
+    {
+      "id": null,
+      "tag": "figcaption",
+      "classes": [
+        "ltx_caption",
+        "ltx_centering"
+      ],
+      "text": "Table 11: New-best rates (%) of reuse and update triggered by feedbacks (rebase, crossover and mutations triggered by feedback) and of other updates across search stages on NatureBench. Reuse share is the percentage of new-best candidates from these updates."
+    },
+    {
+      "id": "A3.SS2.SSS0.Px1.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "After each generation, the accumulated research state is preserved for subsequent tasks. This state includes hypotheses, program components, experimental evidence, and unresolved implementation needs. On a new task, prior records are retrieved by matching their mechanism labels to the task description and initialize the agent’s research state, while candidate programs are adapted and evaluated under the new task’s constraints."
+    },
+    {
+      "id": "A3.SS2.SSS0.Px2.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "We run SwarmRSI with DeepSeek-V4-Pro on six NatureBench source tasks in three generations of two tasks each, and each generation starts from the cross-task state exported by the previous one. We then search 12 held-out NatureBench tasks, fixed in advance and disjoint from the source tasks, from an empty state and from the state after each generation, with three seeds and the same budget per task. As shown in Table 12 , mean g g rises from 12.01 under cold start to 16.15, 20.16 and 21.89 after one, two and three generations, and Gen 3 improves on cold start by 9.88 points. Match-SOTA rises from 41.7% to 86.1% and Surpass-SOTA from 33.3% to 58.3%, while tokens per task fall from 12.17M to 10.94M. Gains are largest over the first two generations, and Gen 3 matches Gen 2 on Match-SOTA and improves mainly through Surpass-SOTA. Unlike the main experiments described in Section B.7 , some held-out tasks cross the Match-SOTA or Surpass-SOTA threshold in only some seeds, so the rates in Table 12 count the 36 task and seed pairs, for example 31 of 36 for Match-SOTA after Gen 3."
+    },
+    {
+      "id": "A3.T12.2.1",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Variant Match Surpass Mean g g Δ ​ g \\Delta g [95% CI] Tokens"
+    },
+    {
+      "id": "A3.T12.2.2",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Cold start 41.7 33.3 12.01 – 12.17"
+    },
+    {
+      "id": "A3.T12.2.3",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Gen 1 58.3 41.7 16.15 4.14 [1.82, 6.49] 11.86"
+    },
+    {
+      "id": "A3.T12.2.4",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Gen 2 86.1 44.4 20.16 8.15 [5.67, 10.59] 11.52"
+    },
+    {
+      "id": "A3.T12.2.5",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Gen 3 86.1 58.3 21.89 9.88 [6.88, 13.06] 10.94"
+    },
+    {
+      "id": null,
+      "tag": "figcaption",
+      "classes": [
+        "ltx_caption",
+        "ltx_centering"
+      ],
+      "text": "Table 12: Search on 12 held-out NatureBench tasks with DeepSeek-V4-Pro, starting from an empty state (cold start) or from the state inherited after each generation, averaged over three seeds. Match and Surpass are Match-SOTA and Surpass-SOTA rates (%), mean g g is scaled by 100, and Δ ​ g \\Delta g is the gain over cold start with a paired task-cluster bootstrap 95% CI from 10,000 resamples. Tokens are means per task in millions."
+    },
+    {
+      "id": "A3.SS3.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Program mutation. Figure 4 a compares SwarmRSI with AIDE and Arbor across all 90 NatureBench tasks. Stagnation, the share of scored candidates that do not improve the preceding best valid result, is 43% for SwarmRSI , compared with 63% for AIDE and 70% for Arbor. Failure recovery is the share of failed implementations whose subsequent refinement yields a new best valid program, with failed implementations as the denominator."
+    },
+    {
+      "id": "A3.SS3.p2.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Hypothesis mutation. Figure 4 b reports the proportions of proposed hypotheses that are implemented, evaluated with a valid numeric score, and associated with an improvement over the preceding best valid result. For each method, all three proportions use the total number of proposed hypotheses in its search records as the denominator."
+    },
+    {
+      "id": "A4.SS0.SSS0.Px1.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "We reviewed 35 failed SwarmRSI task trajectories across NatureBench and MLE-Bench Lite. The annotation unit was an individual attempt, assessed against the best preceding valid result using each benchmark’s metric direction. The final failure set comprised 644 attempts across these trajectories, after applying the exclusions below. OpenProblems reports continuous normalized scores without a binary success criterion, so no OpenProblems trajectories enter the failure set. The 35 trajectories comprise 32 NatureBench tasks below Match-SOTA and 3 MLE-Bench Lite competitions without a medal."
+    },
+    {
+      "id": "A4.SS0.SSS0.Px2.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Annotators examined the proposed intervention, implementation and execution records, evaluator outputs, and preceding scores. Implementation or execution failure denotes an intervention that could not be reliably tested because of code or interface errors, execution interruptions, or proposal–implementation mismatches. No performance gain denotes a faithfully implemented and executed intervention with a valid evaluation that did not improve the preceding best valid result. Equal scores were treated as no gain. Recovered intermediate errors were judged by the final evaluated outcome. Successful verification or restoration of an existing result, and repetition of an attained metric ceiling, were excluded from the failure counts. Attempts with insufficient evidence to distinguish the two failure classes were also excluded."
+    },
+    {
+      "id": "A4.SS0.SSS0.Px3.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Two annotators with PhDs in bioinformatics engineering reviewed the evidence using these criteria, with inter-rater agreement of Cohen’s κ = 0.92 \\kappa=0.92 ."
+    },
+    {
+      "id": "A4.SS0.SSS0.Px4.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "On task 00838, a proposed amino-acid substitution was overwritten by downstream rules, leaving the evaluated output unchanged This was an implementation failure despite a valid score. In contrast, on task 02316, a negative-binomial mixture with a Potts spatial prior ran successfully but collapsed all locations into one cluster, yielding ARI zero. This was a no-gain outcome."
+    },
+    {
+      "id": "A5.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Sections E.1 and E.2 detail the Enterocyte and CytoCommunity case studies from Section 5.5 with their data, programs and expert analyses."
+    },
+    {
+      "id": "A5.SS1.SSS0.Px1.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "NatureBench task s41592-023-01955-3 is associated with contrastiveVI ( Weinberger et al., 2023 ) and returns a low-dimensional target-cell representation. The program selected by SwarmRSI comes from step 4 of five recorded steps. Its recorded task-level g = 1.838461 g=1.838461 averages the Haber, McFarland and Norman instances. The analysis here concerns only the Haber intestinal instance ( Haber et al., 2017 ) , GEO GSE92332. The public matrix contains 9,842 cells and 15,215 genes: 3,240 healthy background cells, 2,711 helminth day-10 and 1,770 Salmonella target cells, and 2,121 helminth day-3 cells outside the target submission. The published Enterocyte annotation selects 1,458 cells, including 833 targets (128 helminth day-10 and 705 Salmonella)."
+    },
+    {
+      "id": "A5.SS1.SSS0.Px2.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "For Haber, the program normalizes total counts to 10,000 and applies log1p, selects 2,000 genes by variance across target and background cells, and standardizes using background means and standard deviations, clipping at ± 10 \\pm 10 . It identifies 20 healthy neighbours per target in a 50-dimensional background PCA space and subtracts their mean expression. A singular-value decomposition yields a 20-dimensional residual space. A 15-neighbour graph then smooths the first ten residual coordinates for two iterations, including a self weight. Experts reproduced the program. Local-coherence analysis uses its ten-dimensional outputs. The embedding is constructed from RNA, and infection labels parsed from public cell identifiers are used for diagnostic silhouette reporting."
+    },
+    {
+      "id": "A5.SS1.SSS0.Px3.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Each program score is the arithmetic mean of its genes’ log ⁡ ( 1 + 10 4 ​ x / ∑ x ) \\log(1+10^{4}x/\\sum x) expression. The MHC-II-associated set is Cd74, H2-Aa, H2-Ab1 and H2-Eb1 (the input matrix uses dots in the H2 gene names). The interferon set is Stat1, Isg15, Ifit1, Ifit3, Oas1a and Irf7. All six genes are present in the matrix. The antimicrobial set contains Reg3g, Reg3b, Lcn2 and Saa1. Its signal is dominated by Reg3g/Reg3b, with Lcn2 undetected and Saa1 low in these enterocytes. B1–B4 are control sources, B5/B6 helminth day 3, B7/B8 helminth day 10, and B9/B10 Salmonella. Source labels denote sequencing batches. Figure 8 shows that the four MHC-II genes each have higher source means in B7/B8 than in B9/B10. The antimicrobial program means are 2.120 and 3.158 in B7/B8 versus 3.114 and 3.130 in B9/B10, showing a source-dependent contrast. Table 13 reports MHC-II and interferon means for all ten sources. Pooling enterocytes within each condition gives MHC-II means of 1.168 in helminth day 10, 0.335 in Salmonella and 0.202 in controls. The corresponding interferon means are 0.356, 0.438 and 0.150. These condition means weight each source by its enterocyte count."
+    },
+    {
+      "id": "A5.T13.2.1",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Source Cells MHC-II Interferon"
+    },
+    {
+      "id": "A5.T13.2.2",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "B1 59 0.354 0.115"
+    },
+    {
+      "id": "A5.T13.2.3",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "B2 46 0.126 0.166"
+    },
+    {
+      "id": "A5.T13.2.4",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "B3 98 0.375 0.136"
+    },
+    {
+      "id": "A5.T13.2.5",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "B4 221 0.100 0.162"
+    },
+    {
+      "id": "A5.T13.2.6",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "B5 75 0.377 0.391"
+    },
+    {
+      "id": "A5.T13.2.7",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "B6 126 1.495 0.636"
+    },
+    {
+      "id": "A5.T13.2.8",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "B7 71 1.509 0.395"
+    },
+    {
+      "id": "A5.T13.2.9",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "B8 57 0.744 0.306"
+    },
+    {
+      "id": "A5.T13.2.10",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "B9 332 0.299 0.444"
+    },
+    {
+      "id": "A5.T13.2.11",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "B10 373 0.367 0.432"
+    },
+    {
+      "id": null,
+      "tag": "figcaption",
+      "classes": [
+        "ltx_caption",
+        "ltx_centering"
+      ],
+      "text": "Table 13: Measured enterocyte RNA program means by sequencing source. Scores average normalized log RNA across the four MHC-II or six interferon genes. B1–B4 are controls, B5/B6 helminth day 3, B7/B8 helminth day 10 and B9/B10 Salmonella."
+    },
+    {
+      "id": "A5.SS1.SSS0.Px4.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Measured RNA and the reproduced representation are matched by cell identifier. Within each of B7–B10, the analysis selects ten neighbours among cells of the same Enterocyte type and source, excludes the focal cell, and correlates its program score with the neighbours’ mean score using Spearman’s ρ \\rho . Figure 7 reports these unadjusted correlations. Sensitivity checks use five and fifteen neighbours and the representation saved from the original SwarmRSI run. For covariate sensitivity, each program score is regressed within source on an intercept, log1p total UMI, log1p detected genes and the mean absorptive-marker score (Alpi, Apoa1, Fabp1, Fabp2, Sis). Table 14 reports the same correlation using the residual score and the mean residual of the fixed ten neighbours. Local coherence quantifies measured RNA structure retained in each RNA-derived representation."
+    },
+    {
+      "id": "A5.T14.2.1",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "Source Program Cells RNA PCA Reproduced output Recorded output"
+    },
+    {
+      "id": "A5.T14.2.2",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "B7 MHC-II 71 0.650 0.768 0.766"
+    },
+    {
+      "id": "A5.T14.2.3",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "B8 MHC-II 57 0.396 0.685 0.686"
+    },
+    {
+      "id": "A5.T14.2.4",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "B9 MHC-II 332 0.331 0.326 0.313"
+    },
+    {
+      "id": "A5.T14.2.5",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "B10 MHC-II 373 0.356 0.351 0.347"
+    },
+    {
+      "id": "A5.T14.2.6",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "B7 Antimicrobial 71 0.311 − 0.045 -0.045 − 0.056 -0.056"
+    },
+    {
+      "id": "A5.T14.2.7",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "B8 Antimicrobial 57 0.689 0.593 0.612"
+    },
+    {
+      "id": "A5.T14.2.8",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "B9 Antimicrobial 332 0.370 0.324 0.331"
+    },
+    {
+      "id": "A5.T14.2.9",
+      "tag": "tr",
+      "classes": [
+        "ltx_tr"
+      ],
+      "text": "B10 Antimicrobial 373 0.509 0.296 0.286"
+    },
+    {
+      "id": null,
+      "tag": "figcaption",
+      "classes": [
+        "ltx_caption",
+        "ltx_centering"
+      ],
+      "text": "Table 14: Within-source local coherence after covariate adjustment. Entries are Spearman correlations between a cell’s residual RNA score and its ten neighbours’ mean residual score. Reproduced/recorded outputs are the expert reproduction and the representation saved from the original SwarmRSI run. Counts are cells per source."
+    },
+    {
+      "id": "A5.SS1.SSS0.Px5.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "The following figures report within-source coherence and gene-level source means. Figure 5 a–c shows RNA scores on the reproduced representation."
+    },
+    {
+      "id": null,
+      "tag": "figcaption",
+      "classes": [
+        "ltx_caption",
+        "ltx_centering"
+      ],
+      "text": "Figure 7: Within-source expression coherence in enterocytes. Within each source, Spearman correlation compares cells’ measured RNA program scores with their ten nearest neighbours’ mean scores, excluding each focal cell. Neighbours are defined in RNA PCA (blue) or the reproduced SwarmRSI representation (pink), and the correlations are not adjusted for covariates."
+    },
+    {
+      "id": null,
+      "tag": "figcaption",
+      "classes": [
+        "ltx_caption",
+        "ltx_centering"
+      ],
+      "text": "Figure 8: Source means of individual measured genes in enterocytes. Hpoly.Day3/Day10 denote helminth day 3/day 10 sources. The antimicrobial set is primarily Reg3g/Reg3b. Zero Lcn2 denotes non-detection in this matrix. Values are mean normalized log RNA."
+    },
+    {
+      "id": null,
+      "tag": "figcaption",
+      "classes": [
+        "ltx_caption"
+      ],
+      "text": "Figure 9: Expert follow-up of B-cell neighbourhoods across three spleen images. E1–E3 are post-hoc groups defined by local cell composition. (a) Their proportions among B cells in the manually annotated marginal zone. (b) All six primary protein contrasts after within-image spatial/phenotype matching, E2 minus E1 in that zone (815, 995 and 1,025 pairs). Points are standardized transformed-protein differences. Intervals are 95% within-image spatial-block bootstrap intervals."
+    },
+    {
+      "id": "A5.SS2.SSS0.Px1.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "NatureBench task s41592-023-02124-2 uses three healthy mouse spleen CODEX images associated with CytoCommunity ( Hu et al., 2024 ) : 82,382, 81,925 and 80,973 cells, respectively, with 27 supplied cell phenotypes. SwarmRSI receives coordinates and phenotype labels. The expert follow-up separately examines measured protein intensities. The program selected by SwarmRSI comes from step 12 of a 15-step search and raises g g from 0.04507 to 0.10215. It uses phenotype-derived anatomical priors, 50-neighbour composition and interface features, Gaussian EM, an anatomically constrained spatial MRF and cleanup of components smaller than 150 cells. Recorded macro-F1 and AMI are 0.639247 and 0.583341. Macro-F1 includes the unannotated reference category, whose F1 is zero. Marginal-zone F1 is 0.600, 0.593 and 0.635."
+    },
+    {
+      "id": "A5.SS2.SSS0.Px2.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "The analysis includes 35,168, 33,544 and 32,451 conventionally annotated B cells (101,163 total). Experts fit three exploratory neighbourhood-composition prototypes in the first image and then hold them fixed for the other two, giving B/FDC-rich (E1), myeloid/erythroid-rich (E2) and T-cell-rich (E3) groups. E1–E3 describe local cell composition around B cells in this post-hoc analysis. They are distinct from the program’s anatomical partitions. The primary comparison uses E2 versus E1 within the manual marginal zone, independently of whether the SwarmRSI program assigned that cell to the marginal zone. Coordinates are analyzed in dataset units."
+    },
+    {
+      "id": "A5.SS2.SSS0.Px3.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "The analysis uses processed protein measurements for all 245,280 cells. Within each image and manual marginal zone, matching is exact on original phenotype cluster and imaging tile, then uses five geometry variables with a 0.5-SD per-variable caliper, joint distance at most 1 and no replacement. There are 815, 995 and 1,025 matched E2–E1 pairs, retaining 42.5%, 46.2% and 41.1% of E2 cells, respectively. Maximum absolute geometry standardized mean differences are 0.080, 0.063 and 0.083. Protein contrasts use this matched overlap subset. All six preselected proteins (CD79b, B220, IgD, IgM, MHCII, CD44) are shown in Figure 9 b. Measurements are transformed as arcsinh ⁡ ( x / 150 ) \\operatorname{arcsinh}(x/150) , retaining negative values. Effects are differences of transformed means divided by the within-image contrast-population standard deviation. Intervals use 1,000 bootstrap resamples of 1,000-coordinate-unit spatial blocks within each image. B220 effects are + 0.082 +0.082 , − 0.130 -0.130 and − 0.190 -0.190 . Stricter 0.25-SD matching also yields inconsistent directions. In spatially blocked validation, adding neighbourhood labels to a geometry/phenotype protein predictor produces Δ ​ R 2 \\Delta R^{2} from − 0.00098 -0.00098 to + 0.00967 +0.00967 across 18 image–protein combinations. Neighbourhood labels add little predictive information for these six protein markers in spatially blocked validation."
+    },
+    {
+      "id": "A6.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "SwarmRSI requires an evaluator that can execute candidate programs, so research without executable feedback is outside its scope. Execution feedback does not always reveal whether the intended intervention was faithfully implemented, and performance gains alone do not establish its scientific mechanism. Rebase selects program bases by matching recorded implementation needs to program mechanism labels, a heuristic that does not measure what a program can do. Crossover applies only when a benchmark reports scores per instance. H/P selection adapts discounted UCB without inheriting its guarantees, and its benefit is established only empirically."
+    },
+    {
+      "id": "A6.p2.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Evaluation covers comparisons under matched budgets on three benchmark families. The human failure analysis characterizes 644 annotated failed attempts from 35 task trajectories. Cross-task evidence comes from six source tasks, 12 held-out tasks and one backbone, and generations are confounded with the number of source tasks seen."
+    },
+    {
+      "id": "A6.p3.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "The evaluation does not separately assess literature synthesis ( Shi et al., 2025 ) , idea quality ( Sauter et al., 2026 ) , or peer-review quality ( Guo et al., 2026b ) . Generalization to complete research workflows ( Lu et al., 2024 ; Schmidgall et al., 2025 ; Lyu et al., 2026 ) and information-access agents ( Kanoulas et al., 2025 ; Cao et al., 2026 ) requires additional evaluation."
+    },
+    {
+      "id": "A6.p4.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Other untested settings include legal reasoning ( Lyu et al., 2022 ; Lyu et al., 2023a ; Wu et al., 2023 ) , zero-shot entity extraction ( Wang et al., 2025 ) , conversational recommendation ( Zhang et al., 2024 ) , and shopping research ( Lyu et al., 2025c ) . These settings require task-specific objectives and evaluation protocols."
+    },
+    {
+      "id": "A7.p1.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Benchmark gains do not establish factual reliability or alignment with human preferences, which require separate evaluation and optimization ( Lin et al., 2022 ; Lyu et al., 2024a ; Rafailov et al., 2023 ; Lyu et al., 2025b ) . We do not assess robustness to dataset shortcuts ( Lyu et al., 2023b ) , social stereotypes ( Parrish et al., 2022 ) , or cognitive biases ( Lyu et al., 2024b ; Lyu et al., 2025a ) , nor do we test harmful-content generation. Applications that affect people should preserve user agency and provide domain-appropriate human oversight ( Zhang et al., 2025 ) ."
+    },
+    {
+      "id": "A7.p2.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Generated programs and scientific interpretations require independent validation before use beyond the benchmark setting. The execution and scientific audits check task validity and implementation evidence; they do not certify security or scientific correctness. The biological case studies analyse existing datasets, and their associations do not establish causal mechanisms or clinical validity. Any deployment should restrict code execution, external-tool access and credentials to the approved scope, and review proposed uses for potential harm."
+    },
+    {
+      "id": "A7.p3.1",
+      "tag": "p",
+      "classes": [
+        "ltx_p"
+      ],
+      "text": "Data reuse should respect source licences, access restrictions and privacy requirements, with provenance and intended uses documented ( Gebru et al., 2021 ) . We report time budgets, hardware configurations and token consumption to support resource-aware comparisons ( Schwartz et al., 2020 ) . Token consumption is not a direct measurement of energy use or carbon emissions."
+    }
+  ]
+}
