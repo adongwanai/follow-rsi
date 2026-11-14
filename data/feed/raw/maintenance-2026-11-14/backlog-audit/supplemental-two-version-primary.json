@@ -1,0 +1,350 @@
+{
+  "date": "2026-11-14",
+  "generated_at": "2026-11-14T03:21:00.304632+00:00",
+  "items": [
+    {
+      "id": "arxiv:2610.02687",
+      "current_source_hash": "970311298255ae737783bfd6125f02ca17122f0987a268de2936c2f6e39fb7cd",
+      "current_version": 1,
+      "candidate_version": 2,
+      "scope_suggestion": "exclude",
+      "reason_zh": "固定检索/反思/策展程序更新ACE式记忆节点、关系及helpful/harmful统计；BFS规则、预算和更新算式保持固定。被保留的是上下文记忆与其索引/关系证据，未展示执行程序或检索管理规则被迭代改写；维持记忆方向范围意见。",
+      "changed_claims_readback": [
+        "v2表1新增19.38美元，标签为估算的API等价训练成本；实际运行本地量化模型，不是账单。",
+        "按31M token、95%输入/5%输出、每M输入0.50和输出3.00美元，仅该新增估算值算式为19.375，四舍五入19.38；这不是全部实验数值重算。",
+        "ACE/Qwen在FiNER的48GB OOM结果缺失，不补成0或宣称完成hardware-matched comparison。"
+      ],
+      "evidence": [
+        {
+          "version": 1,
+          "source_file": "build/maintenance-2026-11-02/metadata-reconciliation/original-versions/2610.02687v1/paper.html",
+          "raw_sha256": "44285e9ddcbc276270ee86b657664641ba525aee5d7dfa2713cd837c3c1907f4",
+          "source_url": "https://arxiv.org/html/2610.02687v1",
+          "selector": "#S3.p1",
+          "normalization": "DOM order; official MathML alttext once; whitespace collapsed",
+          "quote": "We use ACE as our workhorse for realizing GraphMemory. GraphMemory changes ACE at precisely two interfaces: what the Generator (f) reads and what the Curator (\\mathcal{O}) writes. Instead of exposing the complete playbook to every query, we prepend a retrieval stage; instead of writing only bullet-point updates, the Curator can also write relations between them. The resulting adaptation loop is Retrieve–Generate–Reflect–Curate, as illustrated in Figure 2. For retrieval, we maintain a compact index containing each node’s identifier and a short key, but not its full bullet-point content. Given a query, the Retriever reads this index and selects a small set of entry nodes. We then perform a deterministic breadth-first traversal from those entries, expanding neighbors in order of learned edge utility, under fixed hop, node, and token budgets. Only the full contents of the nodes reached during this traversal are loaded and passed to the Generator. The LLM therefore makes the initial semantic choice, while the graph provides a cheap and deterministic mechanism for bringing in connected knowledge."
+        },
+        {
+          "version": 1,
+          "source_file": "build/maintenance-2026-11-02/metadata-reconciliation/original-versions/2610.02687v1/paper.html",
+          "raw_sha256": "44285e9ddcbc276270ee86b657664641ba525aee5d7dfa2713cd837c3c1907f4",
+          "source_url": "https://arxiv.org/html/2610.02687v1",
+          "selector": "#S3.p2",
+          "normalization": "DOM order; official MathML alttext once; whitespace collapsed",
+          "quote": "Generation follows ACE. Reflection is extended in one respect: beyond ACE-style critique, the Reflector labels the Generator’s reported memory transitions as helpful, harmful, or neutral. Helpful and harmful labels contribute confidence-weighted evidence to the corresponding edges, while neutral labels leave the counters unchanged. The traversal utility is the mean of the resulting Beta posterior, so retrieval preferentially follows transitions with stronger helpful evidence. The difference appears during curation: the Curator produces a graph update that may add or revise bullet-point nodes, add or revise edges, or do both. The update is applied locally without rewriting the rest of the graph. New nodes are added to the compact index, while new edges determine which lessons can be reached together during later retrieval. We provide the detailed construction of GraphMemory in Appendix B. It is important to note that this realization is not strictly O(1) end to end because the Retriever still reads an index that grows with the number of nodes. The bound in Proposition 2 applies to the full memory content supplied to the Generator. Since each index entry contains only an identifier and a short key, however, this residual growth is far smaller than repeatedly supplying every bullet in full. Over the training horizon studied here, the resulting context grows slowly enough to exhibit the near-constant behavior shown in Figure 1."
+        },
+        {
+          "version": 1,
+          "source_file": "build/maintenance-2026-11-02/metadata-reconciliation/original-versions/2610.02687v1/paper.html",
+          "raw_sha256": "44285e9ddcbc276270ee86b657664641ba525aee5d7dfa2713cd837c3c1907f4",
+          "source_url": "https://arxiv.org/html/2610.02687v1",
+          "selector": "#A2.SS1.p1",
+          "normalization": "DOM order; official MathML alttext once; whitespace collapsed",
+          "quote": "GraphMemory maintains a directed graph G^{(t)}=(V^{(t)},E^{(t)}). Each node stores a unique identifier, a short routing key, and the full ACE-style bullet point used as context. The routing index contains only the identifier and short key; full bullet-point content is loaded only after graph retrieval. A directed edge e=(u,v) records that the knowledge in node v may be useful after node u has been retrieved. The implementation does not store a single mutable weight. Instead, each directed edge stores two nonnegative, confidence-weighted evidence counters: S_{e}^{(t)} for helpful transitions and F_{e}^{(t)} for harmful transitions. If edge e is created at step \\tau_{e}, its counters are initialized as S_{e}^{(\\tau_{e})}=F_{e}^{(\\tau_{e})}=0. (17) We treat these counters as fractional pseudo-counts under a uniform \\operatorname{Beta}(1,1) prior. Under this fractional-observation interpretation, the edge parameter is \\theta_{e}\\mid\\mathcal{H}_{t}\\sim\\operatorname{Beta}\\!\\left(1+S_{e}^{(t)},\\,1+F_{e}^{(t)}\\right), (18) where \\mathcal{H}_{t} is the evidence accumulated through step t. The value used to rank the edge during retrieval is the posterior mean w_{e}^{(t)}=\\mathbb{E}[\\theta_{e}\\mid\\mathcal{H}_{t}]=\\frac{S_{e}^{(t)}+1}{S_{e}^{(t)}+F_{e}^{(t)}+2}. (19) Thus, a new edge has neutral weight w_{e}^{(\\tau_{e})}=1/2 even though no explicit weight field is stored. Because the graph is directed, (u,v) and (v,u) have separate counters and can receive different retrieval weights."
+        },
+        {
+          "version": 1,
+          "source_file": "build/maintenance-2026-11-02/metadata-reconciliation/original-versions/2610.02687v1/paper.html",
+          "raw_sha256": "44285e9ddcbc276270ee86b657664641ba525aee5d7dfa2713cd837c3c1907f4",
+          "source_url": "https://arxiv.org/html/2610.02687v1",
+          "selector": "#A2.SS1.p2",
+          "normalization": "DOM order; official MathML alttext once; whitespace collapsed",
+          "quote": "After generation, the Generator reports an ordered influence trace M_{t}=[n_{1},\\ldots,n_{k}] containing the loaded memory nodes that it attributes as influential to its answer. Only identifiers among the nodes loaded for that example are accepted. Adjacent items define candidate directed transitions, \\mathcal{T}(M_{t})=\\{(n_{1},n_{2}),(n_{2},n_{3}),\\ldots,(n_{k-1},n_{k})\\}. (20) The Reflector labels each candidate as helpful, harmful, or neutral and returns an evidence strength c_{e}^{(t)}\\in[0,1]. For an existing edge e, the evidence update is \\left(S_{e}^{(t+1)},F_{e}^{(t+1)}\\right)=\\begin{cases}\\left(S_{e}^{(t)}+c_{e}^{(t)},F_{e}^{(t)}\\right),&\\text{if $e$ is helpful},\\\\ \\left(S_{e}^{(t)},F_{e}^{(t)}+c_{e}^{(t)}\\right),&\\text{if $e$ is harmful},\\\\ \\left(S_{e}^{(t)},F_{e}^{(t)}\\right),&\\text{if $e$ is neutral}.\\end{cases} (21) The confidence value therefore controls the fractional amount of evidence contributed by one observation; neutral feedback and c_{e}^{(t)}=0 leave both counters unchanged, as do edges that were not observed on the example. Hallucinated or unloaded node identifiers, duplicate pairs, invalid labels, and confidences outside [0,1] are discarded before this update, so each unique transition is updated at most once per example. Observing a transition does not implicitly create an edge: new edges can be introduced only by validated Curator operations, with both counters initialized to zero. The Curator may likewise issue a separate validated edge-removal operation when a relation should no longer be retained; deletion is not an automatic consequence of Equation (19). Node additions and revisions are also local, and new nodes are inserted into the routing index without rewriting the remainder of the graph."
+        },
+        {
+          "version": 1,
+          "source_file": "build/maintenance-2026-11-02/metadata-reconciliation/original-versions/2610.02687v1/paper.html",
+          "raw_sha256": "44285e9ddcbc276270ee86b657664641ba525aee5d7dfa2713cd837c3c1907f4",
+          "source_url": "https://arxiv.org/html/2610.02687v1",
+          "selector": "#A2.SS1.p3",
+          "normalization": "DOM order; official MathML alttext once; whitespace collapsed",
+          "quote": "The retrieval weight is a smoothed estimate of how often the Reflector has judged an observed directed transition helpful under the current retrieval policy. It should not be interpreted as a causal measure of interaction between two nodes or as a calibrated probability that retrieving the edge will improve accuracy. Evidence is policy-dependent because highly ranked edges are more likely to be observed again, and ranking by the posterior mean does not explicitly reward uncertainty. These limitations are important when interpreting the learned graph."
+        },
+        {
+          "version": 1,
+          "source_file": "build/maintenance-2026-11-02/metadata-reconciliation/original-versions/2610.02687v1/paper.html",
+          "raw_sha256": "44285e9ddcbc276270ee86b657664641ba525aee5d7dfa2713cd837c3c1907f4",
+          "source_url": "https://arxiv.org/html/2610.02687v1",
+          "selector": "#A2.SS2.p1",
+          "normalization": "DOM order; official MathML alttext once; whitespace collapsed",
+          "quote": "Retrieval has two stages. First, an LLM Retriever reads the compact index and returns a structured selection of up to two index sections and at most six entry nodes. Second, GraphMemory performs a weight-prioritized breadth-first traversal over outgoing edges. Entry nodes have depth zero. At each breadth level, active outgoing neighbors are ordered by decreasing posterior-mean weight from Equation (19), with target-node identifier used as a deterministic tie-break, and at most the two highest-scoring neighbors of a loaded node are considered. Traversal is bounded by two hops from each entry node, at most 12 loaded nodes, and at most 2,500 tokens of serialized node content. A node is not loaded if doing so would violate either the node or token budget."
+        },
+        {
+          "version": 1,
+          "source_file": "build/maintenance-2026-11-02/metadata-reconciliation/original-versions/2610.02687v1/paper.html",
+          "raw_sha256": "44285e9ddcbc276270ee86b657664641ba525aee5d7dfa2713cd837c3c1907f4",
+          "source_url": "https://arxiv.org/html/2610.02687v1",
+          "selector": "#A2.SS3.p1",
+          "normalization": "DOM order; official MathML alttext once; whitespace collapsed",
+          "quote": "For training example (x_{t},y_{t}), GraphMemory first retrieves from the graph constructed from earlier examples, c_{t}=\\phi(G^{(t)},x_{t}),\\qquad\\widehat{y}_{t}=f(c_{t},x_{t}). (22) Only after producing \\widehat{y}_{t} does the Reflector inspect the prediction, available feedback, and execution trace. The Curator then emits local graph edits, which are applied to obtain G^{(t+1)}. Consequently, information derived from y_{t} cannot affect the prediction on x_{t}; it becomes available only to subsequent examples. The Generator and Reflector retain ACE’s core roles, with the additional memory-use tracing and edge feedback described above, while the Retriever and graph-valued Curator implement the two GraphMemory-specific interfaces described in Section 3."
+        },
+        {
+          "version": 1,
+          "source_file": "build/maintenance-2026-11-02/metadata-reconciliation/original-versions/2610.02687v1/paper.html",
+          "raw_sha256": "44285e9ddcbc276270ee86b657664641ba525aee5d7dfa2713cd837c3c1907f4",
+          "source_url": "https://arxiv.org/html/2610.02687v1",
+          "selector": "#S5.p2",
+          "normalization": "DOM order; official MathML alttext once; whitespace collapsed",
+          "quote": "Our results remain preliminary, covering two related tasks, two models, and one primary baseline. Broader evaluations, additional memory and prompt-optimization baselines, and repeated runs are needed. Retrieval overhead also makes individual test queries slower despite lower token usage, motivating embedding-based and hybrid retrievers, caching, and improved graph routing. Finally, longer continual-learning streams and cross-model transfer will test whether improvements persist beyond one epoch and whether memory built by larger models can efficiently adapt smaller ones."
+        },
+        {
+          "version": 2,
+          "source_file": "build/backlog-all-2026-10-30/independent-round3/sources/arxiv-2610.02687/paper.html",
+          "raw_sha256": "93d5b41103f001c0c6cd2a074928191256f6e7425f65c7c5f7ab71397dd5796e",
+          "source_url": "https://arxiv.org/html/2610.02687v2",
+          "selector": "#S3.p1",
+          "normalization": "DOM order; official MathML alttext once; whitespace collapsed",
+          "quote": "We use ACE as our workhorse for realizing GraphMemory. GraphMemory changes ACE at precisely two interfaces: what the Generator (f) reads and what the Curator (\\mathcal{O}) writes. Instead of exposing the complete playbook to every query, we prepend a retrieval stage; instead of writing only bullet-point updates, the Curator can also write relations between them. The resulting adaptation loop is Retrieve–Generate–Reflect–Curate, as illustrated in Figure 2. For retrieval, we maintain a compact index containing each node’s identifier and a short key, but not its full bullet-point content. Given a query, the Retriever reads this index and selects a small set of entry nodes. We then perform a deterministic breadth-first traversal from those entries, expanding neighbors in order of learned edge utility, under fixed hop, node, and token budgets. Only the full contents of the nodes reached during this traversal are loaded and passed to the Generator. The LLM therefore makes the initial semantic choice, while the graph provides a cheap and deterministic mechanism for bringing in connected knowledge."
+        },
+        {
+          "version": 2,
+          "source_file": "build/backlog-all-2026-10-30/independent-round3/sources/arxiv-2610.02687/paper.html",
+          "raw_sha256": "93d5b41103f001c0c6cd2a074928191256f6e7425f65c7c5f7ab71397dd5796e",
+          "source_url": "https://arxiv.org/html/2610.02687v2",
+          "selector": "#S3.p2",
+          "normalization": "DOM order; official MathML alttext once; whitespace collapsed",
+          "quote": "Generation follows ACE. Reflection is extended in one respect: beyond ACE-style critique, the Reflector labels the Generator’s reported memory transitions as helpful, harmful, or neutral. Helpful and harmful labels contribute confidence-weighted evidence to the corresponding edges, while neutral labels leave the counters unchanged. The traversal utility is the mean of the resulting Beta posterior, so retrieval preferentially follows transitions with stronger helpful evidence. The difference appears during curation: the Curator produces a graph update that may add or revise bullet-point nodes, add or revise edges, or do both. The update is applied locally without rewriting the rest of the graph. New nodes are added to the compact index, while new edges determine which lessons can be reached together during later retrieval. We provide the detailed construction of GraphMemory in Appendix B. It is important to note that this realization is not strictly O(1) end to end because the Retriever still reads an index that grows with the number of nodes. The bound in Proposition 2 applies to the full memory content supplied to the Generator. Since each index entry contains only an identifier and a short key, however, this residual growth is far smaller than repeatedly supplying every bullet in full. Over the training horizon studied here, the resulting context grows slowly enough to exhibit the near-constant behavior shown in Figure 1."
+        },
+        {
+          "version": 2,
+          "source_file": "build/backlog-all-2026-10-30/independent-round3/sources/arxiv-2610.02687/paper.html",
+          "raw_sha256": "93d5b41103f001c0c6cd2a074928191256f6e7425f65c7c5f7ab71397dd5796e",
+          "source_url": "https://arxiv.org/html/2610.02687v2",
+          "selector": "#A2.SS1.p1",
+          "normalization": "DOM order; official MathML alttext once; whitespace collapsed",
+          "quote": "GraphMemory maintains a directed graph G^{(t)}=(V^{(t)},E^{(t)}). Each node stores a unique identifier, a short routing key, and the full ACE-style bullet point used as context. The routing index contains only the identifier and short key; full bullet-point content is loaded only after graph retrieval. A directed edge e=(u,v) records that the knowledge in node v may be useful after node u has been retrieved. The implementation does not store a single mutable weight. Instead, each directed edge stores two nonnegative, confidence-weighted evidence counters: S_{e}^{(t)} for helpful transitions and F_{e}^{(t)} for harmful transitions. If edge e is created at step \\tau_{e}, its counters are initialized as S_{e}^{(\\tau_{e})}=F_{e}^{(\\tau_{e})}=0. (17) We treat these counters as fractional pseudo-counts under a uniform \\operatorname{Beta}(1,1) prior. Under this fractional-observation interpretation, the edge parameter is \\theta_{e}\\mid\\mathcal{H}_{t}\\sim\\operatorname{Beta}\\!\\left(1+S_{e}^{(t)},\\,1+F_{e}^{(t)}\\right), (18) where \\mathcal{H}_{t} is the evidence accumulated through step t. The value used to rank the edge during retrieval is the posterior mean w_{e}^{(t)}=\\mathbb{E}[\\theta_{e}\\mid\\mathcal{H}_{t}]=\\frac{S_{e}^{(t)}+1}{S_{e}^{(t)}+F_{e}^{(t)}+2}. (19) Thus, a new edge has neutral weight w_{e}^{(\\tau_{e})}=1/2 even though no explicit weight field is stored. Because the graph is directed, (u,v) and (v,u) have separate counters and can receive different retrieval weights."
+        },
+        {
+          "version": 2,
+          "source_file": "build/backlog-all-2026-10-30/independent-round3/sources/arxiv-2610.02687/paper.html",
+          "raw_sha256": "93d5b41103f001c0c6cd2a074928191256f6e7425f65c7c5f7ab71397dd5796e",
+          "source_url": "https://arxiv.org/html/2610.02687v2",
+          "selector": "#A2.SS1.p2",
+          "normalization": "DOM order; official MathML alttext once; whitespace collapsed",
+          "quote": "After generation, the Generator reports an ordered influence trace M_{t}=[n_{1},\\ldots,n_{k}] containing the loaded memory nodes that it attributes as influential to its answer. Only identifiers among the nodes loaded for that example are accepted. Adjacent items define candidate directed transitions, \\mathcal{T}(M_{t})=\\{(n_{1},n_{2}),(n_{2},n_{3}),\\ldots,(n_{k-1},n_{k})\\}. (20) The Reflector labels each candidate as helpful, harmful, or neutral and returns an evidence strength c_{e}^{(t)}\\in[0,1]. For an existing edge e, the evidence update is \\left(S_{e}^{(t+1)},F_{e}^{(t+1)}\\right)=\\begin{cases}\\left(S_{e}^{(t)}+c_{e}^{(t)},F_{e}^{(t)}\\right),&\\text{if $e$ is helpful},\\\\ \\left(S_{e}^{(t)},F_{e}^{(t)}+c_{e}^{(t)}\\right),&\\text{if $e$ is harmful},\\\\ \\left(S_{e}^{(t)},F_{e}^{(t)}\\right),&\\text{if $e$ is neutral}.\\end{cases} (21) The confidence value therefore controls the fractional amount of evidence contributed by one observation; neutral feedback and c_{e}^{(t)}=0 leave both counters unchanged, as do edges that were not observed on the example. Hallucinated or unloaded node identifiers, duplicate pairs, invalid labels, and confidences outside [0,1] are discarded before this update, so each unique transition is updated at most once per example. Observing a transition does not implicitly create an edge: new edges can be introduced only by validated Curator operations, with both counters initialized to zero. The Curator may likewise issue a separate validated edge-removal operation when a relation should no longer be retained; deletion is not an automatic consequence of Equation (19). Node additions and revisions are also local, and new nodes are inserted into the routing index without rewriting the remainder of the graph."
+        },
+        {
+          "version": 2,
+          "source_file": "build/backlog-all-2026-10-30/independent-round3/sources/arxiv-2610.02687/paper.html",
+          "raw_sha256": "93d5b41103f001c0c6cd2a074928191256f6e7425f65c7c5f7ab71397dd5796e",
+          "source_url": "https://arxiv.org/html/2610.02687v2",
+          "selector": "#A2.SS1.p3",
+          "normalization": "DOM order; official MathML alttext once; whitespace collapsed",
+          "quote": "The retrieval weight is a smoothed estimate of how often the Reflector has judged an observed directed transition helpful under the current retrieval policy. It should not be interpreted as a causal measure of interaction between two nodes or as a calibrated probability that retrieving the edge will improve accuracy. Evidence is policy-dependent because highly ranked edges are more likely to be observed again, and ranking by the posterior mean does not explicitly reward uncertainty. These limitations are important when interpreting the learned graph."
+        },
+        {
+          "version": 2,
+          "source_file": "build/backlog-all-2026-10-30/independent-round3/sources/arxiv-2610.02687/paper.html",
+          "raw_sha256": "93d5b41103f001c0c6cd2a074928191256f6e7425f65c7c5f7ab71397dd5796e",
+          "source_url": "https://arxiv.org/html/2610.02687v2",
+          "selector": "#A2.SS2.p1",
+          "normalization": "DOM order; official MathML alttext once; whitespace collapsed",
+          "quote": "Retrieval has two stages. First, an LLM Retriever reads the compact index and returns a structured selection of up to two index sections and at most six entry nodes. Second, GraphMemory performs a weight-prioritized breadth-first traversal over outgoing edges. Entry nodes have depth zero. At each breadth level, active outgoing neighbors are ordered by decreasing posterior-mean weight from Equation (19), with target-node identifier used as a deterministic tie-break, and at most the two highest-scoring neighbors of a loaded node are considered. Traversal is bounded by two hops from each entry node, at most 12 loaded nodes, and at most 2,500 tokens of serialized node content. A node is not loaded if doing so would violate either the node or token budget."
+        },
+        {
+          "version": 2,
+          "source_file": "build/backlog-all-2026-10-30/independent-round3/sources/arxiv-2610.02687/paper.html",
+          "raw_sha256": "93d5b41103f001c0c6cd2a074928191256f6e7425f65c7c5f7ab71397dd5796e",
+          "source_url": "https://arxiv.org/html/2610.02687v2",
+          "selector": "#A2.SS3.p1",
+          "normalization": "DOM order; official MathML alttext once; whitespace collapsed",
+          "quote": "For training example (x_{t},y_{t}), GraphMemory first retrieves from the graph constructed from earlier examples, c_{t}=\\phi(G^{(t)},x_{t}),\\qquad\\widehat{y}_{t}=f(c_{t},x_{t}). (22) Only after producing \\widehat{y}_{t} does the Reflector inspect the prediction, available feedback, and execution trace. The Curator then emits local graph edits, which are applied to obtain G^{(t+1)}. Consequently, information derived from y_{t} cannot affect the prediction on x_{t}; it becomes available only to subsequent examples. The Generator and Reflector retain ACE’s core roles, with the additional memory-use tracing and edge feedback described above, while the Retriever and graph-valued Curator implement the two GraphMemory-specific interfaces described in Section 3."
+        },
+        {
+          "version": 2,
+          "source_file": "build/backlog-all-2026-10-30/independent-round3/sources/arxiv-2610.02687/paper.html",
+          "raw_sha256": "93d5b41103f001c0c6cd2a074928191256f6e7425f65c7c5f7ab71397dd5796e",
+          "source_url": "https://arxiv.org/html/2610.02687v2",
+          "selector": "#S5.p2",
+          "normalization": "DOM order; official MathML alttext once; whitespace collapsed",
+          "quote": "Our results remain preliminary, covering two related tasks, two models, and one primary baseline. Broader evaluations, additional memory and prompt-optimization baselines, and repeated runs are needed. Retrieval overhead also makes individual test queries slower despite lower token usage, motivating embedding-based and hybrid retrievers, caching, and improved graph routing. Finally, longer continual-learning streams and cross-model transfer will test whether improvements persist beyond one epoch and whether memory built by larger models can efficiently adapt smaller ones."
+        }
+      ],
+      "independent_status": "pending_separate_readback",
+      "formal_decision_changed": false,
+      "version_adopted": false,
+      "experiments_reproduced": false,
+      "single_new_cost_estimate_recalculation": {
+        "formula": "31 * (0.95 * 0.50 + 0.05 * 3.00)",
+        "unrounded_usd": "19.3750",
+        "rounded_usd": "19.38",
+        "actual_bill_verified": false
+      }
+    },
+    {
+      "id": "arxiv:2610.14018",
+      "current_source_hash": "d1e6612ec3095d7aefd8f7d41002877c22458975586c7d477460eb2a7efb376c",
+      "current_version": 1,
+      "candidate_version": 2,
+      "scope_suggestion": "exclude",
+      "reason_zh": "具身执行持续使用物理状态反馈，但提示由人按任务编写、工具及技能目录固定；训练模型或演化Harness列为未来工作。当前v2不提供反馈驱动Harness版本修改和后续跨任务采纳闭环，维持静态Harness排除意见。",
+      "changed_claims_readback": [
+        "标题Actions→Action、新增GitHub/项目页、图注与引用号修正。",
+        "表格哈希变化来源于删除空表和将既有式(4)移入独立显示table；实测结果表的非空内容相同。",
+        "图7说明两种0 robot-data hours点为可见性作左右0.14轴单位抖动；不是增加训练数据。",
+        "代码可用句由将公开改为已公开，仅按正文新增链接记录；未将其视为新执行/演化实验。"
+      ],
+      "evidence": [
+        {
+          "version": 1,
+          "source_file": "build/maintenance-2026-11-02/metadata-reconciliation/original-versions/2610.14018v1/paper.html",
+          "raw_sha256": "6e4d1c4deeade3941d95a4fb90b5162e9a9f46adfd796a235d6b8e46d22d2bb5",
+          "source_url": "https://arxiv.org/html/2610.14018v1",
+          "selector": "#S3.p1",
+          "normalization": "DOM order; official MathML alttext once; whitespace collapsed",
+          "quote": "Lessons from coding agents show that: a minimal set of simple, orthogonal primitive tools outperforms a collection of predefined features and heavy scaffolding. Inspired by this principle, we argue that an LLM’s potential on embodied tasks is best unlocked by giving it the minimal primitive action tools rather than layers of engineered features."
+        },
+        {
+          "version": 1,
+          "source_file": "build/maintenance-2026-11-02/metadata-reconciliation/original-versions/2610.14018v1/paper.html",
+          "raw_sha256": "6e4d1c4deeade3941d95a4fb90b5162e9a9f46adfd796a235d6b8e46d22d2bb5",
+          "source_url": "https://arxiv.org/html/2610.14018v1",
+          "selector": "#S3.p2",
+          "normalization": "DOM order; official MathML alttext once; whitespace collapsed",
+          "quote": "We start from studying spatial relations between a gripper and objects it interacts with, therefore constructing the most elementary primitive action tools. We further prove their completeness in Section 4: (i) any contact pose between a gripper and an object can be expressed by geometric constraints, and (ii) once the gripper holds an object, any spatial relationship between the in-hand object and a target object can be expressed by geometric constraints."
+        },
+        {
+          "version": 1,
+          "source_file": "build/maintenance-2026-11-02/metadata-reconciliation/original-versions/2610.14018v1/paper.html",
+          "raw_sha256": "6e4d1c4deeade3941d95a4fb90b5162e9a9f46adfd796a235d6b8e46d22d2bb5",
+          "source_url": "https://arxiv.org/html/2610.14018v1",
+          "selector": "#S3.SS2.p4",
+          "normalization": "DOM order; official MathML alttext once; whitespace collapsed",
+          "quote": "We implement the first stage with keypoint-and-constraint tools: the LLM selects points on the image and specifies the geometric constraints they must satisfy; the harness automatically solves and executes the corresponding actions. To support model fine-tuning, we additionally provide adjustment tools that directly command the robot’s low-level degrees of freedom."
+        },
+        {
+          "version": 1,
+          "source_file": "build/maintenance-2026-11-02/metadata-reconciliation/original-versions/2610.14018v1/paper.html",
+          "raw_sha256": "6e4d1c4deeade3941d95a4fb90b5162e9a9f46adfd796a235d6b8e46d22d2bb5",
+          "source_url": "https://arxiv.org/html/2610.14018v1",
+          "selector": "#S3.SS2.SSS1.p1",
+          "normalization": "DOM order; official MathML alttext once; whitespace collapsed",
+          "quote": "The model supplies a set of input points together with their spatial relations, and the harness automatically solves and executes the corresponding action. The model must distinguish between on-hand and off-hand points: on-hand points lie on the gripper or on a held object and their positions can be modified, whereas off-hand points are fixed in the scene. The harness drives the on-hand points so that they satisfy the spatial constraints specified by the model through the following pipeline: 1. Sample action candidates and select those satisfying the constraints. 2. Discard candidates whose inverse kinematics are infeasible or unreachable. 3. Plan a motion trajectory from the current pose to the target pose. 4. Execute the trajectory."
+        },
+        {
+          "version": 1,
+          "source_file": "build/maintenance-2026-11-02/metadata-reconciliation/original-versions/2610.14018v1/paper.html",
+          "raw_sha256": "6e4d1c4deeade3941d95a4fb90b5162e9a9f46adfd796a235d6b8e46d22d2bb5",
+          "source_url": "https://arxiv.org/html/2610.14018v1",
+          "selector": "#S5.SS1.SSS0.Px1.p1",
+          "normalization": "DOM order; official MathML alttext once; whitespace collapsed",
+          "quote": "We compare against state-of-the-art VLAs such as Galaxea G0.5 and \\pi_{0.5}, evaluating both success rate and subgoal completion rate (Liu et al., 2026; Black et al., 2025a). We additionally include the first- and second-place winners of the BEHAVIOR Challenge 2025 (RLC and Comet, respectively) (Larchenko et al., 2025; Bai et al., 2025), whose q-scores are reported on the official leaderboard. The RoboHarness column is Qwen3.8-Flash-Next. Each entry is the mean q-score over five instances per task. Due to the limited evaluation budget, we only run five instances per task with seed 20260911, using slots 0,3,5,7,9 (instance IDs 301,304,306,308,310). The prompt is specific to each task but shared across instances, and is written by a human. The maximum tick count is set separately for each task, and the ten limits are listed in Appendix A. Per-instance scores and the rollout archive are in Appendix A."
+        },
+        {
+          "version": 1,
+          "source_file": "build/maintenance-2026-11-02/metadata-reconciliation/original-versions/2610.14018v1/paper.html",
+          "raw_sha256": "6e4d1c4deeade3941d95a4fb90b5162e9a9f46adfd796a235d6b8e46d22d2bb5",
+          "source_url": "https://arxiv.org/html/2610.14018v1",
+          "selector": "#S6.p2",
+          "normalization": "DOM order; official MathML alttext once; whitespace collapsed",
+          "quote": "LLMs can come up with brilliant plans and solutions for embodied tasks, but often fail to ground in the robot’s physical embodiment, leading to failures such as knocking over objects, falling, or getting stuck. To mitigate this on BEHAVIOR long-horizon mobile manipulation tasks, we hand-craft a task-specific prompt for every task that specifies the execution steps and the behavioral boundaries the model must respect."
+        },
+        {
+          "version": 1,
+          "source_file": "build/maintenance-2026-11-02/metadata-reconciliation/original-versions/2610.14018v1/paper.html",
+          "raw_sha256": "6e4d1c4deeade3941d95a4fb90b5162e9a9f46adfd796a235d6b8e46d22d2bb5",
+          "source_url": "https://arxiv.org/html/2610.14018v1",
+          "selector": "#S6.p3",
+          "normalization": "DOM order; official MathML alttext once; whitespace collapsed",
+          "quote": "Future work aims to close this gap further by training the model or evolving the harness to become more physically grounded."
+        },
+        {
+          "version": 1,
+          "source_file": "build/maintenance-2026-11-02/metadata-reconciliation/original-versions/2610.14018v1/paper.html",
+          "raw_sha256": "6e4d1c4deeade3941d95a4fb90b5162e9a9f46adfd796a235d6b8e46d22d2bb5",
+          "source_url": "https://arxiv.org/html/2610.14018v1",
+          "selector": "#A2.p1",
+          "normalization": "DOM order; official MathML alttext once; whitespace collapsed",
+          "quote": "We distill the procedures used across individual tasks into a set of reusable embodied skills, listed in Table 6."
+        },
+        {
+          "version": 2,
+          "source_file": "build/backlog-all-2026-10-30/independent-round3/sources/arxiv-2610.14018/paper.html",
+          "raw_sha256": "1e32361e474325b0990840611d97b7a33fff66ce689a9086764a90d65a8343a5",
+          "source_url": "https://arxiv.org/html/2610.14018v2",
+          "selector": "#S3.p1",
+          "normalization": "DOM order; official MathML alttext once; whitespace collapsed",
+          "quote": "Lessons from coding agents show that: a minimal set of simple, orthogonal primitive tools outperforms a collection of predefined features and heavy scaffolding. Inspired by this principle, we argue that an LLM’s potential on embodied tasks is best unlocked by giving it the minimal primitive action tools rather than layers of engineered features."
+        },
+        {
+          "version": 2,
+          "source_file": "build/backlog-all-2026-10-30/independent-round3/sources/arxiv-2610.14018/paper.html",
+          "raw_sha256": "1e32361e474325b0990840611d97b7a33fff66ce689a9086764a90d65a8343a5",
+          "source_url": "https://arxiv.org/html/2610.14018v2",
+          "selector": "#S3.p2",
+          "normalization": "DOM order; official MathML alttext once; whitespace collapsed",
+          "quote": "We start from studying spatial relations between a gripper and objects it interacts with, therefore constructing the most elementary primitive action tools. We further prove their completeness in Section 4: (i) any contact pose between a gripper and an object can be expressed by geometric constraints, and (ii) once the gripper holds an object, any spatial relationship between the in-hand object and a target object can be expressed by geometric constraints."
+        },
+        {
+          "version": 2,
+          "source_file": "build/backlog-all-2026-10-30/independent-round3/sources/arxiv-2610.14018/paper.html",
+          "raw_sha256": "1e32361e474325b0990840611d97b7a33fff66ce689a9086764a90d65a8343a5",
+          "source_url": "https://arxiv.org/html/2610.14018v2",
+          "selector": "#S3.SS2.p4",
+          "normalization": "DOM order; official MathML alttext once; whitespace collapsed",
+          "quote": "We implement the first stage with keypoint-and-constraint tools: the LLM selects points on the image and specifies the geometric constraints they must satisfy; the harness automatically solves and executes the corresponding actions. To support model fine-tuning, we additionally provide adjustment tools that directly command the robot’s low-level degrees of freedom."
+        },
+        {
+          "version": 2,
+          "source_file": "build/backlog-all-2026-10-30/independent-round3/sources/arxiv-2610.14018/paper.html",
+          "raw_sha256": "1e32361e474325b0990840611d97b7a33fff66ce689a9086764a90d65a8343a5",
+          "source_url": "https://arxiv.org/html/2610.14018v2",
+          "selector": "#S3.SS2.SSS1.p1",
+          "normalization": "DOM order; official MathML alttext once; whitespace collapsed",
+          "quote": "The model supplies a set of input points together with their spatial relations, and the harness automatically solves and executes the corresponding action. The model must distinguish between on-hand and off-hand points: on-hand points lie on the gripper or on a held object and their positions can be modified, whereas off-hand points are fixed in the scene. The harness drives the on-hand points so that they satisfy the spatial constraints specified by the model through the following pipeline: 1. Sample action candidates and select those satisfying the constraints. 2. Discard candidates whose inverse kinematics are infeasible or unreachable. 3. Plan a motion trajectory from the current pose to the target pose. 4. Execute the trajectory."
+        },
+        {
+          "version": 2,
+          "source_file": "build/backlog-all-2026-10-30/independent-round3/sources/arxiv-2610.14018/paper.html",
+          "raw_sha256": "1e32361e474325b0990840611d97b7a33fff66ce689a9086764a90d65a8343a5",
+          "source_url": "https://arxiv.org/html/2610.14018v2",
+          "selector": "#S5.SS1.SSS0.Px1.p1",
+          "normalization": "DOM order; official MathML alttext once; whitespace collapsed",
+          "quote": "We compare against state-of-the-art VLAs such as Galaxea G0.5 and \\pi_{0.5}, evaluating both success rate and subgoal completion rate (Liu et al., 2026; Black et al., 2025a). We additionally include the first- and second-place winners of the BEHAVIOR Challenge 2025 (RLC and Comet, respectively) (Larchenko et al., 2025; Bai et al., 2025), whose q-scores are reported on the official leaderboard. The RoboHarness column is Qwen3.8-Flash-Next. Each entry is the mean q-score over five instances per task. Due to the limited evaluation budget, we only run five instances per task with seed 20260911, using slots 0,3,5,7,9 (instance IDs 301,304,306,308,310). The prompt is specific to each task but shared across instances, and is written by a human. The maximum tick count is set separately for each task, and the ten limits are listed in Appendix A. Per-instance scores and the rollout archive are in Appendix A."
+        },
+        {
+          "version": 2,
+          "source_file": "build/backlog-all-2026-10-30/independent-round3/sources/arxiv-2610.14018/paper.html",
+          "raw_sha256": "1e32361e474325b0990840611d97b7a33fff66ce689a9086764a90d65a8343a5",
+          "source_url": "https://arxiv.org/html/2610.14018v2",
+          "selector": "#S6.p2",
+          "normalization": "DOM order; official MathML alttext once; whitespace collapsed",
+          "quote": "LLMs can come up with brilliant plans and solutions for embodied tasks, but often fail to ground in the robot’s physical embodiment, leading to failures such as knocking over objects, falling, or getting stuck. To mitigate this on BEHAVIOR long-horizon mobile manipulation tasks, we hand-craft a task-specific prompt for every task that specifies the execution steps and the behavioral boundaries the model must respect."
+        },
+        {
+          "version": 2,
+          "source_file": "build/backlog-all-2026-10-30/independent-round3/sources/arxiv-2610.14018/paper.html",
+          "raw_sha256": "1e32361e474325b0990840611d97b7a33fff66ce689a9086764a90d65a8343a5",
+          "source_url": "https://arxiv.org/html/2610.14018v2",
+          "selector": "#S6.p3",
+          "normalization": "DOM order; official MathML alttext once; whitespace collapsed",
+          "quote": "Future work aims to close this gap further by training the model or evolving the harness to become more physically grounded."
+        },
+        {
+          "version": 2,
+          "source_file": "build/backlog-all-2026-10-30/independent-round3/sources/arxiv-2610.14018/paper.html",
+          "raw_sha256": "1e32361e474325b0990840611d97b7a33fff66ce689a9086764a90d65a8343a5",
+          "source_url": "https://arxiv.org/html/2610.14018v2",
+          "selector": "#A2.p1",
+          "normalization": "DOM order; official MathML alttext once; whitespace collapsed",
+          "quote": "We distill the procedures used across individual tasks into a set of reusable embodied skills, listed in Table 6."
+        }
+      ],
+      "independent_status": "pending_separate_readback",
+      "formal_decision_changed": false,
+      "version_adopted": false,
+      "experiments_reproduced": false,
+      "table_representation_check": {
+        "removed_nonempty_tables": [],
+        "added_nonempty_tables": [
+          "[MATH T_{\\mathrm{true}}(L_{B1})=L_{A1},\\qquad T_{\\mathrm{true}}(L_{B2})=L_{A2}.] (4)"
+        ],
+        "added_formula_exists_in_old_article_text": true,
+        "all_original_nonempty_table_texts_preserved": true
+      }
+    }
+  ],
+  "paid_calls": 0,
+  "production_writes": 0,
+  "not_applied_to_frozen_initial_39_or_post_intake": true
+}
