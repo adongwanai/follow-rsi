@@ -1,0 +1,84 @@
+nor equivalence to maximizing success probability or potential-based policy invariance [29]. The bound
+0 ≤RSPR < 2 implies reward variance at most one, not lower gradient variance or convergence.
+Both rewards are computed at rollout completion: density means progress resolution, unlike step-level
+reasoning supervision [24]. Credit assignment must preserve each reward’s causal location and multiplicity
+rather than duplicate terminal feedback across computational chunks.
+2.3 TB-GAE: turn-boundary credit assignment
+Standard GAE uses δi = ri + γ(1 −di)Vi+1 −Vi and Ai = δi + γλ(1 −di)Ai+1 [34]. Observation nodes
+introduce decay without policy decisions, even when their losses are masked. SAO skips observation gaps;
+TB-GAE adds a turn-boundary clock and fixed-input cross-partition continuation [13].
+TB-GAE links generated positions uj with pre-token values vj = V (huj), turn IDs t(j), and causally
+assigned rewards ˜rj. Observations condition values but are not recursion nodes. The clock is
+(Γj, Λj) =
+(
+(1, 1),
+t(j + 1) = t(j),
+(γturn, λturn),
+t(j + 1) ̸= t(j).
+(8)
+Here 0 ≤γturn, λturn ≤1, dj marks true termination, and wj = ΓjΛj(1 −dj). At termination use zero
+successor value and trace, with Γj = Λj = 1 without querying a nonexistent turn. The recursion is
+δTB
+j
+= ˜rj + Γj(1 −dj)vj+1 −vj,
+ATB
+j
+= δTB
+j
++ wjATB
+j+1.
+(9)
+With target bGj = ATB
+j
++ vj, weights Wj,k = Qk−1
+i=j wi, empty products one, and terminal vL = AL = 0,
+ATB
+j
+=
+L−1
+X
+k=j
+Wj,kδTB
+k .
+(10)
+Crossing B turn boundaries gives attenuation (γturnλturn)B for fixed retained inputs, independently of
+observation length or within-turn token count. Changing clocks removes text-length-driven decay but also
+changes the discounted objective.
+Prefix sensitivity and sparse feedback. If turn t has reward rt only at its final generated token, let n
+start the next turn and dt mark current-turn termination. Telescoping within the turn yields
+Ut = rt + γturn(1 −dt)(vn + λturnAn),
+Aj = Ut −vj,
+bGj = Ut.
+(11)
+Distinct vj give prefix-specific advantages despite a shared return. Terminal successor terms vanish; each
+reward occurs once. Unit clocks yield Aj = PL−1
+q=j ˜rq −vj on complete episodes, matching standard GAE
+only when inputs, values, reward placement, and endpoints agree.
+Exact cross-chunk continuation. Keeping the value bootstrap but resetting the trace at b loses
+Afull
+j
+−Acut
+j
+= Wj,b+1Afull
+b+1.
+(12)
+Exact continuation requires both vb+1 and Ab+1, or an unsplit reverse scan. Task-defined terminal budgets
+set d = 1; sampling cuts and computational partitions do not automatically terminate the task. Unknown
+future traces require approximate cutoffs. Summarization changes conditioning, so state transport alone
+does not establish fixed-input equivalence across a summary.
+Critic error and conditional variance.
+For a complete terminal episode, define ej = vj −vπ
+j and
+Bj,k = Wj,k−1Γk−1(1 −dk−1). Critic error contributes
+∆Aj = −ej +
+L−1
+X
+k=j+1
+Bj,k(1 −Λk−1)ek.
+(13)
+Observation bootstrap terms are absent and intermediate within-turn errors cancel, while −ej remains. With
+fixed retained-chain weights, Var(Aj) = W ⊤
+j ΣδWj, where Σδ is residual covariance. Boundary calibration
+and covariance therefore preclude unconditional variance ordering; when every Λi = 1, only the local critic
+error remains. Appendix C gives derivations and boundary checks.
+5

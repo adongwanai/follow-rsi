@@ -1,0 +1,73 @@
+Calibration coverage and lookup tables. The historical report records 2,087 valid CTRF trials, whereas
+the retained 45-family calibration table accounts for 1,834 trials; these populations are not interchangeable.
+Unrepresented families use the global fallback. The recalibrated 46-family table contains 2,304 samples.
+The structured calibration records contain the old and new divisors, per-family sample counts, and source
+provenance, including the discrepancy in historical coverage.
+Frozen distribution-adaptive table. Calibration trades off suppression of high-scoring failures against
+support for useful partial progress. Using trajectories from the first nine recorded steps, we apply the
+following rules in priority order:
+Calibration condition
+Divisor update
+At least 20 failures with mean reward ≥0.60
+Double the divisor
+Otherwise, at least 30 trajectories with mean length ≥60 turns and mean reward
+in (0, 0.40)
+Quarter the divisor
+Container supply chain family
+Set to 12, the median
+passed-check count among
+successful calibration
+trajectories
+Eight divisors are doubled, nine are quartered, one is newly calibrated, and 28 remain unchanged. This
+frozen lookup table defines the offline comparison. The saved Long-Reward RPR-2 launch configuration
+selects SPR; matched online comparisons are required to isolate the effect of family calibration.
+Halving rather than quartering the selected long-family divisors yields a failed reward share of 26.97%,
+compared with 28.72% for the chosen configuration, but provides less partial credit. Changing the divisor
+cannot create partial progress when P = 0. Here, adaptation refers to a frozen recalibrated table rather
+than per-batch normalization, online difficulty estimation, or a length bonus. The rescoring uses existing
+trajectories without additional rollout generation or policy training.
+Run-specific radar scaling.
+Each profile uses 2,560 trajectories across 46 families, separately from
+fixed-trajectory rescoring. Let Nver denote a family’s pooled mean verifier count and R its run-specific mean
+reward. We plot N ∗
+ver = 100 log(1 + Nver)/ log(1 + Nver,max) and R∗= 100R/Rmax, using shared maxima
+across profiles for each quantity. Counts and rewards retain different units; polygon area and smoothness do
+not quantify variance or fairness.
+Trajectory populations and distribution migration. The behavioral analysis contains 15,211 distinct
+trajectories: 14,143 training and 1,068 evaluation trajectories, with 2,999 observed training tasks in the
+nominal 3,000-task pool. The principal comparison uses 9,023 baseline and 4,352 later trajectories and
+excludes earlier continuation segments. Across 2,802 shared tasks, the mean-length difference is −23.63 turns,
+with a task-bootstrap interval of [−25.09, −22.18]. Task resampling does not control policy initialization,
+execution budgets, or temporal dependence, so this interval describes a distributional difference rather than
+a treatment effect.
+Mean generated length decreases from 49,391 to 33,110 tokens, mean interaction length decreases from
+69.04 to 44.28 turns, and success rises from 21.35% to 28.68%. In the later population, 3,104 failed trajectories
+still receive 50.09% of total reward mass. The 748 early-declaration failures are distinct from the 468 failed
+trajectories that terminate within ten turns. Across recorded steps 0–16, neither mean length nor mean
+reward exhibits a sustained collapse.
+The separately reported per-attempt evaluation success reaches 82.02%, compared with approximately
+67.00–68.00% under earlier training conditions with different initialization. This comparison is neither a
+causal estimate of SPR’s effect nor a pass@3 result. The eight later steps were already available when the
+reward was designed. The offline comparisons therefore assess sensitivity to success separation, saturation,
+and family calibration rather than blind held-out performance or online policy effects.
+C Additional TB-GAE Derivations and Checks
+We compare estimators on the same retained chain with matched prefix values, trajectory boundaries, and
+causal reward assignments, without assuming a universal variance ordering. For a generated-token reference
+clock (γ, λ), define δgen
+j
+= ˜rj + γ(1 −dj)vj+1 −vj. The TB-GAE recursion can then be rewritten as
+ATB
+j
+= δgen
+j
++ γλ(1 −dj)ATB
+j+1 + cj,
+(15)
+cj = (1 −dj)[(Γj −γ)vj+1 + (ΓjΛj −γλ)ATB
+j+1].
+(16)
+Here cj separates the change in discounting from the change in trace decay within the same recursion; it
+neither adds a reward bonus nor subtracts independently computed advantage arrays. Preserving the original
+token-time objective when skipping positions instead requires elapsed-position discounts such as γuj+1−uj
+and appropriately aggregated rewards [13, 34].
+20

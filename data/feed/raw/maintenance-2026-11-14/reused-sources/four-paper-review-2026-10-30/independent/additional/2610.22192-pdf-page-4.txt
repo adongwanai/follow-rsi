@@ -1,0 +1,96 @@
+Terminal-RSI:.Single.Recursive.Step
+RSR
+Recursive.Self-Rewrite
+Actor.Only
+RPR
+Actor-Critic
+Discover
+Successes
+Rewrite
+Verify
+Prior.Critic
+&
+Recursive Policy-Refine (RPR)
+Turn-Boundary
+Skip-Observation
+GAE (TB-GAE)
+Phase-local critic calibration: 4 updates
+FDR → SPR
+Reward
+Figure 3: Rewriting and policy refinement update different parameters. The left branch discovers, rewrites,
+and verifies actor demonstrations; Recursive Policy-Refine (RPR) combines inherited values, reward calibration, and
+Turn-Boundary Skip-Observation GAE (TB-GAE). Phase-local critic calibration comprises four critic-only updates
+before joint training, not before each PPO minibatch.
+Policy refinement. For generated positions uj in phase k, define the actor- and reward-dependent value:
+V π
+k (huj) = Eπθk
+
+
+L−1
+X
+q=j
+
+
+q−1
+Y
+i=j
+Γi(1 −di)
+
+er(k)
+q
+
+huj
+
+.
+(5)
+Here L counts generated tokens, distinct from T interaction turns and M execution repeats. Section 2.3
+defines Γi, termination indicator di, and turn mapping t(j). The reward module supplies er(k); TB-GAE
+supplies advantages and targets for joint PPO updates.
+2.2 Reward evolution: family calibration and success prioritization
+FDR calibrates partial progress; SPR separates strict success from bounded partial credit.
+Let P ≥0 count passed non-hygiene checks, S ∈{0, 1} indicate strict terminal success, and f identify the
+task family. Both rewards use valid Common Test Report Format (CTRF) grading or fall back to S.
+Family Dense Reward (FDR). FDR normalizes progress by Df = q0.90(N | f) > 0, the historical family
+quantile of total non-hygiene calibration checks N, with fallback 82:
+RFDR =
+(
+max(P/Df, 0.00) ,
+if the verification report is valid,
+S,
+otherwise.
+(6)
+Divisors are frozen within a phase. For valid grading, the lower bound is redundant under P ≥0; FDR
+has constant marginal credit 1/Df, no separate completion bonus, and no uniform upper bound over check
+counts. Appendix B details the calibration population and family table.
+Success-Prioritized Reward (SPR). In 4,352 audited trajectories, failures receive 50.09% of FDR reward
+mass; 158 failures score at least one, and 48 pass every executed scenario check but fail the terminal gate.
+This proxy–outcome mismatch motivates success prioritization and bounded partial credit [2]:
+RSPR =
+
+
+
+S +
+P
+P + D′
+f
+,
+if the verification report is valid,
+S,
+otherwise,
+D′
+f > 0.
+(7)
+Offline recalibration doubles divisors for high-reward-failure families and quarters them for long, low-reward
+families, with failure suppression taking precedence (Appendix B). The resulting lookup is frozen within
+phase; it introduces neither per-batch normalization nor a current-trajectory length bonus.
+Ordering and stability. SPR’s progress term gf(P) = P/(P + D′
+f) has g′
+f(P) = D′
+f/(P + D′
+f)2 > 0 and
+g′′
+f (P) = −2D′
+f/(P + D′
+f)3 < 0. Every failure scores below one and every success at least one; matched
+counts, family, and report validity give success exactly one extra unit. There is no uniform positive margin,
+4

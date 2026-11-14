@@ -1,0 +1,78 @@
+2.4 RPR objectives and two-level critic warmup
+Joint optimization.
+RPR-1 recomputes πold using the training-side old actor. Our asynchronous one-
+step-ahead execution decouples sampling from gradient updates, maximizing compute utilization while
+maintaining robust off-policy stability under bounded implementation latency [47]. Let yj be the token at
+retained position uj, with detached pre-update vj, Aj, and bGj, and ρj = πθ(yj | huj)/πold(yj | huj). For
+batch B, define Ej[fj] = |B|−1 P
+τ∈B(P
+j mτjfτj)/(P
+j mτj), with each sample containing at least one valid
+token. Samples, not individual batch tokens, receive equal weight:
+Lπ = −Ej min{ρjAj, clip(ρj, 1 −ϵℓ, 1 + ϵh)Aj},
+LV = Ej max{(Vϕ(huj) −bGj)2, ( ¯Vj −bGj)2}.
+(14)
+Here ¯Vj = vj + clip(Vϕ(huj) −vj, −ϵV , ϵV ) and both phases use ϵV = 4.00. Policy clipping uses ϵℓ= 0.30
+and ϵh = 5.00, giving surrogate thresholds 0.70 and 6.00, [13, 35, 48]; effectively accommodating high-value
+exploratory actions while suppressing destructive ratio divergence during off-policy updates. No KL or
+entropy term is used; both coefficients are 0.00.
+Scope.
+TB-GAE is utilized to handle long-horizon turn boundaries and prevent variance accumulation
+as interaction depth increases. To evaluate the precise shaping of SPR without confounds from policy and
+optimizer shifts, fixed-trajectory rescoring directly verifies reward-assignment fidelity prior to online policy
+optimization.
+3 Implementation and Empirical Results
+3.1 Infrastructure and phase-adaptive training configuration
+Phase-adaptive training safeguards inherited value baselines against policy-drift shock by decou-
+pling actor learning scales from critic recalibration.
+Backbone and asynchronous infrastructure. We instantiate Terminal-RSI on Qwen3.8-27B with a
+262,144-token model context capacity, adopting T1’s slime coordination, Megatron optimization, SGLang
+sampling, and Harbor-based execution [12, 38, 46, 55, 56]. Rollouts overlap optimization in a one-rollout-
+batch-ahead pipeline, corresponding to the step-wise off-policy setting of one.
+Training data. Our 3,000-task pool combines 2,400 semantic-verifier tasks and 600 supplementary terminal
+tasks. Scientific Workflow Reconstruction (SWR) supplies execution-grounded supervision through hidden
+semantic checks on reconstructed scientific programs [20]. SWR100 has no task overlap with this training
+pool. Semantic grading resolves partial progress at verification, not necessarily after every action.
+Stage-specific hyperparameter curriculum.
+We adapt refinement to each stage’s starting policy
+(Table 1). RPR-1 uses actor rate 5 × 10−7 and critic rate 1.5× 10−5, updating values on a faster optimization
+scale. After RSR-2, RPR-2 reduces the actor rate fivefold to 1 × 10−7 while retaining the critic rate; both
+actor schedules are constant within phase. The smaller actor rate is intended to limit disruptive changes
+while the inherited critic recalibrates. This schedule accompanies FDR in RPR-1 and SPR in the retained
+Long-Reward RPR-2 branch; ordinary RPR-2 retains FDR. Critic preparation and phase-local calibration
+follow Section 2.1, building on value-initialization precedents [46, 49, 50].
+Table 1: Refinement adapts policy updates while preserving the critic learning scale. Shared settings
+appear below; the ordinary RPR-2 branch uses FDR rather than SPR.
+Setting
+RPR-1
+RPR-2
+Initial actor
+RSR-1
+RSR-2
+Initial critic
+Warm-up Critic Model
+Retained RPR-1 critic
+Reward
+FDR
+SPR
+Actor learning rate
+5 × 10−7
+1 × 10−7
+Critic learning rate
+1.5 × 10−5
+1.5 × 10−5
+Critic-only calibration
+4 updates
+4 updates
+Value / critic-gradient clip
+4.00 / 100.00
+4.00 / 100.00
+Retained local step
+20
+18
+Sequence budgets, distributed parallelisms, and load balancing. Both optimization phases configure
+global batches of 256 with oversampling to 288 requests to minimize long-tail sample latency, generating
+one response per task. To accommodate the extreme 256k sequence capacity across distributed workers, we
+apply Megatron 3D parallelism coupled with context parallelism of degree 4, setting the per-GPU token
+budget to 8,192 and the log-probability chunk size to 1,024. Across both stages, PPO retains conservative
+6

@@ -1,0 +1,108 @@
+Terminal-Bench Hard: Rust-C FFI and exact-output closure
+Percentages show the mean fraction of verifier checks passed across all scored evaluations of each task.
+Base
+50.00%
+E60 | Arithmetic
+Nested expressions and
+large integers pass
+local probes; addition
+returns 1000000001.
+E62 | Fresh build
+Deleting build artifacts
+exercises automatic
+compilation; the local
+wrapper check
+succeeds.
+Verifier | Format gap
+The wrapper passes,
+but integer-valued
+division prints 23
+instead of 23.0.
+Exact-string fuzz fails.
+RSR-1
+50.00%
+E35 | Build repair
+Configures a static C
+archive and libm; build
+repair establishes a
+working executable.
+E37 | Spot checks
+Checks precedence,
+parentheses and signs.
+The wrapper gate
+passes, but local
+arithmetic coverage is
+limited.
+Verifier | Format gap
+The same
+integer-versus-float
+output mismatch
+persists despite the
+repaired build pipeline.
+RPR-1
+75.00%
+E67 | Local oracle
+Ten local strings match
+the reference evaluator,
+but the sampled
+expressions miss
+notation edge cases.
+Verifier | Notation
+The shown attempt
+prints a decimal where
+the oracle expects
+scientific notation. Local
+success is insufficient.
+Alternate | Complete
+A separate attempt
+tests exponent forms
+and large integers and
+passes both terminal
+gates.
+RSR-2
+100.00%
+E16-17 | Linkage
+Reports audio-guided C
+AST and Rust FFI
+integration; binary
+inspection confirms
+static-pie linkage.
+E17 | Invocation
+Requires one argument
+and builds on demand.
+Division returns 25.0;
+addition returns 4.
+Verifier | Complete
+Both wrapper and fuzz
+gates pass in two RSR-2
+evaluations. These are
+separate from the
+final-stage trials.
+RPR-2
+100.00%
+Terminal-RSI-27B
+E11 | New build
+Writes C AST code,
+Rust bindings, a
+position-independent C
+archive and a
+musl-target wrapper.
+E11-16 | Exact output
+A C-linkage smoke test
+precedes Python-backed
+expression evaluation;
+local probes return 14,
+256 and 3.5.
+Verifier | Complete
+Both new RPR-2 trials
+pass both gates. Passing
+output tests does not
+establish a wholly native
+AST evaluation path.
+Percentages: mean verifier-check completion; cards: selected, source-checked events. Green indicates passing evidence, not an error-free history.
+Figure 16: Separately recorded final-stage trials satisfy the tested output contract. Five rows show
+separate stage evaluations; percentages average the wrapper and fuzz-equivalence gates. Base and RSR-1 retain
+a format mismatch; RPR-1 has mixed outcomes. RSR-2 and RPR-2 each pass both gates in two trials. The first
+final-model trial builds C/Rust components but delegates expression evaluation to Python. Green denotes tested
+output equivalence, not a wholly native AST path or memory safety; missing scores are not imputed.
+29

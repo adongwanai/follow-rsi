@@ -1,0 +1,152 @@
+Table 2: The retained sequence improves all benchmark scores over Base. Retained-stage rows report
+Mean@3 success (%); the separate PPO row is a historical aggregate under Appendix E’s protocol. Best scores,
+including ties, are bold. Arrows give percentage-point changes from retained predecessors, or the primary Base entry
+for PPO. Terminal-Bench 4.0, Terminal-Bench 2.1, Terminal-Bench 3.0, Terminal-Bench Hard and SWR100 use
+percentage of accuracy as performance, LHTB use dense process reward as performance for evaluation.
+Checkpoint
+Terminal-Bench
+4.0
+Terminal-Bench
+2.1
+Terminal-Bench
+3.0
+Terminal-Bench
+Hard
+LHTB
+SWR100
+Base
+0.00
+51.70
+0.00
+31.00
+0.21
+3.00
+PPO
+0.00 =0.00
+48.31 ↓3.39
+1.43 ↑1.43
+39.00 ↑8.00
+–
+–
+RSR-1
+6.10 ↑6.10
+70.10 ↑18.40
+6.80 ↑6.80
+54.00 ↑23.00
+0.29 ↑0.08
+5.00 ↑2.00
+RPR-1
+16.67 ↑10.57
+77.53 ↑7.43
+14.29 ↑7.49
+69.50 ↑15.50
+0.30 ↑0.01 6.00 ↑1.00
+RSR-2
+17.46 ↑0.79
+86.52 ↑8.99
+15.00 ↑0.71
+76.00 ↑6.50
+0.31 ↑0.01 6.00 =0.00
+Terminal-RSI-27B
+19.84 ↑2.38
+86.52 =0.00
+16.95 ↑1.95
+79.00 ↑3.00 0.37 ↑0.06 6.00 =0.00
+policy clipping with bounds [0.30, 5.00] of ϵlow and ϵhigh, an actor gradient clipping threshold of 1.00, and
+zero KL penalties. Additionally, RPR-2 incorporates dynamic sample balancing, a unit microbatch size, and
+sequence padding aligned to multiples of 2,048 tokens to address heterogeneous trajectory lengths. Finally,
+the retained local optimization steps of 20 and 18 are distinguished from the nominal rollout horizon.
+Benchmarks.
+We evaluate Terminal-Bench 2.1, 3.0, 4.0, and Hard, together with LHTB and SWR100
+[19, 20, 22, 27, 28, 41]. LHTB filters 120 candidate projects to 46 tasks with reference solutions and hidden
+tests; broken projects require multi-turn repair across long dependency chains, with weighted subtask grading
+and hidden stress cases. We report mean process reward and strict completion at score 1.00, not the 0.95
+near-completion threshold. The source SWR benchmark derives six variants from each of 500 executable
+workflows spanning 46 families and six domains; this construction is distinct from our 2,400-plus-600 training
+mixture. SWR100 tests 100 reconstructions from public input–output examples against hidden semantic
+configurations, structural checks, and anti-shortcut checks.
+Evaluation protocol. Each retained stage checkpoint is evaluated on each benchmark in three independent
+runs, reporting their arithmetic mean (Mean@3), not pass@3 or a union of solved tasks. LHTB counts use
+the compact notation mean strictly completed tasks/46. Sampling uses temperature 0.60 and top-p = 0.95,
+at most 8,192 output tokens per turn, and 96,000 input tokens per call. Up to 100,000 turns are permitted,
+subject to benchmark termination and time limits. Proactive summarization triggers at 32,000 accumulated
+tokens, compressing prior context before execution continues; it is not a terminal event. Following standard
+evaluation practices for large-scale RL, multiple independent evaluation runs rigorously capture stochastic
+inference variance and ensure result reliability. Appendices H and E document the separate qualitative and
+historical PPO protocols.
+5.00%
+20.00%
+40.00%
+60.00%
+Success (%)
+GPT-6 Astra
+(high)
+Claude Opus 5
+(high)
+GPT-6 Sol
+(high)
+Claude Haiku 5.5
+(high)
+GPT-5.6 Sol
+(high)
+Terminal-RSI-27B
+(Ours)
+Gemini 3.8 Flash
+(high)
+DeepSeek V4 Pro
+(max)
+Kimi K3
+(max)
+DeepSeek V4 Flash 0731
+(max)
+54.00%
+46.00%
+26.30%
+21.70%
+20.70%
+19.84%
+19.70%
+14.60%
+12.60%
+12.10%
+50.00%
+75.00%
+100.00%
+Success (%)
+GPT-6 Astra
+(high)
+Claude Opus 5
+(high)
+Gemini 3.8 Flash
+(high)
+GPT-5.6 Sol
+(high)
+Terminal-RSI-27B
+(Ours)
+GPT-6 Sol
+(high)
+Kimi K3
+(max)
+GLM-5.3
+(max)
+DeepSeek V4 Pro 0813
+(max)
+DeepSeek V4 Flash 0731
+(max)
+89.90%
+87.60%
+87.60%
+87.30%
+86.52%
+85.40%
+85.00%
+83.90%
+78.70%
+78.70%
+Terminal-Bench 4.0
+Terminal-Bench 2.1
+Figure 4: Performance comparison between Terminal-RSI-27B and state-of-the-art frontier models on
+terminal agent task benchmarks. Blue bars highlight the success rate achieved by our proposed Terminal-RSI-27B
+model, while gray bars present the corresponding scores of all included reference frontier models. The left and right
+panels separately demonstrate the comparative results on Terminal-Bench 4.0 and Terminal-Bench 2.1
+7

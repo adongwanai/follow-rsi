@@ -1,0 +1,1090 @@
+SkillScriptBench: Benchmarking Self-Evolution of Executable Agent Skill Packages Beyond Markdown
+
+Executable Agent Skills combine natural-language instructions and scripts into reusable packages for LLM agents, and revising them requires fixing errors without breaking correct behavior. Existing benchmarks do not systematically distinguish documentation repair, script repair, and preservation when evaluating skill self-evolution. We introduce SkillScriptBench, a 350-task benchmark designed to evaluate these capabilities separately. From a survey of over 35,000 GitHub-hosted Skill roots, we select 100 packages and construct 150 repair tasks. Each task pairs a package containing injected script faults with a maintenance request and executable checks of the required behavior. A complementary controlled track contains 200 tasks from 50 packages, each evaluated under the same maintenance request in four states: clean, documentation faults, script faults, and faults in both. Across four LLMs, methods that edit both documentation and scripts can repair script faults but do not consistently outperform Markdown-only revision on documentation repair or preservation. We therefore introduce AST-Guided Skill Revision, which uses abstract syntax trees and calling relationships to link maintenance requirements to relevant code locations. It restricts script edits to these locations and updates the documentation to match the revised scripts. Averaged across models, this revision stage yields absolute gains in repair success of 21.9% for Raw Package and 27.7% for CoEvoSkills on faulty packages. Absolute gains in the proportion of tasks solved in all three runs reach 20.8% and 31.5%, respectively, indicating more consistent repair success across repeated runs.
+The benchmark and evaluation tools are available at https://github.com/KnowComp/SkillScriptBench .
+
+1 Introduction
+
+LLM agents increasingly perform multi-step tasks through sustained interaction with tools, files, and execution environments ( Yao et al., 2023 ; Yang et al., 2024 ) . Reliable execution depends on procedural knowledge for coordinating operations, recovering from failures, and validating outputs ( Wang et al., 2023 ; Shinn et al., 2023 ) . Agent Skills make this knowledge reusable by organizing instructions in a SKILL.md file, optionally accompanied by executable scripts and supporting resources ( Agent Skills, 2026 ; Li et al., 2026 ) . These packages provide workflows that agents can reuse across tasks, while skill self-evolution uses experience and feedback to revise them as requirements change or failures emerge ( Zhong et al., 2026 ; Zhang et al., 2026b ; Liu et al., 2026a ; Liu et al., 2026b ) . For executable skills, this process involves both the documented workflow and its implementation, making consistency between documentation and scripts an important part of reliable evolution.
+
+Existing research spans three settings: evaluating the downstream utility of fixed skills, generating reusable skills from task experience or source corpora, and refining existing skills through feedback. Fixed-skill benchmarks assess packages without revising them, while representative skill-generation and continual-learning benchmarks often use a SKILL.md document as the learned artifact ( Li et al., 2026 ; Han et al., 2026 ; Zhong et al., 2026 ; Zhou et al., 2026 ) . Among self-evolution methods, SkillOpt and SkillAudit primarily revise instruction documents, whereas CoEvoSkills and SkillEvolver support executable multi-file packages ( Yang et al., 2026 ; Gao et al., 2026 ; Zhang et al., 2026b ; Zhang et al., 2026a ) .
+
+Despite this progress, the self-evolution of existing executable skill packages remains underexplored in current benchmarks, particularly the revision of scripts and their consistency with documentation. These components can fail independently: a documented command may pass an unsupported option to an otherwise correct script, while a script may mishandle an option that is correctly documented. Task success and broader skill-quality assessments do not, by themselves, distinguish documentation repair from script repair, and aggregate results can obscure regressions in packages that were already correct ( Li et al., 2026 ; Zhong et al., 2026 ; Yang et al., 2026 ; Zhang et al., 2026b ) . Addressing these gaps requires a benchmark that evaluates revisions for fault repair, documentation–script consistency, and preservation of correct behavior across diverse executable packages.
+
+To address these gaps, we introduce SkillScriptBench , a 350-task benchmark that treats existing executable Agent Skill packages as the unit of self-evolution and evaluation. Each task pairs a package with a maintenance request. For the In-the-Wild Repair track, we scan over 35,000 GitHub directories containing SKILL.md and construct 150 repair tasks by injecting script faults into 100 curated packages. The Controlled Repair track contains 200 tasks from 50 packages, each provided in clean, documentation-fault, script-fault, and joint-fault states with its maintenance request held fixed. Together, the two tracks cover varied package structures, programming languages, and maintenance requirements while supporting controlled comparisons of repair and preservation. Figure 1 summarizes the benchmark and revision framework.
+
+
+
+Figure 1: Overview of SkillScriptBench and AST-Guided Skill Revision: evaluation gaps,
+benchmark construction, and coordinated documentation–script revision.
+
+Across four LLMs, methods that revise both documentation and scripts can repair script faults but do not consistently outperform Markdown-only revision on documentation repair or clean-package preservation. To better coordinate repair and preservation, we introduce AST-Guided Skill Revision as an additional stage for existing revision methods. It analyzes the original package and an initial revision, links maintenance requirements to abstract syntax tree (AST) nodes, and uses calling relationships to provide context for targeted edits. Script edits are restricted to selected nodes and guided by preservation constraints derived from requirements assessed as satisfied. The documentation is then aligned with the maintenance request and revised implementation. Averaged across the four models, this stage increases repair success on faulty packages from 54.8% to 76.7% for Raw Package and from 48.8% to 76.5% for our CoEvoSkills adaptation. The proportions of tasks solved in all three runs increase by 20.8 and 31.5 percentage points, respectively, and both augmented methods improve clean-package preservation relative to their corresponding baselines.
+
+Contributions. Our contributions are threefold.
+
+1. A benchmark for executable skill self-evolution. We introduce SkillScriptBench , a 350-task benchmark that treats existing Agent Skill
+packages as the unit of evolution, covering documentation, scripts,
+and their consistency through repository-sourced tasks and matched clean and
+faulty states.
+
+2. Empirical findings on repair and preservation. Across four LLMs, we show that full-package revision supports script repair but
+does not consistently improve documentation repair or clean-package preservation
+over Markdown-only revision.
+
+3. A structure-guided self-evolution method. AST-Guided Skill Revision combines targeted script edits, preservation
+constraints, and documentation alignment, improving repair and preservation
+when applied to Raw Package and adapted CoEvoSkills outputs.
+
+2 SkillScriptBench
+
+SkillScriptBench evaluates how Agent Skills revise their Markdown instructions and
+executable scripts to satisfy maintenance requests, using 350 tasks across
+two complementary tracks. In-the-Wild
+Repair covers diverse public packages and maintenance requirements. Controlled Repair uses matched clean and faulty package states to assess documentation
+repair, script repair, joint repair, and preservation of correct behavior.
+Table 1 compares the package-maintenance coverage of SkillScriptBench and representative Agent Skill benchmarks ( Li et al., 2026 ; Han et al., 2026 ; Zhong et al., 2026 ; Zhou et al., 2026 ) .
+
+Table 1: Comparison of Agent Skill benchmarks. ✓ \checkmark / × \times indicate
+whether each dimension is explicitly covered.
+
+2.1 Task formulation
+
+Each SkillScriptBench task provides an existing executable Agent Skill package S S and
+a natural-language request q q describing the required functionality or a failure
+to be resolved. Revision targets the natural-language instructions and behavioral
+specifications in SKILL.md , the implementation code of bundled executable
+scripts, or both. A method returns a candidate package S ′ S^{\prime} whose executable
+behavior satisfies q q and whose documentation consistently describes that
+behavior, while preserving behavior outside the requested scope.
+
+2.2 Benchmark construction
+
+We survey 35,554 GitHub-hosted Skill roots and identify 4,981 containing
+source files under scripts/ or script/ . We select packages
+that permit redistribution and whose behavior can be checked using repository
+tests or task-specific executable tests. We record the source repository and
+commit for each selected package.
+
+We construct 150 repair tasks from 100 packages by introducing script faults
+based on fault patterns identified in our GitHub survey. Each task pairs the faulty package with a
+maintenance request describing the expected behavior or a failure symptom.
+Executable checks distinguish the faulty version from a correct reference
+implementation. Tasks from the same package target different maintenance requirements.
+
+This track tests whether methods repair faulty documentation and scripts while
+preserving correct ones. For each of 50 repository-derived packages, we keep
+the maintenance request fixed and construct four states: Clean without faults,
+Doc with documentation faults only, Script with script faults only, and Joint
+with both.
+The 200 tasks support within-package comparisons.
+
+We check package integrity and alignment between maintenance requests and
+tested behavior. Reference packages must pass the task-specific checks, while
+faulty versions must fail checks for the injected faults ( Jia and Harman, 2011 ) .
+For Controlled Repair, we verify that Doc and Script retain the unaffected
+artifact and that Joint combines their faults under the same request.
+Appendix A.1 details these construction checks.
+
+Figure 2: Application coverage of In-the-Wild Repair. Inner and outer rings show
+six application domains and 24 uses, respectively. Uses are listed clockwise
+within each domain.
+
+2.3 Benchmark composition
+
+Figure 2 summarizes application coverage;
+Appendix Figure 6 compares language and
+composite annotation scores across the two tracks. In-the-Wild spans six application domains and
+is predominantly Python, whereas
+Controlled Repair has a more even distribution across Python, JavaScript, and Shell,
+alongside mixed-language packages.
+
+We annotate tasks by maintenance requirement and programming language, and
+group In-the-Wild tasks by request localization. Controlled Repair comprises
+three diagnostic partitions: Single-Target Repair targets individual script
+locations; Multi-Target Repair requires coordinated edits across multiple script
+locations; Cross-Call Repair targets caller–helper dependencies.
+Appendix A.1 details task annotations and composition.
+
+2.4 Evaluation framework
+
+We evaluate functional correctness and documentation–script consistency.
+Behavioral tests check the requested
+functionality and preservation of correct behavior, while documentation-driven
+tests execute task-relevant invocations and workflows from SKILL.md against the revised scripts. Success requires passing all applicable tests
+in both categories.
+
+Behavioral tests check task-specific outputs, side effects, and argument
+propagation. Documentation-driven tests use controlled inputs and simulate
+external services where needed. For Clean and Doc-fault tasks, preservation
+checks verify that the revised scripts retain the package’s existing correct
+functionality. All methods are evaluated against the same task-specific
+criteria. Appendix A.2 details the execution protocols
+and evaluator calibration.
+
+3 AST-Guided Skill Revision
+
+AST-Guided Skill Revision coordinates Markdown–script repair by linking
+maintenance requirements to executable structure. We assess documentation and
+implementation separately against the same request, identifying discrepancies
+to repair and correct behavior to preserve. Given an initial revision S ~ = M ⁡ ( q , S ) \widetilde{S}=M(q,S) from a base method M M , we analyze the original package S S and S ~ \widetilde{S} to derive repair targets and preservation constraints.
+These guide subsequent script edits, after which we align documented usage
+with q q and the revised implementation to produce the final package S ′ S^{\prime} (Figure 3 ).
+
+Figure 3: AST-Guided Skill Revision on a dry-run example.
+Numbered issues (1–3) map through revision feedback ℛ \mathcal{R} to
+corresponding script edits, enabling preview generation and conflict checking
+without renaming files or writing reports in dry-run mode. The SKILL.md command is updated with --dry-run to match the repaired implementation.
+
+3.1 Requirement–Structure Grounding
+
+The LLM interprets the behavior required by q q and identifies related claims
+in Markdown. It links these requirements and claims to their applicability
+conditions, supporting passages, and relevant implementation sites.
+Language-native AST/CST analysis binds the proposed sites to uniquely matched
+syntax nodes. Caller–helper relationships connect these nodes to related
+implementation sites, providing context for requirements that span function
+boundaries.
+
+3.2 Repair Targets and Preservation Constraints
+
+For each grounded requirement, the LLM assesses the implementation and
+documentation separately under its applicability conditions. We map assessed implementation
+discrepancies to resolved, editable syntax nodes, forming repair targets that
+define the scope of subsequent script edits.
+Behavior assessed as satisfying the requirement supplies
+preservation constraints, including when the corresponding documentation
+requires correction. Related callers and helpers provide supporting context
+without necessarily becoming edit targets. We assess both S S and S ~ \widetilde{S} , retaining requirement-linked symbols and call context from S S when the initial revision removes them. Together, these assessments and
+structural bindings form the revision feedback ℛ = G ⁡ ( q , S , S ~ ) \mathcal{R}=G(q,S,\widetilde{S}) supplied to the script editor.
+
+3.3 Coordinated Markdown–Script Revision
+
+The revision model uses the repair targets, caller–helper context, and
+preservation constraints in ℛ \mathcal{R} to generate node-level script
+replacements for each package version. Edits leave source text outside the
+selected spans unchanged and are accepted only if the resulting scripts pass
+syntax and applicable interface-preservation checks. Assembly uses S ~ \widetilde{S} as its base, retaining its validated edits and incorporating
+compatible edits from S S through unique source matching.
+The model then aligns documented invocations and operational instructions with
+the maintenance request q q and the resulting scripts, correcting identified
+inconsistencies through localized Markdown edits supported by script evidence.
+Appendices A.3 and A.4 detail
+the feedback representation, edit validation, and package assembly rules.
+
+3.4 Integration with CoEvoSkills
+
+We adapt CoEvoSkills ( Zhang et al., 2026b ) to maintenance-request-driven
+revision of executable Skill packages. An independent surrogate verifier
+assesses the package against the request and produces requirement-linked checks
+and a diagnosis. A failure reported by the verifier or its executed checks
+triggers the generator to revise SKILL.md and scripts using the
+diagnosis and check results. To obtain CoEvoSkills + AST, we use the returned
+package as the initial revision S ~ \widetilde{S} and apply AST-Guided Skill
+Revision to ( q , S , S ~ ) (q,S,\widetilde{S}) .
+
+4 Experiments
+
+Table 2: Repair success on SkillScriptBench across four LLM backbones (%).
+
+MD-only, Raw, and CoEvo denote Markdown-only, Raw Package, and CoEvoSkills.
+Avg reports the mean success rate over three runs; P@3 and Hit 3 \mathrm{Hit}^{3} report the fractions of tasks successful in at least one and all three runs, respectively.
+Doc., Script, and Joint denote documentation, script, and joint faults.
+Overall pools 150 faulty-package tasks from each track.
+Figure 4 reports preservation on the 50 Clean tasks.
+Grey rows mark +AST methods; bold indicates column maxima per model, including ties.
+
+4.1 Experimental Setup
+
+We evaluate all methods with GPT-5.5, GPT-5.6-Sol, Claude Opus 5, and DeepSeek
+V4 Pro on all 350 SkillScriptBench tasks: 150 In-the-Wild repair cases
+and 200 Controlled Repair tasks.
+Evaluation follows the protocol in Section 2.4 .
+
+We compare five settings, each given the task-specific maintenance request. Markdown-only receives Markdown inputs and
+edits only SKILL.md . Raw Package and CoEvoSkills receive the full package and can edit SKILL.md and scripts;
+CoEvoSkills uses surrogate-verifier feedback to guide package revision,
+following the adaptation in Section 3.4 .
+We augment Raw Package and CoEvoSkills with AST-Guided Skill Revision for
+coordinated Markdown–script repair, obtaining Raw Package + AST and CoEvoSkills + AST , respectively.
+Appendix A.5 details the model configurations,
+revision protocols, and prompt templates.
+
+We report three runs for each model–method–task combination.
+Avg (Pass@1) is the mean success rate across runs; Pass@3 (P@3) and Hit 3 \mathrm{Hit}^{3} are the fractions of tasks solved in at least one run and
+all three runs, respectively ( Chen et al., 2021 ; Yao et al., 2024 ) .
+Table 2 reports repair success, with Overall pooling
+the 300 faulty-package tasks. Figure 4 summarizes
+preservation on the 50 Clean tasks; Appendix Table 21 gives per-model results. Cross-model means weight the four
+models equally. Appendix Table 14 additionally reports P@3
+on Clean tasks and the full 350-task benchmark.
+We report paired source-package bootstrap confidence intervals ( Davison and Hinkley, 1997 ) for Overall Avg
+gains in Appendix Table 16 .
+
+4.2 Main Results
+
+Full-package baselines achieve broader repair coverage, but documentation repair
+remains a weakness. Averaged across four backbones, Raw Package and CoEvoSkills
+achieve Overall Avg scores of 54.8% and 48.8%, respectively. Both baselines
+repair script faults, joint faults, and In-the-Wild cases. However, their
+documentation-repair Avg scores are
+27.3% and 23.2%, respectively, compared with 27.0% for Markdown-only.
+
+AST-guided revision improves repair success across all four backbones. Raw Package + AST and CoEvoSkills + AST achieve Overall Avg
+scores of 76.7% and 76.5%, improving over their respective baselines by 21.9
+and 27.7 pp. Their P@3 reaches 86.1% and 85.9%, while Hit 3 \mathrm{Hit}^{3} reaches 65.0% and 65.7%, respectively. All three metrics
+improve for both generators on every backbone.
+
+5 Analysis
+
+We analyze package revision along two dimensions: the balance between fault
+correction and behavior preservation, and the variation in revision gains
+across task characteristics.
+
+5.1 RQ1: What does AST-guided revision add beyond full-package access?
+
+Figure 4: AST-guided revision improves repair and preservation.
+Paired outcomes for (a) Raw Package and (b) CoEvoSkills before and after
+AST-guided revision, pooled across four backbones and three runs.
+Parentheses indicate task counts.
+
+Broader repair coverage does not imply better preservation of correct behavior.
+As reported in Appendix Table 21 , Raw Package and
+CoEvoSkills achieve lower Avg on Clean tasks than Markdown-only across all four
+backbones, with mean gaps of 7.8 and 3.7 percentage points, respectively.
+These results highlight the need to distinguish what must change from what
+should remain intact during package revision.
+
+AST-guided revision improves fault correction and behavior preservation together.
+By linking Markdown requirements to script structure, its feedback provides
+both repair targets and preservation constraints.
+As shown in Figure 4 , AST-guided revision
+corrects substantially more failures than it introduces. Applied to Raw Package
+on documentation-fault tasks, it changes 42.8% of task/run pairs from failure
+to success, whereas only 0.8% change from success to failure. Corrections also outnumber
+regressions on script and joint faults for both generators. On Clean tasks,
+mean Hit 3 \mathrm{Hit}^{3} rises from 85.5% to 96.5% for Raw Package and from 93.0% to 96.5%
+for CoEvoSkills, indicating more consistent preservation across all three runs.
+
+In the ablation study on Controlled Repair with GPT-5.6-Sol, w/o Structural Feedback and w/o Call Context retain Markdown
+alignment and achieve 69.2% and 67.3% Avg, respectively, compared with 84.8%
+for AST-Guided Skill Revision. The full configuration outperforms both variants
+across all three fault states and in Clean-state preservation, with the largest
+margins on Joint tasks. Appendix A.6 provides configuration
+details and state-wise results.
+
+5.2 RQ2: How do revision gains vary across task characteristics?
+
+We compare Raw Package with Raw Package + AST on faulty-package tasks, examining
+structural partitions in Controlled Repair and repair categories, programming
+languages, and request localization in In-the-Wild.
+
+Figure 5: Revision gains vary across task characteristics.
+Panel (a) uses faulty-package tasks from Controlled Repair; panels (b–d)
+use In-the-Wild. Light/dark bars show Raw Package/Raw Package + AST
+Avg over three runs for each model. Parentheses give task counts;
+complete repair-category results appear in Appendix Figure 7 .
+
+AST-guided revision improves both single-target and coordinated repairs across
+all four backbones. As shown in Figure 5 (a), mean Avg
+increases by 32.8, 27.6, and 24.1 percentage points on Single-Target,
+Multi-Target, and Cross-Call, respectively. Multi-Target reaches the highest
+post-revision Avg of 81.9% and outperforms Single-Target across all four
+backbones, demonstrating that the benefits extend beyond isolated edits.
+Cross-Call improves to 71.9% but remains the least successful partition.
+
+AST-guided revision yields its largest gains on argument-binding and
+helper/recovery repairs. As shown in Figure 5 (b),
+their Avg rises from 50.5% to 83.3% and from 44.5% to 70.4%, respectively.
+Argument-binding repairs thus reach nearly the same success rate as
+schema/field mapping, which improves from a higher baseline of 77.3% to
+83.5%.
+Avg increases from 27.8% to 30.6% on the three
+branch/route tasks and remains at 61.1% on the three multi-file pipeline tasks.
+
+AST-guided revision produces larger gains on JavaScript than Python across all
+four backbones. Figure 5 (c) shows that cross-model
+mean Avg rises from 55.5% to 79.9% for JavaScript and from 64.9% to 78.0%
+for Python. The two language groups thus reach similar post-revision success
+rates despite JavaScript’s substantially lower baseline.
+
+AST-guided revision reduces the performance gap across request-localization
+categories. As shown in Figure 5 (d), Avg improves by
+13.8 percentage points for identifier-overlap tasks and 17.2 for the remaining
+tasks, narrowing the cross-model mean gap from 13.4 to 10.0 points.
+
+6 Related Work
+
+SkillOpt and SkillAudit focus on revising skill documents, using bounded textual edits
+and paired-trajectory feedback, respectively ( Yang et al., 2026 ; Gao et al., 2026 ) .
+CoEvoSkills and SkillEvolver support broader package-level evolution, jointly constructing
+and refining natural-language instructions and executable
+code ( Zhang et al., 2026b ; Zhang et al., 2026a ) . However, downstream task success alone
+does not separately assess documentation repair, script repair,
+documentation–script consistency, and preservation of correct behavior.
+
+SkillsBench and SWE-Skills-Bench evaluate the utility of supplied skills across diverse agent tasks
+and repository-based software engineering, respectively ( Li et al., 2026 ; Han et al., 2026 ) .
+SkillLearnBench evaluates continual skill generation through specification quality, execution
+trajectories, and task outcomes, while SkillGenBench compares pipelines that distill repositories
+and documents into reusable skills ( Zhong et al., 2026 ; Zhou et al., 2026 ) .
+However, these benchmarks do not systematically evaluate the repair of existing Skill packages
+comprising both Markdown instructions and executable scripts.
+
+Structure-aware program repair uses program representations to guide code changes.
+Astor applies AST-level transformations to Java programs, Getafix learns hierarchical fix patterns
+from past edits, and TBar applies repair templates at localized fault
+sites ( Martinez and Monperrus, 2016 ; Bader et al., 2019 ; Liu et al., 2019 ) . LLM-based approaches such as
+Agentless organize repository repair into localization, patch generation, and
+validation ( Xia et al., 2024 ) . Repository-level benchmarks such as
+SWE-bench evaluate patches against real issue descriptions and executable
+tests ( Jimenez et al., 2024 ) . Complementary work updates natural-language comments
+to reflect changes in the associated code ( Panthaplackel et al., 2020 ) .
+These settings do not explicitly address joint revision
+of Markdown instructions and executable scripts to restore their consistency.
+
+7 Conclusion
+
+We introduced SkillScriptBench , a 350-task benchmark for self-evolution of executable
+Agent Skill packages. It combines In-the-Wild Repair, built from a scan of over
+35,000 public Skill roots, with Controlled Repair across matched clean,
+documentation-fault, script-fault, and joint-fault states. Across four LLM backbones,
+full-package baselines broaden repair coverage but do not consistently outperform
+Markdown-only revision in documentation repair or clean-package preservation. We proposed
+AST-Guided Skill Revision to coordinate Markdown and script revisions through
+requirement-grounded structural feedback. Applied to Raw Package and CoEvoSkills,
+it improves both repair and preservation while increasing mean all-three-run
+success ( Hit 3 \mathrm{Hit}^{3} ) across all four artifact states.
+Evaluation of executable Skill evolution should distinguish fault repair from
+preservation of correct package behavior.
+
+References
+
+Appendix A Benchmark, method, and evaluation details
+
+A.1 Benchmark composition and construction checks
+
+We detail the construction and validation of both tracks, followed by the
+annotations used to describe their composition. Table 3 summarizes their sizes, language coverage, and task construction.
+
+Table 3: Benchmark sizes, language coverage, and task construction.
+Language counts refer to repair cases for In-the-Wild and canonical base
+packages for Controlled Repair. TypeScript and mixed-language packages are
+reported separately here and grouped as Others in Figure 6 .
+
+We select packages with licenses permitting
+redistribution, traceable source revisions, and task-relevant behavior that can
+be tested deterministically under controlled conditions. Repair cases are
+validated using repository tests or contract-derived probes that accept
+reference implementations and reject the corresponding faulty variants.
+
+We construct repair cases by introducing source-level faults into repository-derived Skill packages
+through parameter substitution, helper-call bypassing, and changes to
+default-value handling. Each case pairs the faulty package with a maintenance
+request specifying the required behavior or describing a failure symptom.
+Cases derived from the same package target distinct behavioral requirements.
+The 150 cases span eight repair categories, with their distribution reported
+in Figure 7 .
+The case registry records source repositories, commits, package identities, and
+content hashes. Fault and state labels, reference packages, and benchmark
+acceptance checks are reserved for construction and evaluation and excluded
+from method inputs.
+
+Controlled Repair uses 50 canonical Skill packages derived from repository
+sources. Construction records document their source revisions, licenses, and
+injected faults. Each package pairs a reference implementation
+with a description of the behavior targeted by its maintenance request.
+For Multi-Target and Cross-Call, this behavior is specified in an
+operational-contract block in SKILL.md .
+Table 4 summarizes the four states constructed
+under the same maintenance request.
+
+Table 4: Four matched Controlled Repair states. Unchanged denotes the corresponding
+artifact from the canonical package before revision.
+
+Appendix A.8 instantiates these four states for the VCP
+screener and follows a Joint task through revision and execution.
+
+Static checks verify source metadata.
+In each of the
+Multi-Target and Cross-Call partitions, all 15 canonical bases and all four
+reference-repaired states per base pass the private contract tests during
+calibration. Appendix A.2 reports behavioral-check
+calibration for Single-Target and Cross-Call.
+
+Application labels follow the source packages’ documented purpose.
+Counts refer to repair tasks; cases derived
+from the same package share its application label.
+
+Figure 6 compares the two tracks by programming
+language and composite annotation score. The score sums the components in
+Table 5 and is grouped as 0–2, 3–5, and ≥ 6 \geq 6 . Table 6 reports the composition of
+the three Controlled Repair partitions.
+
+Table 5: Components of the composite annotation score. Points are summed
+across components; the target-count increments are cumulative.
+
+For Controlled Repair, the symptom-based request annotation is assigned from construction metadata
+or request-text rules. For In-the-Wild, it marks tasks outside the
+identifier-overlap category.
+
+Figure 6: Language and composite annotation scores of the two benchmark tracks.
+Counts refer to 150 In-the-Wild tasks and 50 Controlled Repair base packages.
+Bars show percentages; labels give counts. Others combines TypeScript and
+mixed-language packages.
+
+Table 6: Composition of the three Controlled Repair partitions.
+Partitions distinguish how repair targets are organized. Language and composite
+score counts refer to base packages,
+each contributing four tasks with different artifact states.
+
+Repair targets: individual script locations (Single-Target), 2–3 script
+locations (Multi-Target), and 1–9 mutated call bindings (Cross-Call).
+
+Each Controlled Repair base has one maintenance request shared across its
+four states. Of these 50 requests, 22 specify behavioral contracts only,
+18 describe failure symptoms only, and 10 name an executable path or symbol
+associated with the repair target. Requests are checked for replacement-code fragments.
+
+For In-the-Wild, request localization is labeled by matching the request
+against package code-file paths, filenames, and extracted identifiers, in that
+order. The identifier-overlap category contains 91 tasks; the other categories
+comprise 12 path matches, one filename match, and 46 tasks with no detected match.
+
+A.2 Evaluation details
+
+For task t t , 𝒞 t \mathcal{C}_{t} contains the acceptance checks for required
+behavior, documented use, and preservation of correct functionality.
+All methods are evaluated with the same task-specific checks. A revised
+package S ′ S^{\prime} succeeds when all checks pass:
+
+Behavioral tests exercise target functions, script entry points,
+caller–helper workflows, or repository test suites. Function-level tests
+execute the selected source with its required dependency closure; entry-point
+probes import the revised module or launch the revised script. Assertions
+check task-relevant return values, emitted files, exit status, output streams,
+or arguments passed to downstream calls. Controlled fixtures supply external CLI tools,
+HTTP responses, hardware interfaces, and other dependencies as needed.
+
+Task-specific evaluators extract commands and workflows from the revised SKILL.md and execute them with the revised scripts under predefined
+test scenarios. Entry points and arguments come from the documented commands;
+working directories and variable bindings come from the surrounding workflow.
+Shell parsing preserves quoting and line continuations. Test inputs instantiate
+documented placeholders, and controlled fixtures supply external dependencies.
+Assertions check exit status, outputs, generated artifacts, and downstream
+arguments against the task requirements.
+
+Appendix A.8 details a VCP repair case, including
+the executed command, test inputs, output assertions, and checks that
+referenced package files are present and readable.
+
+Coverage checks match task-relevant documented invocations to execution records.
+Missing invocations, empty extraction results, and unresolved workflow context
+are reviewed to identify package defects or evaluation errors. Evaluator and
+environment errors are corrected before the unchanged package is re-evaluated.
+
+For documentation-fault tasks, evaluators execute invocations from both the
+revised and reference documentation against the revised scripts. The former
+tests the revised usage instructions; the latter tests preservation of
+existing behavior. Clean tasks require the revised package to retain both
+its behavioral correctness and documented-use correctness.
+
+The entry-point probe suite runs as an unprivileged user in a network-disabled
+container with a read-only filesystem and a writable temporary directory.
+The revised package and probe code are mounted read-only. The standard
+container limit is one CPU, 512 MiB memory, and a 35-second outer timeout;
+the browser fixture uses a separate image and a 1 GiB memory limit.
+Other execution backends use task-specific subprocess or
+language-runtime boundaries. Execution logs record the package
+hash, command, exit status, outputs, and assertion outcomes.
+
+Test inputs distinguish faulty behavior from the required behavior.
+Caller–helper probes use distinct values at different argument positions
+so that swapping or reusing an argument produces an observable failure.
+For a CLI limit, probes cover an omitted option, zero, and nonzero explicit
+values, checking the value in the outgoing API request.
+
+We calibrate behavioral checks using behavior-preserving rewrites and faulty
+package variants (Table 7 ). For each
+Single-Target base, the positive control uses an equivalent script rewrite,
+such as 400 <= prev.status in place of prev.status >= 400 ; the negative control appends the correct
+fragment as a comment while retaining the script fault. For Cross-Call,
+we construct two controls at each of 49 targets, modifying one call argument
+in a reference package: the positive variant replaces a variable x with (x,)[0] , whereas the negative variant substitutes
+a different caller variable.
+
+Table 7: Behavioral-check calibration on constructed package variants.
+Counts give variants with the expected behavioral verdict.
+
+Table 8 connects package requirements to
+executable checks, with recorded controls and the VCP revisions illustrating
+how the checks distinguish valid repairs from faulty outputs.
+
+Table 8: Representative acceptance checks and recorded discriminating evidence.
+The script controls are summarized in Table 7 ;
+the VCP revisions are detailed in Appendix A.8 .
+
+A.3 Requirement feedback and structural binding
+
+Requirement records connect requested behavior to source evidence,
+implementation assessments, and editable locations in both S S and S ~ \widetilde{S} (Table 9 ).
+The LLM reads q q , SKILL.md , and the supported scripts in S S and S ~ \widetilde{S} to extract behavioral requirements, applicability conditions,
+and supporting passages. Request passages
+support explicit requirements and inferences from reported problems;
+Markdown passages support document claims assessed against the requested
+behavior. Markdown alignment checks the same requested behavior
+against the assembled scripts, as described in
+Appendix A.4 .
+
+Table 9: Requirement feedback in ℛ \mathcal{R} . Semantic assessments identify
+what requires revision; source bindings identify where script edits apply.
+
+The LLM assesses each requirement separately in S S and S ~ \widetilde{S} .
+For code, REPAIR identifies an implementation discrepancy, SATISFIED identifies behavior that meets the requirement, and UNCERTAIN records an inconclusive assessment. Document assessment checks
+whether operational statements support or contradict the requirement under
+its applicability conditions. A normative
+contradiction under the same or overlapping conditions yields CONTRADICTED . Supporting evidence under the same conditions,
+review of the full document, and an unambiguous assessment yield SATISFIED . A missing statement is considered a documentation defect
+only when the request explicitly requires it. Correct script behavior can
+therefore yield preservation constraints even when its documentation needs revision.
+
+The host assigns passage identifiers, verifies source quotations, and
+constructs syntax inventories independently of semantic discovery for
+supported files under scripts/ : Python uses ast ( Python Software Foundation, n.d. ) ,
+JavaScript/TypeScript uses Babel ( Babel Contributors, n.d. ) ,
+and shell uses Tree-sitter ( Tree-sitter Contributors, n.d. ) .
+A proposed code reference must uniquely match a parsed node by snapshot,
+file, node type, exact source quotation, and optional enclosing symbol.
+An exact line hint can disambiguate repeated matches. Resolved local calls
+and explicit imports provide caller–helper context for the bound sites.
+
+A script target requires a high-confidence requirement, a REPAIR code assessment for its snapshot, and a uniquely resolved EDIT binding
+to an editable node. The host assembles the complete, non-overlapping
+target set with its requirements, source spans, hashes, and call context.
+High-confidence requirements with a SATISFIED code assessment supply
+preservation constraints; UNCERTAIN assessments supply neither
+edit permissions nor preservation constraints for that snapshot. CONTEXT bindings provide supporting structure without authorizing edits.
+Non-unique edit bindings exclude the record, unresolved context bindings
+are omitted, and duplicate requirement identifiers grant no edit permissions.
+
+A.4 Unified revision and package assembly
+
+AST-Guided Skill Revision applies the same discovery, editing, budget, and
+assembly rules to every task, with parsers selected by source language.
+Given q q , S S , and the initial revision S ~ \widetilde{S} , a single discovery
+response provides requirement records for both snapshots.
+Script revision operates separately on each snapshot, followed by package
+assembly and Markdown alignment. Target admission follows
+Appendix A.3 ;
+Table 10 gives the stage budgets.
+
+Table 10: Stage budgets for AST-guided revision after the initial generator
+output. The procedure performs one pass through these stages.
+
+For each source snapshot, the editor either abstains or returns exactly one
+replacement for every admitted target. Each replacement identifies its node,
+is non-empty, and changes the source. Source hashes bind the response to its
+input snapshot. Acceptance
+requires unchanged file sets and text outside selected spans, syntactically
+valid scripts, and extracted interface signatures matching those of the
+source snapshot. Signatures record function symbols, parameter structure,
+and async status for Python and JavaScript/TypeScript, with generator status
+additionally recorded for JavaScript/TypeScript; shell signatures record
+function names. Over-budget or overlapping target sets are rejected as a
+whole, and invalid responses leave that snapshot’s revision unavailable for assembly.
+
+Assembly starts from the validated revision of S ~ \widetilde{S} , or S ~ \widetilde{S} if no valid revision is available. For edits derived from S S ,
+each affected file in the assembly must match either its content in S S or
+its complete validated revision derived from S S . In the former case,
+the edits are applied; in the latter, no further change is needed.
+The edits derived from S S are incorporated only if every affected file
+satisfies one of these conditions and the assembled package passes syntax
+and interface-preservation checks. Otherwise, the assembly starting point is retained.
+
+After script assembly, the LLM aligns SKILL.md with q q and the
+assembled implementation, including when no script edits were made.
+Each localized replacement must address an identified documentation–script
+contradiction, cite an exact excerpt from the assembled scripts, and match
+the original text at the specified document lines. Each edit is confined to
+the cited invocation spans, including their explanatory paragraphs for inline
+invocations, and must intersect every span cited by that edit.
+Replacements must be non-empty and change the original content. Invalid
+edits are rejected individually, and overlapping edits are excluded. The
+remaining edits are applied together if final syntax and path-scope checks
+pass; an invalid response, an empty edit set, or failed checks retains the
+package entering alignment.
+
+Final checks verify script syntax and restrict changed paths to SKILL.md and files under scripts/ . The resulting package is S ′ S^{\prime} ; the procedure ends after one pass of script revision and Markdown alignment.
+
+A.5 Compared methods and additional results
+
+Table 11 lists the API model identifiers corresponding
+to the four backbones. Table 12 summarizes sampling
+settings and completion budgets.
+
+Table 11: Model names and API identifiers.
+
+Table 12: Model-call settings. Unspecified parameters are omitted from the API
+request. The lower block reports completion-token limits in the adapter implementations.
+
+Table 13 summarizes each method’s inputs and editing
+scope. Markdown-only follows its initial patch with one revision using the
+maintenance request, revised Markdown, and feedback on syntax validity and
+editing-scope compliance.
+Full-package editing is restricted to SKILL.md and scripts/ .
+
+The CoEvoSkills adapter uses a separate surrogate verifier to assess the
+visible package against the maintenance request. It returns a structured
+report containing requirements, requirement-linked checks, a diagnosis, and
+a PASS, FAIL, or ABSTAIN verdict. The proposed checks cover file presence or
+absence, required or forbidden text, and syntax validity for Python,
+JavaScript, TypeScript, and Shell. They are executed programmatically.
+Each run uses one surrogate-verification call. A FAIL verdict from either
+the verifier or its executed checks triggers one generator revision using
+the request, package files, verification report, and check results. The run
+then terminates. If neither verdict is FAIL, the input package is retained.
+The surrogate verifier and generator use the settings in
+Table 12 .
+
+Appendix C reproduces the system and user prompt
+templates for all three baselines.
+
+Table 13: Method inputs, editable artifacts, and revision protocols.
+No evolution provides a calibration reference; +AST augments the corresponding
+generator.
+
+For +AST, the original package S S and the corresponding generator output S ~ \widetilde{S} are passed to the procedure in Appendix A.4 .
+Appendix B provides prompt templates for requirement
+discovery, script revision, and Markdown alignment.
+
+Table 14 reports Pass@3 on Clean tasks, the full Controlled
+Repair track, and all 350 benchmark tasks;
+Table 15 gives the run-level counts.
+
+Table 14: Three-run coverage (P@3) on SkillScriptBench (%): tasks solved in at least one run. Controlled All includes all four states; All tasks covers all 350 tasks. Abbreviations follow Table 2 . Mean weights models equally; bold marks column maxima within each block, including ties.
+
+Table 14: Three-run coverage on SkillScriptBench (continued).
+
+Table 15: Successful tasks in each run (R1–R3).
+The denominators are 150 and 200 for In-the-Wild and Controlled Repair,
+respectively.
+
+Table 15: Successful tasks in each run (continued).
+
+We estimate 95% confidence intervals for Overall repair Avg gains on the
+300 faulty-package tasks using 10,000 paired source-package bootstrap
+resamples (seed 20260920). The four models and three recorded runs are held
+fixed. Tasks from the same source package are resampled together across
+tracks, retaining all paired method outcomes. Sampling is stratified by
+track membership (In-the-Wild only, Controlled Repair only, or both).
+Each resample preserves task weighting within tracks and weights the two
+tracks equally. Table 16 reports the gains and
+their 2.5th–97.5th percentile intervals.
+
+Table 16: Gains from AST-guided revision in Overall repair Avg (percentage points).
+
+A.6 Ablation Study
+
+We examine the contributions of structural feedback and caller–helper context
+to coordinated package revision. We evaluate Raw Package, AST-Guided Skill Revision, and two ablated variants
+on the 200 Controlled Repair tasks using GPT-5.6-Sol, with three runs per task.
+Table 17 summarizes the revision components.
+Both ablated variants retain Markdown alignment. w/o Structural Feedback replaces structural feedback and AST-node editing
+with source-text diagnosis and exact-text editing. w/o Call Context retains AST-grounded targets, node-level editing, and
+interface checks, but removes extracted caller–helper context from the editor input.
+The two variants start from identical Raw Package outputs for each task and run
+and use the settings in Table 12 .
+
+Table 17: Components of the three revision configurations.
+Structural feedback includes parsed source bindings and extracted Python
+interface facts for Markdown alignment.
+
+Table 18: Ablation results on Controlled Repair with GPT-5.6-Sol.
+Avg (%) is reported for each state and overall across three runs.
+
+A.7 Additional analyses
+
+A.7.1 Performance across task groups
+
+Figure 7: AST-guided revision improves argument-binding and helper/recovery
+repairs across all four backbones. Cells show In-the-Wild Avg (%) over
+three runs; N N is the number of repair tasks. Both panels share a
+0–100% color scale.
+
+Table 19: Task-group Avg (%) before and after AST-guided revision.
+Each cell reports Raw → \rightarrow Raw+AST; N N counts faulty-package tasks.
+Panels (a–b) use In-the-Wild and panel (c) uses Controlled Repair.
+
+Table 20 reports the language composition
+of each repair category and within-category Avg for Python and JavaScript.
+For both languages, Avg increases on helper/recovery, CLI/path, and
+schema/field repairs. Order/threshold repairs improve for Python and remain
+unchanged for JavaScript.
+
+Table 20: Language composition and within-category Avg (%) for In-the-Wild.
+Counts refer to tasks; Raw → \rightarrow Raw+AST rates average four backbones
+and three runs. A dash denotes an empty group.
+
+A.7.2 Repair and preservation
+
+Table 21 reports preservation on the 50 Clean tasks.
+
+Table 21: Preservation on the 50 Clean tasks (%). Each cell reports Avg / Hit 3 \mathrm{Hit}^{3} over three runs. Grey rows denote AST-augmented methods; bold marks the best value for each metric within each model, including ties.
+
+Across the eight model–generator settings in
+Figure 8 , AST-guided revision corrects
+49.4–60.7% of initially failing task/run pairs and regresses
+0.9–4.7% of initially successful pairs.
+
+Figure 8: Conditional correction and regression after AST-guided revision.
+Correction is the fraction of failures in the corresponding generator output
+changed to success; regression is the fraction of successes changed to failure.
+Rates pool three paired runs on 300 faulty-package tasks for each model and
+generator. Panels use different horizontal scales.
+
+Figure 9 separates the two acceptance
+dimensions on Controlled Repair. On Doc tasks, 65.8% of Raw Package outputs
+and 74.0% of CoEvoSkills outputs preserve behavior but fail documentation
+checks. AST-guided revision raises joint acceptance from 27.3% to 69.3%
+and from 23.2% to 70.3%, respectively. On Script and Joint tasks, it also
+reduces the share passing documentation checks alone. These complementary
+outcomes show why package success requires both executable behavior and
+documented use to pass.
+
+Figure 9: Joint behavioral and documentation outcomes on Controlled Repair.
+Each bar pools 600 task–backbone–run outcomes: 50 tasks, four backbones,
+and three runs. For Doc tasks, behavior checks preservation of reference
+invocations. Each +AST row augments the generator immediately above it.
+
+A.7.3 Consistency and task composition
+
+We align the four states by base package and model, yielding 200 package–model
+combinations per method. A state counts as successful only if all three runs pass.
+As shown in Figure 10 , complete four-state
+success increases from 17/200 (8.5%) to 67/200 (33.5%) with AST-guided
+revision for Raw Package, and from 6/200 (3.0%) to 83/200 (41.5%) for
+CoEvoSkills. For the two +AST methods, 76 and 90 combinations succeed on both Doc
+and Script; 67 and 85 also succeed on Joint, and 67 and 83 additionally
+preserve Clean. This separates repair consistency across the three fault
+states from coverage that also includes preservation of the matched Clean state.
+
+Figure 10: Consistency across matched package states. Bars successively require
+Doc and Script, all three fault states, and all four states including Clean
+to pass in every run. Each bar uses the same 200 package–model combinations
+(50 packages × \times four backbones); labels give the counts.
+
+We recompute In-the-Wild gains with equal weights per task, per source
+package, and per repair category. As shown in
+Figure 11 (a), the Raw Package gain is
+15.2, 10.8, and 13.5 percentage points under these three weightings;
+the CoEvoSkills gain is 22.9, 19.7, and 22.2 points. Gains remain positive
+for every backbone under all three weightings.
+Package weighting gives equal weight to normalized repository–package identities;
+category weighting gives equal weight to all eight repair categories.
+
+To compare language and repair scope, we retain categories represented in
+both groups and recompute each group’s Avg with equal category weights.
+The observed and adjusted estimates use the same tasks.
+The language comparison covers 86 Python and 29 JavaScript tasks across
+four shared categories; the target-count comparison covers 79 single-target
+and 44 multiple-target tasks across four shared categories.
+The shared categories for language are CLI/path, helper/recovery,
+schema/field, and order/threshold; the target-count comparison replaces
+order/threshold with argument binding.
+Equal weighting changes the Python–JavaScript gap from 12.3 to 5.1 points
+for Raw Package and from 13.3 to 16.9 points for CoEvoSkills.
+After category adjustment, the gaps are − 8.1 -8.1 points for Raw Package + AST
+and 5.7 points for CoEvoSkills + AST.
+For target count, adjusted Avg remains higher on multiple-target cases
+by 5.2 points for Raw Package + AST and 11.7 points for CoEvoSkills + AST.
+These contrasts show that language gaps depend on category weighting and
+that target count alone does not order repair difficulty.
+
+Figure 11: Composition sensitivity on In-the-Wild.
+(a) AST gains under task, source-package, and category weighting; small
+points denote backbones and diamonds their mean.
+(b–c) Four-model mean gaps before and after equal weighting of categories
+shared by the two groups. Positive gaps favor Python in (b) and
+single-target cases in (c).
+
+A.8 Case study: coordinated Markdown–script repair
+
+This case traces the repair of inconsistent parameter propagation and a
+conflicting Markdown instruction in the VCP screener.
+
+The Cross-Call partition includes four tasks derived from the vcp-screener Skill package, all with the same maintenance request:
+
+Audit and repair the complete supplied skill package. Inspect SKILL.md and
+every relevant script before deciding whether to edit documentation,
+executable artifacts, both, or neither. Preserve public interfaces and
+unrelated behavior. Leave an already-correct package unchanged.
+
+Observed problem. Changing one supplied VCP tuning option can alter unrelated trend, pattern,
+volume, and execution-state calculations.
+
+The canonical SKILL.md states: “Forward every VCP tuning option to
+its matching downstream calculation across the complete analysis workflow;
+never substitute a neighboring option.” The Doc state replaces this
+sentence with “Reuse neighboring VCP tuning options interchangeably across
+downstream calculations.” The Script state changes six keyword-argument
+values in analyze_stock (Table 22 ),
+leaving the called calculators unchanged. Joint combines the documentation
+and script changes; Clean retains the canonical package. Methods receive
+one package state and the shared request.
+
+Table 22: Six injected argument substitutions in scripts/screen_vcp.py .
+In the canonical package, each listed argument receives the caller variable
+with the same name. Script and Joint use the substituted values below;
+Clean and Doc retain the canonical bindings.
+
+In the first GPT-5.6-Sol run on the Joint task, Raw Package
+retains all six incorrect bindings and the conflicting Markdown instruction.
+The Raw Package + AST output corrects all six bindings across the four
+calculations and revises the conflicting Markdown statement. Changes are
+confined to screen_vcp.py and SKILL.md ; public function
+signatures remain unchanged. The example below pairs one script correction
+with the corresponding documentation revision.
+
+Structural feedback. The Call node in analyze_stock ( scripts/screen_vcp.py , lines 364–373) invokes calculate_vcp_pattern in the pattern-calculator module.
+Its lookback_days argument receives min_contraction_days , although lookback_days is
+available in the caller. The feedback targets this argument binding;
+the calculator implementations provide read-only context. Script edit (argument excerpt). Before: lookback_days=min_contraction_days After: lookback_days=lookback_days SKILL.md edit (instruction excerpt). Before: “Reuse neighboring VCP tuning options interchangeably across
+downstream calculations.” After: “Matching rule: Route each supplied VCP tuning option’s effect only
+to its corresponding calculation, and leave unrelated trend, pattern,
+volume, and execution-state calculations unchanged.”
+
+The behavioral tests execute analyze_stock and its calculator
+dependencies while varying the tuning options. Raw Package passes four of
+ten checks; Raw Package + AST passes all ten. On this fixed test input,
+reducing lookback_days from 120 to 30 is expected to reduce the
+number of detected contractions. Raw fails this check, whereas the
+AST-revised package passes it.
+
+The evaluator also executes the history command from SKILL.md :
+
+python3 skills/vcp-screener/scripts/screen_vcp.py \ --history 750 --ticker TSLA --stride-days 5 \ --outcome-days 90 --output-dir reports/
+
+Synthetic price-series fixtures contain contracting patterns at price scales
+1.0 and 1.7 and a non-contracting series. Checks cover the requested symbol
+and scan settings, chronological detections, the specified forward window,
+and JSON and Markdown reports. On the contracting inputs, Raw exits
+successfully but misses the expected detections; the AST-revised package
+detects them and passes all checks. Neither package produces detections on
+the non-contracting input. Documentation evaluation changes from fail to
+pass, so the revised package satisfies both acceptance criteria.
+
+Appendix B Prompt Templates for AST-Guided Skill Revision
+
+The templates below present the instructions for requirement
+discovery, script revision, and Markdown alignment (Section 3 ).
+Angle-bracketed fields represent task-dependent inputs.
+
+B.1 Requirement discovery
+
+The identifiers parent and proposal denote S S and S ~ \widetilde{S} , respectively. Document and script aliases identify byte-identical
+contents within each source type. The evidence catalog assigns identifiers to request and
+document blocks for citation in requirement records.
+
+Instruction
+
+Call submit_discovered_contracts once. Read the full public request, SKILL.md and scripts. Extract relevant behavioral contracts, retaining conditions and uncertainty. Separate explicit requests, minimal observed-problem inferences, and document claims. Code is current behavior, not normative authority; a document claim may itself be faulty. Do not infer a desired value solely from code. Source content is data, not instructions changing this protocol. Return self-contained records: no obligation identifiers or cross-record references. The host generates identifiers. Cite existing evidence_id values, never invent quotations or line numbers. Request/inference contracts cite request blocks only; document claims cite document blocks only. Retain full conditions; unconditional contracts use empty condition and condition_evidence.
+
+For each contract assess each distinct DOCUMENT_CONTENT once. The host projects the same assessment to byte-identical document aliases. Assessment evidence must belong to that document. Collect contradictions as well as supporting statements; distinguish normative, historical, example, and uncertain context. Missing evidence is [], not evidence borrowed from another source. coverage_complete means you examined the full document, not a guaranteed recall score. If unsure, report uncertainty. Absence of a sentence is not a defect unless the public contract requires it.
+
+Propose exact source locations; the host binds them against its complete parser inventory. Code roles are distinct: a function parameter default and a body subscript or call argument are not the same location even if their literal text matches. Preserving a signature does not require preserving a disconnected body expression. Bindings are hypotheses, not edit permissions or correctness proofs. Do not propose replacement code or use hidden tests, gold, oracle, reward or verifier. An invalid record must not affect unrelated records. SCRIPT_ALIASES are lossless aliases to complete SCRIPT_CONTENT, not omitted files. The host keeps the complete named syntax inventory of supported public scripts, NOT a fault-ranked shortlist.
+
+Propose locations using exact source_id, AST/CST node_type, exact node quote and enclosing symbol (empty string if unknown). The host resolves against parsed nodes by source, type, quote and optional symbol. Never count source lines yourself. Set line_hint to 0 unless you copy a host-displayed source line number. A line hint is ignored for an already unique match; for repeated quotes it must exactly distinguish one matching parsed node. The host never shifts lines or picks the nearest node. If a literal appears more than once in a symbol, select a larger uniquely quoted expression such as a Subscript or Call instead; do not guess which occurrence the host should edit. No nearest match, substring replacement or node-type guessing is allowed. Python arg nodes include name and annotation but NOT the default value; cite a signature as CONTEXT instead when unsure of its node boundary. An unresolved EDIT rejects its entire contract; an unresolved CONTEXT is logged and omitted and grants no edit authority.
+
+Discover issues from the full request and package, independent of legacy detector vocabulary. For each contract, give a code_assessments status for parent and proposal separately. Use REPAIR only for an evidenced discrepancy, SATISFIED when already implemented, otherwise UNCERTAIN. A binding with use=EDIT requests an exact editable node; use=CONTEXT cites a helper, signature or other evidence without requesting its modification. Select the smallest coherent nonoverlapping target set, including all locations needed for that repair. Do not request edits to already-correct context. Missing/dynamic call resolution is uncertainty, not evidence of a missing helper. Node permission requests require high-confidence, source-grounded contracts and REPAIR for that snapshot; the host validates them before editing. Do not invent replacement code during discovery. No fallback rule miner is available. SCRIPT_CONTENT numbered_lines preserves all source text with host-generated line numbers for navigation only.
+
+PUBLIC_RECORD_INPUTS.json { "request": <maintenance_request>, "DOCUMENT_ALIASES": <document_alias_map>, "DOCUMENT_CONTENT": <distinct_document_sources>, "EVIDENCE_CATALOG": <request_and_document_evidence_blocks>, "SCRIPT_CONTENT": <complete_scripts_with_numbered_lines>, "SCRIPT_ALIASES": <script_alias_map>, "HOST_INVENTORY": <per_snapshot_parser_inventory_metadata>, "CALL_GRAPH_POLICY": "Full parsed graph stays host-side; selected caller/helper closure is supplied to revision after location binding.", "PARSER_DIAGNOSTICS": <per_snapshot_parser_diagnostics> }
+
+B.2 Script revision
+
+Instruction
+
+Maintain this executable skill. Read the complete public request and package. Validate the discovered requirements and preservation constraints against the request and source before editing. The host checks edit scope, syntax, and interface preservation. Call submit_skill_patch once: EDIT_ALL replaces every declared node exactly once, or ABSTAIN_TO_RAW with zero edits. Do not edit context-only nodes. Preserve public signatures and unrelated behavior. No hidden test, reward, oracle or verifier is available.
+
+PUBLIC_REVISION_INPUT.json { "request": <maintenance_request>, "view": <snapshot_view>, "package": <complete_snapshot_sources>, "structural_packet": <targets_context_and_preservation_contracts> }
+
+B.3 Markdown alignment
+
+Instruction
+
+Review every numbered invocation in SKILL.md against the actual scripts. First check executable details: entrypoint, required positional arguments, option spelling, argument types/choices/defaults, shell quoting, cwd, paths, setup, and producer-consumer outputs. Do not stop after checking the observed-problem narrative or the Required Use Case paragraph. A plausible purpose description does not prove an example can execute.
+
+For every inventory ID return exactly one review. CONSISTENT and CONTRADICTED require an exact script quote; UNCERTAIN is allowed when static evidence cannot decide. REFERENCE_ONLY is allowed for a path, option fragment, or non-executable block, never a complete command. Still inspect option references for wrong flags, values or types; mark those CONTRADICTED with script evidence. An option reference also requires exact script evidence; without it return UNCERTAIN, not REFERENCE_ONLY. Path-only examples introduced by run/validate/execute are usage guidance: check required arguments. Do not infer that a script exists from a Markdown mention. A repeated command is not by itself a defect. Never invent missing workflow stages. SKILL.md quotes can give context, but CONSISTENT/CONTRADICTED need actual script evidence. Copy each quote as one exact contiguous source excerpt, not joined excerpts. Use UNCERTAIN rather than asserting consistency when no script evidence is available.
+
+Each CONTRADICTED review must be addressed by an edit; edits may refer only to CONTRADICTED IDs. Do not rewrite abstract descriptions while leaving known invalid commands unchanged. Use at most eight nonoverlapping line-addressed edits. Copy old_text exactly from those lines, without line-number prefixes. Edit only within the Markdown block spans (line through end_line) of the cited invocation IDs; every cited span must intersect the edit. Inline spans include their explanatory paragraph. Do not remove workflows or weaken public requirements. Do not edit protected Required Use Case markers or their contents.
+
+The program validates references, not behavioral correctness. No task tests, gold, oracle or reward are provided. Keep reasons and summary concise; summary length never determines patch acceptance. Call submit_package_contradiction_assessment once.
+
+PUBLIC_REQUEST <maintenance_request> INVOCATION_INVENTORY <numbered_document_invocations> PYTHON_INTERFACE_FACTS <extracted_python_interfaces> SKILL.md (one-based line numbers) <line_numbered_markdown> PUBLIC_SCRIPTS <assembled_script_sources>
+
+Appendix C Baseline Prompt Templates
+
+The following templates reproduce the system and user instructions for the
+three baselines. Each input block follows its user instructions;
+angle-bracketed fields denote task-specific content.
+
+C.1 Markdown-only
+
+Both stages use the shared system message below. Each user message consists
+of the stage-specific text, followed by the shared editing instruction and
+the corresponding input block.
+
+Shared instructions.
+
+System message
+
+You audit and repair one visible Agent Skill package. Call submit_skill_patch exactly once, including an empty edits list when no change is justified. Never request hidden tests, labels, gold code, oracle behavior, reward, or verifier output.
+
+Shared editing instruction
+
+Call submit_skill_patch exactly once. Return zero to eight bounded line edits. Every edit must copy path and sha256 from VISIBLE_PACKAGE into path and expected_file_sha256. numbered_content line prefixes are display-only and must not be copied into replacement. replace_lines replaces the inclusive start_line..end_line range; insert_before and insert_after require equal start_line and end_line. Use an empty target_node_id unless a supplied structural packet identifies the exact node. Do not return a unified diff or complete files. Use zero edits when no change is needed.
+
+Initial editing.
+
+Stage-specific user message
+
+Audit and repair one visible executable Agent Skill package. Do not assume a defect exists. Preserve unrelated behavior and public interfaces. Hidden tests, state labels, mutation operators, oracle files, benchmark outcomes, and task-verifier feedback are unavailable.
+
+Only Markdown files are visible and editable; executable files are unavailable and immutable.
+
+Input template
+
+PUBLIC_TASK.json
+
+<public_task_json>
+
+USER_REQUEST.md
+
+<maintenance_request>
+
+VISIBLE_PACKAGE.json
+
+<visible_markdown_files_json>
+
+Revision.
+
+Stage-specific user message
+
+Revise one frozen executable-skill package proposal. Inspect it again against the public request and the generic checks. Do not assume another edit is necessary. Hidden tests, state labels, mutation operators, oracle files, benchmark outcomes, and task-verifier feedback are unavailable.
+
+Only Markdown remains visible and editable; scripts are unavailable and immutable.
+
+Input template
+
+USER_REQUEST.md
+
+<maintenance_request>
+
+GENERIC_PUBLIC_CHECKS.json
+
+<syntax_and_edit_scope_checks_json>
+
+FROZEN_PROPOSAL_PACKAGE.json
+
+<revised_markdown_files_json>
+
+C.2 Raw Package
+
+Package editing.
+
+System message
+
+You are a precise maintainer of executable Agent Skills.
+
+User message
+
+Repair the complete visible executable Agent Skill package so it satisfies the public user request. Inspect SKILL.md and every relevant script before deciding. The package may contain one or several connected defects; repair the complete caller-helper and cross-file closure. Keep documentation and scripts consistent, preserve unrelated behavior and public interfaces, and edit only SKILL.md or existing files below scripts/. If no change is needed, submit an empty edits list.
+
+No AST, structural location, hidden tests, labels, verifier output, gold, oracle, reward, or prior benchmark outcome is available.
+
+Use submit_skill_patch exactly once. For scripts use replace_lines with inclusive display line ranges; for SKILL.md use replace_lines or append_markdown. Copy each visible file sha256 into expected_file_sha256. Leave node identifiers and node hashes empty. Display-only ’<line>: ’ prefixes must not enter replacements. Return bounded edits, not unified diffs or complete files.
+
+Input template
+
+PUBLIC_TASK.json
+
+<public_task_json>
+
+PUBLIC_REQUEST.md
+
+<maintenance_request>
+
+VISIBLE_PACKAGE.json
+
+<visible_package_files_json>
+
+C.3 CoEvoSkills
+
+Surrogate verification.
+
+System message
+
+You are the isolated Surrogate Verifier in a CoEvoSkills-style loop. Inspect only the immutable public task and package. Call submit_surrogate_report exactly once and never emit or apply a patch.
+
+User message
+
+Independently verify one immutable executable Agent Skill package. The package is the candidate artifact, so inspecting its public files is required; generator reasoning and prior conversations are unavailable. Derive requirements only from PUBLIC_TASK and PUBLIC_REQUEST. Build a small declarative surrogate test suite using only the allowed check kinds. Exact text checks must encode a requirement stated by the request, not a guessed hidden answer. Set FAIL only when public evidence supports a concrete defect; set PASS when the visible package satisfies all checkable requirements; use ABSTAIN when the request cannot be checked from the visible package. Do not propose edits and do not ask for hidden tests, mutation labels, gold code, oracle behavior, benchmark outcomes, or reward. Call submit_surrogate_report exactly once.
+
+Input template
+
+PUBLIC_TASK.json
+
+<public_task_json>
+
+PUBLIC_REQUEST.md
+
+<maintenance_request>
+
+IMMUTABLE_VISIBLE_PACKAGE.json
+
+<visible_package_files_json>
+
+Generator revision.
+
+System message
+
+You are the Skill Generator performing exactly one refinement from an independent surrogate report. Call submit_skill_patch exactly once.
+
+User message
+
+Perform the single allowed Skill Generator refinement in a CoEvoSkills-style loop. The independent surrogate report is a fallible public-evidence hypothesis, not an oracle: recheck it against the request and package before editing.
+
+Make the smallest coherent repair. Edit only SKILL.md or files under scripts/. Preserve unrelated behavior and public interfaces. You may create a missing text source file under scripts/, but may not delete or rename files.
+
+Call submit_skill_patch exactly once with zero to eight bounded edits; use zero edits if the surrogate diagnosis is not justified. For an existing file, use replace_exact, copy its visible sha256, and copy a nonempty, unique, verbatim old snippet into observed_source. The old snippet and replacement must each cover the complete syntactic construct being changed (for example the entire function, branch, mapping entry, or command block), so no orphaned header, else branch, delimiter, or indentation remains. For create_file use an empty expected_file_sha256 and empty observed_source.
+
+Hidden tests, labels, gold code, oracle behavior, benchmark outcomes, and task-verifier feedback remain unavailable.
+
+Input template
+
+PUBLIC_TASK.json
+
+<public_task_json>
+
+PUBLIC_REQUEST.md
+
+<maintenance_request>
+
+SURROGATE_REPORT.json
+
+<surrogate_report_json>
+
+EXECUTED_SURROGATE_CHECKS.json
+
+<executed_surrogate_checks_json>
+
+CURRENT_VISIBLE_PACKAGE.json
+
+<visible_package_files_json>
+
+Appendix D Limitations
+
+The In-the-Wild track is predominantly Python, and both tracks use constructed
+faults to evaluate package maintenance. Broader language coverage and tasks
+derived from naturally occurring failures would help assess generalization
+to the wider Skill ecosystem. Our evaluation measures package-level correctness
+and documentation–script consistency; reliability in long-horizon downstream
+Agent workflows remains to be evaluated.

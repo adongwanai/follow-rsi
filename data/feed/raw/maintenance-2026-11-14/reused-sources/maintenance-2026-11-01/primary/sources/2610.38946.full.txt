@@ -1,0 +1,258 @@
+MAS-Loop: Beyond One-Shot Orchestration towards Self-Evolving Multi-Agent Systems
+
+Training-time multi-agent system (MAS) design seeks to learn reusable orchestration policies, yet prevailing approaches remain largely one-shot: an Orchestrator generates a system but only observes and learns from its terminal outcome. This paradigm discards execution trajectories that expose system-level failures and contain fine-grained information beyond the terminal outcome, leaving no direct basis for revising the source MAS, evaluating the updated MAS, or learning from the resulting contrast. To this end, we introduce MAS-Loop , an execution-grounded framework that closes this feedback loop by coupling an Orchestrator with a trajectory-conditioned Refiner. For each task, the Orchestrator constructs and executes a source MAS to obtain an outcome score and an intermediate trajectory. Conditioned on the trajectory, the Refiner localizes an actionable failure, formulates a trajectory-grounded diagnosis, and proposes a bounded patch to the agents, information flow, or execution configuration. The executable updated MAS is re-executed on the same task to measure its realized outcome under stochastic execution. This pair-MAS comparison provides complementary learning signals: the Orchestrator learns to generate strong systems with fewer recoverable failures, whereas the Refiner learns to expose and repair observed weaknesses, thereby driving policy-level co-evolution across training iterations. We evaluate MAS-Loop across interaction environments, knowledge-intensive multi-hop reasoning, and general reasoning, examining both the complete framework and the independent utility of these two policies. Experiments show that MAS-Loop achieves the strongest overall performance among the evaluated baselines, with consistent gains from refinement across all evaluated benchmarks. The co-evolution process also yields MAS-JudgeCorpus , a dataset of execution-grounded source-updated pairs with orchestration- and trajectory-level supervision, which can provide the community with support for MAS reward modeling and trajectory-aware investigation.
+
+1 Introduction
+
+Training-time multi-agent system (MAS) design has emerged as a promising alternative to inference-time MAS design, where the workflow search must be repeated for different tasks and cannot accumulate reusable experience across tasks ( Zhang et al., 2025 ; Ke et al., 2025b ; Hu et al., 2025 ; Lin et al., 2026c ) . Training-time MAS trains an Orchestrator to construct a task-specific MAS by selecting models or tools, assigning agent roles, and organizing communication ( Li et al., 2024 ; Ke et al., 2025a ; Tran et al., 2025 ) . The system then executes and uses its outcomes to improve the Orchestrator through supervised learning ( Ye et al., 2025 ; Yue et al., 2025 ) , reinforcement learning ( Yang and Thomason, 2026 ; Ke et al., 2026 ) , and graph-based optimization ( Zhuge et al., 2024 ; Zhang et al., 2024 ) . In this way, experience acquired from previous executions can be encoded into a reusable orchestration policy and transferred to future tasks ( Lin et al., 2026d ) .
+
+Although this makes MAS construction learnable, this one-shot orchestration remains an incomplete foundation for effective MAS self-evolution ( Qi et al., 2026 ) : orchestration and execution feedback remain disconnected. A system trajectory can expose missing information flow, redundant reasoning, or failures in verification and aggregation ( Shen et al., 2025 ; Cemri et al., 2026 ) . Yet this trajectory-level evidence is often omitted from the terminal correctness signal ( Jwalapuram et al., 2026 ) . Therefore, without a feedback-driven refinement mechanism, the Orchestrator must discover better designs indirectly through independently sampled rollouts and their sparse outcome rewards ( Zhang, 2026 ; Su et al., 2025 ; Lin et al., 2026b ; Peng et al., 2026 ) . Although this trial-and-error process may eventually favor stronger systems, it relies on vanilla independent rollouts and sparse terminal rewards rather than utilizing rich intermediate trajectories as feedback to directly diagnose failures, guide targeted repairs, and optimize from verified improvements.
+
+Figure 1: The Illustration of MAS-Loop. (a) Existing training-time MAS methods rely on one-shot orchestration and omit intermediate execution feedback from optimization. (b) MAS-Loop moves from one-shot orchestration to execution-grounded adversarial co-evolution by adding a trajectory-conditioned Refiner and incorporating coupled incentive learning signals.
+
+However, a complete self-evolution loop requires more than learning to generate the next system: it should connect execution evidence to a direct intervention on the current system and facilitate learning based on the consequences of that intervention ( Chen et al., 2026a ; Yang et al., 2026a ) . To this end, we introduce MAS-Loop , an execution-grounded framework that augments the Orchestrator with a complementary learned policy, the Refiner . The Orchestrator first constructs a source MAS, whose execution produces a terminal score and an intermediate trajectory. The Refiner observes the source design, final prediction, and trajectory to localize actionable weaknesses, formulate a grounded diagnosis, and propose a bounded patch to agent roles, information flow, or execution settings. This patch is compiled into an updated MAS and re-executed on the same task to measure the realized outcome change . The source-updated score difference provides coupled learning signals: it encourages the Orchestrator to produce strong systems with fewer recoverable weaknesses and trains the Refiner to generate valid revisions that repair observed failures, enabling the two policies to co-evolve from this rich-learning closed-loop. This co-evolution occurs across policy-optimization iterations: each rollout contains one bounded refinement, while subsequent task rollouts use the newly updated Orchestrator and Refiner.
+
+During policy co-evolution, MAS-Loop naturally produces large numbers of execution-grounded source-updated pairs. To obtain reliable comparisons, we retain tasks with a fixed rollout budget, discard ties and pairs with insufficient absolute or relative score gaps, remove locally inconsistent examples, and canonicalize Refiner operations before operation-aware deduplication. The resulting MAS-JudgeCorpus contains source and updated MAS instances whose quality differences are established by same-task re-execution, providing pairwise preferences for training MAS reward models with orchestration - and execution-level supervision. Then we leverage MAS-JudgeRM for test-time ranking and selection among candidate MAS, while the retained trajectory evidence also offers a basis for future trajectory-conditioned judging and other execution-aware evaluations.
+
+We evaluate MAS-Loop across interaction environments, knowledge-intensive multi-hop reasoning, and general reasoning, including both in-task performance and out-of-task transfer. MAS-Loop achieves the strongest overall performance among the evaluated single-agent and automatic MAS baselines. The Orchestrator remains effective independently, while the Refiner consistently improves both its source systems and those produced by other MAS methods across in-task and out-of-task evaluations. For MAS-JudgeCorpus, we train MAS-JudgeRM on pairwise preferences and compare it with general-purpose reward models, orchestration-specific reward models, and prompted LLM judges for selecting among a fixed set of candidate MAS. Together, these experiments assess both MAS-Loop’s effectiveness as a self-evolving MAS framework and MAS-JudgeCorpus’s value for test-time MAS selection.
+Our contributions are summarized as follows:
+
+We identify a central limitation of current training-time MAS: one-shot orchestration leaves execution feedback disconnected from the MAS design, forcing the Orchestrator to improve indirectly through sparse terminal rewards rather than direct rich trajectory-level evidence.
+
+We introduce MAS-Loop , an execution-grounded framework that couples an Orchestrator with a trajectory-conditioned Refiner. The paired re-execution evaluates the updated MAS under the same task protocol and provides complementary learning signals that drive both policies to co-evolve across training iterations .
+
+We construct MAS-JudgeCorpus from execution-grounded source–updated MAS pairs, applying fixed-rollout quality filtering, conservative consistency checks, and operation-aware deduplication to obtain reliable preferences for training MAS reward models.
+
+2 Related Work
+
+2.1 Automatic Multi-Agent System Design
+
+Inference-time MAS design typically uses a powerful frontier LLM together with iterative search, reflection, or optimization to construct an agent workflow for each task ( Ruan et al., 2026 ; Ma et al., 2026 ; Zhou et al., 2026 ) . This approach can adapt the workflow to different tasks, but the search usually has to be repeated when the domain changes. It therefore has limited ability to accumulate orchestration experience that transfers across tasks ( Lin et al., 2026a ; Wang et al., 2026 ; Xu et al., 2026b ) . Training-time MAS design instead learns an orchestration policy, often implemented with a smaller model, from experience collected across prior executions ( Su et al., 2025 ; Zhang et al., 2026 ) . Existing studies explore supervised learning from successful orchestration traces ( Wang et al., 2025 ; Yang et al., 2026b ) , reinforcement learning with task-level rewards and structured credit assignment ( Ke et al., 2026 ; Chen et al., 2026b ) , and graph-based optimization of agent organizations and communication patterns ( Li et al., 2026 ; Liu et al., 2026 ) .
+Despite this progress, most training-time approaches remain largely one-shot. They use execution outcomes to improve later orchestration proposals, but do not closely connect trajectory-level feedback to the decisions that created the system and lack a direct refinement mechanism. So the Orchestrator must discover better designs indirectly through repeated rollouts and sparse outcome rewards.
+
+MAS-Loop addresses this limitation by coupling the Orchestrator with a trajectory-conditioned Refiner, which uses evidence from the source MAS’s execution to generate an executable revision. The updated MAS is then re-executed on the same task, and the score difference between the source and updated systems provides adversarial learning signals for the co-evolution of both policies.
+
+2.2 Multi-Agent System Benchmarks
+
+Existing MAS benchmarks characterize several aspects of multi-agent behavior. MultiAgentBench measures collaboration and competition among agents under different interaction settings ( Zhu et al., 2025 ; Yu et al., 2026 ) , while other work organizes recurring coordination failures or attributes errors to particular agents and interactions ( Ge et al., 2026 ; Kong et al., 2026 ; Huang et al., 2026 ) . Complementary metrics and reward-modeling approaches assess the quality of multi-agent organizations by comparing orchestration choices or scoring system behaviors and trajectories ( Tsang et al., 2026 ) . However, these resources primarily characterize MAS behavior or score existing designs, providing limited paired supervision that connects execution evidence to a concrete system revision. In this work, MAS-JudgeCorpus is constructed from source MAS and trajectory-conditioned updates generated during MAS-Loop, with same-task re-execution establishing their relative quality. After retaining fixed-budget tasks with sufficiently large, non-tied absolute and relative score gaps, removing pair-level ties and locally inconsistent comparisons, canonicalizing Refiner operations, and deduplicating by task-operation pairs, the corpus provides complementary pairwise supervision at two levels for training MAS reward models: orchestration-level supervision uses task descriptions and MAS graph structure to support execution-free judgment, whereas trajectory-level supervision additionally incorporates rich execution evidence for more accurate quality assessment.
+
+3 MAS-Loop: Execution-Grounded Adversarial Co-Evolution
+
+3.1 Overview
+
+Figure 2: Overview of MAS-Loop.
+The paired source and updated MAS’s material provide complementary rewards that update both policies, closing the feedback loop from execution back to subsequent MAS construction.
+
+Given a task instance x x , our goal is to learn two coupled policies: an Orchestrator that constructs an executable source MAS and a Refiner that diagnoses its execution and applies a bounded revision.
+We represent an MAS as an attributed directed graph
+
+where V V is the set of agents, E ⊆ V × V E\subseteq V\times V specifies directed communication and dependency relations, and ϕ \phi assigns each agent its role and execution configuration. Thus, M M specifies which agents participate, how they are connected, and what function each agent performs.
+An executor ℰ \mathcal{E} instantiates the graph on the task:
+
+where τ \tau records node-level responses, dependency usage, intermediate evidence, and execution failures; y y is the final prediction; y ⋆ y^{\star} is the task’s gold label; and r term r_{\mathrm{term}} computes the terminal reward from the prediction and the task outcome criterion. The scalar s s summarizes the final task outcome and is retained by the training-side evaluator for reward computation only. In contrast, τ \tau preserves the execution evidence needed to identify where the realized execution may have failed .
+MAS-Loop couples the two policies through an execution-grounded revision loop: the Orchestrator π O \pi_{\mathrm{O}} first generates a source MAS M src M_{\mathrm{src}} , after which the Refiner π R \pi_{\mathrm{R}} uses the execution evidence to produce a structured diagnosis g g and a bounded patch p p , jointly denoted by a R = ( g , p ) a_{\mathrm{R}}=(g,p) . Applying p p yields an updated MAS M upd M_{\mathrm{upd}} for re-execution, which establishes the credit-assignment boundary:
+the Orchestrator is trained according to the quality and refinability of its source MAS, whereas the Refiner is trained according to the realized score change following its diagnosis and patch.
+
+3.2 Structured Policy Interfaces
+
+Orchestrator. The Orchestrator receives the task x x and samples a source MAS
+
+Rather than answering x x directly, the Orchestrator instantiates a task-specific computational organization. It assigns complementary responsibilities and execution configurations to the agents in V V , and uses the directed edges in E E to determine how intermediate results flow between them. A typical source MAS therefore decomposes the task across upstream agents, passes their relevant outputs to downstream agents, and uses the resulting dependency structure to produce the final response.
+
+Refiner. After the source MAS is executed, the source system and its execution record are packaged into a bounded diagnostic input
+
+where 𝒟 \mathcal{D} packages the task, source MAS, execution trajectory, and final prediction. It explicitly removes the gold label, so the Refiner must decide how to edit the source MAS from observable execution evidence rather than an oracle correctness bit. Given this input, the Refiner produces
+
+where g g is a structured diagnosis and p p is a bounded patch; the Refiner outputs them together in one step. The diagnosis localizes an actionable failure, states a causal hypothesis, and proposes a repair plan supported by trajectory references. We organize the operation space according to the aspect of the source MAS being revised. The four categories below together define the Refiner action space:
+
+Operation space. (1) Preservation. Accept \mathrm{Accept} keeps the source MAS unchanged when its execution is adequate or when the diagnostic evidence does not justify a reliable intervention. (2) Agent organization. AddAgent \mathrm{AddAgent} introduces a new task-solving agent and, as part of this atomic operation, connects its output to the current aggregation agent without changing the aggregation agent itself. RewriteRole \mathrm{RewriteRole} revises an existing agent whose responsibility is misaligned with its subtask. (3) Information flow. AddEdge \mathrm{AddEdge} instantiates a new dependency between agents, whereas RemoveEdge \mathrm{RemoveEdge} eliminates an irrelevant or harmful dependency. The compiler rejects any edit that produces an unresolved endpoint, a cycle, or an executable graph without a valid path to aggregation. (4) Execution adaptation. AdjustReasoningBudget \mathrm{AdjustReasoningBudget} changes an agent’s explicitly scalable reasoning depth, such as the number of search rounds or its generation allowance, while ChangeTool \mathrm{ChangeTool} enables, disables, or switches the tool access assigned to an agent when its capabilities do not match the subtask.
+A deterministic patch compiler applies the canonicalized operations to obtain the updated MAS
+
+Pair Data Collection. For each source sample, the executor produces
+
+We re-execute the unchanged source graph when the Refiner abstains or produces an invalid patch. For every task, the training group contains multiple independently sampled source-updated rollout pairs. Each source MAS receives one Refiner decision and one independent updated execution; the group therefore estimates refinement behavior across sampled systems rather than repeatedly evaluating the same patch.
+
+3.3 Adversarial Co-Evolution
+
+The paired records provide a stochastic, execution-grounded signal of whether a Refiner intervention is useful. For an individual rollout, the difference below is a realized score change
+
+This quantity is then used to construct complementary rewards for the two policies. For the Orchestrator, the reward is defined as:
+
+where λ adv ≥ 0 \lambda_{\mathrm{adv}}\geq 0 controls the strength of the adversarial penalty. For an unchanged MAS, any score difference caused by re-execution is not used to modify the Orchestrator reward. For a valid update, the first term favors source systems that solve the task without refinement, while the second term penalizes only positive improvements: a successful repair indicates that the source system contains a recoverable weakness, whereas a harmful intervention reflects a failure of the Refiner rather than an additional weakness of the source system.
+
+For the Refiner, an Accept action is evaluated by whether the source system is already correct, while an executable intervention is rewarded according to its measured improvement. Let c src ∈ { + 1 , − 1 } c_{\mathrm{src}}\in\{+1,-1\} indicate whether the source answer satisfies the task criterion. We define
+
+where η > 0 \eta>0 sets both the invalid-action penalty and the magnitude of the accept reward. Thus, a positive Δ ​ s \Delta s rewards a repair that improves the re-executed system, whereas a negative Δ ​ s \Delta s penalizes a damaging intervention. The signed reward for Accept \mathrm{Accept} guides the Refiner both to preserve a source MAS that is already correct and to avoid accepting one that remains incorrect.
+We use λ adv = 0.3 \lambda_{\mathrm{adv}}=0.3 and η = 0.5 \eta=0.5 by default, and we study the effect of these two hyperparameters in Section 4.2 .
+
+Together, these rewards define a constructive adversarial objective. The Orchestrator learns to construct source systems that are effective from the outset and require little or no further refinement, while the Refiner learns to identify grounded interventions that improve observed systems.
+
+GRPO-based co-evolution. We use Group Relative Policy Optimization (GRPO) as the standard policy-optimization procedure ( Shao et al., 2024 ; Guo et al., 2025 ) . For each policy, we combine sampled rollout records with their corresponding rewards to form separate training batches:
+
+where ζ O \zeta_{\mathrm{O}} and ζ R \zeta_{\mathrm{R}} denote rollout records sampled for the Orchestrator and Refiner, respectively. We apply GRPO separately to these two batches using their corresponding rewards:
+
+4 Main Experiments
+
+4.1 Experimental Setup
+
+Benchmarks. We evaluate MAS-Loop on three task families: interaction environment, multi-hop question answering, and general reasoning. The Orchestrator and Refiner are trained on ALFWorld ( Shridhar et al., 2020 ) , HotpotQA ( Yang et al., 2018 ) , and DeepScaler ( Tan et al., 2025 ) . We evaluate in-task performance on ALFWorld, HotpotQA, and AIME ( MAA-Committees, 2025 ) and test out-of-task (OOT) generalization on SciWorld ( Wang et al., 2022a ) , VitaBench ( He et al., 2026 ) , BrowseComp-Plus ( Chen et al., 2025 ) , and GPQA-Diamond ( Rein et al., 2023 ) .
+All metrics are converted to a common 0 − 100 % 0-100\% scale. Appendix C.1 provides additional information about the datasets, splits, and evaluation procedures.
+
+Baselines. We compare MAS-Loop against three families of baselines. The first family contains general inference baselines, including Chain-of-Thought (CoT) ( Wei et al., 2022 ) and self-consistency decoding (CoT-SC) ( Wang et al., 2022b ) . The second family contains inference-time workflow-construction methods, including AFlow ( Zhang et al., 2025 ) , AOrchestra ( Ruan et al., 2026 ) , and Skill-MAS ( Lin et al., 2026d ) . The third family contains training-time coordination methods, including MAS-GPT ( Ye et al., 2025 ) , ToolOrchestra ( Su et al., 2025 ) , and MAS-Orchestra ( Ke et al., 2026 ) .
+Baseline details are elaborated in Appendix C.2 .
+Across all experiments, we additionally evaluate the independent deployment ability of Orchestrator and Refiner. We leverage Qwen3-8B ( Team, 2025 ) as the trainable Orchestrator and Refiner, and Qwen3-30B-A3B-Instruct-2507 ( Team, 2025 ) as the frozen sub-agent backbone. Detailed implementation and adaptation settings are provided in Appendix C.3 .
+
+4.2 Results and Analysis
+
+Table 1: Quantification comparison of MAS-Loop and baselines across three train-test transfer settings. “OOT” denotes evaluation on an out-of-task dataset not used for training. ALFW : ALFWorld, SciW : ScienceWorld, VITA : VitaBench, BCP : BrowseComp-Plus, GPQA : GPQA-Diamond. Avg. reports average performance, and Bold denotes the best result.
+
+Main results. First, existing MAS baselines do not exhibit a stable advantage over single-agent reasoning across task families. Their relative rankings vary substantially across datasets: for example, AOrchestra markedly outperforms CoT-SC on ALFWorld ( 57.69 % 57.69\% vs. 32.69 % 32.69\% ), yet falls well below it on VITA ( 8.49 % 8.49\% vs. 32.02 % 32.02\% ). The aggregate results reinforce this lack of consistency: among the six unrefined MAS baselines, five underperform CoT-SC on Avg, and four even fall below CoT. This pattern is consistent with prior findings that automatically constructed MAS often fail to yield robust gains over strong single-agent systems because architectural and coordination failures can offset their potential benefits ( Jwalapuram et al., 2026 ; Cemri et al., 2026 ) . In contrast, MAS-Loop delivers the strongest overall performance, outperforming both single-agent baselines and competing MAS methods across nearly all evaluated datasets. The breadth of these gains suggests that execution-grounded feedback and co-evolution provide a more reliable learning signal than one-shot orchestration alone.
+
+Second, the two learned policies remain effective beyond their joint deployment. The Orchestrator alone constructs strong source systems, while coupling it with the Refiner yields further gains. The Refiner is independent and not tied to its co-trained Orchestrator: when applied post hoc to MAS generated by Skill-MAS, MAS-GPT, and MAS-Orchestra, it consistently improves their average performance. Together, these results show that MAS-Loop learns both a capable standalone orchestration policy and a transferable refinement policy that generalizes across MAS design methods.
+
+Figure 3: Reward-coefficient ablations on HotpotQA and out-of-task BrowseComp-Plus (BCP). Each panel varies one coefficient while holding the other at its default value.
+
+Ablation Study. Figure 3 examines the sensitivity of MAS-Loop to its two reward coefficients on HotpotQA and the out-of-task BrowseComp-Plus benchmark. We vary one coefficient at a time while fixing the other at its default value, with all remaining training and evaluation settings held constant. Across both sweeps, the strongest results concentrate at moderate coefficient values , whereas the endpoints perform less favorably and occasionally exhibit sharp declines. For λ adv \lambda_{\mathrm{adv}} , the λ adv = 0 \lambda_{\mathrm{adv}}=0 endpoint removes the coupled penalty and performs below the default setting, directly showing that source-only optimization does not recover the benefit of coupled learning. For both λ adv \lambda_{\mathrm{adv}} and η \eta , introducing moderate adversarial pressure improves both in-task and transfer performance, but an overly large value substantially degrades both, suggesting that excessive pressure can compromise the Orchestrator’s source-quality objective.
+Appendix D further includes a rollout-execution-matched comparison that increases the rollout budget of MAS-Orchestra, a one-step prompted self-reflection control, and a base-model scaling study that replaces Qwen3-8B with Qwen3-14B for both the Orchestrator and Refiner.
+Together, these ablation studies provide further evidence to support the effectiveness of MAS-Loop.
+
+5 MAS-JudgeCorpus
+
+Beyond policy learning, the execution-grounded rollouts produced by MAS-Loop provide direct preference supervision for evaluating MAS designs. We organize these paired rollouts into MAS-JudgeCorpus and use them to train a reward model, MAS-JudgeRM, for test-time candidate selection. Our primary setting ranks candidate systems at the orchestration level, while a trajectory-conditioned variant quantifies the additional value of execution evidence.
+
+5.1 MAS-JudgeCorpus Construction
+
+Raw rollout pairs. MAS-JudgeCorpus is constructed from the source-updated MAS pairs generated during HotpotQA training (10000 tasks). Each rollout executes both systems on the same task, producing a locally comparable outcome pair together with their execution evidence. These rollout-level pairs are the basic units where the final preference examples are selected.
+
+Task-level preference estimation. Because an individual rollout can be affected by stochastic execution, we aggregate source and updated scores across all rollouts of the same task to obtain a more reliable preference direction. We compute Δ task = S upd − S src \Delta_{\mathrm{task}}=S_{\mathrm{upd}}-S_{\mathrm{src}} and its relative magnitude g rel = | Δ task | / min ⁡ ( S src , S upd ) g_{\mathrm{rel}}=|\Delta_{\mathrm{task}}|/\min(S_{\mathrm{src}},S_{\mathrm{upd}}) , then discard ties and tasks with an absolute gap below 2.0 2.0 or a relative gap below 25 % 25\% . Both thresholds must be satisfied. If min ⁡ ( S src , S upd ) = 0 \min(S_{\mathrm{src}},S_{\mathrm{upd}})=0 , while the relative gap is undefined, the task is excluded by the Δ task \Delta_{\mathrm{task}} threshold. This retains 2,063 tasks with a clear aggregate preference.
+
+Rollout-level example construction. We then return to the individual rollout pairs within the retained tasks, removing pair-level ties and pairs whose local score direction conflicts with the aggregate task-level preference. Thus, task-level aggregation is used only to stabilize preference assignment, while every final sample remains a rollout-level source-updated comparison: the higher-scoring system is labeled chosen and the other rejected . After mapping legacy aliases to the seven canonical Refiner operations and retaining at most one rollout pair per task and canonicalized operation signature, we obtain 8,223 trajectory pairs.
+
+5.2 Test-Time Selection Experiment
+
+5.2.1 Experimental Setup
+
+Protocol. We evaluate whether MAS-JudgeCorpus can support test-time MAS selection in a fixed best-of- 16 16 setting. For each held-out task, a shared generator produces 16 candidate MAS designs, and every verification method receives the same pool. Each method ranks these candidates and adopts the answer from the selected MAS as the final prediction. Consequently, performance differences reflect verification quality rather than candidate generation. MAS-JudgeRM is trained on MAS-JudgeCorpus using a Bradley-Terry objective. Its orchestration-level variant observes only the task and candidate design, while its trajectory-level variant additionally receives execution evidence.
+
+Evaluation. We report final-answer accuracy on HotpotQA and the out-of-task BrowseComp-Plus (BCP), together with the method-specific verification tokens. Comparisons include Orchestrator, Majority Voting, and Oracle, as well as prompted LLM judges and general-purpose or orchestration-specific reward models. The Oracle selects a correct candidate whenever the fixed pool contains one, while all other methods operate without ground-truth labels. We also evaluate trajectory-conditioned variants of DeepSeek-V4-Flash and MAS-JudgeRM to investigate the value of execution evidence.
+
+5.2.2 Results and Analysis
+
+Table 2: Test-time MAS selection from a shared best-of-16 candidate pool. Orchestrator (LB) and Oracle (UB) denote the performance lower and upper bounds, respectively.
+
+Orchestration-level verification. MAS-JudgeRM consistently outperforms both reward-model baselines on HotpotQA and BCP. However, it does not consistently match the strongest prompted LLM judges: it narrowly trails the best LLM judge on HotpotQA and falls behind all three on BCP. This contrast exposes a limitation of architecture-only verification. A serialized MAS design specifies roles, tools, and topology, but provides little evidence of how the system will actually behave. With only this limited structural evidence, even a compact reward model trained specifically for MAS evaluation cannot match the predictive reasoning capabilities of much larger frontier LLM.
+
+Trajectory-level verification. The comparison changes substantially once execution evidence is available. MAS-JudgeRM reaches 60.00 % 60.00\% on HotpotQA, matching the trajectory-conditioned DeepSeek-V4-Flash judge, and achieves 22.62 % 22.62\% on BCP, surpassing DeepSeek’s 20.83 % 20.83\% . These results show that a compact reward model trained on execution-grounded preferences can serve as an effective MAS judge when it can inspect how the candidate actually executes.
+Although trajectory-level verification requires roughly four times the token overhead, its stronger in-task and transfer performance highlights the importance of execution evidence for reliable MAS evaluation. Orchestration-only judging remains cheaper but is intrinsically more limited.
+
+6 Conclusion
+
+In this work, we propose MAS-Loop, an execution-grounded framework that couples an Orchestrator with a trajectory-conditioned Refiner to close the feedback loop between MAS construction, execution, and revision. Paired re-execution provides complementary learning signals that encourage strong source systems and effective bounded refinements. Experiments show that MAS-Loop improves over one-shot MAS orchestration, while both policies remain useful independently and the Refiner is easy and effective to transfer to other MAS generators. The resulting pair rollouts also form MAS-JudgeCorpus for training MAS-JudgeRM, whose results highlight the importance of execution evidence for reliable MAS evaluation. Together, these findings offer insights into building effective self-evolving MAS by moving beyond one-shot orchestration toward a more targeted and precise loop of system generation, execution-grounded refinement, and policy-level co-evolution across training iterations .
+
+Acknowledgement
+
+This work is supported by Ant Group through CCF-Ant Research Fund (CCF-AFSG RF20250502).
+
+Ethics Statement
+
+This work follows the ICLR Code of Ethics and studies automated MAS construction and refinement in controlled research benchmarks. We do not collect new human-subject, personal, or sensitive data, and our experiments use established research datasets and model-generated execution trajectories. The study focuses on general reasoning, question answering, and benchmarked interactive tasks rather than decisions about individuals or demographic groups, and no component is designed to target or disadvantage any population. We use all datasets in accordance with their intended research settings and licenses, and report our methodology and experimental results with an emphasis on transparency and reproducibility.
+
+Reproducibility Statement
+
+Our reinforcement-learning implementation is built with verl . Appendix B provides the complete MAS-Loop procedure, while Appendix C documents benchmark protocols, baselines, model configurations, optimization hyperparameters, and hardware. Appendix F further reports the structured prompts and output formats used by the Orchestrator, Refiner, and LLM judges. We use fixed evaluation settings for controlled comparisons, and the supplementary code supports reproducibility.
+
+LLM Usage
+
+Separate from the language models evaluated in our experiments, LLM assistants are used during manuscript preparation for writing and presentation: improving grammar, clarity, organization, and LaTeX formatting without changing the underlying experimental evidence.
+All assisted text is manually reviewed by the authors, and the authors remain responsible for the final content.
+
+References
+
+Appendix A Appendix Overview
+
+This appendix complements the main paper with methodological and experimental details. Appendix B presents the complete MAS-Loop training procedure. Appendix C documents the benchmarks, baselines, and implementation settings, while Appendix D reports the rollout-execution-matched, prompted self-reflection, and base-model scaling ablations. Appendix E illustrates how trajectory-grounded refinement changes an executed MAS, and Appendix F provides the prompt contracts and structured output formats used by each model component.
+
+Appendix B MAS-Loop Algorithm
+
+Algorithm 1 summarizes the execution-grounded co-evolution procedure and makes the credit-assignment boundary between the two policies explicit. In each rollout, the Orchestrator constructs a source MAS, whose execution is converted into a bounded diagnostic input for the Refiner. The Refiner either accepts the source system or proposes a patch that is compiled and validated before re-execution. The paired outcomes determine policy-specific rewards: the Orchestrator is trained on source quality and recoverable weaknesses, whereas the Refiner is trained on the realized score change following its action .
+
+Algorithm 1 Execution-grounded co-evolution in MAS-Loop
+
+Appendix C Experimental Details
+
+Table 3: Benchmark roles and split statistics. OOT indicates that the benchmark is never used to update or select the Orchestra trained on the paired source task.
+
+C.1 Statistics of Benchmarks
+
+Table 3 summarizes the role of every benchmark in the experiments. ALFWorld, HotpotQA, and DeepScaler provide the three training resources for interaction environment, multi-hop question answering, and general reasoning, respectively. Their corresponding in-task test sets measure whether the learned policies retain performance in the task family used during training. SciWorld, VitaBench, BrowseComp-Plus, and GPQA-Diamond are held-out out-of-task (OOT) benchmarks and therefore test transfer to a related but distinct task distribution.
+
+Interaction environments. ALFWorld aligns abstract text environments with embodied household tasks, allowing an agent to learn and execute the same high-level task through language actions ( Shridhar et al., 2020 ) . Its tasks require long-horizon planning, object manipulation, and adaptation to different household layouts, making it a natural training and in-task evaluation environment for interactive agents. SciWorld requires the agent to inspect objects, perform experiments through sequential actions, and infer the scientific outcome ( Wang et al., 2022a ) . VitaBench evaluates multi-turn tool-using agents in real-world service scenarios, including food delivery, in-store consumption, and online travel ( He et al., 2026 ) . It exposes agents to changing user intentions, interdependent tool calls, and dynamic service states, thereby testing practical decision-making and recovery over extended interactions.
+
+Knowledge-intensive QA. HotpotQA is a Wikipedia-based multi-hop question-answering dataset whose questions require combining evidence from multiple documents ( Yang et al., 2018 ) . BrowseComp-Plus evaluates deep-research agents over a fixed and curated document corpus, providing a reproducible alternative to evaluation against the continuously changing open web ( Chen et al., 2025 ) . Its questions require iterative retrieval, source comparison, and evidence synthesis, which makes it suitable for measuring transfer from standard multi-hop QA to more complex deep-research tasks.
+
+General Reasoning. The DeepScaler training set consists of competition-style mathematical problems collected for reinforcement-learning-based reasoning training ( Tan et al., 2025 ) . These problems demand multi-step derivations but retain verifiable final answers, allowing them to provide training tasks with reliable outcome-based rewards. AIME is a complex mathematics competition that typically requires substantial algebraic, geometric, combinatorial, or number-theoretic reasoning ( MAA-Committees, 2025 ) . GPQA-Diamond comprises expert-written graduate-level questions in biology, physics, and chemistry, which evaluate scientific reasoning and domain knowledge outside the mathematical distribution used for training ( Rein et al., 2023 ) .
+
+C.2 Baselines
+
+C.2.1 MAS-Loop
+
+The main experiment compares MAS-Loop with three types of MAS methods. For each training-time MAS baseline, we evaluate both its original Orchestrator and the same Orchestrator augmented with our Refiner interface where applicable. This controlled adaptation separates improvements due to the underlying orchestration policy from improvements due to execution-grounded refinement.
+
+General inference methods. CoT elicits intermediate reasoning steps before producing the final answer ( Wei et al., 2022 ) . CoT-SC samples multiple reasoning traces and selects the answer with the highest consistency ( Wang et al., 2022b ) . These methods do not construct an explicit MAS and therefore provide single-agent inference baselines.
+
+Inference-time MAS methods. AFlow searches over code-represented agentic workflows using Monte Carlo Tree search ( Zhang et al., 2025 ) . AOrchestra creates task-specific sub-agents by configuring their instructions, context, tools, and models at inference time ( Ruan et al., 2026 ) . Skill-MAS records orchestration experience in an evolvable meta-skill and uses this experience to construct task-specific MAS workflows ( Lin et al., 2026d ) . These methods optimize or instantiate the workflow during inference but do not train a reusable orchestration policy under our task-specific training protocol.
+
+Training-time MAS methods. MAS-GPT trains an LLM to generate an executable, query-adaptive MAS in a single inference ( Ye et al., 2025 ) . ToolOrchestra learns to coordinate models and tools through reinforcement learning under effectiveness and efficiency objectives ( Su et al., 2025 ) . MAS-Orchestra learns holistic function-calling-based orchestration for generating a complete MAS ( Ke et al., 2026 ) . These methods are the closest comparison group because they learn reusable coordination behavior during training. However, their original formulations do not learn a trajectory-conditioned policy that directly revises and re-executes the generated source MAS.
+
+C.2.2 MAS-JudgeCorpus
+
+The MAS-JudgeCorpus experiment evaluates test-time MAS selection under a fixed best-of- 16 16 protocol. Every verification method receives the same candidate pool and ranks its candidates without changing the generator; the answer associated with the selected MAS becomes the final prediction. Orchestration-level methods observe the task and MAS design, whereas trajectory-level methods additionally receive execution evidence.
+
+General baselines. Orchestrator uses an answer produced without test-time candidate verification and therefore serves as the performance lower bound. Majority Voting aggregates the answers of the 16 candidates without learning an explicit quality score. Oracle accesses their ground-truth correctness and returns a correct answer whenever the pool contains one, providing the performance upper bound for the fixed candidate set.
+
+LLM-as-a-Judge baselines. DeepSeek-V4-Flash ( Xu et al., 2026a ) , Kimi-K3 ( Team et al., 2026 ) , and Qwen3.8-2.4T-A95B rank candidate MAS designs through prompted inference rather than a separately trained reward model. All three are evaluated at the orchestration level, and DeepSeek-V4-Flash is additionally evaluated with trajectory evidence to measure the benefit of observing execution behavior.
+
+Reward-model baselines. Skywork-V2-Qwen3-8B provides a general-purpose reward-model reference ( Liu et al., 2025 ) , while Orch-RM is trained specifically to score MAS organizations ( Tsang et al., 2026 ) . We compare them with MAS-JudgeRM , trained on the execution-grounded source–updated preferences in MAS-JudgeCorpus. MAS-JudgeRM is evaluated with both orchestration- and trajectory-level inputs, allowing us to compare specialized preference supervision against existing reward models and to isolate the additional value of execution evidence.
+
+C.3 Implementation Details
+
+Table 4 summarizes key hyperparameters used in our reinforcement learning. The Orchestrator and Refiner are initialized from Qwen3-8B ( Team, 2025 ) , and updated from separate rollout records using their respective rewards. Their outputs follow the structured interfaces in Appendix F . Qwen3-30B-A3B-Instruct-2507 ( Team, 2025 ) remains frozen while executing sub-agent nodes. The generated graphs and patches are canonicalized and validated before execution, and malformed or unresolved outputs are handled as invalid actions.
+Following Tsang et al. (2026) , MAS-JudgeRM is trained by LoRA fine-tuning the Qwen3-8B-based Skywork-Reward-V2 checkpoint with the Bradley-Terry objective, using LoRA rank 32, scaling factor 64, and dropout 0.05.
+
+Table 4: Key hyperparameters used in the formal MAS-Loop training runs.
+
+Appendix D Additional Ablation Experiments
+
+We conduct three controlled studies to determine whether MAS-Loop’s gains can be explained by additional MAS executions or an untrained reflection pass, and whether the framework generalizes across base-model scales.
+
+D.1 Rollout-Execution-Matched Training-Time MAS
+
+To isolate the effect of additional MAS executions from execution-grounded refinement, we increase the rollout group size of MAS-Orchestra ( Ke et al., 2026 ) from 16 to 32. MAS-Loop executes 16 source MAS and 16 updated MAS per task, so this control matches the number of executed MAS rollouts.
+
+D.2 One-Step Prompted Self-Reflection
+
+We add a non-learned reflection control to distinguish the contribution of the trained Refiner from the generic benefit of an additional trajectory-conditioned inference pass. Given the task, source MAS, final prediction, and the same gold-free execution trajectory available to MAS-Loop, the Orchestrator is prompted once (i.e., using the self-correction prompt ( He et al., 2025 ) ) to diagnose the execution and emit one revision under the same bounded operation interface. The revised MAS is compiled and re-executed once. This control therefore matches the source-revision-re-execution structure but introduces no separately trained Refiner or coupled reward.
+
+D.3 Base-Model Scaling: Qwen3-14B
+
+We replace Qwen3-8B with Qwen3-14B for both the Orchestrator and Refiner while keeping the task data, policy interfaces, reward definitions, rollout group size, frozen sub-agent backbone, executor, and evaluation protocol unchanged. This comparison tests whether MAS-Loop generalizes to a larger base model and can effectively convert increased policy capacity into improved in-task and out-of-task performance.
+
+Table 5: Ablation results for rollout-execution matching, one-step prompted self-reflection, and base-model scaling.
+
+Analysis. Table 5 shows that the default MAS-Loop substantially outperforms rollout-execution-matched MAS-Orchestra on both HotpotQA and BCP. Thus, increasing the number of independently generated and executed MAS rollouts alone does not recover the benefit of trajectory-conditioned refinement. The self-correction results remain below MAS-Loop, isolating the benefit of learning a dedicated Refiner rather than merely prompting for an additional reflection pass. Replacing the trainable policies with Qwen3-14B further improves MAS-Loop on both benchmarks, demonstrating that the framework generalizes across base-model scales and benefits from stronger policy backbones.
+
+Appendix E Case Study
+
+We show one case from BrowseComp-Plus and compare the MAS produced by Orchestrator and Refiner. The Orchestrator returns Northgate Market , whereas the Refiner rewrote the role of agent_0 to require explicit confirmation of the candidate’s presence in both Mexico and California. This constraint discouraged premature selection based on the salient California event clue alone and promoted a more complete evaluation of the two-location condition. The revised evidence flow consequently preserved Churrería El Moro as the candidate passed to downstream aggregation, thus yielding the correct answer.
+
+Appendix F Prompt
+
+The prompts below define the model-facing interfaces used by the Orchestrator, Refiner, and LLM Judge. Executor and patch-compiler behavior is implemented by fixed rule functions rather than by an additional model prompt.
+
+Figure 4: MAS-Loop XML Orchestrator prompt.
+
+Figure 5: MAS-Loop XML Refiner prompt (Part 1/2).
+
+Figure 6: MAS-Loop XML Refiner prompt (Part 2/2).
+
+Figure 7: LLM-as-a-judge prompts used in VitaBench.

@@ -1,0 +1,960 @@
+Holistic Diversity Management in LLM-Guided Evolutionary Search
+
+LLM-guided evolutionary search iteratively selects existing programs, uses LLMs as mutation operators to generate a new program, and evaluates it to guide subsequent search.
+To preserve diversity and reduce the risk of premature convergence, it often adopts the island model , in which groups of programs, called islands, evolve separately.
+However, this structure alone does not guarantee distinct search directions, as islands may start from similar programs or converge toward similar solutions during evolution.
+This suggests that diversity must be considered throughout the search process, from initializing islands with distinct programs to developing island trajectories and sharing discoveries across islands.
+To this end, we propose HoliDivEvolve , a holistic approach to establishing and effectively utilizing island diversity throughout evolutionary search.
+Specifically, we introduce diverse initialization to establish different initial programs, trajectory adaptive island selection to allocate computation based on current score, recent growth, and the remaining search budget, and growth adaptive migration to share alternative ideas across islands.
+Experiments across diverse benchmarks show that HoliDivEvolve achieves competitive performance on most evaluated tasks.
+We further conduct controlled analyses to examine how our design choices affect search behavior and final performance.
+
+
+
+1 Introduction
+
+Large language models (LLMs) are increasingly used as the mutation operator inside evolutionary search, turning program and algorithm discovery into an iterative loop of generation, evaluation, and selection ( Romera-Paredes et al., 2024 ; Novikov et al., 2025 ) .
+To mitigate premature convergence, the island model is commonly adopted as a classical approach to maintaining diversity ( Tanese, 1989 ) .
+This model organizes candidate programs into groups called islands , which evolve separately and occasionally
+exchange programs through migration.
+
+However, the island model does not directly control the diversity of programs generated within each island.
+This problem gets worse when LLMs are used as mutation operators, because LLMs often generate programs with similar algorithms ( Brownlee et al., 2025 ; Lee et al., 2025 ; Gurkan et al., 2026 ) .
+
+Prior studies have addressed diversity through different aspects of the island model.
+Some approaches focus on diverse initialization or population management Yang et al. (2026) ; Tanveer (2026) ; Lange et al. (2026) , while others adapt island selection Cemri et al. (2026) ; Luo et al. (2026) or migration Yan et al. (2026) ; Li and Ramakrishnan (2026) .
+However, these decisions have often been studied separately, despite their interconnected roles in maintaining diversity throughout search.
+
+We argue that establishing and utilizing island diversity should be considered together.
+Distinct initial programs provide different search directions, but their subsequent development depends on how computation is allocated across islands.
+Likewise, migration allows islands to benefit from discoveries made elsewhere, while also influencing their future search directions.
+These decisions therefore shape one another throughout evolution, motivating a holistic approach to island diversity.
+
+Based on this view, we propose HoliDivEvolve , which takes a holistic approach to establishing and effectively utilizing island diversity throughout evolutionary search.
+We generate multiple candidate programs and use a diverse subset to initialize different islands, establishing distinct starting points.
+We then allocate computation according to each island’s current score, recent growth, and the remaining budget, allowing different island trajectories to develop.
+We further guide cross-island migration using relative growth, introducing alternative programs when an island’s growth lags behind others.
+In this way, HoliDivEvolve considers not only how diverse island trajectories are established, but also how they develop and benefit from discoveries made elsewhere.
+
+We evaluate HoliDivEvolve across a diverse set of program and algorithm optimization tasks and compare it with recent LLM-guided evolutionary methods. Overall, HoliDivEvolve achieves competitive performance and outperforms existing approaches on most evaluated tasks. Our component studies further examine the effects of each component, showing how it influences the resulting search process and final solution quality.
+
+Figure 1: Overview of HoliDivEvolve . We consider three components for diversity management: diverse initialization, trajectory adaptive island selection, and growth adaptive migration.
+
+We summarize our contributions as follows:
+
+We propose a diverse initialization strategy that establishes distinct search directions by assigning
+different initial programs to different islands.
+
+We develop a trajectory adaptive island selection strategy that allocates computation based on current
+score, recent growth, and the remaining search budget to effectively develop diverse island trajectories.
+
+We introduce a growth adaptive migration strategy that enables islands to share alternative ideas while maintaining their existing search directions.
+
+2 Related Work
+
+LLM-guided evolutionary search.
+
+LLMs have increasingly been used as mutation operators for program and
+algorithm discovery, where generated solutions are evaluated and reused
+to guide subsequent generations ( Romera-Paredes et al., 2024 ; Liu et al., 2024 ; Ye et al., 2024 ; Novikov et al., 2025 ; Sharma, 2025 ; Jiang et al., 2026 ; Assumpção et al., 2025 ; Tanveer, 2026 ; Liu et al., 2026 ) .
+These works have extended evolutionary search through improved population
+management, reflection, search history, and mutation strategies.
+Our work builds on this paradigm but focuses specifically on how multiple
+island trajectories should be initialized, developed, and connected
+throughout a finite search budget.
+
+Adaptive search allocation.
+
+Recent methods make different parts of evolutionary search adaptive using
+feedback collected during evolution, including model selection, parent
+sampling, search-strategy selection, and computation allocation ( Lange et al., 2026 ; Cemri et al., 2026 ; Chen et al., 2026 ; Luo et al., 2026 ) .
+Our setting instead considers computation allocation across islands whose
+search trajectories may improve at different rates.
+Our island selection rule is motivated by best arm identification for rising bandits ( Metelli et al., 2022 ; Song et al., 2026 ; Mussi et al., 2023 ) . In this setting, finding the option that will be best in the future requires considering its current score, its recent growth, and the remaining budget.
+
+Diversity and cross-island interaction.
+
+Maintaining diverse subpopulations and exchanging information between
+them are central ideas in island-based evolutionary algorithms Tanese (1989) .
+Recent LLM-guided methods further explore diversified initialization,
+parallel trajectories, and adaptive information sharing ( Yang et al., 2026 ; Yan et al., 2026 ; Li and Ramakrishnan, 2026 ) .
+Our method initializes islands from separated programs and subsequently
+uses relative recent growth to determine when an island should receive
+programs from another trajectory.
+
+3 Problem Formulation
+
+We consider the problem of discovering high-scoring programs using an LLM under a total budget of T T program generations, including those used for initialization.
+Let 𝒳 \mathcal{X} denote the space of candidate programs and f : 𝒳 → ℝ f:\mathcal{X}\to\mathbb{R} be a fixed evaluation function,
+where higher scores indicate better performance.
+The search maintains K K islands, indexed by [ K ] := { 1 , … , K } [K]:=\{1,\ldots,K\} .
+Each island k k maintains a population 𝒟 k , t \mathcal{D}_{k,t} containing program and score pairs available at the end of round t t .
+The process starts from a single evaluated initial program ( X 0 , s 0 ) (X_{0},s_{0}) , where s 0 = f ⁡ ( X 0 ) s_{0}=f(X_{0}) , shared across all islands: 𝒟 k , 0 = { ( X 0 , s 0 ) } \mathcal{D}_{k,0}=\{(X_{0},s_{0})\} for all k ∈ [ K ] k\in[K] .
+
+At each round t t , we select an island I t ∈ [ K ] I_{t}\in[K] .
+A stochastic prompt builder P ​ B PB then constructs a prompt
+from the selected island’s population:
+
+Here, P ​ B ​ ( 𝒟 ) PB(\mathcal{D}) denotes a distribution over prompts
+constructed from the programs and evaluation scores stored in 𝒟 \mathcal{D} .
+The prompt-building procedure may include selecting parent or
+reference programs and incorporating their scores into the prompt.
+We follow the prompt construction procedure of Lange et al. (2026) ; Cemri et al. (2026) to construct mutation prompts from the selected island’s population.
+
+Conditioned on the sampled prompt P t P_{t} , the LLM generates
+an offspring program:
+
+where L ​ L ​ M ​ ( P ) LLM(P) denotes the distribution over candidate programs
+induced by prompting the LLM with P P .
+Thus, the generation process accounts for randomness in both
+prompt construction and LLM generation.
+
+We evaluate the offspring to obtain score s t = f ⁡ ( X t ) s_{t}=f(X_{t}) and add
+the resulting program and score pair to the selected island.
+The populations are updated as 𝒟 I t , t = 𝒟 I t , t − 1 ∪ { ( X t , s t ) } \mathcal{D}_{I_{t},t}=\mathcal{D}_{I_{t},t-1}\cup\{(X_{t},s_{t})\} .
+Consequently, each island retains its initial records and
+all offspring evaluated during rounds in which it was selected.
+These records provide the information from which prompts
+can be constructed in subsequent rounds.
+Migration allows islands to use programs discovered on other islands to guide subsequent program generation.
+We incorporate this mechanism by allowing evaluated program records to be transferred between island pools.
+After evaluating X t X_{t} and updating the selected island, let 𝒟 ~ 1 : K , t \widetilde{\mathcal{D}}_{1:K,t} denote the collection of island
+pools before migration. A migration policy ℳ t \mathcal{M}_{t} may then
+exchange previously evaluated programs across islands:
+
+Here, ℳ t \mathcal{M}_{t} determines whether migration occurs, which
+islands exchange programs, and which programs are incorporated into
+the recipient pools. If no migration occurs, ℳ t \mathcal{M}_{t} leaves
+the pools unchanged. Migration does not itself generate a new program
+or consume a search round; instead, it changes the programs available
+for subsequent prompt construction.
+
+Our objective is to maximize the expected score of the best
+program discovered within the search budget, rather than
+the average or cumulative score of all generated programs.
+For each round t t , define the best score across all islands as follows:
+
+At the end of the search, we return a program X ^ T \widehat{X}_{T} attaining B T B_{T} , with ties broken arbitrarily.
+Let 𝒜 \mathcal{A} denote a search procedure implementing
+the above process.
+We measure its performance by
+
+The expectation is taken over the randomness of the search process induced
+by stochastic prompt construction, stochastic LLM generation,
+and any randomness in island selection.
+Our goal is to design a search procedure that maximizes J T ​ ( 𝒜 ) J_{T}(\mathcal{A}) subject to the specified information
+and budget constraints.
+
+Thus, each search run is evaluated by its single best
+discovered program, and performance is averaged over
+the randomness of repeated runs.
+The returned program need not be the last generated program
+and may originate from any island or from the initial populations.
+
+4 Method
+
+Algorithm 1 HoliDivEvolve
+
+We organize our method around three decisions: how to initialize the
+islands, which island to select at each round, and when and what to
+exchange across islands.
+We address these decisions with three components: diverse initialization , which provides different initial
+programs; trajectory adaptive island selection , which allocates
+search rounds based on the state of each island; and growth adaptive migration , which adaptively migrates programs across islands when an island’s recent growth slows relative to others.
+Figure 1 summarizes the overall procedure.
+
+4.1 Diverse Initialization
+
+We allocate the first N N program generations to producing N N candidate programs using prompts that encourage different search directions, before beginning evolutionary search.
+We evaluate the candidates and maintain the valid programs in
+a set 𝒱 \mathcal{V} .
+Each program is represented using a code embedding model, and cosine distance is used to measure the distance between programs.
+
+From 𝒱 \mathcal{V} , we select K K programs that are well separated from
+one another:
+
+where d ⁡ ( p , q ) d(p,q) denotes the cosine distance between programs p p and q q .
+
+For a candidate set S S , the inner minimum measures the distance between
+the most similar pair of programs in the set. The outer maximization
+selects the set for which this minimum distance is largest.
+Therefore, this criterion encourages each island to start from a distinct program and
+explore a different island trajectory.
+We assign one selected program to each
+island, providing the islands with distinct starting points before the
+evolutionary search begins.
+
+4.2 Trajectory Adaptive Island Selection
+
+Diverse initialization encourages islands to follow different island
+trajectories.
+Since these trajectories can differ in both their current
+quality and recent improvement, the search should allocate computation
+according to how each island develops rather than treating all islands
+uniformly.
+Our key intuition is to balance current score and recent growth
+according to the remaining search budget, emphasizing growth when there
+is more time for further improvement and current quality as the budget
+is exhausted.
+We define the evolutionary search horizon as H = T − N H=T-N and w t = ( H − t ) / H w_{t}=(H-t)/H and select the next island
+at round t t according to
+
+where, n i ​ ( t ) n_{i}(t) counts evaluations assigned to island i i up to round t t , and C C controls exploration of
+less-visited islands.
+
+Current score.
+
+We estimate the current score s s of island i i by averaging the scores of programs in its current population:
+
+We use the population average because future prompts can draw both
+parent and reference programs from the island, so the overall quality
+of its current programs affects subsequent mutations.
+We normalize μ ^ i ​ ( t ) \hat{\mu}_{i}(t) across islands and denote the resulting
+value by μ ~ i ​ ( t ) \widetilde{\mu}_{i}(t) .
+
+Recent growth.
+
+Recent improvement is widely used to summarize search progress in
+adaptive evolutionary search ( Cemri et al., 2026 ; Yan et al., 2026 ) .
+We similarly use the improvements observed from recent mutations to
+estimate the recent growth of each island trajectory.
+
+When island I t I_{t} is selected at round t t , let s I t ∗ ​ ( t − 1 ) s^{*}_{I_{t}}(t-1) denote the best score
+available in island I t I_{t} before round t t . We define its normalized improvement as follows:
+
+where ϵ > 0 \epsilon>0 provides numerical stability.
+
+We update the recent growth estimate of the selected island using an exponentially weighted average:
+
+where ρ ∈ ( 0 , 1 ) \rho\in(0,1) determines how quickly older observations are
+discounted.
+For islands not selected at round t t , the estimate remains unchanged.
+
+A larger g ^ i ​ ( t ) \hat{g}_{i}(t) therefore indicates that island i i has
+produced larger improvements in its recent evaluations, while the
+estimate decreases when repeated mutations fail to improve its best
+program. We normalize g ^ i ​ ( t ) \hat{g}_{i}(t) across islands and denote the
+normalized value by g ~ i ​ ( t ) \widetilde{g}_{i}(t) .
+We additionally adopt an LLM-based exploration mechanism from prior work ( Cemri et al., 2026 ) , which generates new ideas when the search remains stagnant for an extended period.
+
+4.3 Growth Adaptive Migration
+
+Island selection determines which island receives additional computation, but without migration, islands evolve largely as independent refinement processes. Migration allows programs discovered in one island to influence subsequent mutations in others. We employ two forms of migration: conventional periodic migration for occasional program sharing across islands, and growth adaptive migration to introduce alternative programs when an island’s recent growth becomes relatively low. We focus on growth adaptive migration below, with implementation details of periodic migration provided in Appendix A.3 .
+
+When and where to migrate.
+
+After island I t I_{t} is updated at round t t ,
+we compare its recent growth with that of other islands and trigger migration when
+
+Specifically, we trigger migration when
+
+where τ ∈ ( 0 , 1 ) \tau\in(0,1) controls how much slower the recipient must be
+growing before migration is triggered.
+
+When migration occurs, we choose the donor as
+
+Thus, an island whose recent growth has slowed receives programs from
+an island that is currently exhibiting stronger improvement.
+
+Which programs to migrate.
+
+Once a donor island j ∗ j^{*} is selected, we do not simply transfer its
+highest-scoring programs.
+Doing so would mainly propagate the donor’s current solution and can make the recipient follow a similar search
+direction.
+Instead, we use migration to introduce alternative ideas while
+preserving the recipient’s island trajectory.
+
+Let p I t ∗ ​ ( t ) p^{*}_{I_{t}}(t) denote the current best program in the recipient
+island. Among the eligible non-best programs in the donor, we prioritize
+programs that are most different from p I t ∗ ​ ( t ) p^{*}_{I_{t}}(t) , measured by cosine
+distance in the code-embedding space.
+We then transfer the highest-ranked programs to the recipient.
+In this way, the migrated programs are chosen relative to what the recipient has already discovered, rather than by
+their score in the donor island alone.
+
+How migrated programs are used.
+
+Migrated programs are used to complement the recipient’s current search
+rather than replace it.
+When the recipient island is selected again, its current best program
+remains the parent, while the migrated programs are prioritized as
+references in the prompt.
+This separation between parent and reference preserves the recipient’s
+current direction while allowing external ideas to influence its
+subsequent mutations.
+
+Updating growth after migration.
+
+Migration changes the programs available in the recipient island, so its
+pre-migration growth estimate may no longer fully represent its updated
+search state. At the same time, migration itself should not be counted as
+an improvement produced by a local mutation. We therefore keep the visit
+count unchanged and update the recipient’s growth estimate according to
+the fraction of programs introduced from the donor.
+
+Let q q denote the number of migrated programs and P I t P_{I_{t}} the
+recipient population size before migration. We update
+
+Thus, larger transfers place more weight on the donor’s recent growth,
+while smaller transfers preserve more of the recipient’s previous growth
+estimate.
+
+Table 1: Performance comparison across mathematical and systems
+optimization benchmarks using GPT-5 and Qwen3-32B
+(mean ± \pm SD).
+Bold indicates the best observed mean within each backbone,
+and underline indicates the second-best distinct mean,
+with ties determined at displayed precision.
+GPT-5 baselines are from Tables 1–2 of Cemri et al. (2026) (three runs).
+All methods use a total budget of 100 program generations:
+Ours allocates 20 generations to diverse initialization
+and 80 rounds to evolutionary search, while the baselines
+use all 100 rounds for search with the same initial program.
+Arrows indicate the preferred direction.
+
+The original result was affected by an evaluator error.
+We report the maximum possible score of 26.26 as an
+upper bound, not as an observed mean.
+
+5 Experiments
+
+We first compare the overall performance of our method with recent
+LLM-guided evolutionary approaches across multiple program optimization
+tasks.
+We then conduct controlled studies to examine how our design choices affect search behavior and final performance.
+
+5.1 Experimental Setup
+
+We evaluate HoliDivEvolve on six program optimization benchmarks:
+Heilbronn Triangle, Circle Packing, Signal Processing, PRISM,
+EPLB, and CloudCast. Each benchmark uses a task-specific evaluator,
+with higher scores indicating better performance except for
+CloudCast, which reports cost. Detailed benchmark descriptions
+and evaluation metrics are provided in Appendix C.1 .
+
+For overall performance comparisons, we report results using
+GPT-5 and Qwen3-32B separately. We use Qwen3.8-27B for controlled
+component studies on Signal Processing, examining diverse
+initialization, island selection, and ablation.
+We report the final best score as mean ± \pm sample standard
+deviation across independent search runs, except where otherwise
+specified. Further experimental settings are provided in
+Appendix C.2 .
+
+5.2 Overall Performance
+
+Table 1 compares our method with AdaEvolve,
+OpenEvolve, and ShinkaEvolve in separate backbone blocks.
+The GPT-5 baseline entries are drawn from
+Tables 1–2 of Cemri et al. (2026) , which report mean ± \pm standard deviation over three runs with 100 search iterations.
+We retain the published objective units.
+For GPT-5, we evaluate HoliDivEvolve over three random seeds, allocating 20 program generations to initialization and 80 rounds to evolutionary search for each run.
+For Qwen3-32B, we similarly report results over three random seeds for each benchmark.
+
+5.3 Diverse Initialization
+
+Reducing cross-island redundancy.
+
+We first evaluate whether diverse initialization produces more diverse island trajectories than same-start initialization.
+Table 2 compares same-start and max–min initialization on Signal Processing by measuring how similar the best programs and populations are across islands.
+We compute these cross-island diversity metrics after 20 evolutionary
+rounds, before any migration occurs, so that the comparison reflects the effect of initialization rather than later information exchange.
+
+Table 2: Cross-island redundancy after 20 evolutionary rounds in Signal Processing under
+same start and max–min initialization.
+Lower values indicate less overlap across islands.
+Best program similarity compares the current best programs across islands.
+Population proximity measures similarity between island populations.
+Exact-code overlap measures shared normalized programs; and Descendant proximity excludes the initial programs before measuring population
+similarity.
+Detailed definitions are provided in Appendix A.4 .
+
+Max–min initialization substantially reduces redundancy across all four
+metrics.
+In particular, island-best similarity decreases from 0.183 0.183 to 0.062 0.062 ,
+while cross-island population proximity decreases from 0.424 0.424 to 0.086 0.086 .
+The descendant-only population proximity, which excludes the initial
+programs themselves, also decreases from 0.122 0.122 to 0.085 0.085 .
+This suggests that the effect of diverse initialization persists beyond
+the initial seeds and leads to less overlapping island trajectories in
+subsequent mutations.
+Detailed definitions of the similarity metrics are provided in
+Appendix A.4 .
+
+Effect on final performance.
+
+We next examine whether the greater cross-island diversity observed above translates into better final search performance. We compare three initialization strategies: using the same initial program for all islands, randomly selecting four programs from 20 generated candidates, and selecting four using our max–min criterion. For a fair comparison, all strategies use a total budget of 100 program generations, excluding auxiliary meta-prompt calls. Same-start initialization uses all 100 rounds for evolutionary search, while random and max–min initialization allocate 20 generations to initialization and the remaining 80 rounds to evolutionary search. To isolate the effect of initialization, all other components, including island selection and migration, are kept fixed.
+
+Table 3: Comparison of initialization strategies on Signal Processing
+using Qwen3.8-27B over five random seeds.
+Results report the mean ± \pm sample standard deviation
+of the final best score.
+
+As shown in Table 3 , our max–min
+initialization achieves the highest mean final score, improving from 0.700 0.700 with the same initialization and 0.682 0.682 with random
+initialization to 0.714 0.714 .
+Together with the redundancy analysis above, these results indicate that
+diverse initialization can reduce overlapping search while maintaining
+better final search performance.
+
+5.4 Trajectory Adaptive Island Selection
+
+Selection behavior and performance.
+
+We examine whether adapting computation allocation to the evolving states of different islands improves final search performance.
+We compare round-robin, uniform random selection, UCB, and our trajectory adaptive island selection using the same four islands.
+To isolate the effect of island selection, all policies use the same diverse initial programs, while migration is disabled.
+
+Table 4 reports both final search performance and the standard deviation of island selection counts. Our method achieves the highest final score, 0.659 ± 0.044 0.659\pm 0.044 , while also showing the largest variation in selection counts. Across the four policies, larger variation in selection counts is associated with better final performance in this experiment. This suggests that differentiating computation across islands according to their evolving states can make better use of a fixed search budget.
+
+Table 4: Comparison of island-selection policies using Qwen3.8-27B.
+Final score reports mean ± \pm sample standard deviation.
+Selection-count SD is the standard deviation of the selection counts across the four islands within each run, averaged across runs.
+
+5.5 Growth Adaptive Migration
+
+(a) Accuracy–smoothness trade-off
+
+(b) Best-so-far score
+
+Figure 2: Qualitative example of migration on Signal Processing.
+(a) The recipient parent and migrant exhibit complementary
+strengths, and the resulting child improves both accuracy
+and smoothness over the parent.
+(b) Migration occurs at iteration 25, followed by
+the discovery of an improved child at iteration 41.
+
+We illustrate how migration enables islands to benefit
+from complementary ideas using a case study on Signal
+Processing. As shown in Figure 2 (a),
+the recipient parent achieves higher accuracy, while
+the migrated program provides greater smoothness,
+despite having a lower overall score.
+
+Following migration at iteration 25, a subsequent
+LLM mutation produces a child at iteration 41 that
+combines the strengths of both programs.
+The child improves both accuracy and smoothness
+over the parent, increasing the best score from 0.6127 0.6127 to 0.6314 0.6314 , as shown in
+Figure 2 (b).
+
+This example illustrates how migration can facilitate
+the exchange of complementary ideas across islands,
+allowing lower-scoring programs to contribute to
+subsequent improvements.
+
+5.6 Component Ablation
+
+We examine how the components of HoliDivEvolve contribute to final search
+performance. We compare the full framework with three variants:
+replacing diverse initialization with the same initial program,
+replacing trajectory adaptive island selection with round-robin
+and disabling migration, and combining both modifications.
+All configurations are evaluated on Signal Processing over
+five random seeds, with the remaining search settings fixed.
+
+Table 5: Component ablation on Signal Processing over five random seeds.
+Checkmarks indicate the use of diverse initialization,
+trajectory adaptive island selection, and growth adaptive migration.
+Without these components, we use the same initial program,
+round-robin selection, and no migration, respectively.
+Results report mean ± \pm sample SD.
+
+As shown in Table 5 , the full framework achieves
+the highest mean final score of 0.714 0.714 , outperforming all three
+variants. Replacing diverse initialization reduces the mean score
+to 0.700 0.700 , while replacing adaptive selection and migration
+reduces it to 0.703 0.703 . Applying both modifications further reduces
+the mean score to 0.698 0.698 . These results suggest that diverse
+initialization and adaptive search decisions provide complementary
+benefits when combined in HoliDivEvolve .
+
+6 Conclusion
+
+We introduced HoliDivEvolve , an LLM-guided evolutionary search framework that
+focuses on how multiple island trajectories are initialized, developed,
+and connected throughout the search.
+Our method combines diverse initialization, trajectory adaptive island
+selection, and growth adaptive migration to maintain distinct search
+trajectories while allocating computation and exchanging information
+according to their observed progress.
+Experiments across multiple program optimization tasks show that our
+method achieves competitive overall performance, while controlled
+analyses demonstrate the benefits of diverse initialization and
+trajectory-dependent computation allocation.
+Together, these results highlight the importance of not only maintaining
+multiple islands, but also actively managing how their search
+trajectories evolve under a fixed search budget.
+
+Limitations
+
+Our approach has several limitations.
+First, recent growth is estimated from observed improvements and therefore
+provides only a noisy proxy for the future potential of an island,
+especially when improvements occur sparsely or abruptly.
+Second, our initialization and migrant selection use embedding-based code
+distance, which does not necessarily correspond to semantic or
+algorithmic diversity.
+Finally, our experiments cover a limited set of LLMs, program
+optimization tasks, and search budgets.
+Further evaluation is needed to determine how the proposed mechanisms
+generalize to different models, larger numbers of islands, and
+substantially longer search horizons.
+
+References
+
+This appendix provides implementation details of HoliDivEvolve ,
+experimental settings, and the prompt templates used in our framework:
+
+Appendix A : Implementation details of HoliDivEvolve and definitions of diversity metrics
+
+Appendix B : Additional analyses of Table 1
+
+Appendix C : Benchmark descriptions, evaluation metrics, and experimental configurations
+
+Appendix D : Prompt templates for initial program generation and LLM mutation
+
+Appendix E : Signal Processing examples of selected initial programs
+
+Appendix A Implementation Details
+
+A.1 Diverse Initialization
+
+The distance in Equation 1 is computed
+from code embeddings e ⁡ ( p ) e(p) and e ⁡ ( q ) e(q) as
+
+We solve the max–min problem exactly by enumerating all subsets of 𝒱 \mathcal{V} of size K = 4 K=4 . Eligibility requires successful parsing,
+execution, and the task-specific interface and feasibility checks;
+fitness is not an additional ranking term in the diversity objective.
+The selected source code and evaluations are cached for reuse across
+comparison conditions. Each island’s stored population has capacity 20.
+
+Joint-generation experiments additionally remove candidates with
+identical abstract syntax trees and embed the complete eligible
+programs with Qwen3-Embedding-8B. Initialization stops if fewer than K K valid, distinct programs remain. Generation templates appear in
+Appendix D.1 ; the historical pool and embedding
+cache used in the initialization comparison are specified in
+Appendix C.2 .
+
+A.2 Trajectory Adaptive Island Selection
+
+Normalization and initialization of statistics.
+
+To obtain μ ~ i ​ ( t ) \widetilde{\mu}_{i}(t) and g ~ i ​ ( t ) \widetilde{g}_{i}(t) in
+Section 4.2 , we apply min–max scaling separately to μ ^ i ​ ( t ) \hat{\mu}_{i}(t) and g ^ i ​ ( t ) \hat{g}_{i}(t) across islands. If all islands
+have the same value for a statistic, its normalized values are set to
+zero. The growth update uses ρ = 0.9 \rho=0.9 and ϵ = 10 − 8 \epsilon=10^{-8} .
+Before a finite previous best is available, the first finite
+evaluation uses δ I t ​ ( t ) = 1 \delta_{I_{t}}(t)=1 . The adaptive policies first
+sample uniformly among islands with fewer than three recorded visits,
+including the initial observation, before applying the selection index.
+
+A.3 Growth Adaptive Migration
+
+Timing and transfer limits.
+
+The experimental implementation supplements the adaptive mechanism
+in Section 4.3 with ring exchange every 20 mutation
+rounds. Using the paper’s island indices, the ring follows 1 → 2 → 3 → 4 → 1 1\to 2\to 3\to 4\to 1 , with at most three programs per edge.
+Adaptive migration uses τ = 0.5 \tau=\sqrt{0.5} in the main-text growth
+criterion, since the implementation compares squared growth values
+with a ratio of 0.5. It becomes eligible after 20 iterations and at least five local evaluations in the recipient.
+One qualifying check is sufficient, subject to a five-round interval
+since that recipient’s latest migration attempt, including ring
+exchange. Each adaptive event transfers at most five programs.
+
+Program selection and population update.
+
+In addition to excluding donor bests as specified in the main text,
+we exclude code already present in the recipient. Migration uses
+Qwen3-Embedding-8B. For geometry and Signal Processing, it embeds
+code reachable from the task entry point when extraction is supported,
+falling back to the full source otherwise; the systems tasks use
+the full source. Historical initialization embeddings are cached
+separately.
+
+Transfers copy programs into the recipient and retain the donor’s
+copies. Low-fitness recipient programs are replaced while protecting
+its best program and protected archive representatives. The actual
+transfer count can be smaller than the cap when there are too few
+eligible candidates or replaceable slots. All transfers in one ring
+event are planned from the pre-event populations, so an incoming
+program cannot be forwarded again within that event.
+
+The growth update in Section 4.3 uses the number of
+programs actually admitted and the pre-event growth estimates.
+We synchronize the recipient’s best-score baseline with the updated
+population without awarding a local improvement reward. When meta
+guidance is active, its global-best parent override takes precedence
+over the migration follow-up parent choice
+(Appendix D.2 ).
+
+A.4 Diversity Metrics
+
+Figure 3: Example best-so-far score trajectories on Signal Processing
+using Qwen3-32B.
+Ours uses 80 evolutionary rounds after 20 initial
+program generations, while the baselines use
+100 evolutionary rounds.
+
+The redundancy analysis uses lexical code similarity, independently
+of the embedding distance used to select initial programs or migrants.
+We extract each program’s mutable EVOLVE-BLOCK , tokenize it
+as Python, remove comments and layout tokens, and replace string and
+numeric literals with type placeholders. Identifiers and operators
+are retained. Let S ⁡ ( p ) S(p) be the set of consecutive five-token shingles
+in this normalized sequence. We define
+
+All four reported redundancy metrics lie in [ 0 , 1 ] [0,1] , with smaller
+values indicating less overlap.
+
+Best program similarity.
+
+For each island, select the stored program with the highest evaluator
+fitness. Average sim \operatorname{sim} over the six unordered pairs of
+island bests.
+
+Population proximity.
+
+For 𝒟 i , t \mathcal{D}_{i,t} and 𝒟 j , t \mathcal{D}_{j,t} , compare each program
+with its most similar program in the other population. Average these
+nearest-neighbor similarities over the programs in both populations,
+giving each program equal weight. The reported proximity is the mean
+over the six island pairs.
+
+Exact code overlap.
+
+Let H i ​ ( t ) H_{i}(t) be the set of complete normalized token sequences of
+programs in 𝒟 i , t \mathcal{D}_{i,t} . We average | H i ​ ( t ) ∩ H j ​ ( t ) | / | H i ​ ( t ) ∪ H j ​ ( t ) | |H_{i}(t)\cap H_{j}(t)|/|H_{i}(t)\cup H_{j}(t)| over island pairs.
+Equality is exact only after the normalization above; this metric
+does not require byte-identical source files.
+
+Descendant proximity.
+
+We recompute population proximity after excluding all iteration-zero
+initial programs. This measures overlap among subsequently generated
+programs without directly counting the shared starting code.
+
+Run-level metrics are averaged equally across the cohort specified in
+Appendix C.2 . Missing round-20 checkpoints
+were reconstructed from the preceding checkpoint and saved generation
+records, with population sizes and best scores checked against the
+iteration logs. These metrics quantify lexical overlap, not semantic
+independence.
+
+Appendix B Additional Analysis of the Main Comparison
+
+We provide additional examples from Signal Processing
+and Circle Packing to illustrate the search behavior
+and final solutions underlying the results in
+Table 1 .
+
+Signal Processing.
+
+Figure 3 illustrates
+the evolution of the best-so-far score for each method
+using Qwen3-32B.
+In this example, HoliDivEvolve achieves a substantial improvement
+early in the search and continues to improve with
+additional generations, maintaining a higher best-so-far
+score than the baselines.
+The baselines exhibit different improvement patterns,
+with some achieving substantial gains only in later
+rounds.
+These trajectories illustrate how the methods differ
+in their search behavior beyond the final scores
+reported in Table 1 .
+
+Figure 4: Example solutions for Circle Packing with n = 26 n=26 using Qwen3-32B.
+Each panel shows a circle arrangement in the unit
+square, with its corresponding score in parentheses.
+Higher scores indicate better solutions.
+
+Circle Packing.
+
+Figure 4 visualizes
+final solutions obtained by different methods on
+Circle Packing with n = 26 n=26 using Qwen3-32B.
+Each program seeks to maximize the sum of circle radii
+while maintaining a valid packing inside the unit square.
+In the displayed examples, HoliDivEvolve achieves a score of 2.625 2.625 , compared with 2.623 2.623 for AdaEvolve, 2.452 2.452 for ShinkaEvolve, and 2.028 2.028 for OpenEvolve.
+These examples illustrate the geometric configurations
+produced by the different methods, complementing
+the aggregate performance comparison in
+Table 1 .
+
+Appendix C Experimental Setup
+
+C.1 Benchmarks and Evaluation Metrics
+
+Table 6 summarizes the tasks. Below, we
+specify how valid outputs are scored and how reported objectives
+relate to search fitness.
+
+Table 6: Benchmark overview. Arrows indicate the preferred
+direction of the reported metric. Geometry objectives and CloudCast
+cost retain the units used in the main comparison.
+
+Heilbronn Triangle.
+
+A program places 11 points inside a unit-side equilateral triangle.
+After checking containment, the evaluator finds the smallest area
+among all 165 point triples and divides it by the containing area, 3 / 4 \sqrt{3}/4 . We report this area ratio; search additionally divides
+it by the reference value 0.03652988988 0.03652988988 .
+
+Circle Packing (Square).
+
+The evaluator verifies that all 26 circles lie inside the unit square
+and do not overlap, with numerical tolerance 10 − 6 10^{-6} . The reported
+objective is the sum of their nonnegative radii, recomputed from the
+output. Invalid packings score zero. Search divides the sum by 2.635;
+the main table reports the unscaled value.
+
+Signal Processing.
+
+The five signal families are a sinusoid with trend, mixed frequencies,
+a chirp, steps, and a random walk with trend, with Gaussian noise
+standard deviations from 0.2 to 0.6. Programs receive the full noisy
+array and window size 20; evaluation aligns the output at offset 19
+and also uses the clean signal. This interface permits noncausal
+filters.
+
+For each successful case, S S counts output directional changes, L recent L_{\mathrm{recent}} and L avg L_{\mathrm{avg}} are the final and mean
+aligned absolute deviations from the noisy input, and R R counts
+output reversals without a matching clean-signal reversal. The
+composite quality is
+
+The reported fitness is
+
+Here r r is Pearson correlation with the clean signal, η \eta is
+the fractional reduction in noise variance, clipped below at zero,
+and u u is the successful-case fraction. The five terms reward
+composite quality, smoothness, correlation, noise reduction, and
+reliability, respectively. In the current evaluator, c ¯ \bar{c} averages
+over all five cases with failures scored zero; the remaining averages
+use successful cases. No successful case, or mean correlation below 0.1,
+gives zero fitness. Execution time is not part of this score.
+
+PRISM.
+
+Programs assign serving models to GPUs while respecting memory
+limits and placing each model exactly once. For each GPU, KV-cache
+pressure divides the sum of request-rate/latency-target ratios by
+its memory remaining after model placement. The worst GPU determines
+the case pressure; a GPU with no remaining memory receives a large
+penalty. The reported score is 1 / v ¯ + u 1/\bar{v}+u , where v ¯ \bar{v} is mean
+pressure over successful cases and u u is their fraction among all
+50 cases. This measures placement quality rather than serving
+throughput.
+
+Expert Parallel Load Balancing (EPLB).
+
+A recorded trace contains 58 layers with 256 logical experts each.
+For 11 consecutive transitions, a program uses a 100-step workload
+window to assign 288 physical replicas per layer to 32 GPUs; the
+mapping is evaluated on the next window. Replica counts and coverage
+of loaded experts are checked. For physical-expert loads L ℓ , e L_{\ell,e} ,
+balancedness is B = ∑ ℓ mean e ⁡ L ℓ , e / ∑ ℓ max e ⁡ L ℓ , e B=\sum_{\ell}\operatorname{mean}_{e}L_{\ell,e}/\sum_{\ell}\max_{e}L_{\ell,e} . The score is 1 2 ​ ( B ¯ + 0.002 / t ¯ ) \tfrac{1}{2}(\bar{B}+0.002/\bar{t}) , where t ¯ \bar{t} is mean rebalancing
+plus simulated-inference time in seconds and both means cover the
+11 transitions. Higher scores reward balanced loads and shorter
+runtime; GPU-level balancedness is a separate diagnostic.
+
+CloudCast.
+
+Programs construct broadcast routes for three intra-provider and two
+inter-provider scenarios involving AWS, Azure, and GCP. Every
+destination must receive every partition along valid network paths.
+The simulator accounts for bandwidth, two virtual machines per
+region, transfer charges, and instance charges. We report total cost C total C_{\mathrm{total}} across the five cases; search maximizes 1 / ( 1 + C total ) 1/(1+C_{\mathrm{total}}) . Invalid broadcasts receive zero fitness.
+
+C.2 Experimental Configuration
+
+Generation and evaluation.
+
+Our GPT-5 runs use medium reasoning effort. The Signal Processing
+analyses use Qwen3.8-27B through vLLM on RTX A6000 GPUs, with
+thinking disabled, temperature 0.7, a 16,384-token output limit,
+and a 32,768-token context. They use four islands.
+Program evaluations use three repeats with median
+aggregation and a 360-second outer timeout. Final evaluations reuse
+the benchmark suite. Reported mean ± \pm SD summarizes search
+seeds using sample SD; evaluation repeats are not additional seeds.
+Retries, and meta-generation calls are outside the mutation-round count.
+
+Initialization comparison.
+
+Same-start copies the original program to all islands.
+Random samples four eligible programs after 20 candidates generation.
+Max–min uses the fixed diversity-selected set from generated 20 candidates.
+
+Table 3 uses five seeds per condition:
+Same reports final evaluations at round 100, while Random and Max–min
+use 20 first generations and 80 rounds.
+Table 2 uses the same five
+seeds and Qwen3.8-27B at round 20 of Same–start, and at round 40 of Random and Max–min.
+Similarity definitions are given in Appendix A.4 .
+
+Island-selection comparison.
+
+Table 4 retains ten seeds per policy, each
+with 100 rounds, the same four diverse initial programs, and both
+migration and meta generation disabled.
+Round-robin is cyclic.
+Uniform samples islands independently.
+UCB follows the implementation of Cemri et al. (2026) .
+Our policy uses C = 0.3 C=0.3 .
+The allocation statistic is the population SD of the four islands’
+mutation attempt counts, averaged over runs. It measures unequal
+allocation and differs from the sample SD of score across seeds.
+
+Component variants.
+
+Each uses five seeds, a total budget of 100 program generations. Same
+copies the original program; Diverse uses the shared four-program
+cache. Adaptive migration includes both native ring and growth-triggered
+migration with growth mixing (Appendix A.3 ); No
+migration disables both.
+
+Appendix D Prompt Templates
+
+D.1 Initial Program Generation
+
+The templates below summarize the actual prompt structure using
+braced placeholders for task-specific content. Evaluator and source
+code placeholders are expanded to the corresponding code in a
+request. Technique guidance is written in advance; the programs and
+their proposed approaches are generated by the LLM.
+
+Independent proposals.
+
+Each request starts from the normal mutation prompt for the reference
+program, with no earlier attempts or meta-generated idea, and appends
+the assignment in Figure 5 .
+
+Figure 5: Independent initialization assignment, appended to the
+reference program’s mutation prompt. Braced fields are replaced with
+task-specific instructions.
+
+Strategy assignments include explicit constructions, deterministic
+sampling, local or global search, feasibility-preserving
+parameterizations, and hybrid construction and refinement. Signal
+Processing assignments instead emphasize suitable filter families,
+such as robust median filters, adaptive exponential smoothers,
+state-space estimators, local polynomial filters, and multiscale
+filters. These assignments guide generation; execution and validity
+are checked separately.
+
+Joint proposals.
+
+The joint-generation variant replaces the individual assignment
+with a request for a complementary set
+(Figure 6 ).
+
+Figure 6: Joint initialization template. Each request produces four
+candidate programs; evaluation and max–min selection subsequently
+determine the final initial population.
+
+For example, geometry guidance covers constrained optimization,
+compact geometric parameterizations, multistart search, and exact
+constraint checking. In Heilbronn Triangle, it explicitly requires
+checking all 165 point triples. Responses are checked for complete
+JSON, all four code strings, and Python syntax before evaluation;
+a partial program is not treated as a valid starting program.
+
+D.2 LLM Mutation
+
+Parent and references.
+
+After island selection, the database samples a parent and up to four
+reference programs. Normal mutation uses local references in these
+experiments. Parent sampling balances high-fitness programs with
+novelty-based exploration; its intensity depends on the island’s
+growth statistic. Migration follow-up can prioritize received
+programs in the reference slots. The builder inserts code, metrics,
+and the sampling-mode instruction into the structure in
+Figure 7 .
+
+Figure 7: Mutation prompt template, including conditional search
+guidance and the required SEARCH/REPLACE edit format.
+
+The parser applies edits to the parent and evaluates the resulting
+complete program. Feedback is conditional: a request does not contain
+every earlier program or a full search transcript. The sibling summary
+reports outcomes of previous mutations of the same parent, including
+score changes, rather than inserting all sibling code. Retry requests
+can include parsing or execution errors and can resample the parent.
+
+Meta-generated guidance.
+
+When enabled, a stagnation tracker can request a separate LLM review.
+That request contains the task, evaluator, current global-best code
+and score, and previously tried ideas with feedback. A fixed review
+template asks the model to analyze the objective, metrics,
+constraints, input–output structure, and improvement opportunities
+before proposing alternative approaches. The LLM returns structured
+ideas with fields for the idea, implementation description,
+optimization target, cautions, and approach type. The fixed analysis
+framework and technique suggestions are supplied by the implementation;
+the concrete review and proposed ideas are LLM-generated.
+
+An active idea is inserted into subsequent mutation guidance, and the
+controller uses the global-best program as the parent for that guided
+mutation. This mechanism is enabled in the full-method and factor
+ablation configurations, but disabled in the isolated island-selection
+comparison. It is triggered by search state rather than invoked on
+every mutation, so enabled runs can make different numbers of
+auxiliary review calls.
+
+Appendix E Signal Processing Initialization Examples
+
+The four examples below are the actual filtering implementations in
+the cached diverse initialization used by the Signal Processing
+component studies. They were selected from the historical candidate
+pool described in Appendix C.2 , before
+evolution with Qwen3.8-27B. They are initial programs, rather than
+high-scoring descendants or outputs of the later joint-generation
+protocol.
+
+The selected set covers four approaches:
+
+Local polynomial regression: independently fits a
+polynomial to each window and evaluates it at the right endpoint.
+
+Adaptive Kalman filtering: recursively estimates
+level and velocity, adapting measurement noise from residuals.
+
+Median plus EMA: applies a rolling median for
+outlier robustness, followed by exponential smoothing.
+
+Bounded-trend Holt filtering: recursively updates
+level and trend while limiting changes in the trend estimate.
+
+These distinctions concern the executable algorithms, not changes
+to names or constants. Selection uses embedding distance; the
+algorithm-family descriptions are an interpretation of the selected
+code, not additional labels supplied to the selection procedure.
+
+Figures 8 – 10 reproduce the filtering functions and the required Kalman class.
+Long comments and docstrings are omitted and lines are wrapped for
+presentation; executable statements and default parameters are
+preserved. The common benchmark runner, synthetic-data helper, and
+diagnostic printing are omitted. In the original runner, run_signal_processing passes the noisy input and window
+size through process_signal to the corresponding filter,
+then returns its output under filtered_signal . All examples
+use NumPy. The benchmark uses a window size of 20, so an input of
+length n n produces n − 19 n-19 filtered samples.
+
+Figure 8: Two selected initial filters with different window-based
+operations: endpoint polynomial fitting and robust median filtering
+with recursive smoothing. Code is shown before any evolutionary
+mutation.
+
+Figure 9: Selected adaptive Kalman initialization, including its
+state-estimation class. The program carries level and velocity
+estimates across observations and adjusts measurement noise using
+the innovation residual.
+
+Figure 10: Selected Holt initialization. The filter maintains level and
+trend estimates, limiting each nonzero trend’s change to a fraction
+of its previous magnitude. The returned value is the updated level.

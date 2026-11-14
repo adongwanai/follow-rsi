@@ -1,0 +1,59 @@
+For a complete terminal chain with terminal successor error eL = 0, subtracting true-value residuals from
+approximate-value residuals gives Γj(1 −dj)ej+1 −ej. At an interior nonterminal position, the coefficient of
+ek is Wj,k−1Γk−1(1 −Λk−1), yielding Equation (13). When all trace coefficients equal one, only the initial
+error term −ej remains.
+For square-integrable return G and baseline V under the same sampling distribution, the residual-variance
+identity makes covariance explicit:
+Var(G −V ) = Var(G) + Var(V ) −2 Cov(G, V ).
+(17)
+Return variance and return–value covariance, as well as value variance, determine residual variance. An
+action-independent baseline preserves the expected unclipped on-policy Monte Carlo policy gradient when
+the sampling policy is the differentiated policy and differentiation can be interchanged with integration; this
+does not guarantee an unbiased numerical advantage estimate or extend unchanged to clipped asynchronous
+PPO [9, 43].
+Consistency conditions. Unit clocks with matched values, rewards, and episode endpoints recover standard
+GAE at retained generated positions. Adding zero-reward observation nodes leaves TB-GAE unchanged
+when retained prefix inputs and value predictions are fixed. Computational partitioning preserves the result
+when both successor value and successor trace are transported without changing retained inputs. Context
+summarization changes retained conditioning and is therefore outside this exact fixed-input invariance.
+Reward sums alone are insufficient: with unit clocks, turn rewards 0.10 and 1.00 imply returns 1.10 and 1.00,
+whereas moving their sum to termination incorrectly gives 1.10 to the second turn. Computational boundaries
+must preserve episode identity, turn structure, and causal reward placement rather than automatically
+terminate the episode. These invariances establish estimator properties rather than evidence of deployment
+in a particular evaluated checkpoint.
+D Conditional KL Interpretation and Selection
+For a fixed task, reference trajectory law Pref, reward R, and β > 0, assume Pθ ≪Pref, 0 < Zβ = EPrefeR/β <
+∞, and finite expected reward and KL terms. The reward-tilted law Qβ gives
+Qβ = PrefeR/β
+Zβ
+,
+EPθR −βDKL(Pθ∥Pref) = β log Zβ −βDKL(Pθ∥Qβ).
+(18)
+Here Zβ normalizes the tilted law. The identity characterizes this KL-regularized objective rather than the
+zero-KL clipped PPO objective used here. The law Qβ may be unrealizable under a restricted policy family
+or fixed environment dynamics. KL direction alone does not establish collapse, and policy entropy is not a
+measure of terminal success [11].
+For fixed accepted native trajectories with parameter-independent environment factors, assume mj selects
+all policy-generated decisions and excludes only environment and padding positions. Masked likelihood then
+equals forward KL up to a parameter-independent constant:
+−EQclean
+X
+j
+mj log πθ(yj | huj) = DKL(Qclean∥Pθ) + constant.
+(19)
+Here Qclean is the fixed replay distribution, and huj is the public prefix before generated decision yj. Length-
+normalized losses induce a correspondingly reweighted replay distribution. For a represented solution family
+with target probability mass q > 0 and policy mass p, data processing gives
+DKL(Qclean∥Pθ) ≥q log(q/p) + (1 −q) log[(1 −q)/(1 −p)].
+(20)
+Boundary terms are interpreted by continuity. For positive target mass, p →0 penalizes loss of represented
+families, but the bound supplies no guarantee of discovering absent families or restoring entropy. Native
+replay must preserve the task and protected verifier; removing privileged hints does not make unsupported
+actions publicly justified.
+Prospective checkpoint selection requires predefined validation objectives, patience, tolerances, evaluation
+frequency, and retention criteria. The reported sequence records retained checkpoints rather than validating
+a prospective selection rule. Repeated selection using final benchmark feedback would confound learning
+with test-set adaptation. Conservative policy-improvement arguments likewise distinguish surrogate gain
+from distribution-shift error [18]. Five stages of one 27B backbone establish neither a model-size scaling law
+nor an equal-compute benefit of recursion.
+21

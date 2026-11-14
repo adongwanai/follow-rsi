@@ -1,0 +1,54 @@
+Table 5: Component-specific controls are needed for mechanistic attribution. These are prospective
+experiments rather than measured effect estimates. Comparisons should match task streams, initialization, effective
+budgets, and repeated training seeds, while recording terminal reasons and strict success.
+Component
+Comparison
+Primary diagnostic
+Credit assignment
+Generated-token GAE; skip-only;
+TB-GAE, with matched rewards and
+terminal/chunk boundaries
+Horizon-stratified advantage or gradient
+variance; strict success; boundary
+correctness
+Reward evolution
+FDR; saturation-only; success-offset-only;
+full SPR, with family calibration varied
+separately
+Strict success; early failure; reward
+calibration
+Critic handoff
+Inherit/reset crossed with warmup under
+matched calibration budgets
+Value calibration; update norms; strict
+success
+RSR supervision
+Cleaned native replay; uncleaned replay;
+fixed teacher, with matched supervision
+budgets
+Replay validity; leakage; solution coverage
+Recursive schedule
+Continued RPR; rollback; alternating RSR
+and RPR, including discovery, SFT, and
+RL costs
+Worst-suite retention under predefined
+validation rules and matched total
+compute
+export index i = 1, . . . , 30, with no sample at the origin. This linear calibration does not recover a common
+physical clock across the four logs or synchronize them with checkpoint evaluations. The mismatch log
+concatenates 17 initial observations at original training steps 4–20 and 15 resumed observations at steps
+20–34; its displayed prefix retains all 17 initial and the first 13 resumed records, including both step-20
+entries. The causal trailing mean uses the current observation and up to four preceding observations, without
+resetting at the restart boundary. No records are merged or interpolated.
+RPR-2 metric clocks and reward scales. Figure 8 includes all 16 SPR reward observations at rollout
+steps 4–19, all 17 FDR reward observations at steps 4–20, and all 21 turn-count observations per setting at
+export steps 0–85. The historical FDR export labels interchange the metric names. We identify reward and
+interaction-count series from the recorded column semantics rather than the export labels, preserving the
+original observations. Reward and turn-count clocks remain separate, without synchronization, interpolation,
+or extrapolation. Each series uses its own causal mean over up to five equally weighted observations despite
+uneven step spacing; pale traces show raw observations rather than uncertainty intervals. Because reward
+functions differ, their absolute values cannot rank strict success. The saved configuration supports the
+Long-Reward SPR mapping, while checkpoint manifests are still needed to establish the deployed advantage
+estimator. Aggregate curves do not isolate causal effects without matched task exposure and repeated
+training seeds.
+24

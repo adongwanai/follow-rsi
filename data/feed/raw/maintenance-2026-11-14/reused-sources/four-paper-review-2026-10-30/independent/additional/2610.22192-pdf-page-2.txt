@@ -1,0 +1,63 @@
+1 Introduction
+Terminal agents are evaluated by persistent changes to an executable environment rather than the plausibility
+of their responses. Benchmarks such as SWE-bench and Terminal-Bench require repository inspection,
+dependency repair, and recovery to culminate in a state that passes a protected verifier [17, 28]. Long-
+Horizon-Terminal-Bench extends this challenge to long dependency chains, where substantial local progress
+need not produce a single complete solution [22]. Learning must therefore connect successful exploration to
+reproducible execution and connect delayed verification to the decisions that made it possible. Neither fluent
+plans nor an increasing count of locally passed checks alone closes this loop.
+A first obstacle is temporal dilation: the clock of token generation differs from the clock of environmental
+change. Hundreds of tokens can express one shell action, while thousands of observation tokens introduce no
+additional policy decisions. When GAE traverses an interleaved token chain, repeated discount and trace
+factors attenuate distant credit according to textual length rather than consequential interaction [13, 34].
+Masking observations from the policy loss does not remove their recursion nodes. Two executions with
+the same decisions and terminal outcome can thus receive different credit simply because one produces
+more verbose logs. Long contexts also motivate chunking and summarization, but these operations are
+different: splitting an unchanged chain permits exact boundary transport, whereas summarization changes
+the conditioning history and may remove details needed for future decisions.
+A second obstacle is value drift across recursive supervision. Repository-grounded trajectories, environment
+inversion, and task synthesis broaden executable supervision [25, 31, 45]. Recursive Self-Rewrite (RSR)
+transfers complementary-harness discoveries through runbook planning, leakage review, and fresh public
+execution [23]. Rewriting changes which actions the actor prefers and therefore which histories its critic
+encounters. Subsequent reinforcement changes these distributions again; reward recalibration additionally
+changes the return being predicted.
+Resetting the critic discards learned outcome structure, whereas
+transferring it without calibration can retain systematic prediction errors. These errors enter token advantages
+and value bootstraps, so a stronger actor does not automatically supply reliable values for its new histories,
+rewards, or execution horizons after a supervised policy transition.
+Reward alignment introduces a related difficulty. Terminal task families expose different numbers of
+semantic checks, and a failed trajectory can accumulate many passing checks without satisfying the complete
+execution contract. A single global scale can overemphasize families with large verifiers; a purely proportional
+progress reward can continue to favor incomplete behavior after the policy becomes capable of strict success.
+Our fixed-trajectory analysis makes this distinction concrete: under the earlier reward, failures receive 50.09%
+of total reward mass, and some failures pass every executed scenario check but miss the terminal gate. The
+objective is not to eliminate partial credit, which supports exploration, but to keep such credit subordinate
+to verified completion as training progresses.
+We introduce Terminal-RSI, alternating actor-only RSR with critic-inheriting Recursive Policy-Refine
+(RPR). Starting from the RSR-1 actor and a Warm-up Critic Model, RPR coordinates phase-local value
+calibration with reward evolution and a fivefold actor-rate reduction in the second cycle. We build on T1
+terminal infrastructure, PPO, GAE, and value-preparation precedents rather than claiming these primitives
+independently [35, 46, 49, 50].
+Their recursive coupling is the focus: supervised transitions preserve
+critic weights, and each new policy-refinement phase adapts inherited values before joint optimization.
+Asynchronous execution further requires distinguishing pipeline scheduling from the likelihood mismatch
+induced by policy updates and training–inference implementation differences [47].
+Contributions.
+(i) A recursive actor–critic framework. We specify Base, RSR-1, RPR-1, RSR-2, and RPR-2 through
+verified rewriting, critic handoff, and phase-adaptive optimization. The initial critic-only epoch and
+four-update phase-local calibrations serve distinct roles, preserving useful return structure without
+assuming that values remain calibrated after each actor transition.
+(ii) Credit assignment and reward evolution. Turn-Boundary Skip-Observation GAE (TB-
+GAE) retains token-specific baselines while applying decay across turns. We characterize fixed-input
+continuation, truncation error, and conditional variance. Family Dense Reward (FDR) calibrates
+family progress; Success-Prioritized Reward (SPR) separates strict success from bounded partial
+credit. Independent rescoring reduces failed reward share from 50.09% to 28.72%, preserving outcome
+labels across reward variants and isolating their allocation of credit.
+(iii) Extensive evaluation cross multiple terminal benchmarks. Terminal-RSI-27B reaches 50.58%
+four-suite mean success, up 29.90 and 16.33 percentage points over Base and RSR-1. LHTB reaches 0.37
+process reward and 5/46 strict completions; SWR100 doubles to 6.00%. Complete stage trajectories and
+checker-level cases expose nonmonotonic branches and verification gaps, separating retained performance
+from unsupported claims of component-level causality. The evaluation distinguishes measured task
+completion, shaped reward, and checker coverage instead of treating these signals as interchangeable
+measures of capability across changing policies, tasks, and verification contracts.
+2
