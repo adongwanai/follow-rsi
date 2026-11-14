@@ -1,0 +1,740 @@
+UniSpark: Exploring Hybrid Attention for Multimodal Understanding and Generation Skip to main content Report GitHub Issue × Title: Content selection saved. Describe the issue below: Description: Submit without GitHub Submit in GitHub Why HTML? Report Issue Back to Abstract Download PDF Contents Reading mode Colour theme Abstract 1 Introduction 2 Related Work 2.1 Unified Multimodal Understanding and Generation 2.2 Efficient and Hybrid Attention Mechanisms 3 Model Design 3.1 Unified Multimodal Representations 3.2 Hybrid MoT Architecture Expert specialization. Hybrid attention. Public context and private targets. 3.3 Joint Understanding and Generation Objectives 3.4 Interleaved Generation with Persistent Context 4 Data Preparation Data scale and coverage. 4.1 Multimodal Understanding 4.2 Image Generation 4.3 Image Editing 4.4 Interleaved Data Sources and sequence construction. Video sources and annotation settings. Event-driven keyframes and transition annotation. Quality screening and annotation validation. Annotation pipeline. Structural filtering. 4.5 Text-Only Data 4.6 Video Data 4.7 Multimodal Sequence Packing Unified sequence assembly. Online token-budget packing. Sample isolation and hybrid-attention metadata. Data mixture statistics. 5 Training Strategy 5.1 Joint Multimodal Foundation 5.2 Progressive Resolution Scaling 5.3 High-Resolution Refinement 5.4 Supervised Capability Refinement 5.5 Optimization Optimizer and precision. Noise-time sampling. 5.6 Adaptation to Video Generation and Editing 5.7 Training Infrastructure and Efficiency Hybrid sharding and activation memory. Attention execution for packed multimodal sequences. Data delivery and visual encoding. Workload-aware monitoring. 6 Experiments 6.1 Evaluation Setup and Baselines 6.2 Multimodal Understanding 6.3 Text-to-Image Generation 6.4 Instruction-Based Image Editing 6.5 Interleaved Generation and Sequence Editing 6.6 Extension to Video Generation and Editing 6.7 Inference Efficiency and Scaling 7 Conclusion References License: arXiv.org perpetual non-exclusive license arXiv:2611.16517v1 [cs.CV] 12 Nov 2026 \contribution [*]Equal Contribution \contribution [†]Project Lead UniSpark: Exploring Hybrid Attention for Multimodal Understanding and Generation Jiancheng Pan ∗ Yuzheng Liu ∗ Hengyuan Cao ∗ Qiyuan Zhang ∗ Yangyan Li Biao Gong † Zheng Zhang Ka Leong Cheng Xinyang Wang Yujun Shen Abstract We present UniSpark-9B , a unified multimodal model that investigates hybrid attention for visual understanding and generation. Built on a Mixture-of-Transformer-Experts backbone with approximately 9B parameters in each branch, UniSpark combines full attention for explicit token interactions with GatedDeltaNet linear attention for compact context propagation. Autoregressive text prediction and visual flow matching jointly support visual question answering, text-to-image generation, instruction-guided editing, and interleaved text–image prediction. In interleaved generation, noisy visual targets are isolated from subsequent predictions, while clean visual representations provide context for later outputs. A blockwise protocol enforces this distinction through attention masks in full-attention layers and recurrent-state retention rules in linear-attention layers.
+The selected training sources contain 159.7M generation samples, 213.4M understanding samples, and 624.8K interleaved sequences. A four-stage curriculum jointly trains multimodal understanding and
+visual generation, refining answer accuracy and instruction following
+while extending image synthesis to 2K.
+UniSpark scores 2470.3 on MME-S and 0.83 on GenEval. Qualitative examples further illustrate its capabilities in interleaved image generation, video synthesis, and video editing.
+Together, these results demonstrate that hybrid attention provides an effective backbone for unified multimodal understanding and generation. Project Page https://lucaria-academy.github.io/UniSpark/ Figure 1: Multimodal understanding, generation, and editing performance. Figure 2: Text-to-image generation. Ocean waves wash against dark coastal rocks beneath a pale overcast sky. Fixed camera; preserve the rocky shoreline and horizon. Waves and white sea foam continue moving around the same rocks. A pink rose bud on a green stem against a softly blurred garden. Fixed camera and consistent background. The petals gradually unfurl into a full bloom. A green parrot with a red forehead perches on a wooden branch against a warm gray background. Fixed camera, soft light, same bird and perch. Raise the folded wings, stretch them outward, then fold them back. A fixed-camera close photograph of a white ceramic cup filled with hot tea on a dark wooden table. Soft side light, plain dark background; preserve the cup and table. Wisps of steam curl upward from the hot tea. Continue the steam rising above the same cup. A campfire inside a stone ring on bare ground. Fixed camera; keep the stones, logs and surroundings consistent. Small flames grow brighter, settle, and leave ash and embers. Figure 3: Image editing and interleaved generation. Editing pairs: source (left), result (right). Contents 1 Introduction Multimodal understanding and visual generation place complementary
+demands on a model. Understanding requires interpreting visual inputs,
+whereas generation requires synthesizing visual content from text or
+visual conditions. Combining autoregressive language modeling with
+continuous visual prediction has become a central approach to
+unification, as demonstrated by Transfusion and
+Show-o2 ( Zhou et al., 2024 , Xie et al., 2025 ) . BAGEL brings
+understanding, generation, and editing into a shared multimodal sequence
+and backbone through modality-specific transformer
+parameters ( Deng et al., 2025 ) , while SenseNova-U1 further explores native
+unified representations and interleaved vision-language
+generation ( Diao et al., 2026 ) . In interleaved sequences,
+completed visual outputs can in turn serve as context for subsequent
+text and image predictions, linking understanding and generation
+across successive outputs. UniAR ( Peng et al., 2026 ) enables such context reuse through a shared discrete visual
+tokenizer, allowing generated tokens to become context without
+re-encoding the image. In continuous visual
+generation, however, context reuse must account for the iterative
+denoising process. Consider a model that generates an image, explains it,
+and then edits it in response to a new instruction. During denoising,
+the image is represented by a noisy target; once generated, its clean
+representation becomes context for subsequent predictions. Retaining
+intermediate denoising states would expose later predictions to transient
+noise, whereas discarding visual history would remove the reference
+needed for consistent editing. Unified modeling therefore requires
+separating noisy prediction targets from reusable clean visual context. High-resolution images and multi-image sequences increase the
+visual-token workload of unified multimodal models. Hybrid attention
+combines full attention for explicit token
+interactions ( Vaswani et al., 2017 ) with recurrent linear attention
+that propagates context through a persistent state at a cost linear
+in sequence length ( Katharopoulos et al., 2020 , Yang et al., 2025b ) .
+Kimi Linear and Olmo Hybrid explore layer-wise combinations of these
+operators in language
+modeling ( Kimi Team et al., 2025b , Merrill et al., 2026 ) , and Qwen3.5
+provides a backbone combining full attention with GatedDeltaNet
+layers ( Qwen Team, 2026 ) . We investigate how full and
+linear attention interact across layers to support causal text
+prediction and iterative visual denoising within a unified model,
+and characterize its multimodal capabilities and computational
+trade-offs. We present UniSpark , a unified model for multimodal understanding and visual generation. The UniSpark-9B
+configuration has approximately 9B parameters in each of its
+understanding and generation branches. Building on the
+Mixture-of-Transformer-Experts formulation ( Liang et al., 2025 , Deng et al., 2025 ) and the Qwen3.5 hybrid-attention backbone ( Qwen Team, 2026 ) ,
+UniSpark combines expert routing and hybrid attention in a Hybrid MoT Architecture . Text and semantic visual features use the understanding expert, whereas VAE latents use the generation expert. Within each multimodal sequence, the experts exchange information through full attention and shared recurrent states. Autoregressive text prediction and visual flow matching ( Lipman et al., 2023 ) jointly support multimodal understanding, text-to-image generation, reference-conditioned image editing, and interleaved prediction within the same model. The information-flow design separates private prediction targets from public context . A noisy visual block reads its public prefix but is hidden from later blocks. Full-attention layers implement this rule with block visibility masks. Linear-attention layers process the block recurrently, but discard its private state and convolution-history updates after local computation on a noisy block.
+Clean visual representations instead update the public context. During training, this context is obtained from ground-truth
+images using teacher forcing ( Williams & Zipser, 1989 ) ; at inference,
+it is built by encoding completed model outputs. The training data span visual understanding, image generation and editing, interleaved sequences, and text-only language modeling. Understanding data cover captioning, visual question answering, OCR, GUI tasks, and grounding. Task-specific adapters map each data type to a common sequence plan. Online packing combines samples within token budgets while preserving
+sample boundaries, within-sample block structure, and supervision locations. Full-attention masks prevent cross-sample visibility, while linear-attention layers reset their recurrent state and convolution history at sample boundaries.
+The selected sources contain 159.7M generation samples and 213.4M understanding samples, including 10.0M OCR and 4.5M grounding samples, as well as 624.8K interleaved sequences. The data extend beyond image–caption pairs to support general semantic learning, specialized visual tasks, and the modeling of state changes over time. Training proceeds through four main stages. The Joint Multimodal Foundation stage trains the model on text prediction, visual understanding, and low-resolution image generation. The Progressive Resolution Scaling and High-Resolution Refinement stages extend image generation to 2K while retaining understanding supervision. Supervised Capability Refinement (SFT) then improves understanding accuracy, instruction adherence, image-generation quality, and editing consistency.
+Following these four stages, we further adapt the model to video generation and editing using a mixture of image and video data. Our main contributions are: • Hybrid MoT Architecture. We combine token-type expert
+routing with full attention and GatedDeltaNet linear attention in a
+shared backbone.
+This hybrid design combines explicit multimodal interactions with
+efficient context propagation across long visual sequences. • Context handling for interleaved prediction. We
+introduce a blockwise information-flow protocol that keeps noisy
+visual targets private while allowing clean visual content to
+condition later text and visual outputs under both attention operators. • Unified data interface and progressive training. We map understanding, generation, editing, interleaved, and
+text-only data to task-specific sequence plans, then pack them
+through a shared interface. A four-stage training curriculum yields
+a single model for visual understanding, 2K image generation,
+editing, and interleaved prediction. 2 Related Work 2.1 Unified Multimodal Understanding and Generation Unified multimodal models use a shared model
+to understand and generate visual content. Transfusion combines
+autoregressive text prediction with image diffusion ( Zhou et al., 2024 ) .
+Mixture-of-Transformers uses separate parameters for each modality while
+sharing attention across them ( Liang et al., 2025 ) . BAGEL builds on
+this approach and trains a unified model on interleaved multimodal
+data ( Deng et al., 2025 ) . These works form the basis of our shared architecture
+and joint text and visual training objectives. Other approaches explore alternative visual representations and broader task coverage. Tuna-2 uses direct pixel-patch embeddings in
+place of separate visual encoders ( Liu et al., 2026 ) . SenseNova-U1
+supports understanding, image generation, and interleaved vision-language
+generation with dense and MoE backbones ( Diao et al., 2026 ) .
+SenseNova-Vision handles different vision tasks through text, image, or
+mixed outputs without separate prediction heads ( Han et al., 2026 ) .
+UniSpark uses semantic visual features and VAE latents, and studies
+how hybrid attention lets these representations share context. Sharing visual context also allows one
+output to guide the next. UniAR uses a shared discrete visual tokenizer, allowing generated visual tokens to be reused directly as context without re-encoding the image ( Peng et al., 2026 ) . Context Unrolling studies reasoning through
+text, images, video, and geometry before making
+predictions ( Yang et al., 2026 ) . UniSpark addresses context reuse in continuous visual generation by separating noisy targets from clean context through attention masks and recurrent-state retention rules. A model that supports both tasks does not
+necessarily improve one task by learning the other. VGAU-Diag tests when
+generated visual aids help understanding and finds cases where models
+fail to use even correct visual aids ( Zhu et al., 2026 ) . Wu et al. examine
+how understanding and generation help each other at the representation,
+task, and system levels, and identify task specialization and shared
+knowledge as important factors ( Wu et al., 2026 ) . These studies highlight the distinction between joint task support and cross-task synergy. 2.2 Efficient and Hybrid Attention Mechanisms Recurrent attention stores past information
+in a state that is updated as tokens are processed. Gated DeltaNet uses
+adaptive forgetting and delta-rule updates ( Yang et al., 2025b ) .
+Kimi Linear adds finer gating through Kimi Delta Attention and combines
+it with Multi-Head Latent Attention across layers ( Kimi Team et al., 2025b ) .
+Gated DeltaNet-2 uses separate erase and write gates for each memory
+channel ( Hatamizadeh et al., 2026 ) . These methods control how memory is
+updated. These methods govern token-level memory updates; UniSpark additionally enforces block-level retention rules to prevent noisy-target updates from entering public context. Hybrid backbones combine recurrent layers
+with full attention. UniSpark starts from Qwen3.5, which combines
+GatedDeltaNet and full-attention layers ( Qwen Team, 2026 ) .
+Olmo Hybrid studies this combination through theory and controlled
+language-modeling experiments ( Merrill et al., 2026 ) . In vision,
+SoLA-Vision studies how to arrange linear and softmax attention across
+layers ( Li et al., 2026 ) . SANA-Video 2.0 combines gated linear
+attention, periodic softmax layers, and attention residuals for video
+diffusion ( Chen et al., 2026 ) . Our work explores hybrid attention
+in a model trained jointly for multimodal understanding and generation. Attention types can also be combined within
+a layer. HydraHead assigns full and linear attention to different heads,
+keeps full attention for heads important to retrieval, and normalizes
+their outputs before combining them ( Tan et al., 2026 ) .
+UniSpark combines the two attention types across layers. Reusing
+context also requires careful state handling: HARTS studies shared
+prefixes in branching agent rollouts, including state transfers and
+activation recomputation ( Meng et al., 2026 ) . Although HARTS focuses on
+agent reinforcement learning, it illustrates the need to coordinate
+recurrent states when computation branches or context is reused. 3 Model Design UniSpark uses a Hybrid MoT Architecture for
+multimodal understanding and generation. Building on the multimodal
+Mixture-of-Transformer-Experts (MoT) formulation of
+BAGEL ( Deng et al., 2025 ) and the hybrid attention backbone of
+Qwen3.5 ( Qwen Team, 2026 ) , the architecture combines
+specialized understanding and generation experts with a layer-wise
+mixture of full attention and recurrent linear attention in one shared
+backbone. UniSpark-9B uses approximately 9B parameters per branch,
+with the 9B designation referring to the per-branch backbone size rather
+than the total model size. Causal language prediction and iterative visual generation impose
+different requirements on information flow: text predicts the next token
+from its prefix, visual generation refines a block of noisy latent tokens,
+and subsequent outputs must condition on completed visual content without
+inheriting intermediate noise states. The experts exchange context through
+full and recurrent linear attention, with explicit rules governing context
+reuse across visual outputs. Fig. 4 summarizes this organization. Figure 4: Hybrid MoT Architecture of UniSpark. Token-type routing selects understanding or generation parameters,
+while full-attention and recurrent linear-attention layers exchange
+shared multimodal context for text prediction, image generation,
+editing, and interleaved outputs. 3.1 Unified Multimodal Representations A multimodal example is represented as an ordered sequence of text and
+visual blocks, together with conversation roles, media boundaries, and
+supervision indicators. Text is mapped through the language embedding
+layer. Images and video frames used for understanding are encoded by the
+Qwen3.5 vision encoder, whose output features are mapped into the language
+model’s hidden space. Images and videos used as generation targets or clean
+context are both encoded by the Wan2.2 VAE ( Wan Team, 2025 ) ; the resulting latents are patchified and
+mapped to the backbone hidden space through a latent adapter. Semantic
+features provide an understanding-oriented representation, while VAE
+latents provide the continuous representation used for visual prediction.
+Predicting in a learned visual latent space follows the latent generative
+modeling approach of Rombach et al. ( Rombach et al., 2022 ) . Let 𝐳 0 \mathbf{z}_{0} denote a sequence of clean visual latent patches and 𝐳 t \mathbf{z}_{t} its noisy counterpart at noise level t t . The
+generation-side input takes the form 𝐡 t vis = A in ​ ( 𝐳 t ) + E time ​ ( t ) + E pos ​ ( 𝐩 ) , \mathbf{h}^{\mathrm{vis}}_{t}=A_{\mathrm{in}}(\mathbf{z}_{t})+E_{\mathrm{time}}(t)+E_{\mathrm{pos}}(\mathbf{p}), (1) where A in A_{\mathrm{in}} projects latent patches to the backbone width, E time E_{\mathrm{time}} embeds the noise level t t , and E pos ​ ( 𝐩 ) E_{\mathrm{pos}}(\mathbf{p}) encodes the spatial or spatiotemporal
+coordinates 𝐩 \mathbf{p} . In addition to this additive position embedding,
+full-attention layers use multimodal rotary position embeddings to
+organize text and visual tokens within the sequence. Clean context latents
+are assigned t = 0 t=0 , while noisy target latents use t > 0 t>0 and receive
+flow-matching supervision. 3.2 Hybrid MoT Architecture The architecture combines token-type expert routing with a
+layer-wise mixture of full attention and GatedDeltaNet linear attention. Expert specialization. Text and semantic visual tokens use the understanding expert, while VAE
+latent tokens use the generation expert. Each decoder layer contains
+expert-specific normalization, attention projections, and feed-forward
+parameters. The experts exchange information through the context permitted
+by each attention operator. Hybrid attention. Full-attention layers compute explicit query–key interactions over the
+permitted context. GatedDeltaNet layers ( Yang et al., 2025b ) summarize preceding context in a recurrent matrix state, with computation
+that scales linearly with sequence length.
+A simplified single-head update is 𝐒 ¯ i \displaystyle\overline{\mathbf{S}}_{i} = α i ​ 𝐒 i − 1 , \displaystyle=\alpha_{i}\mathbf{S}_{i-1}, (2) 𝐒 i \displaystyle\mathbf{S}_{i} = 𝐒 ¯ i + β i ​ 𝐤 i ​ ( 𝐯 i − 𝐒 ¯ i ⊤ ​ 𝐤 i ) ⊤ , \displaystyle=\overline{\mathbf{S}}_{i}+\beta_{i}\mathbf{k}_{i}\bigl(\mathbf{v}_{i}-\overline{\mathbf{S}}_{i}^{\top}\mathbf{k}_{i}\bigr)^{\top}, 𝐨 i \displaystyle\mathbf{o}_{i} = 𝐒 i ⊤ ​ 𝐪 i , \displaystyle=\mathbf{S}_{i}^{\top}\mathbf{q}_{i}, where i i indexes tokens, α i \alpha_{i} controls state decay, and β i \beta_{i} controls the delta update. Understanding and generation tokens use
+their respective parameters to compute these quantities but share the
+recurrent state and short convolution history along the permitted
+multimodal history. Switching experts therefore does not reset the
+accumulated context. Public context and private targets. Fig. 5 illustrates which information
+later predictions can access and how recurrent states are retained or
+discarded. For the sequence [ T 1 , N 1 , C 1 , T 2 , N 2 ] [T_{1},N_{1},C_{1},T_{2},N_{2}] , T T denotes text, N N a noisy visual target, and C C clean visual context. T 2 T_{2} and N 2 N_{2} can use C 1 C_{1} but not N 1 N_{1} , while N 1 N_{1} cannot access its later clean
+counterpart C 1 C_{1} . In full-attention layers, each block can attend to preceding text and
+clean visual blocks, which form the public context. Noisy targets remain
+private: they can read this context, but no other block can attend to
+them. Within each block, text uses causal attention, while clean visual
+blocks and noisy targets use bidirectional attention. Linear-attention layers implement this separation by controlling which
+state updates are retained. Text and clean visual blocks update the state
+passed to subsequent blocks. A noisy target starts from the preceding
+public state and performs local updates to produce its outputs, but those
+updates are discarded afterward. Recurrence remains causal within every
+block. Let 𝐒 b pub \mathbf{S}^{\mathrm{pub}}_{b} denote the public state before
+block B b B_{b} , and let ℛ ⁡ ( B b , 𝐒 b pub ) \mathcal{R}(B_{b},\mathbf{S}^{\mathrm{pub}}_{b}) denote the state obtained
+after processing that block. The public state is updated as 𝐒 b + 1 pub = { ℛ ⁡ ( B b , 𝐒 b pub ) , B b ​ is public , 𝐒 b pub , B b ​ is private . \mathbf{S}^{\mathrm{pub}}_{b+1}=\begin{cases}\mathcal{R}(B_{b},\mathbf{S}^{\mathrm{pub}}_{b}),&B_{b}\text{ is public},\\
+\mathbf{S}^{\mathrm{pub}}_{b},&B_{b}\text{ is private}.\end{cases} (3) (a) Full attention Token visibility mask T 1 T_{1} T 1 T_{1} N 1 N_{1} N 1 N_{1} C 1 C_{1} C 1 C_{1} T 2 T_{2} T 2 T_{2} N 2 N_{2} N 2 N_{2} Query / output token Visual blocks: bidirectional attention (b) Linear attention Recurrent dependencies T 1 T_{1} T 1 T_{1} N 1 N_{1} N 1 N_{1} C 1 C_{1} C 1 C_{1} T 2 T_{2} T 2 T_{2} N 2 N_{2} N 2 N_{2} Output token All blocks: causal recurrence Columns: input tokens; rows: output tokens. Two tokens per block. T T : text; N N : noisy target; C C : clean visual context. Public context Private, local only Blocked / no dependency (c) Information flow across tasks Multimodal understanding C image , Q → A text C_{\rm image},\ Q\;\rightarrow\;A_{\rm text} Autoregressive text prediction Text-to-image generation P text → N image P_{\rm text}\;\rightarrow\;\hbox{\pagecolor{flowprivate}$N_{\rm image}$} Flow loss on the image target Instruction-guided editing C source , E text → N edit C_{\rm source},\ E_{\rm text}\;\rightarrow\;\hbox{\pagecolor{flowprivate}$N_{\rm edit}$} Source image stays public Interleaved prediction T 1 , N 1 , C 1 , T 2 , N 2 T_{1},\ \hbox{\pagecolor{flowprivate}$N_{1}$},\ \hbox{\pagecolor{flowpublic}$C_{1}$},\ T_{2},\ \hbox{\pagecolor{flowprivate}$N_{2}$} Reuse clean visual context (d) State updates for noisy targets and clean context Initial public state Visual block State passed forward ( S , H ) (S,H) Noisy target N 1 N_{1} Predict outputs Discard updates Unchanged ( S , H ) (S,H) ( S , H ) (S,H) Clean context C 1 C_{1} Update context Retain updates Updated ( S ′ , H ′ ) (S^{\prime},H^{\prime}) S S : recurrent state; H H : short convolution history. Figure 5: Information flow under hybrid attention. Visibility masks and recurrent-state rules preserve the same public/private boundary, allowing clean context reuse without propagating noisy targets. 3.3 Joint Understanding and Generation Objectives The backbone is trained jointly with autoregressive text prediction and
+visual flow matching. For supervised assistant-text positions 𝒯 \mathcal{T} , the language objective is ℒ text = − 𝔼 ⁡ [ 1 | 𝒯 | ​ ∑ i ∈ 𝒯 log ⁡ p θ ​ ( w i ∣ 𝒞 < i ) ] , \mathcal{L}_{\mathrm{text}}=-\mathbb{E}\!\left[\frac{1}{|\mathcal{T}|}\sum_{i\in\mathcal{T}}\log p_{\theta}(w_{i}\mid\mathcal{C}_{<i})\right], (4) where 𝒞 < i \mathcal{C}_{<i} is the multimodal context visible to position i i under the information-flow rules described above. Visual generation uses flow matching ( Lipman et al., 2023 ) .
+Given clean latents 𝐳 0 \mathbf{z}_{0} , noise ϵ ∼ 𝒩 ⁡ ( 𝟎 , 𝐈 ) \bm{\epsilon}\sim\mathcal{N}(\mathbf{0},\mathbf{I}) , and a
+sampled noise level t ∈ ( 0 , 1 ) t\in(0,1) , we construct 𝐳 t = ( 1 − t ) ​ 𝐳 0 + t ​ ϵ , 𝐮 t = ϵ − 𝐳 0 . \mathbf{z}_{t}=(1-t)\mathbf{z}_{0}+t\bm{\epsilon},\qquad\mathbf{u}_{t}=\bm{\epsilon}-\mathbf{z}_{0}. (5) The output adapter predicts the velocity from target-token hidden states,
+with the objective ℒ vis = 𝔼 𝐳 0 , ϵ , t ​ [ ‖ 𝐮 ^ θ ​ ( 𝐳 t , t , 𝒞 ) − 𝐮 t ‖ 2 2 ] , \mathcal{L}_{\mathrm{vis}}=\mathbb{E}_{\mathbf{z}_{0},\bm{\epsilon},t}\left[\left\|\widehat{\mathbf{u}}_{\theta}(\mathbf{z}_{t},t;\mathcal{C})-\mathbf{u}_{t}\right\|_{2}^{2}\right], (6) where 𝒞 \mathcal{C} contains the public context preceding the target.
+The joint objective is ℒ = λ text ​ ℒ text + λ vis ​ ℒ vis \mathcal{L}=\lambda_{\mathrm{text}}\mathcal{L}_{\mathrm{text}}+\lambda_{\mathrm{vis}}\mathcal{L}_{\mathrm{vis}} (7) At inference, sampling integrates the predicted velocity field from t = 1 t=1 (noise) to t = 0 t=0 (data). 3.4 Interleaved Generation with Persistent Context Interleaved generation models text and image outputs as an ordered
+sequence of blocks B 1 , … , B K B_{1},\ldots,B_{K} : p θ ​ ( B 1 , … , B K ) = ∏ k = 1 K p θ ​ ( B k ∣ B < k ) , p_{\theta}(B_{1},\ldots,B_{K})=\prod_{k=1}^{K}p_{\theta}(B_{k}\mid B_{<k}), (8) Text blocks are predicted autoregressively, while visual blocks use
+conditional flow matching. During interleaved training, an image that conditions subsequent outputs
+appears in two roles: a private noisy target for visual supervision and
+clean public context for later predictions. A two-image training sequence
+takes the form [ T 1 , N 1 ​ ( t 1 ) , C 1 , T 2 , N 2 ​ ( t 2 ) ] , \bigl[T_{1},\ N_{1}(t_{1}),\ C_{1},\ T_{2},\ N_{2}(t_{2})\bigr], (9) where T k T_{k} denotes text, N k ​ ( t k ) N_{k}(t_{k}) a noisy visual target, and C 1 C_{1} the clean representation of the image targeted by N 1 N_{1} .
+Information flow follows the block rules in
+Sec. 3.2 .
+The clean context C 1 C_{1} is encoded from the observed image through teacher
+forcing. Visual supervision applies only to the noisy targets; the clean
+context carries no denoising loss. At inference, clean context comes from completed model outputs.
+The public prefix remains fixed throughout the sampling of each image,
+and intermediate denoising updates are discarded. Once sampling finishes,
+the completed image is encoded into clean visual representations and
+appended to the public context. Full-attention layers cache the resulting
+public keys and values, while linear-attention layers retain the recurrent
+state and convolution history updated by these clean representations.
+The inference interface accepts interleaved text–image conditions and
+produces one image per call, optionally preceded by generated text.
+For multi-image decoding, a controller repeatedly samples images,
+inserts their clean representations into context, and determines
+when to stop. 4 Data Preparation UniSpark combines data for multimodal understanding, image generation, image
+editing, text-only learning, and interleaved prediction during its main training phase. We organize these
+sources by their supervision structure, while adjusting resolution and
+sampling separately across training stages. The curriculum comprises Joint Multimodal Foundation , Progressive Resolution Scaling , High-Resolution Refinement , and Supervised Capability Refinement
+(SFT) . The first three stages establish joint modeling and extend visual
+generation to resolutions up to 2K. SFT targets more accurate understanding,
+better instruction following, and improved visual generation and editing.
+Separately, we collect video generation and editing data to further fine-tune the model, as an exploratory post-SFT effort to develop video capabilities. Data scale and coverage. The selected data sources for main training contain 159.66M generation samples and 213.39M understanding samples. The latter comprise 99.98M captioning samples, 97.90M visual knowledge QA samples, 9.99M OCR samples, 4.51M grounding samples, and 1.00M GUI samples. These sources also include 97.90M text-only samples, 0.50M editing examples and 624.8K interleaved sequences. This coverage supports supervision for both general semantics and specialized visual skills, while interleaved examples retain transitions between images. The total understanding count sums the five listed task groups; it is not an independently deduplicated image count. Cross-group overlap and actual use during training must be counted separately. The video construction source list in Sec. 4.4 is an upstream source pool and is not added to these listed training-source counts. Fig. 6 pairs source dataset sizes with training
+examples from all nine task groups. Image generation, captioning, and
+visual knowledge QA account for the largest counted source pools. Editing
+examples preserve source–target relations, while interleaved examples
+retain an ordered sequence of frames. Figure 6: Training-data composition and task examples. Source counts and examples summarize the task coverage of joint training, from multimodal understanding to image generation, editing, and interleaved prediction. Beyond these main-training sources, the data for training video capabilities comprise 24.24M generation samples and 3.29M editing samples. Fig. 7 summarizes their composition and shows representative examples.
+VCG accounts for 89.8% of the video generation samples, complemented by Aishi and other sources.
+The video editing data cover global edits (2.07M), local edits (557.4K), and simulation-to-real (Sim2Real) transformations (669.5K), with temporally aligned source–target clips.
+These data support exploratory post-SFT fine-tuning; their collection and filtering are described in Sec. 4.6 . Figure 7: Video-data composition and examples. Generation sources (a) and aligned editing pairs (b) provide 24.24M and 3.29M samples, respectively, for post-SFT video adaptation. Counts refer to indexed samples; byte-identical Ditto shards are counted once. 4.1 Multimodal Understanding The understanding mixture comprises image captioning, knowledge-oriented
+visual question answering, OCR, GUI understanding, and visual grounding.
+These correspond to separate sampling groups, allowing broad semantic
+supervision and specialized visual tasks to be balanced independently.
+Captioning supplies descriptions of image content, while visual questions
+connect image evidence to a requested answer. The specialized groups cover
+complementary aspects of visual understanding: • OCR and document content. Image-conditioned text
+supervision emphasizes reading visible text and relating it to the
+surrounding visual context. • GUI understanding. Interface images and associated
+instructions connect language to visual elements in structured screens. • Visual grounding. Localization-oriented examples connect
+referring expressions to spatially specified visual content. • Visual knowledge and question answering. Image-grounded
+questions and responses broaden semantic coverage beyond captioning. Images are processed by the understanding frontend with
+aspect-ratio-aware resizing, patch/merge alignment, and a pixel budget.
+The lower-resolution mixtures use a target long-edge setting of 384;
+expanded mixtures use a target setting of 980, aligned to 960 by the
+spatial factor of 32. These transforms are independent of the generation
+resolution. Conversation roles and supervision masks identify the assistant
+text to predict, while the image remains an input condition. 4.2 Image Generation The generation stream provides images and associated text conditions through
+a dedicated image-data reader. Each example is converted into conditioning
+text and a target VAE latent sequence. The target receives flow-matching
+supervision, while text provides its semantic condition. Generation is
+sampled separately from understanding and editing, enabling the mixture to
+control their relative training exposure. Generation data follow the resolution curriculum rather than a single
+fixed-size preprocessing rule. The foundation setting uses 256-scale
+images; resolution scaling introduces a 512-scale setting; high-resolution
+refinement extends the range through 1024-scale settings and up to 2K.
+Images retain their aspect-ratio structure subject to resize, stride, and
+pixel-budget constraints, so image dimensions vary within each scale.
+Semantic image inputs retain their own understanding-side transform. 4.3 Image Editing The editing stream contains an instruction, a source image, and a target
+image. The source is retained as public visual context through semantic
+features and, where configured, clean VAE latents. The target is represented
+as a private noisy latent block carrying the visual loss. The sequence plan
+keeps the source and target roles explicit, preserving the direction of
+the transformation. Generation-side resize settings apply to editing
+images, while semantic reference features use the understanding transform. 4.4 Interleaved Data Sources and sequence construction. The interleaved stream builds related text–image sequences from seven
+listed visual-sequence collections. Its adapters support alternating
+text–image examples and chained image edits. The interleave-enabled joint
+mixtures use the chained-edit format, retaining transition text and target
+captions. Each chain begins with an opening prompt and source image, then
+specifies successive transitions and visual targets: ( P , I 0 ) ⟶ [ Δ 1 , D 1 , I 1 , Δ 2 , D 2 , I 2 , … ] , (P,I_{0})\ \longrightarrow\ [\Delta_{1},D_{1},I_{1},\Delta_{2},D_{2},I_{2},\ldots], (10) where Δ k \Delta_{k} is a transition instruction, D k D_{k} is the target caption,
+and I k I_{k} is the corresponding target image. Reasoning fields used during data construction are omitted from the training response. Source identifier Source samples Panda1M 10.02 K Panda6M 21.82 K Koala clips 52.08 K Editing 1.38 M VCG 21.76 M Pexel 32.79 K Aishi 937.31 K Zhuote 40.19 K Total 24.24 M Table 1: Video annotation sources. Source samples before filtering and annotation acceptance. Video sources and annotation settings. Our video annotation effort draws on existing text-to-video, egocentric,
+and interaction-rich video collections. The batch annotation source list contains
+24.24M source samples ( Tab. 1 ). Event-driven keyframes and transition annotation. The construction protocol asks a video-language model to select three to
+five timestamps marking meaningful visual changes, such as contact,
+grasping, release, object movement, or a camera-view change. Timestamps
+must be strictly increasing; the first is normally zero unless the opening
+frames are invalid. The batch configuration samples video observations at
+1 FPS. This sampling rate controls the annotation input, whereas the
+selected keyframes follow event boundaries rather than a fixed output
+interval. The annotation model supplies descriptions and transition instructions
+for the selected frames. The first instruction describes the initial static scene. Subsequent
+instructions combine a target-state description D k D_{k} with a transition Δ k \Delta_{k} from the preceding keyframe. The protocol emphasizes subject
+pose, object position and orientation, contact relations, and changes in
+scene or camera viewpoint, including contact changes, object motion, and
+final placement. Annotation must
+remain grounded in visible evidence rather than inferred intentions or
+unobserved outcomes. Timestamp references are resolved to extracted frames,
+producing alternating user-text and assistant-image messages. This yields Eq. ( 10 ) after adaptation to the chained-edit format.
+The visual targets are observed video frames; the annotation model supplies
+their descriptions and transition instructions. 1 Video 2 Keyframes 3 Annotate 4 Validate Observe at 1 FPS t 0 t_{0} t 1 t_{1} t K t_{K} 3–5 event timestamps D k D_{k} Scene Δ k \Delta_{k} Change Describe visible events Format Time Frame match Grounded annotations Ordered text–image chain Schematic frames P P Δ 1 , D 1 \Delta_{1},D_{1} Δ 2 , D 2 \Delta_{2},D_{2} I 0 I_{0} I 1 I_{1} I 2 I_{2} ⋯ \cdots Observed image targets Figure 8: Video-based interleaved data construction. Event-selected video frames are paired with scene descriptions and transition instructions to form grounded text–image training sequences. Quality screening and annotation validation. The planned screening uses resolution, duration, clarity, exposure,
+aesthetics, motion, shot boundaries, and overlays to identify unsuitable
+clips and split clips longer than 30 seconds. Before use, annotations must be checked for correct format and timing:
+valid role alternation, one target image per assistant turn, valid
+media references, strictly increasing in-range timestamps, and consistency
+between transition text and the adjacent frames. The image-target
+protocol keeps visual-state descriptions and transition instructions tied
+to the extracted frames. Annotation pipeline. Video decoding, quality screening, and annotation are separate steps,
+allowing source-specific filtering while keeping a common output format. Structural filtering. Samples must be parsed successfully and checked for suitability for
+interleaved training. The adapter
+also verifies the message structure and requires each successive source
+image reference to match the preceding target reference. Non-final target
+images are followed by clean representations of the observed image, making
+completed visual content available to later text and image prediction. 4.5 Text-Only Data The text-only group contains 97.90M samples across 100 source entries covering mathematics,
+programming, knowledge, reasoning, general instructions, conversation,
+tool use, and long-context tasks. It supplies direct language supervision
+alongside visual learning. Reasoning examples belong to this text mixture;
+they are distinct from the reasoning used to construct interleaved editing
+samples, which is removed before training. During capability refinement, the intended
+role of text data is to maintain response quality and instruction-following
+coverage while understanding and generation are refined jointly. 4.6 Video Data The video data comprise separate groups for video generation and
+source-conditioned video editing, used in the exploratory post-SFT
+fine-tuning described above. Video generation data are collected from
+VCG, Koala, Aishi, Pexels, Panda, and internal sources, while video editing data are drawn from Ditto ( Bai et al., 2026 ) . We exclude videos longer than eight seconds
+and those with excessively low or high original frame rates. We further
+filter the data using VLM-based assessments of visible text, aesthetics,
+and visual quality. Retained videos are resampled to 16 FPS; for editing,
+source and target clips share the same temporal sampling plan. 4.7 Multimodal Sequence Packing Fig. 9 illustrates how task-specific samples
+become a packed sequence while retaining the boundaries needed by hybrid
+attention and the two prediction objectives. Task samples VQA Generate Edit I I Q Q A A T T N N I I T T N N Online packer Token budget Mandatory first Weighted fill Sample queue A B C Pack to a soft target FIFO Defer / reuse Packed sequence Roles and block boundaries preserved A: understanding B: interleaved sequence Q Q I I A A T 1 T_{1} N 1 N_{1} C 1 C_{1} T 2 T_{2} N 2 N_{2} CE Flow CE Flow Text Clean visual context Noisy visual target Full attention Linear attention No cross-sample attention Private targets stay hidden S S N N S S C C S ′ S^{\prime} Discard local update Retain update Reset state at sample boundaries Figure 9: Multimodal sequence packing. Online packing combines task-specific samples within a token budget while preserving sample isolation and the public/private boundaries required by hybrid attention. Unified sequence assembly. The task adapters convert samples from different tasks into a common sequence
+plan containing text roles, media identities, attention-block types, and
+supervision locations. Packing concatenates multiple examples while
+retaining their individual sequence boundaries and within-example block
+structure. Text labels and visual targets are gathered through separate
+loss indices, so conditioning content can share the input sequence without
+receiving a prediction loss. For interleaved samples, the complete sequence
+of transitions and images remains within the same example; packing does
+not turn successive editing steps into unrelated image–text pairs. Online token-budget packing. The loader starts each pack by inserting eligible examples from mandatory
+task groups. It then selects additional examples according to normalized
+group weights, using modality-aware token estimates to account for text
+and visual content. A soft token target determines when a pack is normally
+produced, while a per-example threshold rejects oversized samples and a
+separate packed-token budget guides additional insertions. Examples that
+do not fit can be stored in a fixed-size buffer for later use. The loader reuses buffered
+examples in first-in, first-out order when the current pack is below a
+configured occupancy threshold. This online policy accommodates the
+changing token costs of image resolution, aspect ratio, and interleaved
+sequence length without requiring a fixed number of images per batch.
+The final accepted example or mandatory insertion can exceed the nominal
+token budget.
+Reference budgets are listed in Tab. 3 . Sample isolation and hybrid-attention metadata. Packed sample lengths prevent attention or recurrent state from crossing
+between independent examples. Within an example, block lengths and
+attention modes preserve the conditioning relationships described in Sec. 3.2 . In particular, a noisy visual target
+remains private, whereas an observed clean image may contribute public
+context for subsequent prediction. The same sequence layout supplies
+visibility metadata to full-attention layers and state-retention boundaries
+to linear-attention layers. These layers retain their respective attention
+behavior. Variable-length execution can avoid padding every example to a
+common text–visual sequence length; visual tensor padding and
+backend-specific alignment can still be required. Data mixture statistics. Group weights govern sampling decisions, rather than final sample, token,
+or compute percentages. Mandatory insertion and buffering further affect
+the actual mixture. We therefore distinguish configured weights from
+consumed examples and tokens when describing data allocation across
+stages. SFT uses the same packing interfaces, with task selection and
+weighting focused on capability refinement. Fig. 10 compares sampling weights across three
+training stages. Required task groups are included in each pack regardless
+of their sampling weight. These weights do not directly determine the
+sample or token proportions used during training. Colors encode weights
+on a logarithmic scale; asterisks identify required groups and gray cells
+identify inactive groups. The high-resolution example uses a 1024-scale
+configuration. Figure 10: Data sampling across training stages. Representative task weights are shown for three pre-SFT stages; asterisks mark mandatory groups. These weights do not represent observed sample or token proportions. Stage Name Generation scale Primary objective I Joint Multimodal Foundation 256-scale Establish joint text, visual understanding, and latent-generation modeling. II Progressive Resolution Scaling 512-scale Expand spatial detail while continuing multimodal supervision. III High-Resolution Refinement 1024-scale to 2K Extend visual generation to longer target sequences and finer detail. IV Supervised Capability Refinement (SFT) Task-dependent Refine understanding accuracy, instruction following, generation quality, and editing consistency. Table 2: Four-stage training curriculum. Resolution labels describe
+training scales rather than fixed square image sizes. 5 Training Strategy We organize the UniSpark curriculum by its modeling objectives: Joint Multimodal Foundation , Progressive Resolution Scaling , High-Resolution Refinement , and Supervised Capability Refinement
+(SFT) . This organization separates learning a shared multimodal backbone,
+increasing spatial detail, extending high-resolution generation, and
+refining task performance. Tab. 2 summarizes the
+four stages. The backbone retains the joint text and visual objectives in Sec. 3.3 throughout this design. 5.1 Joint Multimodal Foundation The foundation stage trains the hybrid MoT backbone with a low visual token
+budget. Text and semantic visual tokens use the understanding expert, while
+VAE latent tokens use the generation expert. Language modeling and visual
+flow matching provide direct supervision for the two output types. The 256-scale setting keeps visual targets relatively short while
+establishing interactions between the two experts. The language backbone, vision encoder, and expert
+branches and adapters are trained jointly, while the VAE remains frozen.
+The stage’s purpose is to establish the shared prediction interface before
+increasing the spatial sequence length. 5.2 Progressive Resolution Scaling The resolution-scaling stage increases generation to a 512-scale setting
+while retaining the same token roles and loss definitions. More latent
+patches represent each image, allowing training to cover finer spatial
+detail. Understanding inputs have an independent resolution budget, so
+higher-resolution generation does not require every semantic condition to
+expand at the same rate. Interleaved sequences can continue to contribute text and visual targets in
+this stage. Clean representations of earlier images remain public context,
+while noisy prediction blocks remain private. This exposes hybrid attention
+to both longer visual blocks and dependencies across multiple outputs. Parameter Foundation Resolution scaling High-resolution a SFT b Learning rate 10 − 4 10^{-4} 10 − 4 10^{-4} 10 − 4 10^{-4} 10 − 4 10^{-4} LR schedule Constant Constant Constant Constant Warmup updates 2,500 2,500 2,500 500 EMA decay 0.9999 0.9999 0.9999 0.995 Timestep shift 1.0 1.0 1.0 4.0 Text / visual loss weights 1 / 1 1 / 1 0.25 / 1 0.25 / 1 Packed-token target 16,384 10,240 16,384 10,240 Per-sample token limit 26,384 16,384 26,384 16,384 Packed-token limit 46,864 36,864 46,864 36,864 Table 3: Reference optimization settings by training stage. The packed-token target applies to one packed sequence, not a global batch. a High-resolution values refer to the 1024-scale setting. b SFT settings are preliminary.
+All learning-rate schedules are constant after warmup. 5.3 High-Resolution Refinement High-resolution refinement extends generation through 1024-scale settings
+and up to 2K. The objective remains conditional flow matching, with
+understanding and language supervision retained in the joint training
+design. The increased latent-token count makes memory use and packed
+sequence composition more sensitive to aspect ratio and the number of
+visual targets per example. The 1024-scale reference setting assigns coefficients of 0.25 0.25 and 1.0 1.0 to the text and visual losses, respectively. These are loss
+multipliers, not a text-to-image data ratio. It also omits the interleaved
+data group, whereas a preceding resolution-scaling configuration includes
+that group. High-resolution refinement thus need not preserve every task
+at the same sampling rate. 5.4 Supervised Capability Refinement Tab. 3 gives preliminary SFT settings. SFT is the final capability-oriented stage of the main multimodal training curriculum. Its goal is to improve
+understanding and generation together through task-focused supervision,
+using the data categories in Sec. 4 . The refinement design has
+four priorities: • Understanding accuracy: answer visual questions,
+recognize text, and ground responses in the supplied image. • Generation fidelity: follow the requested subjects,
+attributes, spatial relations, and text in the image. • Editing consistency: perform the instructed change while
+retaining unrelated reference content. • Interleaved coherence: use preceding visual outputs and
+text consistently when predicting subsequent content. The same text cross-entropy and visual flow-matching objectives support
+these tasks. SFT changes the emphasis of data selection and sampling; it
+does not require a separate understanding model or visual generator. 5.5 Optimization Optimizer and precision. Training uses AdamW ( Loshchilov & Hutter, 2019 ) with coefficients ( β 1 , β 2 ) = ( 0.9 , 0.95 ) (\beta_{1},\beta_{2})=(0.9,0.95) , numerical stability constant 10 − 15 10^{-15} ,
+zero weight decay, and gradient-norm clipping at 1.0 1.0 . Forward computation
+uses bfloat16 mixed precision. The joint-training reference settings use learning
+rate 10 − 4 10^{-4} with a constant schedule after 2,500 warmup updates and EMA
+decay 0.9999 0.9999 . Tab. 3 summarizes
+the reference settings for all four stages. Noise-time sampling. The visual objective samples a time through a sigmoid transform and then
+applies the configured shift s s : t ′ = s ​ t 1 + ( s − 1 ) ​ t . t^{\prime}=\frac{s\,t}{1+(s-1)t}. (11) The joint configurations set s = 1 s=1 , while the SFT reference uses s = 4 s=4 .
+The latter gives larger noise times for intermediate t t under the
+convention of Eq. ( 5 ) . This parameter changes the training
+time distribution, not the number of denoising steps used at inference. 5.6 Adaptation to Video Generation and Editing Parameter Value Learning rate 5 × 10 − 5 5\times 10^{-5} LR schedule Constant Warmup updates 1,000 EMA decay 0.999 Timestep shift 1.0 Text conditioning dropout 0.1 VAE / ViT conditioning dropout 0.3 / 0.3 Packed-token target 16,384 Per-sample token limit 40,960 Packed-token limit 40,960 Table 4: Optimization settings for video adaptation stage. The understanding branch is frozen. Following SFT, we further fine-tune the model on video generation and
+editing data as an exploratory extension of its visual capabilities.
+The fine-tuning mixture also retains image generation and editing data.
+Video generation, video editing, image generation, and image editing
+are sampled at a ratio of 5 : 1 : 1 : 0.1 5:1:1:0.1 .
+For video generation and editing, the longer side of each frame is
+set to 1280 and 768 pixels, respectively, while image generation and editing retain 2K resolution.
+Video clips are sampled at 16 FPS and span 3–5.2 seconds. The understanding branch is frozen during this adaptation. Tab. 4 summarizes the
+fine-tuning settings. 5.7 Training Infrastructure and Efficiency Hybrid sharding and activation memory. Training uses FSDP ( Zhao et al., 2023 ) hybrid sharding to distribute parameters, gradients,
+and optimizer states across GPUs. Decoder-layer and vision-encoder
+activation checkpointing reduce memory use through recomputation ( Chen et al., 2016 ) .
+These methods support training with longer visual sequences. Attention execution for packed multimodal sequences. Variable-length attention backends directly use the packing metadata
+in Sec. 4.7 . The full-attention implementation
+supports block-mask execution, caches derived block-sparse metadata, and
+provides a native grouped-query path that avoids explicitly repeating
+key/value heads. Backend selection depends on the head configuration,
+requested execution path, and installed kernels. The linear-attention MoT
+implementation provides optimized execution paths alongside a scalar
+reference implementation. Expert-specific projections and convolution
+weights operate with shared public recurrent state and convolution
+history. Private target blocks read this context but do not retain their
+local updates in public context. Optimizing these operations must preserve both sample
+isolation and the public/private state rules; full-attention visibility and
+linear-attention recurrence are not interchangeable. Data delivery and visual encoding. The input pipeline prefetches samples and assembles packed batches.
+A frozen VAE encodes visual targets and conditions before the backbone
+forward pass, reducing the memory required for visual encoding. Workload-aware monitoring. The implementation supports text and visual loss monitoring by task group,
+records token throughput, and estimates utilization with an architecture-aware
+FLOP model that distinguishes full-attention and linear-attention layers
+and accounts for visual computation. Executed-compute estimates also
+consider activation recomputation. Token throughput, peak memory, and
+packed sequence lengths provide complementary workload measurements. 6 Experiments We evaluate UniSpark on multimodal understanding, text-to-image
+generation, and instruction-based image editing, and measure inference
+latency and memory across image resolutions. The comparisons include both
+task-specific models and unified multimodal models. Fig. 1 summarizes selected benchmarks, while the following tables provide
+per-benchmark and per-category results. 6.1 Evaluation Setup and Baselines UniSpark-9B uses approximately 9B parameters in each of its understanding
+and generation branches. Model-size conventions and inference settings
+are specified in the corresponding comparisons. For multimodal understanding, we use
+MME ( Fu et al., 2023 ) for perception and cognition,
+MMBench ( Liu et al., 2024 ) and MM-Vet ( Yu et al., 2024 ) for visual question
+answering and integrated multimodal capabilities,
+MMMU ( Yue et al., 2024 ) for subject-level reasoning,
+MathVista ( Lu et al., 2023 ) for visual mathematics, and
+MMVP ( Tong et al., 2024b ) for fine-grained visual discrimination. For text-to-image generation, we evaluate
+compositional alignment with GenEval ( Ghosh et al., 2023 ) and detailed
+prompt following with DPG-Bench ( Hu et al., 2024 ) . For instruction-based
+image editing, ImgEdit ( Ye et al., 2025 ) measures whether the model
+makes the requested changes while preserving unrelated content.
+The following subsections specify evaluation protocols and analyze
+the corresponding results. We compare understanding-only models, including InternVL2/2.5 ( OpenGVLab, 2024 , Chen et al., 2024 ) and
+Qwen2/2.5-VL ( Wang et al., 2024b , Bai et al., 2025 ) families,
+Kimi-VL ( Kimi Team et al., 2025a ) , and DeepSeek-VL2 ( Wu et al., 2024c ) ,
+with unified models such as Janus-Pro ( Chen et al., 2025 ) ,
+MetaQuery-XL ( Pan et al., 2025 ) ,
+BAGEL ( Deng et al., 2025 ) , and SenseNova-U1 ( Diao et al., 2026 ) .
+Qwen3.5-4B and Qwen3.5-9B ( Qwen Team, 2026 ) provide
+additional understanding references. This grouping compares UniSpark
+with both specialized vision-language models and models that also generate images. The GenEval and DPG-Bench comparisons include specialized generators such
+as FLUX.1 [Dev] ( Black Forest Labs, 2024 ) , Seedream 3.0 ( Gao et al., 2025 ) ,
+Qwen-Image ( Wu et al., 2025a ) , Emu3-Gen ( Wang et al., 2024c ) , and
+Lumina-mGPT 2.0 ( Xin et al., 2025b ) . Unified baselines include
+BAGEL, OmniGen2 ( Wu et al., 2025b ) , InternVL-U ( Tian et al., 2026 ) ,
+Lumina-DiMOO ( Xin et al., 2025a ) , and LLaDA2.0-Uni ( Inclusion AI et al., 2026 ) .
+The tables distinguish autoregressive, continuous-diffusion, and
+discrete-diffusion architectures. ImgEdit compares four specialized editors (FLUX.1 Kontext ( Black Forest Labs et al., 2025 ) ,
+Step1X-Edit ( Liu et al., 2025 ) , Qwen-Image-Edit ( Qwen Team, 2025 ) ,
+and Z-Image-Edit ( Z-Image Team et al., 2025 ) ) with five unified models: BAGEL,
+OmniGen2, InternVL-U, Lumina-DiMOO, and LLaDA2.0-Uni.
+For inference efficiency, BAGEL and SenseNova-U1 serve as references
+under matched hardware and workload settings. Understanding baseline scores come from BAGEL’s comparison and additional
+Qwen3.5 and SenseNova-U1 evaluations. Generation and editing baselines
+follow LLaDA2.0-Uni ( Inclusion AI et al., 2026 ) . Published scores retain their
+source evaluation settings; UniSpark scores and the inference-efficiency
+measurements are reported separately. Dashes indicate unreported results. 6.2 Multimodal Understanding We report MME perception (MME-P) and combined perception-plus-cognition
+(MME-S), MMBench v1.0-dev-en circular accuracy, MMMU validation accuracy
+without CoT, and MMVP paired accuracy. Protocol differences among the
+reported models are documented in Tab. 5 . Type Model # LLM Params MME-P ↑ \uparrow MME-S ↑ \uparrow MMBench ↑ \uparrow MMMU ↑ \uparrow MM-Vet ↑ \uparrow MathVista ↑ \uparrow MMVP ↑ \uparrow Und. Only InternVL2 ( 2024 ) 1.8B 1440.0 1877.0 73.2 34.3 44.6 46.4 35.3 InternVL2.5 ( 2024 ) 1.8B – 2138.0 74.7 43.6 60.8 51.3 – Qwen2-VL ( 2024b ) 1.5B – 1872.0 74.9 41.1 49.5 43.0 – BLIP-3 ( 2024 ) 4B – – 76.8 41.1 – 39.6 – LLaVA-OV ( 2024 ) 7B 1580.0 – 80.8 48.8 57.5 63.2 – InternVL2 ( 2024 ) 7B 1648.0 2210.0 81.7 49.3 54.2 58.3 51.3 InternVL2.5 ( 2024 ) 7B – 2344.0 84.6 56.0 62.8 64.4 – Qwen2-VL ( 2024b ) 7B – 2327.0 83.0 54.1 62.0 58.2 – Emu3-Chat ∗∗ ( 2024c ) 8B 1244.0 – 58.5 31.6 37.2 – 36.6 DeepSeek-VL2 ( 2024c ) 4.1B/28B – – – 51.1 60.0 62.8 – Qwen2.5-VL ( 2025 ) 3B – 2157.0 79.1 53.1 61.8 62.3 – Qwen2.5-VL ( 2025 ) 7B – 2347.0 83.5 58.6 67.1 68.2 – Kimi-VL ( 2025a ) 2.8B/16B – – – 57.0 66.7 68.7 – Qwen3.5-4B ( 2026 ) 4B 1686.5 2348.3 81.4 29.2 76.5 80.7 64.7 Qwen3.5-9B ( 2026 ) 9B 1748.7 2439.1 85.1 43.1 79.6 79.6 70.7 Show-o 512 ( 2024a ) 1.3B 1097.0 – – 26.7 – – – Janus ( 2024a ) 1.5B 1338.0 – 69.4 30.5 34.3 – – ILLUME ( 2024a ) 7B 1445.0 – 75.1 38.2 37.0 – – VILA-U ∗ ⁣ ∗ 256 {}_{256}^{**} ( 2024b ) 7B 1336.0 – 66.6 32.2 27.7 – 22.0 Chameleon ∗∗ ( 2024 ) 7B – – 35.7 28.4 8.3 – 0.0 LlamaFusion ∗∗ ( 2024 ) 8B 1604.0 – 72.1 41.7 – – – MetaMorph ( 2024a ) 8B – – 75.2 41.8 – – 48.3 SEED-X ( 2024 ) 13B 1457.0 – 70.1 35.6 43.0 – – TokenFlow-XL ( 2024 ) 13B 1546.0 – 68.9 38.7 40.7 – – MUSE-VL ( 2024b ) 32B – – 81.8 50.1 – 55.9 – Janus-Pro ( 2025 ) 1.5B 1444.0 – 75.5 36.3 39.8 – – BAGEL ( 2025 ) 1.5B MoT 1610.0 2183.0 79.2 43.2 48.2 63.4 54.7 Janus-Pro ( 2025 ) 7B 1567.0 – 79.2 41.0 50.0 – – MetaQuery-XL † ( 2025 ) 7B 1685.0 – 83.5 58.6 66.6 – – BAGEL ( 2025 ) 7B MoT 1687.0 2388.0 85.0 55.3 67.2 73.1 69.3 SenseNova-U1 ( 2026 ) 8B MoT 1683.5 2343.5 82.8 53.1 63.0 71.5 58.7 Unified UniSpark 9B MoT 1766.0 2470.3 86.7 56.7 73.4 77.2 72.0 Table 5: Bold and underlining indicate the best and
+second-best scores. MoT parameters are per branch; MoE parameters are
+active/total. MMBench answer extraction differs: UniSpark uses rules
+only, while Qwen3.5 and SenseNova-U1 use a Qwen fallback. † \dagger : frozen Qwen2.5-VL backbone. ∗ ⁣ ∗ ** : scores taken from MetaMorph or MetaQuery in the source comparison.
+Dashes indicate unreported scores. In Tab. 5 , UniSpark records the
+highest listed MME-P (1766.0), MME-S (2470.3), MMBench (86.7), and MMVP
+(72.0) scores, with the MMBench protocol differences noted in the caption.
+Compared with BAGEL (7B MoT), it scores higher across all six benchmark
+families, including gains of 6.2 points on MM-Vet and 4.1 points on
+MathVista. These results indicate broad understanding capability spanning
+perception, visual question answering, and visual mathematics. The remaining gaps are concentrated in specific reasoning benchmarks.
+On MMMU-Val, UniSpark scores 56.7, below MetaQuery-XL’s 58.6.
+Qwen3.5-9B also scores higher on MM-Vet and MathVista by 6.2 and 2.4
+points, respectively. Thus, the strong perception results do not imply
+uniformly better reasoning. Differences in model size, training data,
+and evaluation protocols also prevent attributing these comparisons
+solely to hybrid attention. 6.3 Text-to-Image Generation We report overall and category-level GenEval and DPG-Bench scores. Baseline scores in Tab. 6 and Tab. 7 follow LLaDA2.0-Uni ( Inclusion AI et al., 2026 ) .
+We report UniSpark results after unified supervised fine-tuning (SFT).
+We label Lumina-mGPT 2.0 as autoregressive (AR), following its architecture ( Xin et al., 2025b ) ; this corrects the diffusion label in the DPG-Bench source table. Type Model Architecture Single object Two objects Counting Colors Position Attribute binding Overall ↑ \uparrow Gen. Only FLUX.1 [Dev] ( 2024 ) CD 0.98 0.81 0.74 0.79 0.22 0.45 0.66 Emu3-Gen ( 2024c ) AR 0.98 0.71 0.34 0.81 0.17 0.21 0.54 Lumina-mGPT 2.0 ( 2025b ) AR 0.99 0.87 0.44 0.85 0.44 0.54 0.69 Seedream 3.0 ( 2025 ) CD 0.99 0.96 0.91 0.93 0.47 0.80 0.84 Qwen-Image ( 2025a ) CD 0.99 0.92 0.89 0.88 0.76 0.77 0.87 LongCat-Image ( 2025 ) CD 0.99 0.98 0.86 0.86 0.75 0.73 0.87 Z-Image-Turbo ( 2025 ) CD 1.00 0.95 0.77 0.89 0.65 0.68 0.82 Janus-Pro ( 2025 ) AR 0.99 0.89 0.59 0.90 0.79 0.66 0.80 BAGEL ( 2025 ) AR + CD 0.99 0.94 0.81 0.88 0.64 0.63 0.82 OmniGen2 ( 2025b ) AR + CD 1.00 0.95 0.64 0.88 0.55 0.76 0.80 HunyuanImage-3.0 ( 2025 ) AR + CD 1.00 0.92 0.48 0.82 0.42 0.63 0.72 MMaDA ( 2025a ) DD 0.99 0.76 0.61 0.84 0.20 0.37 0.63 Lumina-DiMOO ( 2025a ) DD 1.00 0.94 0.85 0.89 0.85 0.76 0.88 NextFlow ( 2026 ) AR + CD 0.98 0.92 0.73 0.90 0.77 0.69 0.83 InternVL-U ( 2026 ) AR + CD 0.99 0.94 0.74 0.91 0.77 0.74 0.85 LLaDA-o ( 2026 ) DD + CD 0.99 0.98 0.73 0.96 0.69 0.83 0.86 LLaDA2.0-Uni ( 2026 ) DD + CD 1.00 0.98 0.73 0.92 0.90 0.84 0.89 Unified UniSpark AR + CD 0.99 0.93 0.68 0.94 0.67 0.73 0.83 Table 6: Text-to-image generation on GenEval. Scores range from 0 to 1; higher is better. The blue row reports UniSpark after unified SFT. AR, CD, and DD denote autoregressive, continuous diffusion, and discrete diffusion models, respectively; “+” indicates combined architectures. Type Model Architecture Global Entity Attribute Relation Other Overall ↑ \uparrow Gen. Only FLUX.1 [Dev] ( 2024 ) CD 74.35 90.00 88.96 90.87 88.33 83.84 Emu3-Gen ( 2024c ) AR 85.21 86.68 86.84 90.22 83.15 80.60 Lumina-mGPT 2.0 ( 2025b ) AR 86.63 91.97 90.20 94.85 84.80 87.20 Seedream 3.0 ( 2025 ) CD 94.31 92.65 91.36 92.78 88.24 88.27 Qwen-Image ( 2025a ) CD 91.32 91.56 92.02 94.31 92.73 88.32 LongCat-Image ( 2025 ) CD 89.10 92.54 92.00 93.28 87.50 86.80 Z-Image-Turbo ( 2025 ) CD 91.29 89.59 90.14 92.16 88.68 84.86 Janus-Pro ( 2025 ) AR 86.90 88.90 89.40 89.32 89.48 84.19 BAGEL ( 2025 ) AR + CD 88.94 90.37 91.29 90.82 88.67 85.07 OmniGen2 ( 2025b ) AR + CD 88.81 88.83 90.18 89.37 90.27 83.57 HunyuanImage-3.0 ( 2025 ) AR + CD 92.12 92.53 89.13 92.13 91.92 86.10 MMaDA ( 2025a ) DD 77.81 78.48 81.74 84.79 63.20 69.97 Lumina-DiMOO ( 2025a ) DD 81.46 92.08 88.98 94.31 82.00 86.04 NextFlow ( 2026 ) AR + CD 92.40 90.05 90.51 92.72 91.14 86.00 InternVL-U ( 2026 ) AR + CD 90.39 90.78 90.68 90.29 88.77 85.18 LLaDA-o ( 2026 ) DD + CD 92.91 93.30 90.40 91.75 92.79 87.04 LLaDA2.0-Uni ( 2026 ) DD + CD 91.14 93.55 91.98 92.17 93.18 87.76 Unified UniSpark AR + CD 79.33 82.62 77.07 76.71 73.50 80.54 Table 7: Text-to-image generation on DPG-Bench. Higher is better. The blue row reports UniSpark after unified SFT. AR, CD, and DD denote autoregressive, continuous diffusion, and discrete diffusion models, respectively; “+” indicates combined architectures. After unified SFT, UniSpark achieves an overall GenEval score
+of 0.83 ( Tab. 6 ), close to
+BAGEL’s direct-generation score of 0.82. Its scores are highest on
+single objects (0.99), colors (0.94), and two objects (0.93), while
+counting (0.68), position (0.67), and attribute binding (0.73) remain
+more difficult. This pattern shows stronger object and color fidelity
+than precise composition. LLaDA2.0-Uni and Lumina-DiMOO reach higher
+overall scores of 0.89 and 0.88, leaving room to improve compositional
+control. The BAGEL comparison uses direct generation, keeping results
+with external prompt rewriting separate. Tab. 7 reports a DPG-Bench overall score of
+80.54 for UniSpark, below BAGEL (85.07) and LLaDA2.0-Uni (87.76).
+Within its category results, Entity is strongest at 82.62, whereas
+Attribute (77.07), Relation (76.71), and Other (73.50) are lower.
+Together with GenEval, this pattern points to attribute and relational
+control as priorities for improving prompt adherence. 6.4 Instruction-Based Image Editing We evaluate UniSpark on all 737 ImgEdit
+samples using Qwen3-VL-235B-A22B-Thinking as the judge. Tab. 8 reports nine editing categories and the
+overall score. Baseline scores follow
+LLaDA2.0-Uni ( Inclusion AI et al., 2026 ) . Because the judges differ, our scores
+are reference results and are not directly comparable to those baselines. F1 F2 F3 F4 (a) Silk ribbon in a breeze Prompt summary: Red silk ribbon on a wooden dowel, pale blue background. Lift, form a wave, then relax. T2I All frames generated Editing F1: input F2–F4: generated (b) A pulsing jellyfish Prompt summary: One pale pink jellyfish in a dark blue aquarium. Contract, expand, then contract again. T2I All frames generated Editing F1: input F2–F4: generated (c) Candle flame in a breeze Prompt summary: Ivory candle in a brass holder on a dark table. Flame upright, left, right, then upright. T2I All frames generated Editing F1: input F2–F4: generated Figure 11: Text-only generation (top) and first-frame-conditioned editing (bottom). Generation predicts F1–F4 jointly, whereas editing conditions on F1 to predict F2–F4, illustrating visual continuity under two conditioning settings. Type Model Add Adjust Extract Replace Remove Back. Style Hybrid Action Overall ↑ \uparrow Gen. Only FLUX.1 Kontext ( 2025 ) 4.25 4.15 2.35 4.56 3.57 4.26 4.57 3.68 4.63 4.00 Step1X-Edit ( 2025 ) 3.88 3.14 1.76 3.40 2.41 3.16 4.63 2.64 2.52 3.06 Qwen-Image-Edit ( 2025 ) 4.32 4.36 4.04 4.64 4.52 4.37 4.84 3.39 4.71 4.35 Z-Image-Edit ( 2025 ) 4.40 4.14 4.30 4.57 4.13 4.14 4.85 3.63 4.50 4.30 BAGEL ( 2025 ) 3.56 3.31 1.70 3.30 2.62 3.24 4.49 2.38 4.17 3.20 OmniGen2 ( 2025b ) 3.57 3.06 1.77 3.74 3.20 3.57 4.81 2.52 4.68 3.44 Lumina-DiMOO ( 2025a ) 3.41 2.38 1.90 3.26 2.21 2.11 4.19 2.26 3.17 2.77 InternVL-U ( 2026 ) 4.13 3.40 2.27 4.13 3.39 3.84 4.77 3.03 4.05 3.67 LLaDA2.0-Uni ( 2026 ) 3.76 4.16 2.40 4.04 3.82 4.07 4.60 3.97 4.42 3.92 Unified UniSpark † 3.72 2.54 1.68 3.51 3.52 3.47 4.05 1.62 3.44 3.13 Table 8: Instruction-based image editing on ImgEdit. Back.: background editing; † : Qwen3-VL reference scores
+(different judge). In Tab. 8 , UniSpark obtains an overall
+reference score of 3.13. Style editing is its strongest category (4.05),
+followed by object addition (3.72). Extraction (1.68) and hybrid editing
+(1.62) receive the lowest scores, identifying these operations as the
+main weaknesses under the current evaluator. This variation shows why
+the overall score alone is insufficient to characterize editing ability.
+Because our Qwen3-VL judge differs from the judge used for the published
+baselines, these scores support analysis across our editing categories
+but do not establish a direct ranking against other models. 6.5 Interleaved Generation and Sequence Editing Text-only generation jointly produces F1–F4. Sequence editing takes the
+same F1 as input and jointly generates F2–F4. Fig. 11 shows local changes in ribbon curvature,
+jellyfish tentacles, and flame shape with recognizable subjects and backgrounds.
+Flame direction and bell contraction remain imperfect. Selected from 12 paired runs, these cases
+illustrate visual continuity, not reliable execution of every requested stage. 6.6 Extension to Video Generation and Editing Following the exploratory post-SFT adaptation described in Sec. 5.6 , we examine the model’s video generation and
+editing capabilities through qualitative examples. Fig. 12 presents text-conditioned video generation
+examples spanning camera movement around a building, waves along a
+shoreline, and subtle human motion. Each example includes its text prompt
+and five frames sampled from the generated clip, illustrating scene
+appearance and its evolution over time. Fig. 13 presents source-conditioned video editing
+examples covering object replacement and global stylization.
+The first replaces a black plate with a terracotta dish, while the
+second transforms the video into a pencil-sketch style.
+Source and edited frames are shown at corresponding timestamps to
+illustrate the requested changes alongside the preservation of scene
+content and action across frames. Figure 12: Qualitative examples of video generation. Chronological frames illustrate text-conditioned scene evolution, including camera movement, waves, and subtle human motion. Figure 13: Qualitative examples of video editing. Temporally aligned source and edited frames illustrate object replacement and global stylization. 6.7 Inference Efficiency and Scaling We compare UniSpark with BAGEL ( Deng et al., 2025 ) and
+SenseNova-U1 ( Diao et al., 2026 ) on image generation and visual
+understanding. Generation is evaluated at matched output resolutions;
+understanding is evaluated at matched visual-token budgets with a fixed
+text output length. Each model runs on a dedicated H20-3e GPU in BF16
+at batch size 1, with all model components GPU-resident. Each setting
+uses five warm-ups and four input cases repeated three times. We report
+median latency and throughput, descriptive P95 generation latency, and
+the maximum allocated GPU memory across the 12 measured runs. Model
+loading and disk I/O are excluded. Parameter counts in
+Tables 9 and 10 follow the per-branch MoT convention
+used in Tab. 5 . For image generation, all models use the same prompts, 49 sampling updates, and 79 denoising
+forwards.
+Text CFG is set to 4 over the noise-level interval ( 0.4 , 1.0 ] (0.4,1.0] ,
+with time shift 1 and CFG normalization disabled. The interval is mapped
+to each model’s native time coordinate. Timing covers text prefill,
+denoising, VAE decoding where applicable, and CPU image conversion.
+Image-token throughput is the final spatial token count divided by
+end-to-end latency; repeated denoising forwards do not count as newly
+emitted tokens. Resolution Model # LLM Params Image tokens/s ↑ \uparrow Median latency (s) ↓ \downarrow P95 latency (s) ↓ \downarrow Peak allocated memory (GB) ↓ \downarrow BAGEL ( 2025 ) 7B MoT 87.09 11.76 11.77 30.47 SenseNova-U1 ( 2026 ) 8B MoT 39.80 6.43 6.52 35.49 512 × 512 512\times 512 UniSpark 9B MoT 35.19 7.27 7.36 37.39 BAGEL ( 2025 ) 7B MoT 89.44 45.80 45.81 33.29 SenseNova-U1 ( 2026 ) 8B MoT 73.90 13.86 13.91 35.84 1024 × 1024 1024\times 1024 UniSpark 9B MoT 72.33 14.16 14.21 42.47 BAGEL ( 2025 ) 7B MoT – – – – SenseNova-U1 ( 2026 ) 8B MoT 70.20 58.34 58.36 37.39 2048 × 2048 2048\times 2048 UniSpark 9B MoT 79.56 51.48 51.51 62.74 Table 9: Image generation efficiency across output resolutions. Tab. 9 shows that UniSpark
+reduces median generation latency relative to BAGEL from 11.76 to 7.27
+seconds at 512 2 512^{2} and from 45.80 to 14.16 seconds at 1024 2 1024^{2} , giving
+1.62 × \times and 3.23 × \times speedups. SenseNova-U1 is faster at these
+two resolutions, but UniSpark is faster at 2048 2 2048^{2} (51.48 versus
+58.34 seconds). This advantage comes with higher peak allocated memory:
+62.74 GB versus 37.39 GB at 2048 2 2048^{2} . The results therefore show a
+resolution-dependent latency benefit with a memory cost. Image-token throughput also depends on the representation size.
+At 1024 2 1024^{2} , BAGEL uses 4,096 image tokens, compared with 1,024 for
+UniSpark and SenseNova-U1, so its higher tokens/s does not imply
+faster image generation. At 2048 2 2048^{2} , the latter two models both use
+4,096 tokens, and UniSpark reaches 79.56 versus 70.20 tokens/s.
+SenseNova-U1’s two smaller settings are outside its recommended trained
+resolution buckets, so these measurements characterize fixed workloads
+rather than matched image quality. For visual understanding, we use the same four image–question pairs
+with 256 or 1,024 visual tokens per image, checked at the language-model input. To match these
+budgets, BAGEL receives 224 × 224 224\times 224 or 448 × 448 448\times 448 images, while UniSpark
+and SenseNova-U1 receive 512 × 512 512\times 512 or 1024 × 1024 1024\times 1024 images. Each run makes
+exactly 128 greedy token predictions, ignoring early termination.
+Native tokenizers and chat templates are retained; any reasoning text
+produced by SenseNova-U1 counts toward this fixed budget. Images are loaded and resized before timing. Total latency includes
+native preprocessing, vision encoding, multimodal prefill, and text
+decoding. Decoding throughput is 127 / ( t 128 − t 1 ) 127/(t_{128}-t_{1}) , where t i t_{i} is a
+CUDA event recorded after the output projection for prediction i i .
+First-logit latency measures request start to t 1 t_{1} , before token
+selection; it is not user-visible time to first token. Visual tokens Model # LLM Params Input Text decode tokens/s ↑ \uparrow First logits (s) ↓ \downarrow Median latency (s) ↓ \downarrow Peak allocated memory (GB) ↓ \downarrow BAGEL ( 2025 ) 7B MoT 224 × 224 224\times 224 36.09 0.176 3.70 29.58 SenseNova-U1 ( 2026 ) 8B MoT 512 × 512 512\times 512 17.92 0.165 7.26 35.32 256 UniSpark 9B MoT 512 × 512 512\times 512 21.91 0.143 5.94 35.73 BAGEL ( 2025 ) 7B MoT 448 × 448 448\times 448 36.60 0.263 3.76 29.77 SenseNova-U1 ( 2026 ) 8B MoT 1024 × 1024 1024\times 1024 18.09 0.289 7.32 35.85 1,024 UniSpark 9B MoT 1024 × 1024 1024\times 1024 22.19 0.292 6.02 36.03 Table 10: Visual understanding efficiency at matched visual-token budgets. Tab. 10 places UniSpark between
+BAGEL and SenseNova-U1 in decoding throughput and total latency at both
+visual-token budgets. At 1,024 tokens, it decodes at 22.19 tokens/s and
+finishes in 6.02 seconds, compared with 36.60 tokens/s and 3.76 seconds
+for BAGEL, and 18.09 tokens/s and 7.32 seconds for SenseNova-U1.
+Increasing the visual budget from 256 to 1,024 tokens changes its total
+latency only from 5.94 to 6.02 seconds, although first-logit latency rises
+from 0.143 to 0.292 seconds. For these fixed 128-token outputs, decoding
+therefore accounts for most of the request time. Peak allocated memory
+is slightly higher than SenseNova-U1 and remains above BAGEL at both
+budgets. These measurements describe computational cost rather than
+answer quality. The two tables distinguish generation speed from autoregressive
+decoding speed: UniSpark reduces generation latency relative to
+BAGEL at the shared resolutions, whereas BAGEL remains faster and uses
+less allocated memory for understanding. Matched workloads control
+sequence lengths, but model sizes, native tokenization, vision encoders,
+and implementations still differ. These system-level measurements do
+not isolate the effect of hybrid attention. 7 Conclusion In this work, we present UniSpark, a unified multimodal model
+built on a Hybrid MoT Architecture . Specialized understanding and
+generation experts share multimodal context through full-attention and
+recurrent linear-attention layers. This architecture combines explicit
+visual interactions with compact recurrent context in the same backbone.
+Joint language modeling and visual flow matching connect image
+understanding, generation, and instruction-based editing, while clean
+visual context links successive outputs in interleaved sequences.
+Diverse multimodal supervision and progressive resolution training extend
+this framework to a broad range of tasks and image resolutions up to 2K.
+Experiments demonstrate strong multimodal understanding, and visual examples
+illustrate generation, editing, and interleaved prediction within the unified
+framework.
+Our results provide empirical evidence that hybrid attention can
+support both multimodal understanding and visual generation within a
+unified model. The context-handling design, training recipe, and evaluation
+results offer a practical reference for further studies of hybrid
+architectures for unified multimodal modeling. References Bai et al. (2026) Qingyan Bai, Qiuyu Wang, Hao Ouyang, Yue Yu, Hanlin Wang, Wen Wang, Ka Leong
+Cheng, Shuailei Ma, Yanhong Zeng, Zichen Liu, Yinghao Xu, Yujun Shen, and
+Qifeng Chen. Scaling instruction-based video editing with a high-quality synthetic
+dataset. In Proceedings of the IEEE/CVF Conference on Computer Vision
+and Pattern Recognition , 2026. Bai et al. (2025) Shuai Bai, Keqin Chen, Xuejing Liu, Jialin Wang, Wenbin Ge, Sibo Song, et al. Qwen2.5-VL technical report. arXiv preprint arXiv:2502.13923 , 2025. 10.48550/arXiv.2502.13923 . URL https://arxiv.org/abs/2502.13923 . Black Forest Labs (2024) Black Forest Labs. FLUX.1 [dev] Model Card. https://huggingface.co/black-forest-labs/FLUX.1-dev , 2024. Black Forest Labs et al. (2025) Black Forest Labs, Stephen Batifol, Andreas Blattmann, Frederic Boesel,
+Saksham Consul, Cyril Diagne, Tim Dockhorn, Jack English, Zion English,
+Patrick Esser, et al. FLUX.1 Kontext: Flow Matching for In-Context Image Generation and
+Editing in Latent Space. arXiv preprint arXiv:2506.15742 , 2025. URL https://arxiv.org/abs/2506.15742 . Chameleon Team (2024) Chameleon Team. Chameleon: Mixed-Modal Early-Fusion Foundation Models. arXiv preprint arXiv:2405.09818 , 2024. URL https://arxiv.org/abs/2405.09818 . Chen et al. (2026) Junsong Chen, Jincheng Yu, Yitong Li, Shuchen Xue, Haozhe Liu, Jingyu Xin,
+Yuyang Zhao, Tian Ye, Zhangjie Wu, Zian Wang, Daquan Zhou, Ping Luo, Song
+Han, and Enze Xie. SANA-Video 2.0: Hybrid linear attention with attention residuals
+for efficient video generation. arXiv preprint arXiv:2607.21553 , 2026. 10.48550/arXiv.2607.21553 . URL https://arxiv.org/abs/2607.21553 . Chen et al. (2016) Tianqi Chen, Bing Xu, Chiyuan Zhang, and Carlos Guestrin. Training deep nets with sublinear memory cost. arXiv preprint arXiv:1604.06174 , 2016. URL https://arxiv.org/abs/1604.06174 . Chen et al. (2025) Xiaokang Chen, Zhiyu Wu, Xingchao Liu, Zizheng Pan, Wen Liu, Zhenda Xie,
+Xingkai Yu, and Chong Ruan. Janus-Pro: Unified Multimodal Understanding and Generation with Data
+and Model Scaling. arXiv preprint arXiv:2501.17811 , 2025. URL https://arxiv.org/abs/2501.17811 . Chen et al. (2024) Zhe Chen, Weiyun Wang, Yue Cao, Yangzhou Liu, Zhangwei Gao, Erfei Cui, Jinguo
+Zhu, Shenglong Ye, Hao Tian, Zhaoyang Liu, et al. Expanding Performance Boundaries of Open-Source Multimodal Models
+with Model, Data, and Test-Time Scaling. arXiv preprint arXiv:2412.05271 , 2024. URL https://arxiv.org/abs/2412.05271 . Deng et al. (2025) Chaorui Deng, Deyao Zhu, Kunchang Li, Chenhui Gou, Feng Li, Zeyu Wang, Shu
+Zhong, Weihao Yu, Xiaonan Nie, Ziang Song, et al. Emerging properties in unified multimodal pretraining. arXiv preprint arXiv:2505.14683 , 2025. 10.48550/arXiv.2505.14683 . URL https://arxiv.org/abs/2505.14683 . Diao et al. (2026) Haiwen Diao, Penghao Wu, Hanming Deng, Jiahao Wang, Shihao Bai, Silei Wu,
+Weichen Fan, Wenjie Ye, Wenwen Tong, Xiangyu Fan, Yan Li, Yubo Wang, Zhijie
+Cao, Zhiqian Lin, Zhitao Yang, Zhongang Cai, Yuwei Niu, Yue Zhu, Bo Liu,
+Chengguang Lv, Haojia Yu, Haozhe Xie, Hongli Wang, Jianan Fan, Jiaqi Li,
+Jiefan Lu, Jingcheng Ni, Junxiang Xu, Kaihuan Liang, Lianqiang Shi, Linjun
+Dai, Linyan Wang, Oscar Qian, Peng Gao, Pengfei Liu, Qingping Sun, Rui Shen,
+Ruisi Wang, Shengnan Ma, Shuang Yang, Siyi Xie, Siying Li, Tianbo Zhong,
+Xiangli Kong, Xuanke Shi, Yang Gao, Yongqiang Yao, Yves Wang, Zhengqi Bai,
+Zhengyu Lin, Zixin Yin, Wenxiu Sun, Ruihao Gong, Quan Wang, Lewei Lu, Lei
+Yang, Ziwei Liu, and Dahua Lin. SenseNova-U1: Unifying Multimodal Understanding and Generation with
+NEO-unify Architecture. arXiv preprint arXiv:2605.12500 , 2026. 10.48550/arXiv.2605.12500 . URL https://arxiv.org/abs/2605.12500 . Fu et al. (2023) Chaoyou Fu, Peixian Chen, Yunhang Shen, Yulei Qin, Mengdan Zhang, Xu Lin,
+Zhenyu Qiu, Wei Lin, Jinrui Yang, Xiawu Zheng, Ke Li, Xing Sun, and Rongrong
+Ji. MME: A Comprehensive Evaluation Benchmark for Multimodal Large
+Language Models. arXiv preprint arXiv:2306.13394 , 2023. 10.48550/arXiv.2306.13394 . URL https://arxiv.org/abs/2306.13394v1 . Gao et al. (2025) Yu Gao, Lixue Gong, Qiushan Guo, Xiaoxia Hou, Zhichao Lai, Fanshi Li, Liang Li,
+Xiaochen Lian, Chao Liao, Liyang Liu, et al. Seedream 3.0 Technical Report. arXiv preprint arXiv:2504.11346 , 2025. URL https://arxiv.org/abs/2504.11346 . Ge et al. (2024) Yuying Ge, Sijie Zhao, Jinguo Zhu, Yixiao Ge, Kun Yi, Lin Song, Chen Li,
+Xiaohan Ding, and Ying Shan. SEED-X: Multimodal Models with Unified Multi-granularity
+Comprehension and Generation. arXiv preprint arXiv:2404.14396 , 2024. URL https://arxiv.org/abs/2404.14396 . Ghosh et al. (2023) Dhruba Ghosh, Hanna Hajishirzi, and Ludwig Schmidt. GenEval: An Object-Focused Framework for Evaluating Text-to-Image
+Alignment. arXiv preprint arXiv:2310.11513 , 2023. URL https://arxiv.org/abs/2310.11513 . Han et al. (2026) Xiaoyang Han, Jianhua Li, Kewang Deng, Zukai Chen, Xuanke Shi, Sihan Wang,
+Boxuan Li, Linyan Wang, Siyi Xie, Xin You, Jinsheng Quan, Zhongang Cai,
+Haiwen Diao, Ziwei Liu, Lei Yang, Dahua Lin, and Quan Wang. Vision as Unified Multimodal Generation. arXiv preprint arXiv:2607.06560 , 2026. 10.48550/arXiv.2607.06560 . URL https://arxiv.org/abs/2607.06560 . Hatamizadeh et al. (2026) Ali Hatamizadeh, Yejin Choi, and Jan Kautz. Gated DeltaNet-2: Decoupling Erase and Write in Linear Attention. arXiv preprint arXiv:2605.22791 , 2026. 10.48550/arXiv.2605.22791 . URL https://arxiv.org/abs/2605.22791 . Hu et al. (2024) Xiwei Hu, Rui Wang, Yixiao Fang, Bin Fu, Pei Cheng, and Gang Yu. ELLA: Equip Diffusion Models with LLM for Enhanced Semantic
+Alignment. arXiv preprint arXiv:2403.05135 , 2024. URL https://arxiv.org/abs/2403.05135 . Inclusion AI et al. (2026) Inclusion AI, Tiwei Bie, Haoxing Chen, Tieyuan Chen, Zhenglin Cheng, Long
+Cui, Kai Gan, Zhicheng Huang, Zhenzhong Lan, Haoquan Li, et al. LLaDA2.0-Uni: Unifying Multimodal Understanding and Generation with
+Diffusion Large Language Model. arXiv preprint arXiv:2604.20796 , 2026. URL https://arxiv.org/abs/2604.20796 . Katharopoulos et al. (2020) Angelos Katharopoulos, Apoorv Vyas, Nikolaos Pappas, and François
+Fleuret. Transformers are RNNs: Fast autoregressive transformers with linear
+attention. In Proceedings of the 37th International Conference on Machine
+Learning , volume 119, pp.  5156–5165, 2020. URL https://proceedings.mlr.press/v119/katharopoulos20a.html . Kimi Team et al. (2025a) Kimi Team, Angang Du, Bohong Yin, Bowei Xing, Bowen Qu, Bowen Wang, Cheng
+Chen, Chenlin Zhang, Chenzhuang Du, Chu Wei, et al. Kimi-VL Technical Report. arXiv preprint arXiv:2504.07491 , 2025a. URL https://arxiv.org/abs/2504.07491 . Kimi Team et al. (2025b) Kimi Team, Yu Zhang, Zongyu Lin, Xingcheng Yao, Jiaxi Hu, Fanqing Meng,
+Chengyin Liu, Xin Men, Songlin Yang, Zhiyuan Li, Wentao Li, Enzhe Lu, Weizhou
+Liu, Yanru Chen, Weixin Xu, Longhui Yu, Yejie Wang, Yu Fan, Longguang Zhong,
+Enming Yuan, Dehao Zhang, Yizhi Zhang, T. Y. Liu, Haiming Wang, Shengjun
+Fang, Weiran He, Shaowei Liu, Yiwei Li, Jianlin Su, Jiezhong Qiu, Bo Pang,
+Junjie Yan, Zhejun Jiang, Weixiao Huang, Bohong Yin, Jiacheng You, Chu Wei,
+Zhengtao Wang, Chao Hong, Yutian Chen, Guanduo Chen, Yucheng Wang, Huabin
+Zheng, Feng Wang, Yibo Liu, Mengnan Dong, Zheng Zhang, Siyuan Pan, Wenhao Wu,
+Yuhao Wu, Longyu Guan, Jiawen Tao, Guohong Fu, Xinran Xu, Yuzhi Wang, Guokun
+Lai, Yuxin Wu, Xinyu Zhou, Zhilin Yang, and Yulun Du. Kimi Linear: An Expressive, Efficient Attention Architecture. arXiv preprint arXiv:2510.26692 , 2025b. 10.48550/arXiv.2510.26692 . URL https://arxiv.org/abs/2510.26692 . Li et al. (2024) Bo Li, Yuanhan Zhang, Dong Guo, Renrui Zhang, Feng Li, Hao Zhang, Kaichen
+Zhang, Peiyuan Zhang, Yanwei Li, Ziwei Liu, et al. LLaVA-OneVision: Easy Visual Task Transfer. arXiv preprint arXiv:2408.03326 , 2024. URL https://arxiv.org/abs/2408.03326 . Li et al. (2026) Ruibang Li, Guan Luo, Yiwei Zhang, Jin Gao, Bing Li, and Weiming Hu. SoLA-Vision: Fine-grained layer-wise linear softmax hybrid
+attention. arXiv preprint arXiv:2601.11164 , 2026. 10.48550/arXiv.2601.11164 . URL https://arxiv.org/abs/2601.11164 . Liang et al. (2025) Weixin Liang, Lili Yu, Liang Luo, Srinivasan Iyer, Ning Dong, Chunting Zhou,
+Gargi Ghosh, Mike Lewis, Wen-tau Yih, Luke Zettlemoyer, and Xi Victoria Lin. Mixture-of-transformers: A sparse and scalable architecture for
+multi-modal foundation models. Transactions on Machine Learning Research , 2025. 10.48550/arXiv.2411.04996 . URL https://arxiv.org/abs/2411.04996 . Lipman et al. (2023) Yaron Lipman, Ricky T. Q. Chen, Heli Ben-Hamu, Maximilian Nickel, and Matt Le. Flow matching for generative modeling. In International Conference on Learning Representations , 2023. URL https://arxiv.org/abs/2210.02747 . Liu et al. (2025) Shiyu Liu, Yucheng Han, Peng Xing, Fukun Yin, Rui Wang, Wei Cheng, Jiaqi Liao,
+Yingming Wang, Honghao Fu, Chunrui Han, et al. Step1X-Edit: A Practical Framework for General Image Editing. arXiv preprint arXiv:2504.17761 , 2025. URL https://arxiv.org/abs/2504.17761 . Liu et al. (2024) Yuan Liu, Haodong Duan, Yuanhan Zhang, Bo Li, Songyang Zhang, Wangbo Zhao, Yike
+Yuan, Jiaqi Wang, Conghui He, Ziwei Liu, et al. MMBench: Is Your Multi-Modal Model an All-around Player? In Proceedings of the European Conference on Computer Vision
+(ECCV) , 2024. URL https://arxiv.org/abs/2307.06281 . Liu et al. (2026) Zhiheng Liu, Weiming Ren, Xiaoke Huang, Shoufa Chen, Tianhong Li, Mengzhao
+Chen, Yatai Ji, Sen He, Jonas Schult, Belinda Zeng, Tao Xiang, Wenhu Chen,
+Ping Luo, Luke Zettlemoyer, and Yuren Cong. Tuna-2: Pixel Embeddings Beat Vision Encoders for Multimodal
+Understanding and Generation. arXiv preprint arXiv:2604.24763 , 2026. 10.48550/arXiv.2604.24763 . URL https://arxiv.org/abs/2604.24763 . Loshchilov & Hutter (2019) Ilya Loshchilov and Frank Hutter. Decoupled weight decay regularization. In International Conference on Learning Representations , 2019. URL https://arxiv.org/abs/1711.05101 . Lu et al. (2023) Pan Lu, Hritik Bansal, Tony Xia, Jiacheng Liu, Chunyuan Li, Hannaneh
+Hajishirzi, Hao Cheng, Kai-Wei Chang, Michel Galley, and Jianfeng Gao. MathVista: Evaluating Mathematical Reasoning of Foundation Models in
+Visual Contexts. arXiv preprint arXiv:2310.02255 , 2023. URL https://arxiv.org/abs/2310.02255 . Meituan LongCat Team et al. (2025) Meituan LongCat Team, Hanghang Ma, Haoxian Tan, Jiale Huang, Junqiang Wu,
+Jun-Yan He, Lishuai Gao, Songlin Xiao, Xiaoming Wei, Xiaoqi Ma, et al. LongCat-Image Technical Report. arXiv preprint arXiv:2512.07584 , 2025. URL https://arxiv.org/abs/2512.07584 . Meng et al. (2026) Boyuan Meng, Peihua Bao, Hong Liu, Xiaowei Zhu, Chao Wang, Gen Li, and Zhenxuan
+Pan. HARTS: Efficient Agentic Reinforcement Learning for Hybrid-Attention
+Models over Arbitrary Rollout Trees. arXiv preprint arXiv:2608.28158 , 2026. 10.48550/arXiv.2608.28158 . URL https://arxiv.org/abs/2608.28158 . Merrill et al. (2026) William Merrill, Yanhong Li, Tyler Romero, Anej Svete, Caia Costello, Pradeep
+Dasigi, Dirk Groeneveld, David Heineman, Bailey Kuehl, Nathan Lambert, Chuan
+Li, Kyle Lo, Saumya Malik, DJ Matusz, Benjamin Minixhofer, Jacob Morrison,
+Luca Soldaini, Finbarr Timbers, Pete Walsh, Noah A. Smith, Hannaneh
+Hajishirzi, and Ashish Sabharwal. Olmo Hybrid: From Theory to Practice and Back. arXiv preprint arXiv:2604.03444 , 2026. 10.48550/arXiv.2604.03444 . URL https://arxiv.org/abs/2604.03444 . OpenGVLab (2024) OpenGVLab. InternVL2 Model Card. https://huggingface.co/OpenGVLab/InternVL2-8B , 2024. Pan et al. (2025) Xichen Pan, Satya Narayan Shukla, Aashu Singh, Zhuokai Zhao, Shlok Kumar
+Mishra, Jialiang Wang, Zhiyang Xu, Jiuhai Chen, Kunpeng Li, Felix Juefei-Xu,
+et al. Transfer between Modalities with MetaQueries. arXiv preprint arXiv:2504.06256 , 2025. URL https://arxiv.org/abs/2504.06256 . Peng et al. (2026) Wujian Peng, Lingchen Meng, Yuxuan Cai, Xianwei Zhuang, Yuhuan Yang, Rongyao
+Fang, Chenfei Wu, Junyang Lin, Zuxuan Wu, and Shuai Bai. Unified Multimodal Autoregressive Modeling with Shared
+Context-Visual Tokenizer is Key to Unification. arXiv preprint arXiv:2606.18249 , 2026. 10.48550/arXiv.2606.18249 . URL https://arxiv.org/abs/2606.18249 . Qu et al. (2024) Liao Qu, Huichao Zhang, Yiheng Liu, Xu Wang, Yi Jiang, Yiming Gao, Hu Ye,
+Daniel K. Du, Zehuan Yuan, and Xinglong Wu. TokenFlow: Unified Image Tokenizer for Multimodal Understanding and
+Generation. arXiv preprint arXiv:2412.03069 , 2024. URL https://arxiv.org/abs/2412.03069 . Qwen Team (2025) Qwen Team. Qwen-Image-Edit Model Card. https://huggingface.co/Qwen/Qwen-Image-Edit , 2025. Qwen Team (2026) Qwen Team. Qwen3.5-9B model card. Hugging Face, 2026. URL https://huggingface.co/Qwen/Qwen3.5-9B . Accessed September 6, 2026. Rombach et al. (2022) Robin Rombach, Andreas Blattmann, Dominik Lorenz, Patrick Esser, and Björn
+Ommer. High-resolution image synthesis with latent diffusion models. In Proceedings of the IEEE/CVF Conference on Computer Vision
+and Pattern Recognition , 2022. URL https://arxiv.org/abs/2112.10752 . Shi et al. (2024) Weijia Shi, Xiaochuang Han, Chunting Zhou, Weixin Liang, Xi Victoria Lin, Luke
+Zettlemoyer, and Lili Yu. LMFusion: Adapting Pretrained Language Models for Multimodal
+Generation. arXiv preprint arXiv:2412.15188 , 2024. URL https://arxiv.org/abs/2412.15188 . Tan et al. (2026) Zhentao Tan, Wei Chen, Jingyi Shen, Yao Liu, Xu Shen, Yue Wu, and Jieping Ye. HydraHead: From Head-Level Functional Heterogeneity to Specialized
+Attention Hybridization. arXiv preprint arXiv:2606.20097 , 2026. 10.48550/arXiv.2606.20097 . URL https://arxiv.org/abs/2606.20097 . Tencent Hunyuan Foundation Model Team (2025) Tencent Hunyuan Foundation Model Team. HunyuanImage 3.0 Technical Report. arXiv preprint arXiv:2509.23951 , 2025. URL https://arxiv.org/abs/2509.23951 . Tian et al. (2026) Changyao Tian, Danni Yang, Guanzhou Chen, Erfei Cui, Zhaokai Wang, Yuchen Duan,
+Penghao Yin, Sitao Chen, Ganlin Yang, Mingxin Liu, et al. InternVL-U: Democratizing Unified Multimodal Models for
+Understanding, Reasoning, Generation and Editing. arXiv preprint arXiv:2603.09877 , 2026. URL https://arxiv.org/abs/2603.09877 . Tong et al. (2024a) Shengbang Tong, David Fan, Jiachen Zhu, Yunyang Xiong, Xinlei Chen, Koustuv
+Sinha, Michael Rabbat, Yann LeCun, Saining Xie, and Zhuang Liu. MetaMorph: Multimodal Understanding and Generation via Instruction
+Tuning. arXiv preprint arXiv:2412.14164 , 2024a. URL https://arxiv.org/abs/2412.14164 . Tong et al. (2024b) Shengbang Tong, Zhuang Liu, Yuexiang Zhai, Yi Ma, Yann LeCun, and Saining Xie. Eyes Wide Shut? Exploring the Visual Shortcomings of Multimodal
+LLMs. arXiv preprint arXiv:2401.06209 , 2024b. 10.48550/arXiv.2401.06209 . URL https://arxiv.org/abs/2401.06209 . Vaswani et al. (2017) Ashish Vaswani, Noam Shazeer, Niki Parmar, Jakob Uszkoreit, Llion Jones,
+Aidan N. Gomez, Lukasz Kaiser, and Illia Polosukhin. Attention is all you need. In Advances in Neural Information Processing Systems , 2017. URL https://arxiv.org/abs/1706.03762 . Wan Team (2025) Wan Team. Wan2.2: Open and Advanced Large-Scale Video Generative Models. https://github.com/Wan-Video/Wan2.2 , 2025. Wang et al. (2024a) Chunwei Wang, Guansong Lu, Junwei Yang, Runhui Huang, Jianhua Han, Lu Hou, Wei
+Zhang, and Hang Xu. ILLUME: Illuminating Your LLMs to See, Draw, and Self-Enhance. arXiv preprint arXiv:2412.06673 , 2024a. URL https://arxiv.org/abs/2412.06673 . Wang et al. (2024b) Peng Wang, Shuai Bai, Sinan Tan, Shijie Wang, Zhihao Fan, Jinze Bai, Keqin
+Chen, Xuejing Liu, Jialin Wang, Wenbin Ge, et al. Qwen2-VL: Enhancing Vision-Language Model’s Perception of the World
+at Any Resolution. arXiv preprint arXiv:2409.12191 , 2024b. URL https://arxiv.org/abs/2409.12191 . Wang et al. (2024c) Xinlong Wang, Xiaosong Zhang, Zhengxiong Luo, Quan Sun, Yufeng Cui, Jinsheng
+Wang, Fan Zhang, Yueze Wang, Zhen Li, Qiying Yu, et al. Emu3: Next-Token Prediction Is All You Need. arXiv preprint arXiv:2409.18869 , 2024c. URL https://arxiv.org/abs/2409.18869 . Williams & Zipser (1989) Ronald J. Williams and David Zipser. A learning algorithm for continually running fully recurrent neural
+networks. Neural Computation , 1(2):270–280, 1989. 10.1162/neco.1989.1.2.270 . Wu et al. (2025a) Chenfei Wu, Jiahao Li, Jingren Zhou, Junyang Lin, Kaiyuan Gao, Kun Yan,
+Sheng-ming Yin, Shuai Bai, Xiao Xu, Yilei Chen, et al. Qwen-Image Technical Report. arXiv preprint arXiv:2508.02324 , 2025a. URL https://arxiv.org/abs/2508.02324 . Wu et al. (2024a) Chengyue Wu, Xiaokang Chen, Zhiyu Wu, Yiyang Ma, Xingchao Liu, Zizheng Pan, Wen
+Liu, Zhenda Xie, Xingkai Yu, Chong Ruan, et al. Janus: Decoupling Visual Encoding for Unified Multimodal
+Understanding and Generation. arXiv preprint arXiv:2410.13848 , 2024a. URL https://arxiv.org/abs/2410.13848 . Wu et al. (2025b) Chenyuan Wu, Pengfei Zheng, Ruiran Yan, Shitao Xiao, Xin Luo, Yueze Wang, Wanli
+Li, Xiyan Jiang, Yexin Liu, Junjie Zhou, et al. OmniGen2: Towards Instruction-Aligned Multimodal Generation. arXiv preprint arXiv:2506.18871 , 2025b. URL https://arxiv.org/abs/2506.18871 . Wu et al. (2026) Penghao Wu, Haiwen Diao, Weichen Fan, Lewei Lu, Dahua Lin, and Ziwei Liu. Uncovering Understanding-Generation Synergy in Native Unified
+Multimodal Models: From Representation, Task to System. arXiv preprint arXiv:2609.01607 , 2026. 10.48550/arXiv.2609.01607 . URL https://arxiv.org/abs/2609.01607 . Wu et al. (2024b) Yecheng Wu, Zhuoyang Zhang, Junyu Chen, Haotian Tang, Dacheng Li, Yunhao Fang,
+Ligeng Zhu, Enze Xie, Hongxu Yin, Li Yi, et al. VILA-U: a Unified Foundation Model Integrating Visual Understanding
+and Generation. arXiv preprint arXiv:2409.04429 , 2024b. URL https://arxiv.org/abs/2409.04429 . Wu et al. (2024c) Zhiyu Wu, Xiaokang Chen, Zizheng Pan, Xingchao Liu, Wen Liu, Damai Dai, Huazuo
+Gao, Yiyang Ma, Chengyue Wu, Bingxuan Wang, et al. DeepSeek-VL2: Mixture-of-Experts Vision-Language Models for Advanced
+Multimodal Understanding. arXiv preprint arXiv:2412.10302 , 2024c. URL https://arxiv.org/abs/2412.10302 . Xie et al. (2024a) Jinheng Xie, Weijia Mao, Zechen Bai, David Junhao Zhang, Weihao Wang,
+Kevin Qinghong Lin, Yuchao Gu, Zhijie Chen, Zhenheng Yang, and Mike Zheng
+Shou. Show-o: One single transformer to unify multimodal understanding
+and generation. arXiv preprint arXiv:2408.12528 , 2024a. 10.48550/arXiv.2408.12528 . URL https://arxiv.org/abs/2408.12528 . Xie et al. (2025) Jinheng Xie, Zhenheng Yang, and Mike Zheng Shou. Show-o2: Improved native unified multimodal models. arXiv preprint arXiv:2506.15564 , 2025. 10.48550/arXiv.2506.15564 . URL https://arxiv.org/abs/2506.15564 . Xie et al. (2024b) Rongchang Xie, Chen Du, Ping Song, and Chang Liu. MUSE-VL: Modeling Unified VLM through Semantic Discrete Encoding. arXiv preprint arXiv:2411.17762 , 2024b. URL https://arxiv.org/abs/2411.17762 . Xin et al. (2025a) Yi Xin, Qi Qin, Siqi Luo, Kaiwen Zhu, Juncheng Yan, Yan Tai, Jiayi Lei, Yuewen
+Cao, Keqi Wang, Yibin Wang, et al. Lumina-DiMOO: An Omni Diffusion Large Language Model for Multi-Modal
+Generation and Understanding. arXiv preprint arXiv:2510.06308 , 2025a. URL https://arxiv.org/abs/2510.06308 . Xin et al. (2025b) Yi Xin, Juncheng Yan, Qi Qin, Zhen Li, Dongyang Liu, Shicheng Li, Victor
+Shea-Jay Huang, Yupeng Zhou, Renrui Zhang, Le Zhuo, et al. Lumina-mGPT 2.0: Stand-Alone AutoRegressive Image Modeling. arXiv preprint arXiv:2507.17801 , 2025b. URL https://arxiv.org/abs/2507.17801 . Xue et al. (2024) Le Xue, Manli Shu, Anas Awadalla, Jun Wang, An Yan, Senthil Purushwalkam,
+Honglu Zhou, Viraj Prabhu, Yutong Dai, Michael S Ryoo, et al. xGen-MM (BLIP-3): A Family of Open Large Multimodal Models. arXiv preprint arXiv:2408.08872 , 2024. URL https://arxiv.org/abs/2408.08872 . Yang et al. (2026) Ceyuan Yang, Zhijie Lin, Yang Zhao, Fei Xiao, Hao He, Qi Zhao, Chaorui Deng,
+Kunchang Li, Zihan Ding, Yuwei Guo, Fuyun Wang, Fangqi Zhu, Xiaonan Nie,
+Shenhan Zhu, Shanchuan Lin, Hongsheng Li, Weilin Huang, Guang Shi, and Haoqi
+Fan. Context Unrolling in Omni Models. arXiv preprint arXiv:2604.21921 , 2026. 10.48550/arXiv.2604.21921 . URL https://arxiv.org/abs/2604.21921 . Yang et al. (2025a) Ling Yang, Ye Tian, Bowen Li, Xinchen Zhang, Ke Shen, Yunhai Tong, and Mengdi
+Wang. MMaDA: Multimodal Large Diffusion Language Models. arXiv preprint arXiv:2505.15809 , 2025a. URL https://arxiv.org/abs/2505.15809 . Yang et al. (2025b) Songlin Yang, Jan Kautz, and Ali Hatamizadeh. Gated delta networks: Improving Mamba2 with delta rule. In International Conference on Learning Representations ,
+2025b. 10.48550/arXiv.2412.06464 . URL https://arxiv.org/abs/2412.06464 . Ye et al. (2025) Yang Ye, Xianyi He, Zongjian Li, Bin Lin, Shenghai Yuan, Zhiyuan Yan, Bohan
+Hou, and Li Yuan. ImgEdit: A Unified Image Editing Dataset and Benchmark. arXiv preprint arXiv:2505.20275 , 2025. 10.48550/arXiv.2505.20275 . URL https://arxiv.org/abs/2505.20275 . You et al. (2026) Zebin You, Xiaolu Zhang, Jun Zhou, Chongxuan Li, and Ji-Rong Wen. LLaDA-o: An Effective and Length-Adaptive Omni Diffusion Model. arXiv preprint arXiv:2603.01068 , 2026. URL https://arxiv.org/abs/2603.01068 . Yu et al. (2024) Weihao Yu, Zhengyuan Yang, Linjie Li, Jianfeng Wang, Kevin Lin, Zicheng Liu,
+Xinchao Wang, and Lijuan Wang. MM-Vet: Evaluating Large Multimodal Models for Integrated
+Capabilities. In Proceedings of the 41st International Conference on Machine
+Learning , volume 235 of Proceedings of Machine Learning Research ,
+pp.  57730–57754. PMLR, 2024. URL https://proceedings.mlr.press/v235/yu24o.html . Yue et al. (2024) Xiang Yue, Yuansheng Ni, Kai Zhang, Tianyu Zheng, et al. MMMU: A Massive Multi-Discipline Multimodal Understanding and
+Reasoning Benchmark for Expert AGI. In Proceedings of the IEEE/CVF Conference on Computer Vision
+and Pattern Recognition (CVPR) , 2024. URL https://openaccess.thecvf.com/content/CVPR2024/html/Yue_MMMU_A_Massive_Multi-discipline_Multimodal_Understanding_and_Reasoning_Benchmark_for_CVPR_2024_paper.html . Z-Image Team et al. (2025) Z-Image Team, Huanqia Cai, Sihan Cao, Ruoyi Du, Peng Gao, Steven Hoi, Zhaohui
+Hou, Shijie Huang, Dengyang Jiang, Xin Jin, Liangchen Li, et al. Z-Image: An Efficient Image Generation Foundation Model with
+Single-Stream Diffusion Transformer. arXiv preprint arXiv:2511.22699 , 2025. URL https://arxiv.org/abs/2511.22699 . Zhang et al. (2026) Huichao Zhang, Liao Qu, Yiheng Liu, Hang Chen, Yangyang Song, Yongsheng Dong,
+Shikun Sun, Xian Li, Xu Wang, Yi Jiang, et al. NextFlow: Unified Sequential Modeling Activates Multimodal
+Understanding and Generation. arXiv preprint arXiv:2601.02204 , 2026. URL https://arxiv.org/abs/2601.02204 . Zhao et al. (2023) Yanli Zhao, Andrew Gu, Rohan Varma, Liang Luo, Chien-Chin Huang, Min Xu, Less
+Wright, Hamid Shojanazeri, Myle Ott, Sam Shleifer, et al. PyTorch FSDP: Experiences on Scaling Fully Sharded Data Parallel. arXiv preprint arXiv:2304.11277 , 2023. URL https://arxiv.org/abs/2304.11277 . Zhou et al. (2024) Chunting Zhou, Lili Yu, Arun Babu, Kushal Tirumala, Michihiro Yasunaga, Leonid
+Shamis, Jacob Kahn, Xuezhe Ma, Luke Zettlemoyer, and Omer Levy. Transfusion: Predict the next token and diffuse images with one
+multi-modal model. arXiv preprint arXiv:2408.11039 , 2024. 10.48550/arXiv.2408.11039 . URL https://arxiv.org/abs/2408.11039 . Zhu et al. (2026) Yubo Zhu, Zhehan Kan, Jingyi Yang, Miaolin Chen, Jinbo Xing, Kai Zhu, Zijian
+Wang, Sheng Zhong, and Wei Tong. When Does Visual Generation Help Visual Understanding in Unified
+Multimodal Models? arXiv preprint arXiv:2608.22174 , 2026. 10.48550/arXiv.2608.22174 . URL https://arxiv.org/abs/2608.22174 . Experimental support, please view the build logs for errors. Generated by L A T E xml . Instructions for reporting errors We are continuing to improve HTML versions of papers, and your feedback helps enhance accessibility and mobile
+      support. To report errors in the HTML that will help us improve conversion and rendering, choose any of the
+      methods listed below: Click the "Report Issue" ( ) button, located in the page header. Tip: You can select the relevant text first, to include it in your report. Our team has already identified the following issues . We appreciate your time reviewing and reporting rendering errors we
+      may not have found yet. Your efforts will help us improve the HTML versions for all readers, because disability
+      should not be a barrier to accessing research. Thank you for your continued support in championing open access for
+      all. Have a free development cycle? Help support accessibility at arXiv! Our collaborators at LaTeXML maintain a list of packages that need conversion , and welcome developer contributions . We gratefully acknowledge support from our major funders , member institutions , ,
+        and all contributors. About · Help · Contact · Subscribe · Copyright · Privacy · Accessibility · Operational Status (opens in new tab)

@@ -1,0 +1,89 @@
+3.2 Retained stages and initialization order
+Verified rewriting provides an essential exploration anchor, enabling RPR-1 to outperform Direct
+PPO by up to +29.2% on TB-2.1 and +16.7% on TB-4.0 at step 20.
+Both rewrite and refinement stages improve retained performance.
+Table 2 uses one shared
+checkpoint across Terminal-Bench 4.0, Terminal-Bench 2.1, Terminal-Bench 3.0 and Terminal-Bench Hard
+four benchmarks per stage. RPR-1 improves over RSR-1 by 7.43, 7.49, 10.57, and 15.50 percentage points on
+Terminal-Bench 2.1, 3.0, 4.0, and Hard, respectively. RSR-2 adds 8.99, 0.71, 0.79, and 6.50 points on those
+suites. The final RPR-2 checkpoint, Terminal-RSI-27B yields 19.84% on Terminal-Bench 4.0, 86.52%
+on Terminal-Bench 2.1, 16.95% on Terminal-Bench 3.0, and 79.00% on Terminal-Bench Hard.
+Base
+RSR-1
+RPR-1
+RSR-2
+RPR-2
+10.00%
+20.00%
+30.00%
+40.00%
+50.00%
+60.00%
+20.68%
+34.25%
+44.50%
+48.75%
+50.58%
+Mean Success Progression
+Across Terminal-Bench 4.0, 3.0, 2.1, and Hard
+Figure 5: Mean Success Progression. Evalua-
+tion across Terminal-Bench 4.0, 3.0, 2.1, and Hard
+yields an equal-weight success mean rising from
+20.68% to 50.58%. The vertical axis spans 10.00%–
+60.00%.
+Comparison with reference models.
+In Figure 4,
+Terminal-RSI-27B scores 19.84% on Terminal-Bench 4.0,
+compared with 19.70% for Gemini 3.8 Flash and 14.60%
+for DeepSeek V4 Pro in the reference table. On Terminal-
+Bench 2.1, its 86.52% exceeds the listed 85.40% for GPT-
+6 Sol and 85.00% for Kimi K3.
+The comparison is
+benchmark-specific: GPT-6 Sol is higher on Terminal-
+Bench 4.0, and Gemini 3.8 Flash is higher on Terminal-
+Bench 2.1. Reference model scores are quoted directly
+from their officially reported benchmarks following stan-
+dard evaluation practice.
+Mean success advances through both cycles. Fig-
+ure 5 reports ¯sk =
+1
+4
+P4
+b=1 sb,k using unrounded suite
+scores.
+Success progresses through 20.68%, 34.25%,
+44.50%, 48.75%, and 50.58%.
+The final failure com-
+plement is 49.42%, versus 79.33% at Base and 65.75%
+at RSR-1. Computed before rounding, these reductions
+are 29.90 and 16.33 percentage points, or 37.70% and
+24.83% relative to initial failure. This suite mean excludes
+SWR100 and LHTB and is not task-weighted.
+RSR-first outperforms direct PPO in this setting.
+At local step 20, RPR-1 exceeds Direct PPO by 29.22,
+12.86, 16.67, and 30.50 percentage points on Terminal-
+Bench 2.1, 3.0, 4.0, and Hard. Direct PPO records no Terminal-Bench 4.0 success at steps 5, 10, 15, and
+20.This confirms the distinct utility of verified seed trajectory generation in maximizing optimization stability
+and final policy performance under realistic compute constraints. TMax demonstrates direct optimization
+without SFT on capable bases in another setting [16]; our finding is specific to this backbone and budget.
+Appendix E specifies the historical control protocol.
+3.3 Training dynamics and checkpoint comparison
+Shared-checkpoint retention balances nonmonotonic, benchmark-dependent changes.
+Figure 6 includes all 30 observations per Terminal-Bench suite: Direct PPO, the discarded RPR-1
+continuation, ordinary RPR-2, and Long-Reward RPR-2 through step 20. The phase-ordinal axis aligns
+local steps without merging branches or equating total compute. All final results use the same checkpoint.
+Continuations expose cross-suite tradeoffs. After retained RPR-1 step 20, Terminal-Bench 4.0 falls
+from 16.67% to 11.11% at step 35, while Terminal-Bench 2.1 rises to 78.95%. Ordinary FDR RPR-2,
+initialized from RSR-2, falls from 17.46% at step 6 to 11.11% at step 10 on Terminal-Bench 4.0. The
+retained SPR Long-Reward checkpoint instead reaches 19.84%, up 5.55 points from its step 6, and 86.52%
+on Terminal-Bench 2.1. At step 18 it exceeds ordinary RPR-2 on three suites but scores 0.19 points lower on
+Terminal-Bench 3.0. Long-Reward also regresses: continuing to step 20 preserves Terminal-Bench 2.1 but
+loses 2.66, 2.38, and 3.00 points on Terminal-Bench 3.0, 4.0, and Hard. These tradeoffs favor cross-suite
+strict-success monitoring over reward alone.
+Training signals retain distinct clocks. RPR-1 displays the first 30 observations per metric at t = 20i/30,
+i = 1, . . . , 30, with no origin sample. Training traces use causal means of up to five observations without
+resetting at the mismatch-log restart. RPR-2 retains all reward and turn observations on separate native
+clocks; Appendix G gives coverage and provenance.
+RPR-1 gains accompany longer interaction. The first and last five-observation means rise from 0.11 to
+0.16 for dense reward, 0.29 to 0.41 for binary reward, and 50.00 to 84.80 turns (Figure 7). These concurrent
+8
