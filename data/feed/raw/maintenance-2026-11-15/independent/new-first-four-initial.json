@@ -1,0 +1,339 @@
+{
+  "schema_version": 1,
+  "frozen_at": "2026-11-15T02:44:36.628235+00:00",
+  "reviewer": "/root/nov13_independent",
+  "stage": "independent_initial_before_primary_first_four",
+  "rule": "external reusable Harness artifacts updated by execution/evaluation feedback and retained into subsequent tasks OR improvement rounds; editing the same answer alone is insufficient",
+  "sources": "cached official arXiv metadata and fulltext only; no new primary opinion read",
+  "records": [
+    {
+      "id": "arxiv:2611.14949",
+      "title": "RSI-PDEbench: A Benchmark for Self-Improving Agents in PDE Solving",
+      "official_version": 1,
+      "published": "2026-11-11T02:55:14Z",
+      "updated": "2026-11-11T02:55:14Z",
+      "metadata_evidence": {
+        "source_url": "https://export.arxiv.org/api/query?id_list=2611.14949%2C2611.15276%2C2611.16300%2C2611.16414&max_results=100",
+        "body_path": "build/maintenance-2026-11-15/source-intake/official-metadata/0001.body",
+        "body_sha256": "8549e2fec9d73fef93624248e138c5991c499fe28d6cf349379d761c4be4fb32",
+        "requested_at": "2026-11-15T02:36:22.106902+00:00",
+        "source": "official arxiv Atom API"
+      },
+      "source_file": "build/maintenance-2026-11-15/source-intake/scope-fulltexts/2611.14949.html",
+      "source_raw_sha256": "2b313d7bc9b292c3ce78e81ad003146f6bff0921872712111684f8e2c4d2c5a3",
+      "official_url": "https://arxiv.org/html/2611.14949v1",
+      "version_watermark_matches": [
+        "arXiv:2611.14949v1 [cs.AI] 11 Nov 2026 RSI-PDEbench : A Benchma"
+      ],
+      "html_title_anomaly": true,
+      "scope_advice": {
+        "recommendation": "include",
+        "scope": "harness",
+        "primary": "harness",
+        "sub": "component",
+        "secondary": [
+          "evaluation_benchmark",
+          "ai4ai"
+        ],
+        "object": "solver code P and numerical memory M are partly task products/data; independently the model-written investigation instruction policy pi is an external Harness artifact",
+        "feedback": "solver validation and regression checks choose accepted solver/policy/memory bundle; rejected proposals return errors and rejection reasons",
+        "retention": "accepted policy explicitly carried to the next improvement round; transfer of that policy across independent tasks not established",
+        "why_zh": "不仅修改 PDE 求解器任务产物；模型撰写的后续探索 instruction policy 也由验证反馈筛选、随接受状态带到下一改进轮，满足当前 Harness 判据。反馈作用于联合状态，不能单独归因于 policy；模型权重及可执行 supervisor 不变。",
+        "limitations": [
+          "只能证明 solver/policy/memory 联合演化与跨轮保留；未证明改进器变得更会改进，也未证明 policy 跨独立任务迁移。",
+          "模型和可执行 supervisor 固定，不能按模型与 Harness 共演化分类。",
+          "隐藏结果曾被维护者用于设计，作者称 developmental，不能称完全未见留出。",
+          "预算是按三个 solver group 分配；各组上限不能当整次运行总预算。不同原生 Harness 的工具和提示不同，系统比较不是单组件因果消融。",
+          "多数 cell 只有一次运行；个别成本来自 retrospective stop-rule replay 配合 full-budget scores，不是联合实现的成本/准确率。"
+        ],
+        "summary_zh": "RSI-PDE 让冻结模型依求解反馈修改求解程序、探索指令与数值经验，接受的策略随状态进入后续改进轮。属于包含科学求解产物的 Harness 组件演化；隐藏评测记录仍属开发性证据，不能证明改进器本身或端到端成本优势。"
+      },
+      "evidence": [
+        {
+          "claim": "external_artifact_and_fixed_components",
+          "locator": "S4.SS1.p1",
+          "quote": "The RSI-PDE harness structures an agent’s numerical exploration while keeping its foundation model and executable supervisor fixed. Its accepted state is (P,\\pi,M) : P is a modular solver with an identification router, equation-class modules and shared helpers; \\pi is a model-written instruction policy for subsequent investigation; and M stores reusable numerical lessons. Figure 3 shows how that state moves through one round. Figure 4 separately follows the physical identification and refinement loop.",
+          "quote_normalization": "BeautifulSoup text, math replaced by alttext, whitespace folded",
+          "source_raw_sha256": "2b313d7bc9b292c3ce78e81ad003146f6bff0921872712111684f8e2c4d2c5a3",
+          "matched": true
+        },
+        {
+          "claim": "feedback_and_next_round_retention",
+          "locator": "S4.SS4.p3",
+          "quote": "Accepted solver edits carry their corresponding policy and memory updates into the next round. Rejected candidates return their numerical errors and rejection reasons, while remaining in the audit history. Algorithm 1 summarizes this process. The solver, policy and memory evolve; the displayed experiments do not promote self-modified executable supervisors. Establishing improvement of the controller itself would require equal-budget paired continuations from the same starting solver and memory.",
+          "quote_normalization": "BeautifulSoup text, math replaced by alttext, whitespace folded",
+          "source_raw_sha256": "2b313d7bc9b292c3ce78e81ad003146f6bff0921872712111684f8e2c4d2c5a3",
+          "matched": true
+        },
+        {
+          "claim": "frozen_solver_hidden_scoring_boundary",
+          "locator": "S2.SS4.p3",
+          "quote": "After development, an independent evaluator scores the frozen retained program on hidden cases. For a combined learning curve at round r , each group contributes its retained program after r validation submissions, or its final program if it stopped earlier. Thus a round is a submission index, not a common elapsed-time budget, and summed group submissions differ from the final index of a combined curve. Hidden checkpoint scores are assembled for reporting and do not return to the running agent.",
+          "quote_normalization": "BeautifulSoup text, math replaced by alttext, whitespace folded",
+          "source_raw_sha256": "2b313d7bc9b292c3ce78e81ad003146f6bff0921872712111684f8e2c4d2c5a3",
+          "matched": true
+        },
+        {
+          "claim": "fixed_weights_and_controller_cost_limit",
+          "locator": "S6.SS0.SSS0.Px4.p1",
+          "quote": "The model weights and executable supervisor remain fixed, while solver code, policy text and memory can change. Final-program improvement does not establish that an evolved controller is a better improver; that claim requires matched continuation experiments. Recorded calls decrease in eight of 12 comparisons, with substantial exceptions on Noisy. Dollar costs depend on token usage and caching, and selected costs use retrospective stop-rule replay while retaining full-budget scores. Those estimates require fresh stopped runs before they can support jointly achieved accuracy/cost claims.",
+          "quote_normalization": "BeautifulSoup text, math replaced by alttext, whitespace folded",
+          "source_raw_sha256": "2b313d7bc9b292c3ce78e81ad003146f6bff0921872712111684f8e2c4d2c5a3",
+          "matched": true
+        }
+      ],
+      "model_weights_evolve": false,
+      "coevolution": false,
+      "decision": "defer_pending_cross_review_and_item_gates",
+      "numeric_boundary": "Only visible reported numbers used to understand scope and limitations; no underlying-output/statistical recomputation or experiment reproduction; suggested public summaries avoid quantitative outcome claims."
+    },
+    {
+      "id": "arxiv:2611.15276",
+      "title": "Verify by Doing: Co-Evolving Agent Execution and Evaluation without External Feedback",
+      "official_version": 1,
+      "published": "2026-11-11T10:07:09Z",
+      "updated": "2026-11-11T10:07:09Z",
+      "metadata_evidence": {
+        "source_url": "https://export.arxiv.org/api/query?id_list=2611.14949%2C2611.15276%2C2611.16300%2C2611.16414&max_results=100",
+        "body_path": "build/maintenance-2026-11-15/source-intake/official-metadata/0001.body",
+        "body_sha256": "8549e2fec9d73fef93624248e138c5991c499fe28d6cf349379d761c4be4fb32",
+        "requested_at": "2026-11-15T02:36:22.106902+00:00",
+        "source": "official arxiv Atom API"
+      },
+      "source_file": "build/maintenance-2026-11-15/source-intake/scope-fulltexts/2611.15276.html",
+      "source_raw_sha256": "42a08425cc4d44e337b6422f4e22003d5d46da6579b24a8adf9ff50c154738ce",
+      "official_url": "https://arxiv.org/html/2611.15276v1",
+      "version_watermark_matches": [
+        "arXiv:2611.15276v1 [cs.AI] 11 Nov 2026 November 11, 2026 Verify"
+      ],
+      "html_title_anomaly": true,
+      "scope_advice": {
+        "recommendation": "include",
+        "scope": "harness",
+        "primary": "harness",
+        "sub": "evolve_main",
+        "secondary": [
+          "meta"
+        ],
+        "object": "Actor and Evaluator instructions, working rubrics, skills and persistent check plans; not just the current answer",
+        "feedback": "active artifact/environment inspection and order-reversed comparative checks; Actor adoption requires strict support for its own fresh output",
+        "retention": "persistent edits are retained for fresh attempts within three rounds of the same task; harness/history reset between tasks",
+        "why_zh": "实际修改执行与验证 Harness 并把反馈转为下一轮 fresh trial 的指令和检查程序，满足后续改进轮次保留。任务间重置必须明说；不能把两个冻结模型的 Harness 共改误记为权重与 Harness 共演化。",
+        "limitations": [
+          "任务内三轮，跨独立任务和更长期持续改进未测；Harness 与历史在任务间重置。",
+          "Actor、Evaluator 与 reviewer 可共享误判，主动验证与比较不保证正确选择。",
+          "需要可隔离/重置的状态或工件；不可逆行动、不可访问状态与延迟效果受限。",
+          "GDPval 子集采用 rubric quality，不是官方专家成对胜率。相同 Actor 候选数不等于相同总 token/工具成本。",
+          "两套 Harness 同时更新不符合本项目的 coevolution（需权重与 Harness 分别迭代）。"
+        ],
+        "summary_zh": "Verify by Doing 用工具主动核查结果，并据验证发现改写执行与评估 Harness，在后续尝试中检验和保留改动。两端模型权重固定；证据限于任务内三轮，任务间会重置，尚未验证跨任务或长期持续提升。"
+      },
+      "evidence": [
+        {
+          "claim": "external_artifacts_and_fixed_weights",
+          "locator": "S3.p2",
+          "quote": "Actor harness H and Evaluator harness \\Phi contain instructions, working rubrics, and skills. Rubrics express checks against public requirements: Actor rubrics guide execution and self-checks; Evaluator rubrics guide assessment. Skills specify execution or verification procedures. H also includes persistent check plans, distinct from temporary trial questions. Model weights, task requirements, permissions, editor, selector, and reviewer instructions, eligibility, and acceptance rules remain fixed.",
+          "quote_normalization": "BeautifulSoup text, math replaced by alttext, whitespace folded",
+          "source_raw_sha256": "42a08425cc4d44e337b6422f4e22003d5d46da6579b24a8adf9ff50c154738ce",
+          "matched": true
+        },
+        {
+          "claim": "persistent_edits_vs_temporary_checks",
+          "locator": "S4.SS1.p1",
+          "quote": "A verification finding identifies a potential improvement, but the proposed harness must be tested through execution. Following harness optimization ( Pan et al., 2026 ; Lee et al., 2026 ) , Step 1 runs the current Actor H and proposed Actor \\widetilde{H} to produce fresh candidates a and b . Both receive the same temporary checks; only the proposal uses persistent edits. This exposes both Actors to the current verification concerns while testing the proposed execution procedure. Temporary checks expire after the round unless reconsidered. Without a proposal, both attempts use H .",
+          "quote_normalization": "BeautifulSoup text, math replaced by alttext, whitespace folded",
+          "source_raw_sha256": "42a08425cc4d44e337b6422f4e22003d5d46da6579b24a8adf9ff50c154738ce",
+          "matched": true
+        },
+        {
+          "claim": "adoption_from_fresh_candidate_evidence",
+          "locator": "S4.SS3.SSS0.Px3.p1",
+          "quote": "Actor adoption requires support for the proposal’s own fresh candidate. Let V_{A} denote a valid trial of a changed Actor. Indicators s_{1},s_{2} record strict support in the initial comparison (or candidate-set selection) and the subsequent incumbent comparison, each requiring agreement in both presentation orders: H^{+}=\\begin{cases}\\widetilde{H},&V_{A}\\land(z^{+}=b)\\land s_{1}\\land s_{2},\\\\ H,&\\text{otherwise}.\\end{cases} (5) Condition z^{+}=b requires selection of the proposal’s own output; s_{1}\\land s_{2} excludes fallback choices. Selecting an earlier output leaves the Actor unchanged. This rule holds across main experiments and ablations (Appendix B.1 ).",
+          "quote_normalization": "BeautifulSoup text, math replaced by alttext, whitespace folded",
+          "source_raw_sha256": "42a08425cc4d44e337b6422f4e22003d5d46da6579b24a8adf9ff50c154738ce",
+          "matched": true
+        },
+        {
+          "claim": "carry_verification_into_later_attempts",
+          "locator": "S4.SS4.p1",
+          "quote": "To carry a verification finding into later attempts, Step 4 translates it into a proposed change to execution, verification, or both. The fixed editor \\mathcal{L}_{\\mathrm{edit}} specifies an expected effect and a corresponding check for the next trial. Retrieving a supposedly unavailable contact sheet (Figure 2 ), for example, supplies an Actor retrieval instruction and an Evaluator check for future unavailability claims. The same observation can therefore provide both execution guidance and a verification procedure.",
+          "quote_normalization": "BeautifulSoup text, math replaced by alttext, whitespace folded",
+          "source_raw_sha256": "42a08425cc4d44e337b6422f4e22003d5d46da6579b24a8adf9ff50c154738ce",
+          "matched": true
+        },
+        {
+          "claim": "fixed_weights_and_procedure_changes",
+          "locator": "S6.p2",
+          "quote": "Together, these findings explain the value of evolving verification alongside task execution. Active verification supplies evidence, co-evolution turns findings into execution guidance and reusable checks, and separate retention distinguishes successful outputs from supported updates. Task requirements and model weights stay fixed; adaptation changes how the agent executes, checks completion, and carries verification findings into subsequent attempts. More broadly, VbD suggests that test-time agent improvement can progress beyond choosing among existing behaviors by evolving the procedures that produce and evaluate feedback.",
+          "quote_normalization": "BeautifulSoup text, math replaced by alttext, whitespace folded",
+          "source_raw_sha256": "42a08425cc4d44e337b6422f4e22003d5d46da6579b24a8adf9ff50c154738ce",
+          "matched": true
+        },
+        {
+          "claim": "within_task_limit",
+          "locator": "Sx1",
+          "quote": "Limitations VbD relies on observable evidence and model-based judgments. The Actor, Evaluator, and reviewer may share errors in interpreting evidence, so active verification and comparative review cannot eliminate incorrect selections or updates ( Wang et al., 2026a ) . Repeated trials require states or artifacts that can be isolated and inspected. As with replay-based adaptation ( Pan et al., 2026 ) , irreversible actions and environments that cannot be reset limit direct application. Delayed effects or inaccessible state may also escape verification. Our experiments evaluate three-round adaptation within individual tasks. Transfer across tasks and sustained improvement over longer evolution remain untested. Additional execution, verification, and harness revision incur inference and tool-use costs; deployment latency also depends on environment response times.",
+          "quote_normalization": "BeautifulSoup text, math replaced by alttext, whitespace folded",
+          "source_raw_sha256": "42a08425cc4d44e337b6422f4e22003d5d46da6579b24a8adf9ff50c154738ce",
+          "matched": true
+        }
+      ],
+      "model_weights_evolve": false,
+      "coevolution": false,
+      "decision": "defer_pending_cross_review_and_item_gates",
+      "numeric_boundary": "Only visible reported numbers used to understand scope and limitations; no underlying-output/statistical recomputation or experiment reproduction; suggested public summaries avoid quantitative outcome claims."
+    },
+    {
+      "id": "arxiv:2611.16300",
+      "title": "SAGE-QA: Semantic-Aware, Grounded Evaluation for Closed-Context Question Answering on SQuAD 2.0",
+      "official_version": 1,
+      "published": "2026-11-12T04:56:28Z",
+      "updated": "2026-11-12T04:56:28Z",
+      "metadata_evidence": {
+        "source_url": "https://export.arxiv.org/api/query?id_list=2611.14949%2C2611.15276%2C2611.16300%2C2611.16414&max_results=100",
+        "body_path": "build/maintenance-2026-11-15/source-intake/official-metadata/0001.body",
+        "body_sha256": "8549e2fec9d73fef93624248e138c5991c499fe28d6cf349379d761c4be4fb32",
+        "requested_at": "2026-11-15T02:36:22.106902+00:00",
+        "source": "official arxiv Atom API"
+      },
+      "source_file": "build/maintenance-2026-11-15/source-intake/scope-fulltexts/2611.16300.html",
+      "source_raw_sha256": "e7c0e6ad2546f74394a21a10a88e0cb742b45153930cdadbe76036ba916ebfdd",
+      "official_url": "https://arxiv.org/html/2611.16300v1",
+      "version_watermark_matches": [
+        "arXiv:2611.16300v1 [cs.AI] 12 Nov 2026 SAGE-QA: Semantic-Aware,"
+      ],
+      "html_title_anomaly": false,
+      "scope_advice": {
+        "recommendation": "exclude_from_harness",
+        "scope": "general_evaluation",
+        "primary": "evaluation_benchmark",
+        "sub": null,
+        "secondary": [],
+        "object": "fixed SES/RVS diagnostic evaluation and a single LoRA training pass; a GEPA-compiled QA prompt is selected in a preliminary pilot",
+        "feedback": "pilot prompt optimization is acknowledged, but the main paper audits answer scoring and one-off parameter-efficient training rather than Harness evolution",
+        "retention": "pilot GEPA prompt reused in subsequent evaluations; no ongoing scored Harness adaptation or central Harness-specific attribution study shown",
+        "why_zh": "不能说完全未用 prompt optimization：确有 GEPA pilot 并固定重用。但论文主体是通用 closed-context QA 诊断与单次 LoRA，比对的不是 Harness 迭代方法或专项演化评测。保留相关背景，不计 Harness。",
+        "limitations": [
+          "GEPA pilot 是相关证据，不应抹去；当前排除仅指不属于专门的 Harness 演化方法/评测。",
+          "SES/RVS 来自单个外部 LLM judge，非独立核实的正确率；不把误匹配全部称标注错误或幻觉。",
+          "一次 LoRA 与前置 GEPA 不等于权重和外部 Harness 的多轮共演化。"
+        ],
+        "summary_zh": "SAGE-QA 研究通用问答的语义等价与原文支持评分，并比较一次 LoRA 训练。它在 pilot 中选定 GEPA 提示后固定用于评测；该使用不构成本文中心的 Harness 演化研究，暂不计入 Harness 专题。"
+      },
+      "evidence": [
+        {
+          "claim": "positive_counterevidence_GEPA_pilot",
+          "locator": "S4.SS2.p1",
+          "quote": "Prior to full-scale benchmarking, we conducted a preliminary prompt-optimization study comparing three human-authored prompts, an OpenAI-optimized prompt [ 22 ] , and prompts compiled programmatically via DSPy MIPROv2 [ 19 , 20 ] and GEPA [ 21 ] ; because the DSPy GEPA optimizer achieved the highest pilot performance (69.60 EM and 80.70 \\mathrm{F1}_{\\mathrm{reported}} against SQuAD references), we standardized on this GEPA-compiled prompt across all subsequent zero-shot evaluations.",
+          "quote_normalization": "BeautifulSoup text, math replaced by alttext, whitespace folded",
+          "source_raw_sha256": "e7c0e6ad2546f74394a21a10a88e0cb742b45153930cdadbe76036ba916ebfdd",
+          "matched": true
+        },
+        {
+          "claim": "single_training_pass",
+          "locator": "S4.SS3.p1",
+          "quote": "We adapted the three open-weight models for one epoch over the 87,000-example training split using assistant-response cross-entropy supervision and the 8-bit AdamW optimizer. Llama 3 8B was fine-tuned via LoRA with Unsloth [ 23 , 34 ] ; gpt-oss-20b used 4-bit quantization with LoRA; and Llama 3.3 70B employed QLoRA with 4-bit NF4 quantization, BF16 compute, rank-stabilized LoRA [ 24 ] , cosine learning-rate scheduling, a warmup ratio of 0.03 , and weight decay of 0.01 . Table III summarizes the hyperparameter configurations.",
+          "quote_normalization": "BeautifulSoup text, math replaced by alttext, whitespace folded",
+          "source_raw_sha256": "e7c0e6ad2546f74394a21a10a88e0cb742b45153930cdadbe76036ba916ebfdd",
+          "matched": true
+        },
+        {
+          "claim": "diagnostic_judge_boundary",
+          "locator": "S6.SS2",
+          "quote": "VI-B Limitations of our Research Our semantic-equivalence and passage-support assessments rely on one external LLM judge ( gpt-6-luna ) and therefore we interpret SES and RVS as judge-based diagnostic scores rather than independently verified measures of answer correctness. Responses accepted despite failing benchmark criteria identify cases for further examination, but do not by themselves establish annotation errors or model hallucination rates. Using a judge that generated none of the evaluated responses avoids direct self-evaluation [ 4 , 25 ] . Moreover, while our untuned-versus-fine-tuned comparisons isolate the exact lexical gains of parameter-efficient adaptation across all three open-weight models, we executed per-example SES and RVS assessments only on the zero-shot closed-weight frontier cohort. Extending these diagnostics to the untuned open-weight models (particularly their 1,268–1,647 \\mathcal{F}_{N}^{\\mathrm{ans}} cases and 1,447–2,558 \\mathcal{F}_{P} cases), together with independent human adjudication, would help examine the contributions of formatting divergence and comprehension errors to their lexical deficit that we defer to future studies as mentioned below.",
+          "quote_normalization": "BeautifulSoup text, math replaced by alttext, whitespace folded",
+          "source_raw_sha256": "e7c0e6ad2546f74394a21a10a88e0cb742b45153930cdadbe76036ba916ebfdd",
+          "matched": true
+        }
+      ],
+      "model_weights_evolve": "single_training_pass_only",
+      "coevolution": false,
+      "decision": "defer_pending_cross_review_and_item_gates",
+      "numeric_boundary": "Only visible reported numbers used to understand scope and limitations; no underlying-output/statistical recomputation or experiment reproduction; suggested public summaries avoid quantitative outcome claims."
+    },
+    {
+      "id": "arxiv:2611.16414",
+      "title": "Small Language Models for Inference-Capability Routing: Effects of Model Capacity and Prompt Optimization on Downstream Quality and Efficiency",
+      "official_version": 1,
+      "published": "2026-11-12T07:25:46Z",
+      "updated": "2026-11-12T07:25:46Z",
+      "metadata_evidence": {
+        "source_url": "https://export.arxiv.org/api/query?id_list=2611.14949%2C2611.15276%2C2611.16300%2C2611.16414&max_results=100",
+        "body_path": "build/maintenance-2026-11-15/source-intake/official-metadata/0001.body",
+        "body_sha256": "8549e2fec9d73fef93624248e138c5991c499fe28d6cf349379d761c4be4fb32",
+        "requested_at": "2026-11-15T02:36:22.106902+00:00",
+        "source": "official arxiv Atom API"
+      },
+      "source_file": "build/maintenance-2026-11-15/source-intake/scope-fulltexts/2611.16414.html",
+      "source_raw_sha256": "b3c90794f1f039ff4d376e907904b233d01be472a4ba7f8321a9df1cc974b008",
+      "official_url": "https://arxiv.org/html/2611.16414v1",
+      "version_watermark_matches": [
+        "arXiv:2611.16414v1 [cs.AI] 12 Nov 2026 Small Language Models fo"
+      ],
+      "html_title_anomaly": false,
+      "scope_advice": {
+        "recommendation": "include",
+        "scope": "harness_eval",
+        "primary": "evaluation_benchmark",
+        "sub": null,
+        "secondary": [
+          "harness"
+        ],
+        "object": "inference-capability routing instructions and few-shot examples for frozen Qwen routers controlling reasoning, retrieval, web and calculator use",
+        "feedback": "GEPA generator-evaluator optimization of routing instructions on designated training/validation examples; central RQ compares prompting strategies",
+        "retention": "optimized prompt artifacts reused on corrected held-out classification sets and downstream questions",
+        "why_zh": "与一般 QA 评测中前置优化不同，本文的核心 RQ 直接比较路由提示优化并研究下游效果；固定模型外围的路由策略经过反馈优化后重用，建议 Harness 专项评测，不当新 Harness 演化算法计数。",
+        "limitations": [
+          "部分 prompt artifacts 在标签一致性清理前已生成；被剔除样例仍在 3B/14B few-shot 提示中，未重生成或重跑，不可称完全无污染。",
+          "下游 127 题仅制药监管域，10 题需 web，且与 RQ1/RQ2 部分重叠。",
+          "BERTScore 是参考答案语义相似度，不能证明事实/数值/法规正确性或统计等价。",
+          "所称 token 和 latency 节省仅下游，不含 router；router 与下游分别在不同环境测量，不能宣称端到端延迟优势。"
+        ],
+        "summary_zh": "专项比较冻结小模型的能力路由提示，使用 GEPA 等优化后在分类测试及下游问答中重用，属于 Harness 路由优化评测。结论受数据清理后未重跑部分提示、领域较窄及仅统计下游开销等限制。"
+      },
+      "evidence": [
+        {
+          "claim": "frozen_weights_retention_and_data_caveat",
+          "locator": "S3.SS2.p5",
+          "quote": "Training and validation examples were used for prompt development and optimization without updating router model weights. Test examples were used for classification evaluation. The exclusions affected the reasoning training and validation partitions, removing six training examples and one validation example. The training and validation partitions for RAG, Web Search, and Calculator remained unchanged. One excluded reasoning training example had been selected as a DSPy few-shot demonstration for the 3B and 14B routers. The corresponding prompt artifacts therefore reflect development before the consistency audit. Recomputing metrics on the retained test records does not remove the influence of this demonstration. Results for these configurations are interpreted with this limitation. The RQ3 benchmark contains 127 pharmaceutical regulatory questions, each with a reference answer and four capability annotations. It evaluates routing on a domain-specific workload rather than establishing generalization across domains. Some questions also occur in the RQ1/RQ2 datasets. Table 2 reports annotation agreement for comparable overlapping question-capability pairs before label harmonization.",
+          "quote_normalization": "BeautifulSoup text, math replaced by alttext, whitespace folded",
+          "source_raw_sha256": "b3c90794f1f039ff4d376e907904b233d01be472a4ba7f8321a9df1cc974b008",
+          "matched": true
+        },
+        {
+          "claim": "generator_evaluator_prompt_optimization_and_heldout",
+          "locator": "S3.SS3.p1",
+          "quote": "Four Qwen2.5 models were used as routers to evaluate RQ1 and RQ2: Qwen2.5-1.5B, Qwen2.5-3B, Qwen2.5-7B, and Qwen2.5-14B ( Yang et al., 2024 ) . Using models from the same family reduces architectural variation and enables comparisons of router capacity. All models were executed through Ollama in Google Colab using an NVIDIA T4 GPU. For each model, routing was evaluated independently for reasoning, RAG, web search, and calculator use under five prompting strategies: Minimal Baseline, Descriptive SME, DSPy Baseline, DSPy Few-Shot, and GEPA. The Minimal Baseline contained only the essential classification instruction and output constraint. The Descriptive SME prompt introduced manually designed capability-selection rules, while DSPy-based methods employed structured prompting and optimized few-shot demonstrations ( Khattab et al., 2024 ) . GEPA further optimized the routing instructions through a generator-evaluator process ( Agrawal et al., 2025 ) . RQ1 was evaluated by comparing the four router sizes under the same Minimal Baseline prompt, thereby isolating the effect of model capacity. RQ2 was evaluated by comparing prompting strategies within each router size and capability. Where prompt optimization required training or validation examples, only the designated training and validation partitions were used, while final performance was measured on the corrected held-out test sets. The RQ1/RQ2 workflow is illustrated in Figure 2 .",
+          "quote_normalization": "BeautifulSoup text, math replaced by alttext, whitespace folded",
+          "source_raw_sha256": "b3c90794f1f039ff4d376e907904b233d01be472a4ba7f8321a9df1cc974b008",
+          "matched": true
+        },
+        {
+          "claim": "downstream_not_end_to_end_efficiency",
+          "locator": "S6.p6",
+          "quote": "These findings require two qualifications. First, BERTScore measures semantic similarity to reference answers and does not establish factual, numerical, or regulatory correctness ( Zhang et al., 2020 ) . The small differences in mean scores also do not demonstrate statistical equivalence. Second, the reported downstream savings exclude router overhead, which increased with router capacity. Router and downstream latency were measured separately in Google Colab and AWS Bedrock, respectively. The results therefore characterize downstream computational savings and routing overhead under the evaluated conditions, rather than establishing an overall latency advantage for the 14B configuration.",
+          "quote_normalization": "BeautifulSoup text, math replaced by alttext, whitespace folded",
+          "source_raw_sha256": "b3c90794f1f039ff4d376e907904b233d01be472a4ba7f8321a9df1cc974b008",
+          "matched": true
+        },
+        {
+          "claim": "narrow_domain_limit",
+          "locator": "S6.p7",
+          "quote": "The scope of the downstream benchmark further limits generalization. The benchmark contains 127 questions concerning pharmaceutical regulation, of which only ten are labeled as requiring web search. Broader workloads and task-specific correctness assessments are needed to determine whether the observed trade-offs persist beyond this setting. Evaluating the complete pipeline under a controlled deployment would also clarify when downstream savings outweigh the additional computational cost of a larger router.",
+          "quote_normalization": "BeautifulSoup text, math replaced by alttext, whitespace folded",
+          "source_raw_sha256": "b3c90794f1f039ff4d376e907904b233d01be472a4ba7f8321a9df1cc974b008",
+          "matched": true
+        }
+      ],
+      "model_weights_evolve": false,
+      "coevolution": false,
+      "decision": "defer_pending_cross_review_and_item_gates",
+      "numeric_boundary": "Only visible reported numbers used to understand scope and limitations; no underlying-output/statistical recomputation or experiment reproduction; suggested public summaries avoid quantitative outcome claims."
+    }
+  ],
+  "network_requests": 0,
+  "paid_calls": 0,
+  "production_writes": false,
+  "git_operations": 0,
+  "primary_first_four_read": false
+}
