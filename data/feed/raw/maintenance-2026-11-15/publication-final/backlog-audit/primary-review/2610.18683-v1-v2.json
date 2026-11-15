@@ -1,0 +1,105 @@
+{
+  "id": "arxiv:2610.18683",
+  "title": "ProAS: A Progress-Aware Advantage Shaping Framework for Multi-Turn Agentic Reinforcement Learning",
+  "current_version": 1,
+  "candidate_version": 2,
+  "current_source_hash": "ef6facee9c24230eec07749d5dc422b38897a4db160b2c2d715a604df6491bcd",
+  "current_source": {
+    "file": "build/maintenance-2026-11-02/metadata-reconciliation/original-versions/2610.18683v1/paper.html",
+    "bytes": 543268,
+    "raw_sha256": "9d4e0454bf353f38be8a486de515b217bfcb1990395193fcf0a793e3db82ab9b",
+    "article_present": true,
+    "html_closed": true,
+    "page_version": 1,
+    "watermark": "arXiv:2610.18683v1 [cs.LG] 13 Oct 2026",
+    "receipt_file": "build/maintenance-2026-11-02/metadata-reconciliation/original-versions/2610.18683v1/receipt.json",
+    "receipt_hash_matches": true,
+    "source_url": "https://arxiv.org/html/2610.18683v1",
+    "article_characters": 71201,
+    "article_text_sha256": "c0e242ed25ad311fd6885451821b5aaf62e1d115b81a4f093d2285f216f1506a",
+    "math_count": 606,
+    "math_sha256": "ba420c1e91a82e0b52d8a910819a37e584b05e947c1dbe86052366f17195a8c6",
+    "table_count": 21,
+    "tables_sha256": "4ee543c76bfb7315703254e7a251a8bba5ad3c1c1333a963f2455fd26cd4c471",
+    "figure_reference_count": 2,
+    "figure_references_sha256": "afe2aa4c66d193c2704c94de0e2492ec550e1d5138b7e75c4d2a0caceac36b83"
+  },
+  "candidate_source": {
+    "file": "build/backlog-all-2026-10-30/independent-round3/sources/arxiv-2610.18683/paper.html",
+    "bytes": 563068,
+    "raw_sha256": "38b92c62227d0f5731c9da8c4adb02f9a67fe44c0f6861414e7bd955a179aaf4",
+    "article_present": true,
+    "html_closed": true,
+    "page_version": 2,
+    "watermark": "arXiv:2610.18683v2 [cs.LG] 25 Oct 2026",
+    "receipt_file": "build/backlog-all-2026-10-30/independent-round3/sources/arxiv-2610.18683/receipt.json",
+    "receipt_hash_matches": true,
+    "source_url": "https://arxiv.org/html/2610.18683v2",
+    "article_characters": 75178,
+    "article_text_sha256": "f3bfd1f46a61067cee274d757bfb6237a36eabf52e2432401df2b586e54b61c6",
+    "math_count": 641,
+    "math_sha256": "6ae0e7e6547967509a37890c1ce394855199f1bd2ba9d82cfe9254c8e6c4a2b5",
+    "table_count": 23,
+    "tables_sha256": "a88e4c8704a5dc9eea3c60ad8ce6f455734934dabfccee4a1fed178823b33e20",
+    "figure_reference_count": 3,
+    "figure_references_sha256": "a8b79eb151b2b5a23c6c943673ee1507dc1b170d8b91abc29bcde692480e4b52"
+  },
+  "reviewed_at": "2026-11-15T02:47:00.099443+00:00",
+  "status": "primary_scope_comparison_complete_pending_independent",
+  "scope_recommendation": "exclude",
+  "scope_changed": false,
+  "direction": "model_weight_training",
+  "formal_version_adopted": false,
+  "production_writes": 0,
+  "paid_calls": 0,
+  "comparison_ref": "build/maintenance-2026-11-14/backlog-audit/cached-version-comparisons/2610.18683/comparison.json",
+  "full_diff_read": true,
+  "table_difference_readback_ref": "build/maintenance-2026-11-15/backlog-audit/primary-review/2610.18683-table-differences.json",
+  "method_sections_read": [
+    "S4.SS1",
+    "S4.SS3",
+    "S5",
+    "S6",
+    "A2.SS2",
+    "A3.SS1",
+    "A4.SS3"
+  ],
+  "primary_reason_zh": "新旧版本核心仍是策略模型 RL 的优势分配。ARG 根据成功训练轨迹扩充状态/边，但用于动作归因和训练优势/奖励塑形；未发现反馈修改并跨任务保留的执行提示、工具、技能或控制流。本次排除基于修改对象，不因模型训练本身否定共演化。",
+  "changes": [
+    "PA 公式新增 Rea_t 乘子，明确推进动作必须是合法 ARG 转移。",
+    "训练效率定义从 environment interaction steps 改为 RL training steps；不能把 2.44x 当 wall-clock 结论。",
+    "主表标准差说明为三种子 sample std；PPO 1.5B ALFWorld 总 SR 从 36.5±28.7 改为 73.2±4.3，7B 从 60.9±11.7 改为 83.6±4.1；WebShop PPO 也改。SFT/Direct prompt 有标准差及小幅均值改动，详差异包。",
+    "PPO 明确 G=1、128 tasks，与 critic-free 16 tasks×8 rollouts 对齐轨迹数；不能复用旧版 PPO 不稳的解释。",
+    "新增 PR auxiliary-reward 与 suffix baseline；部分 ProAS+ WebShop 指标更正；改动已直接回读。",
+    "奖励新增逐步广播 R_o、invalid penalty 及 PR 的0.5进度分数公式；不是新的执行期自改进机制。",
+    "新增时间分析只平均 seed1 的 GRPO/DAPO/GiGPO；时间图二进制未核验，不能引用图中小时数。"
+  ],
+  "evidence": [
+    {
+      "selector": "#S4.SS1.p3",
+      "quote": "Upon verifying a novel successful trajectory at the rollout stage of training iteration k",
+      "exact_match": true
+    },
+    {
+      "selector": "#S4.SS1.p3",
+      "quote": "providing an increasingly comprehensive reference for action attribution over time",
+      "exact_match": true
+    },
+    {
+      "selector": "#S4.SS3.p1",
+      "quote": "reshaping the trajectory-level advantage A_{i} into a step-wise, progress-aware signal",
+      "exact_match": true
+    },
+    {
+      "selector": "#A2.SS2.p4",
+      "quote": "we sample one rollout per task ( G=1 ) and use a rollout batch of 128 tasks.",
+      "exact_match": true
+    }
+  ],
+  "coverage": "完整文本差异及所有发生变动的表格 token 对照已读，另直接读 ARG 训练归因/advantage 机制。仅范围比较与变更提醒，不是全部数值复算或新版出版批准。",
+  "pending": [
+    "Independent version comparison",
+    "Any version adoption needs separate metadata/abstract binding; do not silently replace current v1"
+  ],
+  "binary_figures_checked": false
+}
