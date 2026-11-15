@@ -1,0 +1,592 @@
+AskALCF: A Self-Improving Agentic System forIntelligent HPC User Support Skip to main content Report GitHub Issue × Title: Content selection saved. Describe the issue below: Description: Submit without GitHub Submit in GitHub Why HTML? Report Issue Back to Abstract Download PDF Contents Reading mode Colour theme Abstract I Introduction II Background and Related Work II-A HPC Assistants and RAG Diagnosis II-B Agentic Evaluation and Governance II-C Human-Guided Self-Improvement III System Design and Implementation III-A The Four Subsystems III-B Log Analysis and Failure Attribution III-B 1 Answer-Quality Evidence (Layer A) III-B 2 Retrieval and Corpus Sufficiency (Layer B) III-B 3 Cause Attribution with an Ordered Rule Tree III-B 4 Agentic Audit III-B 5 Reproducibility Controls IV Human-Guided Self-Evolution IV-A Expert Review and Reference Labels IV-B Ticket Feedback and Knowledge Accumulation IV-C Harness Training IV-C 1 Expert Reference and Data Split V Evaluation V-A Evaluation Data and Development Pilot V-B RQ1: Does Log Analysis Produce Actionable Diagnoses? V-C RQ2: Does Human-Guided Training Improve the Diagnostic? V-D RQ3: What Does the Agent Judge Contribute? V-E RQ4: Do Diagnoses Lead to Effective Repairs? V-E 1 Questions and Reference Answers V-E 2 Repairing a Prompt Failure V-E 3 Repairing a Knowledge Gap VI Discussion and Limitations VII Conclusion References License: CC BY 4.0 arXiv:2611.15700v1 [cs.SE] 11 Nov 2026 AskALCF: A Self-Improving Agentic System for Intelligent HPC User Support Jingyan Jiang * Argonne National Laboratory Lemont, IL, USA jingyan.jiang@anl.gov Akhilesh Bondapalli * Clemson University Clemson, SC, USA Argonne National Laboratory Lemont, IL, USA abondap@clemson.edu Krishna Rauniyar University of Louisiana at Lafayette Lafayette, LA, USA Argonne National Laboratory Lemont, IL, USA krishna.rauniyar1@louisiana.edu Murat Keceli Argonne National Laboratory Lemont, IL, USA keceli@anl.gov Yasaman Ghadar Argonne National Laboratory Lemont, IL, USA ghadar@anl.gov Haritha Siddabathuni Som Argonne National Laboratory Lemont, IL, USA haritha@anl.gov Venkatram Vishwanath Argonne National Laboratory Lemont, IL, USA venkat@anl.gov Michael E. Papka Argonne National Laboratory Lemont, IL, USA papka@anl.gov Rong Ge Clemson University Clemson, SC, USA rge@clemson.edu Huihuo Zheng † Argonne National Laboratory Lemont, IL, USA huihuo.zheng@anl.gov Abstract AI-based question-answering systems are increasingly used for user support, including at
+high-performance computing (HPC) facilities. However, existing systems lack a systematic,
+deployment-oriented approach for evaluating final-answer quality and attributing failures
+to specific components. They also remain largely static after deployment, apart from
+periodic knowledge-base updates. We present AskALCF, an agentic log-analysis and improvement pipeline for HPC user support.
+AskALCF evaluates production interactions at a fine-grained level, identifies whether
+failures arise from missing knowledge, retrieval, prompting, model behavior, or tool
+execution, and routes each failure to an actionable repair. Its diagnostic core combines
+answer-quality assessment with a two-scope sufficiency test that distinguishes information
+missing from the documentation corpus from information present but not retrieved. We
+further introduce a controlled harness-training process that uses expert references, null
+edits, and explicit ship, revert, or decline decisions to improve the diagnostic pipeline
+reliably. Across 2,174 support turns, AskALCF reduced unattributable failures from 41.4% to
+14.2%, while harness training improved expert agreement from 108/150 to 123/150 turns.
+These results demonstrate a governed form of self-evolution in which production evidence
+drives targeted system improvements. By turning production interactions into fine-grained
+diagnoses and actionable repairs, AskALCF provides a systematic foundation for
+continuously improving deployed AI support systems beyond knowledge-base updates alone. Index Terms: high performance computing, artificial intelligence, natural language processing,
+information retrieval, knowledge management 1 1 footnotetext: Joint first authors. 2 2 footnotetext: Corresponding author. I Introduction Leadership computing facilities support thousands of users across systems whose
+hardware, software and operating procedures change continuously. New partitions
+come online, programming environments evolve, and compiler, driver and library
+versions change between maintenance cycles. At the same time, the information
+users need is distributed across facility guides, vendor manuals, software
+documentation, release notes and separate web portals. Finding the right
+information is therefore difficult even when it has been documented. Together,
+rapid change, fragmented documentation and growing demand create a persistent
+support burden for both users and facility staff. Retrieval-augmented generation (RAG) has become a promising way to make this
+support more accessible. Systems such as AskHPC [ 1 ] and
+chatHPC [ 2 ] , HyCE’s
+HPC-oriented RAG architecture [ 3 ] , and recent
+cross-facility studies [ 4 ] show that language models can
+answer technical questions using facility documentation. These systems
+represent an important advance over static documentation search: users can ask
+questions in natural language and receive an immediate, context-aware response. However, current systems remain limited in two important ways. First, detecting
+a poor answer does not reveal how to fix it. The same visible error may result
+from missing documentation, failed retrieval, an inadequate prompt, model
+behavior, or a broken tool call. These causes belong to different teams and
+require different repairs. A single quality score can identify that an answer
+is weak, but it cannot identify who should act or what they should change. Second, deployed assistants make little systematic use of the evidence they
+accumulate. Every interaction records a real user need, the material retrieved
+for it, and the answer produced. Support tickets provide another source of
+operational knowledge: they capture problems that may require an existing
+answer, reproduction on ALCF systems, or intervention by a system owner.
+Yet chatbot logs and support tickets are typically handled as separate records
+rather than as evidence for continuously improving the support system. We present AskALCF, an agentic support and improvement framework that connects
+these two channels. Interactive questions are answered by a deployed RAG
+service, while a diagnostic pipeline analyzes the resulting logs and routes
+failures to the component that can address them. Support tickets are classified
+by the type of resolution they require, and responses are drafted for expert
+review. A shared knowledge-management process collects lessons from both
+channels and turns them into reviewed updates to the documentation corpus.
+Together, these four components allow the system to learn from production use,
+improve its diagnostic rules and prompts, and accumulate reusable knowledge. We
+refer to this controlled process as governed self-evolution : the system
+proposes and evaluates improvements, while human experts retain authority over
+responses and deployed changes. The central idea is to distinguish an answer’s visible symptom from its
+underlying cause. In particular, AskALCF asks two separate questions: whether the
+retrieved passages were sufficient to answer the user, and whether the required
+information existed anywhere in the documentation corpus. This distinction,
+inspired by sufficient-context evaluation [ 5 ] ,
+separates missing knowledge from failed retrieval. Combined with evidence about
+the answer, model and tool execution, it allows the system to route a failure
+to one of five component owners rather than returning only a quality score. An
+agent judge independently audits the route, while ALCF experts provide the
+final reference for disputed or uncertain cases. This changes the role of an AI support assistant. Instead of treating each
+interaction as an isolated question-answer exchange, AskALCF treats production
+use as evidence for improving the support process itself. The result is a
+governed loop from user request, to diagnosis, to repair, to reviewed knowledge.
+The significance is not simply that the assistant can produce another answer;
+it is that the system can identify an actionable repair, direct it to the right
+owner, and preserve the resulting lesson for future users. We evaluate this approach on 2,174 production support turns. The diagnostic
+pipeline reduces failures that cannot be assigned to an owner from 41.4% to
+14.2%. A human-guided improvement process increases agreement with a frozen
+three-expert reference from 108/150 to 123/150 turns. Controlled repair
+experiments further show that the resulting diagnoses can guide effective
+prompt and documentation changes. Together, these results demonstrate that
+production support evidence can be converted into measurable and actionable
+system improvements. Contributions. This paper makes four contributions: • An actionable diagnostic for AI-based HPC support (§ III , § III-B ). The diagnostic
+distinguishes failures caused by knowledge, retrieval, prompting, model
+behavior and tool execution, and routes each failure to the component owner
+who can address it. • A governed agent judge for production diagnosis (§ III-B4 , § V-D ). The judge audits a deterministic
+rule tree rather than replacing it, names the evidence behind a disagreement,
+and can change a route only under explicitly evaluated rules. • A human-guided method for improving the diagnostic pipeline (§ IV-C ). We treat the rules, prompts and judge policy—rather
+than model weights—as the object of improvement, and evaluate proposed
+changes against fixed expert references and explicit controls. • An integrated system for governed self-evolution (§ III , § V-E ). By combining question
+answering, log analysis, ticket resolution and knowledge management, AskALCF
+converts production experience into proposed repairs, evaluates their effects,
+and preserves approved lessons for future requests. Controlled prompt and
+documentation experiments provide evidence that this loop can produce
+effective improvements while experts retain authority over consequential
+changes. Scope. The improvement loop is implemented and evaluated
+through expert review. We diagnose production interactions, author targeted
+repairs, and measure their effects in controlled experiments. No
+CODEOWNERS-approved knowledge change has yet been merged into the deployed
+corpus and re-indexed. We therefore report measured offline improvements, not a
+claim that the production system has already modified itself autonomously. II Background and Related Work II-A HPC Assistants and RAG Diagnosis AskHPC and chatHPC [ 1 , 2 ] answer user questions from
+facility documentation, with chatHPC also supporting script generation.
+HyCE [ 3 ] extends retrieval to HPC-specific operational
+data, while cross-facility studies show that support behavior does not transfer
+cleanly between sites [ 4 ] . These systems demonstrate
+the value of language models for HPC support, but their principal output is an
+answer rather than a diagnosis or repair path. Existing RAG evaluations measure complementary aspects of retrieval and
+generation. RAGAS [ 6 ] and RAGChecker [ 7 ] provide
+multi-dimensional evaluation, while citation-based methods assess whether
+claims are supported by retrieved evidence [ 8 ] . The Sufficient
+Context test asks whether the passages returned for a question contain enough
+information to answer it [ 5 ] . AskALCF extends this idea
+to two scopes: the passages returned in production and the complete corpus.
+The difference distinguishes a retrieval failure from a documentation gap and
+therefore identifies the component owner who can act. Other work uses relevance or sufficiency judgments to adapt retrieval during a
+turn [ 9 , 10 ] , and taxonomies describe recurring RAG
+engineering failures [ 11 ] . These methods improve an answer
+or characterize a failure, but do not connect production evidence to a facility
+support workflow. Our contribution is an operational diagnosis: the
+two-scope sufficiency test is combined with answer and tool evidence to assign
+each production turn to a component-level route and a corresponding repair
+owner. II-B Agentic Evaluation and Governance Agent-as-a-Judge systems use tools to acquire evidence before producing a
+verdict [ 12 , 13 ] . This capability
+is useful for failure attribution because an agent can inspect evidence that
+was absent from the original interaction. However, LLM judges remain sensitive
+to position, self-preference, and other systematic
+biases [ 14 , 15 ] ; self-reported confidence
+is also an unreliable indicator of correctness [ 16 ] .
+Executable software agents introduce a related governance problem: their
+localize–repair–validate workflows require bounded tools and explicit safety
+controls [ 17 , 18 ] . Agentic failure-attribution systems similarly use tools to localize faults in
+execution traces [ 19 , 20 ] . Existing governance
+strategies commonly rely on confidence thresholds, escalation, or multiple
+judges [ 21 , 22 ] . These strategies are difficult
+to apply when confidence is not calibrated to correctness. AskALCF therefore combines deterministic and agentic evaluation. An ordered rule
+tree assigns the initial failure route, an agent judge independently probes the
+corpus, and a rule-conditioned gate limits when the judge may change the route.
+Human review remains mandatory for ticket responses, knowledge changes, and
+generated repairs. Our contribution is the division of authority: the
+judge may overturn only decisions based on evidence it can independently test,
+while experts retain control over every production-facing action. II-C Human-Guided Self-Improvement Self-improving agents commonly update an internal memory or skill library from
+their own traces [ 23 , 24 ] , while systems such
+as DSPy and GEPA optimize prompts or language-model programs against an
+evaluation objective [ 25 , 26 ] . Recent systems also learn
+skills from operational support traces or maintain documentation through
+agentic feedback [ 27 , 28 ] . These
+approaches differ primarily in what they modify and who determines whether a
+change is acceptable. Pipeline optimizers can also propagate natural-language feedback through
+prompts and agent trajectories [ 29 , 30 ] . However,
+small prompt changes can interact with nondeterministic generation and produce
+apparent gains that do not replicate [ 31 , 32 ] . A self-improvement claim therefore requires both a stable
+reference and controls for run-to-run variation. In AskALCF, domain experts provide both corrected routes and written rationales.
+These observations motivate bounded changes to diagnostic rules, judge
+instructions, and ALCF knowledge. Each change is evaluated against a
+frozen, session-disjoint expert reference before acceptance. The resulting
+process improves the surrounding harness rather than model weights, while
+human reviewers retain authority over every production-facing change. Our contribution is a governed self-evolution protocol that turns
+expert explanations into testable harness changes, records accepted and
+rejected arms, and promotes a change only when its target cases improve and its
+controls remain stable. III System Design and Implementation At the Argonne Leadership Computing Facility (ALCF), users reach AskALCF through two channels. Short how-to questions arrive
+through web chat or MCP [ 33 ] and need an immediate answer. The service
+covers Polaris and Aurora and sends model requests through the ALCF Argo inference gateway. Problem
+reports arrive by email and become support tickets. A ticket may be answered
+from existing knowledge, sent to an agent to reproduce and repair the problem
+on real HPC resources, or routed to the team responsible for a system-level
+fix. These needs motivate four pillars. Pillar 1 answers chatbot questions, and
+Pillar 3 analyzes the resulting logs to identify failures and improve the
+service. Pillar 4 triages support tickets and directs each one to an appropriate
+resolution path. Pillar 2 collects lessons from both channels and turns them
+into reviewed knowledge updates. Together, the four pillars connect immediate
+assistance, failure analysis, ticket resolution, and knowledge curation in a
+single human-governed improvement loop. Because a ticket’s complete flag does not reliably indicate resolution (§ V-B ),
+Pillar 4 re-triages every ticket from its content. Pillar 1 — Q&A RAG SERVICE ■ \blacksquare Milvus (multi-facility) ■ \blacksquare 3 LLM backends ■ \blacksquare web chat + + MCP Pillar 3 — Log Analysis NEW ■ \blacksquare Diagnostic core ■ \blacksquare (§ III-B ) ■ \blacksquare answer + + retrieval ■ \blacksquare scoring → \to 7 routes Pillar 4 — Support Tickets NEW ■ \blacksquare ingest + + classify ■ \blacksquare route to a resolution path ■ \blacksquare drafted email replies Pillar 2 — Know. Mgmt NEW ■ \blacksquare gap-miner ■ \blacksquare know-writer ■ \blacksquare reviewer □ \square open PR (dry-run ok) □ \square re-index on merge HUMAN MERGE GATE CODEOWNERS end user + agent client (web chat / MCP) ticket originator (ticket system / email / chat) maintainer → \to support staff (drafted reply) → \to the team that owns it (route ≠ \neq knowledge) run per query (sec) watch P3 diagnoses traces (min), P4 works tickets (min–hr) improve per PR (days) gate human review (1) (0) (2) (3) (3b) other 4 (5) (4) (6) reviews (7) merged → \to vector re-index □ \square ■ \blacksquare runs today □ \square built, not exercised in production □ \square designed and coded, never run Fig. 1: AskALCF connects two support channels to a governed improvement loop.
+A user query enters Pillar 1 (1), whose trace is analyzed by Pillar 3 (2).
+Confirmed knowledge gaps go to Pillar 2 (3), while other failures go to their
+component owners (3b). A ticket enters Pillar 4 (0), which drafts a reply for
+staff review (4) and sends reusable fixes to Pillar 2 (5). Pillar 2 opens a pull
+request (6); after human approval, the merge trigger re-indexes the corpus (7).
+That final trigger has not yet fired. III-A The Four Subsystems Pillar 1 — Q&A service. This deployed RAG service indexes a curated
+corpus of facility user guides, vendor documentation and other operational
+materials in Milvus [ 34 ] . For each question, it retrieves relevant
+passages and sends them to a language model as context for answer generation.
+It logs the question, answer, retrieved passages, tool calls and retrieval
+score. Pillar 3 uses this record to evaluate what the production system
+actually saw. Pillar 3 — Log analysis. Pillar 3 examines each failing Pillar 1
+turn and assigns one of five causes: knowledge , retrieval , prompt , model or tools_mcp . A knowledge failure
+means that the required information is absent from the indexed corpus, whereas
+a retrieval failure means that the information exists but was not
+returned to the model. A prompt failure occurs when the system
+instructions induce inappropriate behavior, such as unnecessary clarification.
+A model failure occurs when sufficient context and appropriate
+instructions are available but the model produces an incorrect or unsupported
+answer. A tools_mcp failure arises when an external tool, MCP service or
+its invocation fails. We use no_failure when the evidence supports a
+healthy response and unknown when the available evidence cannot support
+an attribution. Knowledge failures go to Pillar 2; the others go to the teams
+that own the affected components.
+The deterministic rule tree makes the initial decision
+(§ III-B ). LLMs provide evidence at fixed points in the tree,
+and an agent judge audits the final route instead of replacing the tree
+(§ III-B4 ). Pillar 4 — Ticket resolution. Pillar 4 assigns each ticket to one of
+three resolution paths: answer it from existing knowledge, reproduce and repair
+the reported problem by running a real job at the ALCF, or route a
+system-level problem to the team that owns the affected service. It then drafts
+a response explaining the answer, tested repair or handoff. Support staff at
+the ALCF must review and approve the draft before it is sent to the user. Ticket ingestion, classification and response drafting are implemented. For a
+reproducible problem, ingestion also produces a validated record containing the
+failing job, error signature and rerun script. The agent that consumes this
+record and runs the job on a live allocation has not yet been exercised. That
+path uses Apptainer [ 35 ] , Spack [ 36 ] ,
+CodeAct-style [ 17 ] functions and Parsl [ 37 ] , and is
+limited to three build attempts, thirty minutes of wall time and one node-hour. Pillar 2 — Knowledge curation. Pillar 2 turns confirmed knowledge
+gaps and reusable ticket lessons into updates to the corpus used by Pillar 1.
+A writer drafts each change, and a reviewer either rejects it or prepares it as
+a pull request. Drafting and dry-run application are operational. Opening a
+pull request is marked □ \square because the service account cannot merge it.
+Every change therefore requires CODEOWNERS approval before it can reach the
+deployed corpus. No knowledge-writer pull request has yet passed that review, so
+the merge-triggered Milvus re-indexing path has not fired. III-B Log Analysis and Failure Attribution Pillar 3 converts each logged interaction into a diagnosis and an actionable
+route. Figure 2 summarizes the workflow. Layer A evaluates the
+answer, while Layer B evaluates retrieval without seeing the answer. An ordered
+rule tree combines this evidence and assigns the turn to a component owner. An
+agent judge audits that decision, and a human expert reviews disputed or
+uncertain cases. The resulting expert labels are then used to improve the rule
+tree and the judge skills. (1) Layer B retrieval quality ⋅ \cdot R — were the production top- k k chunks enough? ⋅ \cdot C — does the corpus hold a sufficient doc at all? ⋅ \cdot blind to the answer, by construction (2) Layer A answer quality ⋅ \cdot correctness faithfulness ⋅ \cdot grounding completeness ⋅ \cdot plus a deterministic facility-scope check one assistant turn tool or service error? wrong facility, or clarification mishandled? R = F R{=}F and C = F C{=}F ? R = F R{=}F and C = T C{=}T ? unfaithful to its context, or facts wrong? faithful and correct? unknown tools_mcp prompt knowledge retrieval model no_failure (3) fixed rule tree — first match wins no no no no no no yes yes yes yes yes yes (4) Agent Judge ⋅ \cdot probes the corpus itself, then commits ⋅ \cdot reads the turn and the tree’s route ⋅ \cdot records both routes, each with reasons ⋅ \cdot may overturn under 7 named rules only (5) Human expert review ⋅ \cdot sees the Layer A and Layer B metrics ⋅ \cdot sees both routes and both rationales ⋅ \cdot answers five yes/no questions ⋅ \cdot names the correct route, and why (6) Harness training ⋅ \cdot edits the rule tree and the judge skills ⋅ \cdot never a model’s weights ⋅ \cdot re-scored against frozen expert labels ⋅ \cdot ships if the target set improves and the control set holds the rule tree the judge skills each arm edits the harness, then is re-scored against the same frozen labels (a) the metrics the reviewer sees (b) both routes, side by side (c) the five questions the reviewer is asked Fig. 2: The diagnostic workflow and its expert-review loop. Layers B and A
+produce retrieval and answer evidence, respectively. The ordered rule tree (3)
+assigns the initial route, and the agent judge (4) audits that decision. A human
+expert reviews the evidence and both rationales (5); those labels support
+harness changes to the rule tree and judge skills (6). The lower panels show the
+review interface for a turn on which the two routes disagree. III-B 1 Answer-Quality Evidence (Layer A) Layer A computes four answer-quality signals and one deterministic scope check.
+All entailment decisions use the same three-class judge
+(entailment, neutral or contradiction), which keeps differences between signals
+attributable to their evidence rather than to different judging functions. correctness measures the fraction of answer claims supported by evidence
+retrieved separately for each claim. faithfulness applies the same test
+to the context originally shown to the model. Their difference is therefore
+diagnostic: an answer may contain correct information that was not supported by
+its supplied context. grounding checks whether paths, modules and documentation URLs cited in
+the answer exist. Following the fabricated-citation setting of
+ALCE [ 8 ] , it returns found , mangled_real or fabricated . The middle value indicates that the artifact exists but was
+damaged during chunking, which is a retrieval defect rather than a fabricated
+citation. An answer with no such citation receives n/a , not zero. completeness follows the recall formulation of
+RAGChecker [ 7 ] . Finally, facility_scope is a
+deterministic lexicon check that rejects answers referring to another facility
+or to an unsupported GPU stack. The abstention detector distinguishes full , partial and no abstention. It removes fenced code, references and clarifying
+questions before counting substantive claims. Only a full abstention exempts
+the answer-quality signals. Ambiguous cases are treated as partial abstentions,
+because incorrectly exempting a substantive answer could hide a genuine
+failure. III-B 2 Retrieval and Corpus Sufficiency (Layer B) Layer B separates two questions that are often combined. R R asks whether the
+top- k k passages returned in production were sufficient. C C asks whether the
+required information existed anywhere in the corpus. R R follows the
+Sufficient Context test [ 5 ] ; C C extends that test to
+a wider candidate set obtained from expanded dense queries and BM25 search. The two verdicts determine the responsible component. If R R is true, retrieval
+was sufficient and the rule tree evaluates the generation-side evidence. If R R is false but C C is true, the corpus contains the answer and the failure is
+assigned to retrieval . If both are false, the corpus lacks sufficient
+documentation and the failure is assigned to knowledge . This distinction
+turns a sufficiency judgment into an actionable work item. Two constraints preserve that interpretation. First, Layer B never sees the
+generated answer; otherwise it could not distinguish insufficient retrieval
+from poor answer generation. Second, R R and C C use different query policies. R R evaluates the query and passages used in production. C C may use rewritten,
+goal-directed queries because it tests corpus coverage rather than production
+retrieval. A relaxed condition is therefore applied to R R only when supported
+by direct production evidence. For complex questions, C C is evaluated over answer requirements rather than by
+asking whether a large collection of passages is sufficient as a whole. The
+system decomposes the question into requirements, marks the essential ones as core , and checks each core requirement against the corpus. Core status is
+assigned without access to coverage results, preventing a missing fact from
+being reclassified as unimportant. If requirement extraction is malformed, all
+requirements are treated as core, so the system fails conservatively. We use semantic core requirements rather than a fixed fractional coverage
+threshold, which would treat requirements of unequal importance as
+interchangeable. The materiality judgment preserves the meaning of corpus
+sufficiency across questions with different structures. III-B 3 Cause Attribution with an Ordered Rule Tree The router is an ordered list of 28 rules with first-match semantics. A predicate
+over a missing signal evaluates to false, so absent evidence cannot trigger a
+route. The ordering in Fig. 2 reflects four priorities. Service
+and tool failures are checked first, because a backend outage should not be
+evaluated as a model-generated answer. Deterministic facility-scope and
+clarification checks come next. The R × C R\times C sufficiency pivot then separates
+retrieval and knowledge failures. Answer-quality signals are considered only
+after retrieval has been shown to be sufficient. This ordering prevents answer-quality signals from absorbing retrieval errors.
+When retrieval is insufficient, correctness and completeness are also likely to
+be low. Evaluating those signals before the sufficiency pivot would therefore
+assign retrieval failures to generation-side components. Sufficient retrieval
+is treated as a prerequisite for attributing a failure to answer generation. On the generation side, the tree distinguishes how the answer used its context
+from what the answer asserted. A fabricated citation or a contradiction of the
+provided context is assigned to model , because the required evidence was
+available but not used correctly. An answer that remains faithful to its context
+but reaches an incorrect conclusion is also assigned to model , for a
+different underlying reason. No answer-quality score directly produces a prompt route, because a low score alone cannot distinguish an inadequate
+instruction from inadequate execution. Prompt routes arise from explicit policy
+checks performed earlier in the tree. The terminal outcomes no_failure and unknown have different
+meanings. no_failure requires positive evidence that retrieval was
+sufficient and the answer was faithful and correct. unknown indicates
+that no supported attribution could be made. Keeping these outcomes separate
+distinguishes a verified healthy turn from one that could not be evaluated. If
+a deterministic signal conflicts with an unreliable judged signal, the tree
+escalates the turn for human review rather than guessing. Table I states the seven outcomes the tree can emit. Five are
+failure modes, each naming the component that must change; two are terminal and
+dispatch nobody. Every turn receives exactly one, so no turn leaves the pipeline
+without a recorded disposition. TABLE I: The seven attribution outcomes the rule tree can emit, and the evidence
+that decides each. R R is retrieval sufficiency at the production result and C C is sufficiency over the whole corpus (§ III-B2 ); T and F are their
+truth values. Every scored turn receives exactly one outcome. Outcome What it asserts, and the evidence that decides it Repaired by Failure modes — the turn failed, and the outcome names the component that can repair it knowledge No authoritative document exists anywhere in the corpus: the
+production result is insufficient and a wide corpus probe fails to surface one
+either ( R = R{=} F, C = C{=} F). The fix is to write the missing page. documentation retrieval A sufficient document does exist, but production retrieval did
+not return it ( R = R{=} F, C = C{=} T). Internal conditions separate ranking depth,
+indexing, and query formulation, which are three different fix sites. retrieval prompt A deterministic answer-policy check fires ahead of the
+sufficiency pivot: the answer addresses the wrong facility or the wrong system,
+or a critical user detail was missing and no clarifying question was
+asked. prompt policy model Retrieval was sufficient and generation still failed: the answer
+cites a path or module that exists nowhere in the corpus, contradicts its own
+supplied context, or stays faithful to that context yet reaches a wrong
+conclusion. model serving tools_mcp A tool call or backend service failed — error, schema
+mismatch, permission, or outage — so the turn never had a fair chance to
+succeed. Checked first, so an outage is never scored as a bad answer. platform Terminal outcomes — the turn is concluded and no work is dispatched no_failure Positively verified healthy: retrieval was sufficient and the
+answer was faithful and correct. This is an affirmative finding, not the absence
+of one. — unknown No attribution the evidence supports. The tree’s fall-through
+lands here, so the turn is reported as unattributed rather than assigned to a
+team on a guess. — (escalated) Each top-level route retains more specific internal conditions for engineering
+remediation. The paper reports the five component-level causes for clarity. A
+cause is included only when a corresponding detector can provide supporting
+evidence. III-B 4 Agentic Audit After the rule tree assigns a route, an agent judge audits the decision.
+The judge does not replace the router. It checks whether the evidence used by
+the matched rule supports the assigned cause. When it disagrees, it identifies
+the disputed signal, producing a concrete item for review rather than only a
+second route label. We selected this audit design instead of a second generative router because a
+second router would consume the same potentially unreliable signals and would
+not provide an independent check on them. The agent judge differs from the single-shot judges used to compute individual
+signals. It runs a bounded probe loop over the corpus: it lists candidate URLs,
+searches for evidence and reads selected chunks. It can therefore find evidence
+that was absent from the production retrieval result. As evaluated in
+§ V-D , this access is most useful when the rule tree reached a
+decision from missing evidence. Every judge call is logged, observations are size-limited, and probe results are
+content-addressed and pinned for replay (§ III-B5 ). These controls make
+each conclusion traceable to evidence the agent actually inspected. Authority is configured separately from judgment. The agent judge may overturn
+the tree only for seven rule classes whose inputs it can independently verify.
+For all other classes, its disagreement is recorded for human review without
+changing the route. The gate depends on the rule that fired, not on the judge’s
+self-reported confidence. Section V-D evaluates this policy. III-B 5 Reproducibility Controls The corpus probe used to compute C C expands each question into sub-queries with
+an LLM call requesting temperature=0 . The inference gateway did not
+honor that setting: two otherwise identical runs produced different expansion
+sets for all 78 tested questions, and the resulting retrieval differences
+changed the final route for 16% of turns. We therefore cache each expansion under a hash of the query, model and prompt.
+The cache is committed with the evaluation artifacts, making expansions
+identical across runs and machines and reviewable as a diff. Every result in
+this paper uses these pinned expansions. IV Human-Guided Self-Evolution Production evidence does not change the system automatically. Instead, experts
+review diagnoses, record corrections and propose bounded changes to the rules,
+prompts or knowledge base. Each proposal is evaluated against a fixed reference
+before it is accepted. Figure 3 summarizes this cycle. We call
+the process governed self-evolution because the system learns from its
+operation while people retain authority over every consequential change. IV-A Expert Review and Reference Labels A diagnostic route is a proposal rather than an action. The review service
+therefore presents the evidence behind each route before a human decision is
+recorded. It provides two role-scoped workspaces behind ALCF single sign-on:
+an administrative workspace for reviewing chatbot diagnoses and a staff
+workspace for reviewing ticket responses. Both read immutable analysis
+artifacts and write decisions to a separate append-only store. For each chatbot turn, the administrative workspace shows the answer-quality
+signals, the retrieval and corpus-sufficiency verdicts, the matched rule, and
+the agent judge’s independent assessment. Reviewers can accept the route,
+provide a corrected route and explanation, or mark the sample as unsuitable for
+evaluation. An unanswered item remains uncertain ; it is never interpreted
+as agreement. These decisions form the expert reference used for harness
+training. IV-B Ticket Feedback and Knowledge Accumulation The staff workspace applies the same approval principle to support tickets. It
+re-triages each ticket, retrieves supporting documentation and drafts a response
+with citations derived from the retrieved sources. A support expert reviews the
+draft before exporting it to the expert’s mail client; the system does not send
+messages automatically. Reusable lessons and confirmed documentation gaps are
+then passed to the Pillar 2 writer–reviewer workflow. Any resulting corpus
+change requires CODEOWNERS approval before merge and re-indexing. IV-C Harness Training Harness training improves the diagnostic pipeline without changing model
+weights. The editable harness consists of the rule tree, the judge skills and
+the override gate. A human reviewer identifies a recurring error, proposes one
+bounded change and names the turns that should improve and the control turns
+that should remain unchanged. One complete proposal-and-evaluation cycle is an arm . As Fig. 3 shows, each arm follows four steps: diagnose an error,
+pre-register its target and control sets, run the revised harness, and either
+accept or reject the change. Evaluation turns remain hidden from design
+decisions. This process borrows the train/evaluation split and experiment ledger
+of model training, but the trainable object is the surrounding software and
+prompts rather than a model’s parameters. Input ⋅ \cdot 150 valid turns, 150 sessions ⋅ \cdot one expert label per turn, ⋅ \cdot plus its reasoning ⋅ \cdot 98 training ∣ \mid 52 evaluation ⋅ \cdot harness: rule tree + + judge ⋅ \cdot skills 1. Diagnose & propose ⋅ \cdot cluster the turns still routed ⋅ \cdot wrong, by which signal failed ⋅ \cdot not by which rule fired ⋅ \cdot propose one change to the ⋅ \cdot harness 2. Pre-register written before the run exists: ⋅ \cdot target set — must be corrected ⋅ \cdot control set — must not change ⋅ \cdot both drawn from the training ⋅ \cdot turns only 3. Measure ⋅ \cdot target set — was every turn ⋅ \cdot corrected? ⋅ \cdot control set — did it hold? ⋅ \cdot the evaluation turns inform ⋅ \cdot no decision here 4. Ship or revert ⋅ \cdot ship only if the target set ⋅ \cdot improves and the control holds ⋅ \cdot otherwise revert, and record ⋅ \cdot why Output ⋅ \cdot accepted or rejected change ⋅ \cdot target and control outcomes ⋅ \cdot rationale recorded in ledger ⋅ \cdot accepted harness version one arm the next arm tests the next proposed change Fig. 3: Human-guided harness training. Each proposed change is evaluated as
+one arm with pre-registered target and control sets. A change is accepted only
+when the target cases improve and the controls remain stable. Evaluation cases
+are not used to propose, tune or select an arm. IV-C 1 Expert Reference and Data Split We sampled 150 production sessions that did not overlap the development pilot
+of § V-A . Three domain scientists labelled the turns through the
+review interface, and a fourth resolved disagreements. The router scores 171
+turns across these sessions; after excluding unsuitable records, 150 of them
+carry an expert label and form the graded reference, split by session into 98
+training and 52 evaluation turns. Session-level splitting prevents turns from the same conversation from
+appearing on both sides. The reference is generated from the reviewer records, content-hashed and checked
+for drift before every evaluation. Reviewers provide both a route and a written
+explanation. The explanation is essential: a corrected label identifies the
+error, while the accompanying rationale suggests what rule, instruction or
+evidence source should change. Section V reports the resulting
+campaign and its accepted and rejected arms. V Evaluation We evaluate four questions: whether log analysis produces actionable diagnoses,
+whether human-guided harness training improves those diagnoses, what the agent
+judge contributes, and whether the resulting diagnoses lead to effective
+repairs. A 97-turn pilot supported taxonomy development but not claims of
+generalization. Formal results use a separate 150-turn multi-expert reference
+with a session-disjoint training/evaluation split, together with the full corpus
+of 2,174 scored turns. V-A Evaluation Data and Development Pilot The router was first developed against 100 sessions collected between February
+and July 2026, with one scored turn per session and stratification across the
+five failure modes and no_failure . A single author reviewed four
+questions per turn. Three turns were excluded as unscoreable, leaving 97. Initial
+agreement was 53 of 97 (55%) , including ten false knowledge routes. Repairing the input signals increased agreement to 77 of 97
+(79%) and reduced false knowledge routes to four. This result is developmental rather than confirmatory. The reviewer was a
+single author, and the same turns informed the taxonomy, rule ordering, and
+thresholds. We therefore use the separate 150-turn, multi-expert reference
+described in § IV-C for formal evaluation. V-B RQ1: Does Log Analysis Produce Actionable Diagnoses? We applied the shipped router to the complete interaction corpus of 1,229 sessions and 2,174 scored assistant turns . Because the same
+turns had been scored before harness training, Fig. 4 provides a controlled comparison on identical inputs. The principal improvement is a reduction in unattributed turns. The tree could
+not assign a failure mode to 900 turns (41.4%) before training and 309 turns (14.2%) afterward; attributed turns therefore increased
+from 924 to 1,295 . Run artifacts identify the mechanism: 729 turns
+in the earlier run had no retrieval verdict, and 684 of them consequently fell
+through to unknown . With the revised retrieval test, their largest
+destinations are no_failure (198), knowledge (150), retrieval (147) and prompt (75), while 106 remain unattributed. Thus, the change reflects improved evidence
+coverage rather than a more permissive attribution policy. Raw turn counts can overstate recurring problems. The 1,229 sessions contain
+927 distinct opening questions, and the most frequent question appears 33
+times. Figure 5 therefore also reports a deduplicated view. In
+total, 645 question groups contain at least one non-healthy route; the five
+largest groups account for 106 sessions and concern job and node counts,
+outbound network access, login procedures, and job submission. This grouping
+turns per-turn diagnoses into a support work queue without allowing repeated
+questions to dominate it. Two caveats travel with every cell. The smallest cells are not findings: tools_mcp , at 4.7% raw and 3.6% deduplicated, is too thin a slice to read as a
+rate. And the accuracy of § V-C is established on 150
+expert-labelled turns and nowhere else. The other 2,024 turns carry no reference, and
+the labelled slate was stratified, not uniformly drawn, so that accuracy cannot be
+carried onto this table. Ticket analysis provides a complementary view of support demand. Across 2,211
+ticket threads, 18% of those flagged complete were not actually resolved, while
+319 resolved threads were never flagged. The ticket system’s status field is
+therefore an unreliable proxy for outcome, supporting the need to re-triage
+tickets from their content before routing follow-up work. before pre-training 16.1 14.9 8.0 6.4 8.5 41.4 after shipped router 26.2 19.8 14.8 12.9 7.3 14.2 nothing decidable: 900 → \rightarrow 309 no_failure retrieval knowledge prompt model tools_mcp unknown Fig. 4: The same 2,174 turns scored before and after harness training, on identical
+input. Turns the router could not attribute fall from 900 (41.4%) to 309 (14.2%) because the retrieval test now returns a verdict where it previously returned nothing. 0% 10% 20% 26.2 22.3 no_failure 19.8 20.5 retrieval 14.8 17.0 knowledge 12.9 13.3 prompt 7.3 7.9 model 4.7 3.6 tools_mcp 14.2 15.3 unknown raw deduplicated Fig. 5: Failure-mode distribution under two counting rules, as a share of each total. Raw is every scored turn (2,174); deduplicated keeps one session per distinct
+opening question (1,768), collapsing the 33-fold repeats so one defect is counted once. The
+ordering barely changes; the shares do. knowledge is the class a raw count
+understates, because documentation gaps repeat less often than live-state questions. V-C RQ2: Does Human-Guided Training Improve the Diagnostic? Sixteen harness arms were evaluated against the frozen expert reference: three
+were accepted, nine were rejected, and four were reference arms (the baseline,
+a null control and two replication draws). Table II reports the
+accepted path. Agreement rises from 108/150 to 123/150 turns. On the
+session-disjoint evaluation split, it rises from 35/52 (67%) to 40/52 (77%). TABLE II: The accepted harness changes, scored against the frozen expert
+reference. Evaluation turns were not used to propose or select an arm. Arm Change training (98) eval. (52) all — baseline, gate closed 73 35 108 A1 rule-conditioned judge gate 80 37 117 A2 sufficiency + + clarification 81 39 120 A3 stricter clarification rules 83 40 123 The first arm changed judge authority according to the rule that fired. It
+corrected nine expert-labelled routes without introducing a regression. The
+next two arms refined the sufficiency and clarification signals consumed by the
+tree. The rejected arms generally attempted to change a judge’s conclusion
+without changing the evidence available to it. The accepted arms instead
+changed how existing evidence was interpreted or combined. Small aggregate changes require a null control. A semantically neutral edit
+still changed 9 and 11 of the 171 scored routes in two replicates because
+changing prompt bytes bypassed cached responses. Only two turns changed in both replicates, so
+the unstable cases do not form a fixed subset that can be removed. We therefore
+treat the null arm as a noise floor and accept a change only when its
+pre-registered target cases improve while its controls remain stable. V-D RQ3: What Does the Agent Judge Contribute? rule tree deterministic 26.3 19.8 14.8 13.0 7.3 14.1 agent judge probes, then commits 29.6 21.7 17.1 12.7 9.5 nothing decidable: 306 → \rightarrow 205 Fig. 6: The rule tree and the agent judge on the same 2,169 turns. Neither bar is the shipped label : the judge overturns only under seven named
+rules (§ V-D ), so what ships lies between them. The disagreement is
+concentrated on the two classes a support desk cares most about: turns blamed on the model,
+and turns nobody could attribute. The rule tree and agent judge disagree on 354 of 2,169 turns (16.3%), as
+shown in Fig. 6 ; they agree on the other 1,815 turns
+(83.7%). Where they differ, the judge assigns fewer turns to model (159 versus 85) and leaves fewer unattributed (306 versus 205). The largest
+flows are model → \rightarrow no_failure (59), unknown → \rightarrow knowledge (45), prompt → \rightarrow no_failure (36), and model → \rightarrow prompt (31).
+A confidence threshold did not provide an effective override policy. The
+reported confidence represents the type and amount of evidence available, not
+a calibrated probability that the proposed route is correct; it was often
+highest when the judge and tree already agreed.
+Policy C in Table III exhibits this limitation, and a later rubric
+revision was reverted when evaluation agreement fell from 72% to 66%. The rule that produced the tree’s route was more informative. On the 98
+training turns, the judge alone was correct in ten cases and the tree alone in
+seven. The judge was most useful when the tree inferred a route from missing or
+weak evidence, because the judge could probe the corpus for additional
+evidence. It was less reliable when the tree’s route followed positive evidence
+that the judge could not independently improve. We therefore use a deterministic, rule-conditioned override gate. In
+Table III , every override policy except the confidence-only gate
+improves agreement by 7–9 percentage points on both splits relative to the
+tree alone.
+The evaluation split does not distinguish the three best policies, and the
+ungated judge produces fewer spurious knowledge routes than the shipped
+policy. Rule conditioning was selected for operational reasons: its seven
+conditions are inspectable, its behavior is predictable if judge quality
+degrades, and the tree bounds its failure modes. On the complete expert
+reference, this gate corrects nine routes without a regression. These results
+support using the judge, but do not establish that rule conditioning is more
+accurate than accepting every judge proposal. TABLE III: Gate policies on the same frozen records, measured earlier in the campaign, hence n = 99 / 45 n{=}99/45 . “Spurious knowledge ” counts turns wrongly sent to documentation
+authoring. Bold marks the best value in a column. D is the policy we ship. policy train (99) eval (45) spurious knowledge A rule tree alone, no judge 73% 64% 5 B judge alone, no gate 80% 71% 1 C judge if confidence ≥ 0.8 \geq 0.8 77% 67% 2 D judge if the tree fired a weak rule (shipped) 81% 71% 5 E D, and confidence ≥ 0.7 \geq 0.7 82% 71% 5 The override gate reuses cached judge proposals and is therefore deterministic;
+every pre-registered target must change as expected. Its authority is limited
+to routing. Ticket replies, corpus changes, and pull requests remain subject to
+expert review regardless of which component assigns the route. V-E RQ4: Do Diagnoses Lead to Effective Repairs? The final evaluation tests whether a diagnosed failure can guide a targeted
+repair. We examine one prompt failure and one knowledge gap. For each case, the
+diagnostic identifies the responsible component, a candidate change is
+authored, and its effect is measured by replaying production questions
+(Fig. 7 ). These are controlled offline experiments; neither
+change was automatically promoted to the deployed system. Each experiment has three arms: before uses the current system, after changes exactly one component, and null repeats the current
+system with the generation cache bypassed. The null arm measures stochastic
+variation: in these experiments, an unchanged configuration altered roughly
+one quarter of individual responses. Effects are therefore measured between
+the after and null arms, which are independent draws made after target cases
+have been selected. Comparing after directly with the selection baseline would
+overestimate improvement through regression to the mean. We require an observed effect to exceed both the change in aggregate rate and
+the number of per-turn flips in the null arm. This distinction matters because
+opposing changes may cancel in aggregate; in one run, the rate changed by only + 0.016 +0.016 although 27 of 188 turns (14.4%) changed. The primary metrics below
+are deterministic string matches, so the repair results do not depend on the
+agent judge evaluated in RQ3. Retrieved contexts are frozen for the prompt
+experiment. For the knowledge experiment, the candidate document is injected
+directly, isolating its potential contribution while intentionally bypassing
+retrieval. one pass of the production loop — how a diagnosed failure becomes a measured change a failing turn from production diagnose failure routing author a fix patch a prompt run add a doc page run re-rank / re-index not yet human review the gate — opens a pull request three-arm experiment effect read only against the null arm before the current system after one thing changed null before , re-run unchanged the null arm is the one people skip — it is the reference the fix is
+measured against and the floor the effect must clear, never a filter over the turns Fig. 7: One pass of the production loop. Only the first two fix kinds have been run; a
+retrieval-side repair is designed and not yet exercised. An effect is read as fix
+against null , never fix against before : selecting a target set on a stochastic
+symptom makes the before-arm rate 1.0 by construction. Numbers are in
+§ V-E . V-E 1 Questions and Reference Answers Both experiments use a frozen question set derived from ALCF traffic.
+This choice preserves requests that the existing corpus cannot answer, whereas
+questions synthesized from a corpus tend to represent information already
+present in that corpus [ 38 , 39 ] . From 3,495 session
+snapshots, 2,320 user messages were deduplicated and consolidated into 1,512 canonical questions . A bounded-tool agent drafted reference
+answers using only sources it opened, after which a human reviewer accepted,
+edited, or rejected them. Before experimentation, we content-hashed two subsets:
+288 questions for the prompt repair and 68 for the knowledge repair. V-E 2 Repairing a Prompt Failure Harness analysis identified over-clarification as the largest cluster assigned
+to prompt : the assistant asks a follow-up question even when retrieved
+evidence is sufficient. We evaluated a change to the conversation prompt used
+by 99.5% of traffic. Across 288 frozen questions and two generation models, the change significantly
+reduced clarifying questions relative to the null arm (Table IV ).
+Responses became longer and included more citations, indicating that the
+reduction was not caused by truncation. The change also increased
+under-clarification—cases in which the assistant should have requested missing
+system information. Beneficial changes outnumbered adverse changes by about
+four to one, but the tradeoff requires expert judgment before deployment. The
+control set also changed, so this experiment cannot distinguish the intended
+instruction from the effect of modifying the prompt more generally; a placebo
+prompt is required to isolate that mechanism. TABLE IV: Turn counts over all 288 questions. The three rows are mutually exclusive and sum
+to 288. Row 1 counts every clarifying question asked, necessary or not.
+Under-clarification is the opposite defect and is necessity-aware: a question naming no
+system that the assistant answered instead of asking about. The effect is read
+null against fix. p p is exact McNemar on the turns that changed. claudeopus48 gpt5.6 turns, of 288 before null fix before null fix clarifying question asked 145 128 101 69 68 37 under -clarification 3 4 9 15 17 24 neither defect 140 156 178 204 203 227 net, null → \rightarrow fix − 27 -27 asked / + 5 +5 under − 31 -31 asked / + 7 +7 under p p (asked / under) 0.006 / 0.18 9.3 × 10 − 6 9.3{\times}10^{-6} / 0.039 V-E 3 Repairing a Knowledge Gap The router also identified questions about AI coding assistants for which a
+corpus probe found no coverage of five named tools. A documentation page was
+drafted and approved by the content owner. Directly injecting this page raised
+fact utilization from 0.070 to 0.202 , compared with 0.060 when a same-sized unrelated page was injected. This result
+isolates the value of the missing content, but represents an upper bound rather
+than an end-to-end repair because it bypasses retrieval and re-indexing. When the new page was chunked into the offline scoring corpus,
+Table V showed higher completeness and faithfulness on target
+questions and little change on controls for both generation models. Correctness
+also rises above its null arm, but we do not claim it: unlike the other two
+dimensions it re-retrieves from the scoring corpus, and its null moved 0.072 on
+one model where theirs moved under 0.01. The utilization increase supports the knowledge attribution for this
+cluster. Across the broader question set, however, 76% of gold facts
+missing from retrieved context were already present in the corpus ; their
+absence was therefore a retrieval failure. The remaining 24% is an upper bound
+on genuine documentation gaps, since the offline snapshot is a subset of the
+production index. This distinction directs support effort toward either
+retrieval improvement or content authoring rather than treating every missing
+fact as a request for new documentation. TABLE V: Target is the four questions the new page answers, control the other 64 it cannot
+reach. The null arm is the before arm re-run through a cold cache. The judge is
+cross-family to both generation arms and was chosen before any result. target ( n = 4 n{=}4 ) control ( n = 64 n{=}64 ) dimension gen before after null before after null completeness opus 0.118 0.299 0.127 0.437 0.411 0.447 completeness gpt 0.098 0.173 0.089 0.348 0.370 0.365 faithfulness opus 0.691 0.857 0.695 0.716 0.734 0.721 faithfulness gpt 0.594 0.762 0.512 0.613 0.614 0.586 correctness opus 0.700 0.773 0.722 0.622 0.638 0.617 correctness gpt 0.500 0.583 0.428 0.487 0.471 0.491 VI Discussion and Limitations Three design lessons are likely to transfer to other facilities. First,
+retrieval should be evaluated at both the production-result and corpus levels;
+the distinction determines whether a retrieval engineer or documentation owner
+can act on the failure. Second, answer-quality scores should not be treated as
+repair decisions. A visible symptom does not uniquely identify the component
+that caused it, and the reliability of attribution is bounded by the evidence
+detectors that feed the policy. Third, a repair evaluation should measure both
+the target behavior and its inverse. The prompt repair reduced unnecessary
+clarification but also increased under-clarification, a tradeoff that a
+single-direction metric would miss. The study has several limitations. All labelled data come from the ALCF,
+and approximately two thirds of the 150-turn reference received only one expert
+label. The class distribution is unbalanced, making per-route estimates
+unreliable for rare model , unknown , and tools_mcp cases.
+We report exact agreement without a chance-corrected statistic, and the held-out
+split contains only 52 turns. The gate-policy comparison in
+Table III is the only agentic-versus-deterministic control. Finally,
+each repair study represents one experimental campaign. Null arms estimate
+run-to-run variation but do not substitute for repeated independent trials. The implemented system also stops short of fully autonomous repair. Three of
+the five failure routes have not been exercised through an end-to-end repair
+path, and no generated knowledge change has been merged and re-indexed in the
+deployed corpus. The remaining errors, rejected harness arms, and finding that
+76% of missing retrieved facts already exist in the corpus all identify
+retrieval quality as the highest-priority next step. VII Conclusion Deploying a RAG assistant creates a corresponding operational challenge:
+determining why an answer failed and who can repair it. AskALCF addresses this
+challenge by evaluating answer quality separately from retrieval sufficiency
+and by testing retrieval at both the production-result and corpus levels. This
+distinction separates missing documentation from failed retrieval and converts
+quality evidence into a component-level work item. Across 2,174 production turns, the router assigned a failure mode to 1,295
+turns and explicitly left 309 unattributed. Human-guided harness training
+increased agreement with a 150-turn expert reference from 108 to 123 turns,
+including an increase from 67% to 77% on a session-disjoint evaluation split.
+An agent judge provided useful independent evidence when the rule tree reasoned
+from missing information; a rule-conditioned gate bounded its authority more
+effectively than a confidence threshold. The expert-review interface is central to this improvement process. It produces
+the reference labels used for evaluation and captures rationales that motivate
+bounded changes to rules, prompts, and knowledge. Controlled repair studies
+showed that diagnoses can guide prompt and documentation changes, while also
+revealing adverse effects that require expert judgment. The system therefore demonstrates a governed path from support interactions to
+measured improvement, but not a fully closed autonomous loop. Candidate repairs
+have been evaluated offline; generated knowledge changes have not yet been
+merged and re-indexed in production. Completing and evaluating that final stage
+is future work. Acknowledgment This research used resources of the Argonne Leadership Computing Facility, a U.S. Department of
+Energy (DOE) Office of Science user facility at Argonne National Laboratory (ANL) operated under
+Contract No. DE-AC02-06CH11357.
+J.J., A.B., K.R., M.K., Y.G., H.S.S., V.V., M.E.P., and H.Z. were supported by the Office of Science,
+U.S. Department of Energy, under contract DE-AC02-06CH11357. References [1] A. Bondapalli, H. Zheng, O. T. Ajayi, M. Keceli, H. Siddabathuni Som, B. Cerny, T. Childers, L. Childers, Y. Ghadar, M. E. Papka, V. Vishwanath, and R. Ge (2025) AskHPC: a ChatBot for high performance computing user support . In Proc. SC’25 Workshops (HUST-25: 12th Int’l Workshop on HPC User
+Support Tools) , pp. 727–739 . External Links: Document Cited by: §I , §II-A . [2] J. Yin, J. R. Hines, E. J. Herron, T. Ghosal, H. Liu, S. T. Prentice, V. Lama, and F. Wang (2025) chatHPC: empowering HPC users with large language models . The Journal of Supercomputing 81 ( 1 ), pp. 194 . External Links: Document Cited by: §I , §II-A . [3] Y. Miyashita, P. K. M. Tung, and J. Barthélemy (2025) LLM as HPC expert: extending RAG architecture for HPC data . arXiv preprint arXiv:2501.14733 . Cited by: §I , §II-A . [4] M. Zheng, F. Linghu, S. Li, M. C. Kandes, N. Gaffney, I. Foster, and Z. Zhang (2026) A comparative study on LLM-enabled HPC user support . In Practice and Experience in Advanced Research Computing (PEARC ’26) , pp. 1–8 . External Links: Document Cited by: §I , §II-A . [5] H. Joren, J. Zhang, C. Ferng, D. Juan, A. Taly, and C. Rashtchian (2025) Sufficient context: a new lens on retrieval augmented generation systems . In Proc. International Conference on Learning Representations (ICLR) , Note: arXiv:2411.06037 External Links: Link Cited by: §I , §II-A , §III-B2 . [6] S. Es, J. James, L. Espinosa Anke, and S. Schockaert (2024) RAGAs: automated evaluation of retrieval augmented generation . In Proc. Conference of the European Chapter of the ACL (EACL):
+System Demonstrations , pp. 150–158 . Note: arXiv:2309.15217 External Links: Link , Document Cited by: §II-A . [7] D. Ru, L. Qiu, X. Hu, T. Zhang, P. Shi, S. Chang, C. Jiayang, C. Wang, S. Sun, H. Li, Z. Zhang, B. Wang, J. Jiang, T. He, Z. Wang, P. Liu, Y. Zhang, and Z. Zhang (2024) RAGChecker: a fine-grained framework for diagnosing retrieval-augmented generation . In Advances in Neural Information Processing Systems 37 (NeurIPS):
+Datasets and Benchmarks Track , Note: arXiv:2408.08067 External Links: Link Cited by: §II-A , §III-B1 . [8] T. Gao, H. Yen, J. Yu, and D. Chen (2023) Enabling large language models to generate text with citations . In Proc. Conference on Empirical Methods in Natural Language Processing (EMNLP) , pp. 6465–6488 . Note: arXiv:2305.14627 External Links: Link , Document Cited by: §II-A , §III-B1 . [9] S. Yan, J. Gu, Y. Zhu, and Z. Ling (2024) Corrective retrieval augmented generation . Note: arXiv preprint arXiv:2401.15884 Cited by: §II-A . [10] A. Asai, Z. Wu, Y. Wang, A. Sil, and H. Hajishirzi (2024) Self-RAG: learning to retrieve, generate, and critique through self-reflection . In Proc. International Conference on Learning Representations (ICLR) , Note: arXiv:2310.11511 Cited by: §II-A . [11] S. Barnett, S. Kurniawan, S. Thudumu, Z. Brannelly, and M. Abdelrazek (2024) Seven failure points when engineering a retrieval augmented generation system . arXiv preprint arXiv:2401.05856 . Cited by: §II-A . [12] M. Zhuge, C. Zhao, D. Ashley, W. Wang, D. Khizbullin, Y. Xiong, Z. Liu, E. Chang, R. Krishnamoorthi, Y. Tian, Y. Shi, V. Chandra, and J. Schmidhuber (2024) Agent-as-a-Judge: evaluate agents with agents . arXiv preprint arXiv:2410.10934 . Cited by: §II-B . [13] R. You, H. Cai, C. Zhang, Q. Xu, M. Liu, T. Yu, Y. Li, and W. Li (2026) Agent-as-a-Judge: a survey . arXiv preprint arXiv:2601.05111 . Cited by: §II-B . [14] L. Zheng, W. Chiang, Y. Sheng, S. Zhuang, Z. Wu, Y. Zhuang, Z. Lin, Z. Li, D. Li, E. P. Xing, H. Zhang, J. E. Gonzalez, and I. Stoica (2023) Judging LLM-as-a-Judge with MT-Bench and Chatbot Arena . In Advances in Neural Information Processing Systems 36 (NeurIPS),
+Datasets and Benchmarks Track , Note: arXiv:2306.05685 Cited by: §II-B . [15] A. Panickssery, S. R. Bowman, and S. Feng (2024) LLM evaluators recognize and favor their own generations . arXiv preprint arXiv:2404.13076 . Cited by: §II-B . [16] Z. Tian, Z. Han, Y. Chen, H. Xu, X. Yang, R. Xuan, H. Wang, and L. Liao (2025) Overconfidence in LLM-as-a-judge: diagnosis and confidence-driven solution . arXiv preprint arXiv:2508.06225 . Cited by: §II-B . [17] X. Wang, Y. Chen, L. Yuan, Y. Zhang, Y. Li, H. Peng, and H. Ji (2024) Executable code actions elicit better LLM agents . In Proc. International Conference on Machine Learning (ICML) , Note: arXiv:2402.01030 Cited by: §II-B , §III-A . [18] Y. Ruan, H. Dong, A. Wang, S. Pitis, Y. Zhou, J. Ba, Y. Dubois, C. J. Maddison, and T. Hashimoto (2024) Identifying the risks of LM agents with an LM-emulated sandbox . In Proc. International Conference on Learning Representations (ICLR) , Note: arXiv:2309.15817 Cited by: §II-B . [19] C. Zhu, J. Yao, K. Chawla, Y. Yin, N. Wolfe, P. Cai, J. Wu, S. Hong, S. Cho, S. Zhang, D. Liu, S. Sahu, and E. Babinsky (2026) SAFARI: scaling long-horizon agentic fault attribution via active investigation . arXiv preprint arXiv:2606.24626 . Note: 2nd Workshop on Agents in the Wild (AIWILD) at ICML 2026 Cited by: §II-B . [20] J. Li, E. Yilmaz, B. Chen, and D. Le (2026) Towards self-improving error diagnosis in multi-agent systems . In Findings of the Association for Computational Linguistics: ACL 2026 , Note: arXiv:2604.17658 Cited by: §II-B . [21] J. Jung, F. Brahman, and Y. Choi (2024) Trust or escalate: LLM judges with provable guarantees for human agreement . arXiv preprint arXiv:2407.18370 . Cited by: §II-B . [22] P. Verga, S. Hofstatter, S. Althammer, Y. Su, A. Piktus, A. Arkhangorodsky, M. Xu, N. White, and P. Lewis (2024) Replacing judges with juries: evaluating LLM generations with a panel of diverse models . arXiv preprint arXiv:2404.18796 . Cited by: §II-B . [23] G. Wang, Y. Xie, Y. Jiang, A. Mandlekar, C. Xiao, Y. Zhu, L. Fan, and A. Anandkumar (2024) Voyager: an open-ended embodied agent with large language models . Transactions on Machine Learning Research . Note: arXiv:2305.16291 External Links: ISSN 2835-8856 , Link Cited by: §II-C . [24] N. Shinn, F. Cassano, A. Gopinath, K. Narasimhan, and S. Yao (2023) Reflexion: language agents with verbal reinforcement learning . In Advances in Neural Information Processing Systems 36 (NeurIPS) , Note: arXiv:2303.11366 Cited by: §II-C . [25] O. Khattab, A. Singhvi, P. Maheshwari, Z. Zhang, K. Santhanam, S. Vardhamanan, S. Haq, A. Sharma, T. T. Joshi, H. Moazam, H. Miller, M. Zaharia, and C. Potts (2024) DSPy: compiling declarative language model calls into state-of-the-art pipelines . In Proc. International Conference on Learning Representations (ICLR) , Note: arXiv:2310.03714 Cited by: §II-C . [26] L. A. Agrawal, S. Tan, D. Soylu, N. Ziems, R. Khare, K. Opsahl-Ong, A. Singhvi, H. Shandilya, M. J. Ryan, M. Jiang, C. Potts, K. Sen, A. G. Dimakis, I. Stoica, D. Klein, M. Zaharia, and O. Khattab (2026) GEPA: reflective prompt evolution can outperform reinforcement learning . In Proc. 14th Int’l Conference on Learning Representations (ICLR) , Note: arXiv:2507.19457 Cited by: §II-C . [27] X. Liu, X. Luo, L. Li, G. Huang, J. Liu, and H. Qiao (2026) SkillForge: forging domain-specific, self-evolving agent skills in cloud technical support . In Proc. 49th Int’l ACM SIGIR Conference on Research and Development in
+Information Retrieval (Industry Track) , Note: arXiv:2604.08618 External Links: Document Cited by: §II-C . [28] S. Badrinarayan and A. Parthasarathy (2026) DocSync: agentic documentation maintenance via critic-guided reflexion . arXiv preprint arXiv:2605.02163 . Cited by: §II-C . [29] M. Yuksekgonul, F. Bianchi, J. Boen, S. Liu, P. Lu, Z. Huang, C. Guestrin, and J. Zou (2025) Optimizing generative AI by backpropagating language model feedback . Nature 639 ( 8055 ), pp. 609–616 . Note: arXiv:2406.07496; originally titled “TextGrad: Automatic Differentiation via Text” External Links: Document Cited by: §II-C . [30] C. Cheng, A. Nie, and A. Swaminathan (2024) Trace is the next AutoDiff: generative optimization with rich feedback, execution traces, and LLMs . arXiv preprint arXiv:2406.16218 . Cited by: §II-C . [31] B. Atil, S. Aykent, A. Chittams, L. Fu, R. J. Passonneau, E. Radcliffe, G. R. Rajagopal, A. Sloan, T. Tudrej, F. Ture, Z. Wu, L. Xu, and B. Baldwin (2024) Non-determinism of “deterministic” LLM settings . arXiv preprint arXiv:2408.04667 . Cited by: §II-C . [32] X. Zhang, G. Wang, Y. Cui, W. Qiu, Z. Li, B. Zhu, and P. He (2026) Prompt optimization is a coin flip: diagnosing when it helps in compound AI systems . In 1st Workshop on Combining Theory and Benchmarks (CTB) at ICML , Note: arXiv:2604.14585 Cited by: §II-C . [33] Anthropic and contributors (2025) Model context protocol specification, revision 2025-06-18 . Note: https://modelcontextprotocol.io/specification/2025-06-18 Cited by: §III . [34] J. Wang et al. (2021) Milvus: a purpose-built vector data management system . In Proc. ACM SIGMOD , Cited by: §III-A . [35] G. M. Kurtzer, V. Sochat, and M. W. Bauer (2017) Singularity: scientific containers for mobility of compute . PLOS ONE 12 ( 5 ), pp. e0177459 . Note: Renamed to Apptainer in 2021 upon the project’s move to the Linux Foundation. External Links: Document Cited by: §III-A . [36] T. Gamblin, M. LeGendre, M. R. Collette, G. L. Lee, A. Moody, B. R. de Supinski, and S. Futral (2015) The Spack package manager: bringing order to HPC software chaos . In Proc. Int’l Conf. for High Performance Computing, Networking,
+Storage and Analysis (SC ’15) , External Links: Document Cited by: §III-A . [37] Y. Babuji, A. Woodard, Z. Li, D. S. Katz, B. Clifford, R. Kumar, L. Lacinski, R. Chard, J. M. Wozniak, I. Foster, M. Wilde, and K. Chard (2019) Parsl: pervasive parallel programming in Python . In Proc. 28th Int’l Symp. on High-Performance Parallel and
+Distributed Computing (HPDC ’19) , External Links: Document Cited by: §III-A . [38] K. Zhu, Y. Luo, D. Xu, Y. Yan, Z. Liu, S. Yu, R. Wang, S. Wang, Y. Li, N. Zhang, X. Han, Z. Liu, and M. Sun (2025) RAGEval: scenario-specific RAG evaluation dataset generation framework . In Proc. 63rd Annual Meeting of the Association for Computational
+Linguistics (ACL), Volume 1: Long Papers , pp. 8520–8544 . Note: arXiv:2408.01262 External Links: Link , Document Cited by: §V-E1 . [39] S. Shashidhar, C. Fourrier, A. Lozovskia, T. Wolf, G. Tur, and D. Hakkani-Tür (2025) YourBench: easy custom evaluation sets for everyone . arXiv preprint arXiv:2504.01833 . Cited by: §V-E1 . Experimental support, please view the build logs for errors. Generated by L A T E xml . Instructions for reporting errors We are continuing to improve HTML versions of papers, and your feedback helps enhance accessibility and mobile
+      support. To report errors in the HTML that will help us improve conversion and rendering, choose any of the
+      methods listed below: Click the "Report Issue" ( ) button, located in the page header. Tip: You can select the relevant text first, to include it in your report. Our team has already identified the following issues . We appreciate your time reviewing and reporting rendering errors we
+      may not have found yet. Your efforts will help us improve the HTML versions for all readers, because disability
+      should not be a barrier to accessing research. Thank you for your continued support in championing open access for
+      all. Have a free development cycle? Help support accessibility at arXiv! Our collaborators at LaTeXML maintain a list of packages that need conversion , and welcome developer contributions . We gratefully acknowledge support from our major funders , member institutions , ,
+        and all contributors. About · Help · Contact · Subscribe · Copyright · Privacy · Accessibility · Operational Status (opens in new tab)
