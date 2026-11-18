@@ -19,7 +19,7 @@ from scripts.feed.storage import load_items, save_items
 from scripts.feed.scope import archive_out_of_scope, load_scope, require_scope, scope_status
 
 DECISIONS = ("pending", "accept", "reject", "move", "defer", "backlog")
-OWNER_FIELDS = ("decision", "direction_override", "summary_override", "promote_to_repo", "note")
+OWNER_FIELDS = ("decision", "direction_override", "summary_override", "promote_to_repo", "note", "evidence_quick")
 QUICK_FIELDS = ("held_out", "matched_budget", "cross_model", "code_released")
 APPROVED = ("accept", "move")
 REVIEW_SCHEMA = {
@@ -161,6 +161,8 @@ def queue_review(root=ROOT, week=None, items=None):
         if item["id"] in old:
             prior = old[item["id"]]
             for field in OWNER_FIELDS:
+                if field == "evidence_quick" and prior["source_hash"] != row["source_hash"]:
+                    continue
                 row[field] = deepcopy(prior.get(field, row[field]))
             if prior["source_hash"] != row["source_hash"]:
                 row["decision"] = "pending"
@@ -305,7 +307,7 @@ def apply_review(root=ROOT, week=None, now=None):
     stamp = now or datetime.now(timezone.utc).isoformat()
     for row in [*review["items"], *review["lab_updates"]]:
         item = deepcopy(items[row["id"]])
-        decision = {field: deepcopy(row.get(field)) for field in OWNER_FIELDS}
+        decision = {field: deepcopy(row[field]) for field in OWNER_FIELDS if field in row}
         decision.update(week=week, source_hash=row["source_hash"])
         previous = item.get("review", {})
         if {key: value for key, value in previous.items() if key != "reviewed_at"} == decision:
@@ -440,6 +442,8 @@ def queue_daily_review(root=ROOT, date=None, items=None, carried_reviews=None, r
         if item["id"] in old:
             prior_day, prior = old[item["id"]]
             for field in OWNER_FIELDS:
+                if field == "evidence_quick" and prior["source_hash"] != row["source_hash"]:
+                    continue
                 if field in row and field in prior:
                     row[field] = deepcopy(prior[field])
             if row["decision"] == "pending":
@@ -592,7 +596,7 @@ def apply_daily_review(root=ROOT, date=None, now=None, provenance=None):
         if (row["decision"] == "defer" and previous.get("decision") in (*APPROVED, "reject", "backlog")
                 and previous.get("source_hash") == row["source_hash"]):
             continue  # Replaying a deferred queue cannot revoke a still-current decision.
-        decision = {field: deepcopy(row.get(field)) for field in OWNER_FIELDS}
+        decision = {field: deepcopy(row[field]) for field in OWNER_FIELDS if field in row}
         decision.update(kind="daily", date=date, week=day_week(date), source_hash=row["source_hash"])
         if "reviewed_on" in review:
             decision["reviewed_on"] = review["reviewed_on"]

@@ -127,6 +127,31 @@ def test_partial_code_evidence_survives_queue_without_approval(tmp_path):
         validate_daily_review(root, DAY)
 
 
+def test_reviewed_evidence_survives_daily_rollover_and_weekly_backlog(tmp_path):
+    from scripts.feed.review import _review_row, approved_weekly_backlog, source_hash
+    from scripts.feed.window import daily_metadata
+
+    root = make_daily_repo(tmp_path)
+    original = next(item for item in load_items(root) if item.get("arxiv_id") == "2610.99991")
+    original.update(published="2026-10-20", updated="2026-10-20", hf_daily_dates=[])
+    save_items(root, [original])
+    row = {**_review_row(original), **daily_metadata(root, original, DAY), "decision": "backlog"}
+    corrected = {"value": "unknown", "quote": None}
+    row["evidence_quick"]["held_out"] = corrected
+    review = {"date": DAY, "items": [row], "lab_updates": []}
+    (root / "review/daily" / f"{DAY}.yaml").write_text(yaml.safe_dump(review))
+    rolled = queue_daily_review(root, NEXT, carried_reviews=[review])
+    carried = next(item for item in rolled["items"] if item["id"] == original["id"])
+    assert carried["evidence_quick"]["held_out"] == corrected
+    apply_daily_review(root, DAY)
+    stored = next(item for item in load_items(root) if item["id"] == original["id"])
+    assert stored["review"]["evidence_quick"]["held_out"] == corrected
+    assert stored["evidence_quick"] == original["evidence_quick"]
+    assert source_hash(stored) == source_hash(original)
+    assert approved_weekly_backlog(root, WEEK)[0]["evidence_quick"]["held_out"] == corrected
+    assert apply_daily_review(root, DAY) == 0
+
+
 def test_rollover_preserves_unmerged_decisions_and_resets_deferral(tmp_path):
     root = make_daily_repo(tmp_path)
     review = accept_daily(root)
