@@ -61,7 +61,7 @@ for proposal in pos['items'] + exc['items']:
     baseline = _review_row(c)
     # Daily post rows deliberately omit version/abstract; source_hash still binds both.
     visible_fields = ('id', 'title', 'links', 'published', 'updated', 'hf_daily_dates') if c['kind'] in ('post', 'release') else ('id', 'title', 'arxiv_id', 'version', 'published', 'updated', 'hf_daily_dates', 'abstract', 'links', 'summary_zh', 'summary_en')
-    rc = {k: r.get(k) == baseline.get(k) for k in visible_fields} 
+    rc = {k: r.get(k) == baseline.get(k) for k in visible_fields}
     rc.update(current_source_hash=r['source_hash'] == proposal['source_hash'] == source_hash(c), inventory_source_hash=source_hash(c) == inv['canonical_source_hash'], first_seen_preserved=proposal['first_seen_preserved'] == c.get('first_seen') == inv['canonical_snapshot'].get('first_seen'), edition_and_review_dates=proposal['edition_date'] == '2026-11-17' and proposal['reviewed_on'] == '2026-11-18', historical_section=r['daily_section'] == 'historical', no_catalog_promotion=r['promote_to_repo'] is False, decision=r['decision'] == ('backlog' if positive else 'reject'))
     approval = proposal['owner_scope_approval']
     owner_checks = None
