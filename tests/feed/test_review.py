@@ -164,6 +164,26 @@ def test_apply_review_upsert_idempotence_and_eval_increment(tmp_path):
     assert len(labels) == 1 and labels[0]["label"] == "exclude" and labels[0]["labeled_by"] == "owner"
 
 
+def test_reviewed_evidence_survives_weekly_queue_and_apply_without_changing_source(tmp_path):
+    from scripts.feed.review import source_hash
+
+    root = make_repo(tmp_path)
+    accept_one(root)
+    original = next(item for item in load_items(root) if item.get("arxiv_id") == "2610.99991")
+    corrected = {"value": "unknown", "quote": None}
+    write_review(root, lambda review: next(row for row in review["items"]
+                 if row["id"] == original["id"])["evidence_quick"].update(held_out=corrected))
+    queue_review(root, WEEK)
+    assert approved_items(root, WEEK)[0]["evidence_quick"]["held_out"] == corrected
+    apply_review(root, WEEK)
+    stored = next(item for item in load_items(root) if item["id"] == original["id"])
+    assert stored["review"]["evidence_quick"]["held_out"] == corrected
+    assert stored["evidence_quick"] == original["evidence_quick"]
+    assert source_hash(stored) == source_hash(original)
+    lab = next(item for item in load_items(root) if item["kind"] == "release")
+    assert "evidence_quick" not in lab["review"]
+
+
 def test_cli_review_leaves_skips_pending(tmp_path):
     root = make_repo(tmp_path)
     answers = iter(["r", "m", "harness/improver", "s"])
