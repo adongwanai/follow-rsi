@@ -1,0 +1,2338 @@
+date: '2026-11-16'
+reviewed_on: '2026-11-18'
+items:
+- id: arxiv:2610.22915
+  title: 'Reward Engine: Reward-Centric Self-Evolution for Open-Ended Tool Agents'
+  announced: '2026-10-16'
+  window_status: stale
+  in_repo: false
+  gate: {}
+  llm_primary: data_task
+  decision: backlog
+  arxiv_id: '2610.22915'
+  version: 1
+  source_hash: 422ec4da776630246558d42eec8d0c112d2cc7daa279f473f24b48c95f705981
+  published: '2026-10-16'
+  updated: '2026-10-16'
+  hf_daily_dates: []
+  abstract: Open-ended tool agents can complete the same objective through different tool paths, and their quality
+    depends jointly on the interaction trace, environment state, and final artifacts, so such tasks rarely admit
+    an executable ground-truth reward. The central challenge is therefore to construct a reward from existing experience
+    that exposes the current policy's failures while remaining stationary during optimization. We introduce Reward
+    Engine, which, like a self-motivated student, first works out what success requires and then optimizes toward
+    it. From the task and initial trajectories, it builds a RewardPack of testcases for required correctness and
+    rubrics for graded quality, each executed as a check that returns a judgment with evidence. The frozen RewardPack
+    then guides the agent to revise and select its outputs, and can also serve as a reward for reinforcement learning.
+    On WorkBuddy Bench Office and Claw-Eval, the constructed reward largely agrees with the benchmark graders, not
+    reversing their ordering on 82.3\% and 80.5\% of candidate pairs. Used to revise executions, it raises three-run
+    consistency ($\mathrm{Pass}^{3}$) over Baseline from 45.0\% to 54.0\% and from 78.4\% to 83.7\%.
+  llm:
+    classify:
+      cache_key: d9b313ecf005fa4d0a86cac90cb3f499e58c3815c361492d9bff7effc816e73b
+      data:
+        confidence: 0.45
+        harness_sub: null
+        improved_object_zh: 任务奖励构造
+        primary: data_task
+        secondary: []
+      model: deepseek-flash
+      prompt_hash: 861e6de34cb94e7f01f322f20b2c22da3942f6b454af6f7c9751722a72dc7b16
+      provider: deepseek
+      response_prompt_hash: fd945eb29c3038af73501af62c6c8cc6610230c19ea641c2c57cbb7f72f3ec33
+      retry_count: 0
+      template_hash: 9b43c1bb2d80f00d12195707933c97a27d0eaf5d7b675fc0095afb4e93e4a236
+      truncated_fields: []
+    confidence: 0.45
+    exclude_reason: null
+    harness_sub: null
+    improved_object_zh: 任务奖励构造
+    label: borderline
+    primary: data_task
+    reason_zh: 提出RewardPack奖励构建并用于修订输出或RL，但未明确该工件会保留到后续任务或多轮自改进闭环，持久性证据不足。
+    relevance:
+      cache_key: d72253d8c37d766374bb1dc4e16b73f00b6213848ad16b5bc9dd5377d51a3d1f
+      data:
+        confidence: 0.66
+        exclude_reason: null
+        label: borderline
+        reason_zh: 提出RewardPack奖励构建并用于修订输出或RL，但未明确该工件会保留到后续任务或多轮自改进闭环，持久性证据不足。
+        scope_kind: method
+        scope_support:
+          exclusion_quote: null
+          feedback_quote: each executed as a check that returns a judgment with evidence
+          object_quote: it builds a RewardPack of testcases for required correctness and rubrics for graded quality
+          persistence_quote: null
+          study_quote: null
+      model: deepseek-flash
+      prompt_hash: 9c9ba79570463be8eb5fb56bd93657cbbf8004d053b9ce4f4c581e1e423669fe
+      provider: deepseek
+      response_prompt_hash: 63e18d34e1475069e08050773629a61e06e8b3701984881e2c5acb3c63dfce19
+      retry_count: 0
+      template_hash: 9992577817aafe320963871726f2bf2b408948445cb351a06e1dc42be9b9672e
+      truncated_fields: []
+    scope_guard:
+      issues:
+      - scope_support.persistence_quote
+      model_label: borderline
+      supported: false
+    scope_kind: method
+    scope_support:
+      exclusion_quote: null
+      feedback_quote: each executed as a check that returns a judgment with evidence
+      object_quote: it builds a RewardPack of testcases for required correctness and rubrics for graded quality
+      persistence_quote: null
+      study_quote: null
+    secondary: []
+  summary_zh: ''
+  summary_en: ''
+  evidence_quick:
+    code_released:
+      quote: null
+      value: unknown
+    cross_model:
+      quote: null
+      value: unknown
+    held_out:
+      quote: null
+      value: unknown
+    matched_budget:
+      quote: null
+      value: unknown
+  evidence_notice: 来源、身份、日期及范围逐项核验；证据绑定当前版本与哈希。未复现实验，未全表重算。
+  links:
+    arxiv: https://arxiv.org/abs/2610.22915
+    s2: https://www.semanticscholar.org/paper/d0e19b905f3897d4f84b8b9d1372e25b1abf6fd9
+  signals:
+    seed_hits: 1
+    author_tracked: false
+    hf_upvotes: 0
+  guard_failed: false
+  direction_override:
+    primary: harness
+    secondary: []
+    harness_sub: component
+  summary_override:
+    summary_zh: 冻结执行模型，依据执行反例修订可重跑检查器，并将验收后的验证器版本与修复记录带入后续改进轮次。跨任务改进构造器的循环尚未评测。
+    summary_en: With the actor frozen, execution counterexamples revise reusable checkers; accepted verifier versions
+      and repair records carry into later improvement rounds. Cross-task adaptation of the constructor is not evaluated.
+  promote_to_repo: false
+  note: RewardPack把标准绑定到可重跑checks，QC依据执行反例与reference-label差异修订检查程序/标准，版本及repair ledger保留到后续改进轮。其环内验证器是修改对象，不只是actor交付产物。可按Harness组件保留；跨任务改进constructor的meta-loop仅为已明确描述的设计，未实验验证，不能宣传成已验证跨任务自改进。
+    仅定性方法摘要通过；表12的104/67与主文104/68差异保留告警，不引用该数字。 本次仅落实当前规范版本；候选新版不采用，保留旧判断及纠正链，不改 first_seen 或科学字段，不算11/16新论文。
+  announced_source: published
+  news_date: '2026-10-16'
+  daily_section: historical
+  source_review_evidence:
+    official_url: https://arxiv.org/html/2610.22915v1
+    reviewed_version: 1
+    body_sha256: 9af9b866f414acdc60579cda4bf6571fda4203e719de5beb65453f14c918ec58
+    extracted_text_sha256: cafe26f78e1f3a65edf1058a7c8b0042cc3396eea65bbf6da4edbb1789a6fd2f
+    version_binding: matching_arxiv_page_watermark
+    quotes:
+    - location: '#S2.SS0.SSS0.Px1.p1'
+      quote: 'The weights of \pi are never updated: what evolves is the reward and the process that builds it.'
+      matching: reviewed current-version text section
+    - location: '#S3.SS2.p2'
+      quote: Jury revises missing or mis-stated obligations and Builder repairs checks,
+      matching: reviewed current-version text section
+    - location: '#A2.SS3.SSS0.Px3.p1'
+      quote: carrying forward the repair ledger.
+      matching: reviewed current-version text section
+    - location: '#A2.SS2.p1'
+      quote: together with its scope, version metadata, and repair ledger;
+      matching: reviewed current-version text section
+    - location: '#S3.SS1.SSS0.Px3.p1'
+      quote: 'We do not evaluate the meta loop: Section 4 runs the inner loop only.'
+      matching: reviewed current-version text section
+    - location: '#A4.SS6.p1'
+      quote: These records therefore support no total-cost, throughput, or equal-budget comparison.
+      matching: reviewed current-version text section
+    - location: '#A3.SS1.p2'
+      quote: it says nothing about cases that were never generated, and a systematically wrong reference label is
+        ratcheted in as easily as a correct one.
+      matching: reviewed current-version text section
+    review_receipt_hashes:
+    - d692c38da879486a28aad9829206090232330b3c9079f72bdd8b298a6f02a3af
+    - fad68d7ab4d87dab5cce2ead41e7b927ce284ad758c4a128afc329de88954967
+    - 6589e60525efa9b592e303c715234cf07faaca2c0356ede252ace2a7bde74349
+    candidate_version_adopted: false
+- id: arxiv:2610.23288
+  title: 'CoEvolve: Self-Evolving Code Policies from Skills to Strategies for Humanoid Robots'
+  announced: '2026-10-16'
+  window_status: stale
+  in_repo: false
+  gate: {}
+  llm_primary: embodied
+  decision: reject
+  arxiv_id: '2610.23288'
+  version: 1
+  source_hash: a73f9b4ceec48692c0e09e1ceabe5077b42856d8424d8367207243072e1b1b0e
+  published: '2026-10-16'
+  updated: '2026-10-16'
+  hf_daily_dates: []
+  abstract: Recent advances in Vision-Language-Action (VLA) models and World Action Models (WAMs) have expanded
+    the manipulation and whole body capabilities of individual robots. Yet a single robot remains limited by its
+    embodiment, and many real world tasks require capabilities that can only emerge through cooperation. Existing
+    multi robot frameworks largely emphasize task decomposition, allocation, and replanning, while providing limited
+    support for adapting executable coordination when physical execution deviates from the intended behavior. We
+    present CoEvolve, a framework that represents team coordination as executable code over fixed robot motor skills.
+    CoEvolve introduces Verifier Guided Coordination Evolution, where a multimodal foundation model instantiates
+    coordination strategies through motion primitives, semantic objectives, temporary robot roles, and bounded execution
+    parameters. Physical verification evaluates each executed transition, rejected behaviors trigger structured
+    coordination revision from an accepted checkpoint, and verified experience is retained to guide subsequent decisions.
+    We evaluate CoEvolve with two simulated Unitree G1 humanoids transporting a freely supported rigid payload through
+    constrained corridors. Across 15 base task runs with three multimodal backbone families, CoEvolve completes
+    8 tasks, with every backbone achieving end to end success. Additional evaluations yield verified placement on
+    two additional corridor layouts and after both same-backbone and cross-backbone experience initialization, while
+    exposing persistent limitations in motion precision and contact stability. These results support executable
+    coordination as a practical interface for adapting long horizon multi robot collaboration under shared physical
+    constraints.
+  llm:
+    classify:
+      cache_key: 53b449bd971284a96a0c9119c77ad5871fa9d8acccf45864f28b7d56b39ade30
+      data:
+        confidence: 0.83
+        harness_sub: null
+        improved_object_zh: 多机器人协同代码策略
+        primary: embodied
+        secondary:
+        - experience_world_model
+      model: deepseek-flash
+      prompt_hash: b20a4a0a9047bf628939052aca18eb9dc4f364fe3a45a02bec34996964037679
+      provider: deepseek
+      response_prompt_hash: 1b484c7da1c98e1bd9280a520037e2661cace14215b1613c978646c9788fae22
+      retry_count: 0
+      template_hash: 9b43c1bb2d80f00d12195707933c97a27d0eaf5d7b675fc0095afb4e93e4a236
+      truncated_fields: []
+    confidence: 0.55
+    evidence:
+      cache_key: f22f51f32eeb5916109bef3470fb6b5cd1b76df7a9b9d9ad5a0beb01f37e5b93
+      data:
+        code_released:
+          quote: null
+          value: unknown
+        cross_model:
+          quote: cross-backbone experience initialization
+          value: 'yes'
+        held_out:
+          quote: null
+          value: unknown
+        matched_budget:
+          quote: null
+          value: unknown
+      model: deepseek-flash
+      prompt_hash: 6e58ae432f3c0c69ba8598e672a4fc5c68dafe9a3976c4aa68b437d8eab2d4f1
+      provider: deepseek
+      response_prompt_hash: 9589811618373afe1a585c34f0e4b70b8128c1b76d58e1344c9212c00e914c7b
+      retry_count: 0
+      template_hash: 93cbf63e5c24b852d5aa20514549e66a83e25c8e53c4444a93616a4c7413b6f1
+      truncated_fields: []
+    exclude_reason: null
+    harness_sub: null
+    improved_object_zh: 多机器人协同代码策略
+    label: include
+    number_guard:
+      attempts: 2
+      ok: true
+    primary: embodied
+    reason_zh: 以可执行协调代码为改进对象，物理验证反馈触发结构化修订，验证经验保留并用于后续决策与跨任务初始化，构成持续改进闭环。
+    relevance:
+      cache_key: adda86356646f162c4c7353e3ddde37f47e41ba00d7debc4bd7486e27c7beb5b
+      data:
+        confidence: 0.55
+        exclude_reason: null
+        label: include
+        reason_zh: 以可执行协调代码为改进对象，物理验证反馈触发结构化修订，验证经验保留并用于后续决策与跨任务初始化，构成持续改进闭环。
+        scope_kind: method
+        scope_support:
+          exclusion_quote: null
+          feedback_quote: Physical verification evaluates each executed transition, rejected behaviors trigger structured
+            coordination revision from an accepted checkpoint
+          object_quote: We present CoEvolve, a framework that represents team coordination as executable code over
+            fixed robot motor skills.
+          persistence_quote: verified experience is retained to guide subsequent decisions
+          study_quote: null
+      model: deepseek-flash
+      prompt_hash: 624c5030d9183dffccc557fadbd7f0c8cde8224f81ceed0946cf3f789cdba17d
+      provider: deepseek
+      response_prompt_hash: e4eafa5983eda8d13368c502b040d76bf666633ea588cc66306d2efe9e155b05
+      retry_count: 0
+      template_hash: 9992577817aafe320963871726f2bf2b408948445cb351a06e1dc42be9b9672e
+      truncated_fields: []
+    scope_guard:
+      issues: []
+      model_label: include
+      supported: true
+    scope_kind: method
+    scope_support:
+      exclusion_quote: null
+      feedback_quote: Physical verification evaluates each executed transition, rejected behaviors trigger structured
+        coordination revision from an accepted checkpoint
+      object_quote: We present CoEvolve, a framework that represents team coordination as executable code over fixed
+        robot motor skills.
+      persistence_quote: verified experience is retained to guide subsequent decisions
+      study_quote: null
+    secondary:
+    - experience_world_model
+    summarize:
+      cache_key: 3e2f45f55f9a23b09da872012fdcc1e95c1b3738dc7ca4a389bfdb2d83396195
+      data:
+        summary_zh: CoEvolve 将团队协作表示为可执行代码，用 Verifier Guided Coordination Evolution 经物理验证触发协调修订并保留经验；15 次基础任务运行中完成
+          8 个任务，三种骨干均端到端成功。
+      model: deepseek-flash
+      prompt_hash: fe104f0ff11f1ddd291ad5b981d4a485d4cfeb5b58da6101364e7a56f7ec30da
+      provider: deepseek
+      response_prompt_hash: aac0670f6d6c87669fe5d156ddaad81e15b6f4644dd78f982859c98c7ca49ac7
+      retry_count: 0
+      template_hash: 958d92fd69d3f505f16415cb7934ea0c49bfe1e064b8fb77f87ac81ea743be41
+      truncated_fields: []
+    translate:
+      cache_key: 34c2a9fed1e7015fa7f9b8b16e17a3f64906af406d57c8c8f841694ef288653b
+      data:
+        summary_en: CoEvolve represents team collaboration as executable code; Verifier Guided Coordination Evolution
+          triggers coordination revisions via physical verification, retaining experience. 15 base task runs completed
+          8 tasks; three backbones succeeded end-to-end.
+      model: deepseek-flash
+      prompt_hash: 89397849adb36152dd3627bc2a22a36a6f414789f279978c2cfbd7b5c59beacd
+      provider: deepseek
+      response_prompt_hash: 25f0c8777c21a387e26a3f9ff990a94061087850e0d0933146e096ff61900f8e
+      retry_count: 0
+      template_hash: 18eac62d40d22923a676eb1ffa2d01169fcde703befec16fdfed06daa29afd47
+      truncated_fields: []
+  summary_zh: CoEvolve 将团队协作表示为可执行代码，用 Verifier Guided Coordination Evolution 经物理验证触发协调修订并保留经验；15 次基础任务运行中完成 8 个任务，三种骨干均端到端成功。
+  summary_en: CoEvolve represents team collaboration as executable code; Verifier Guided Coordination Evolution
+    triggers coordination revisions via physical verification, retaining experience. 15 base task runs completed
+    8 tasks; three backbones succeeded end-to-end.
+  evidence_quick:
+    code_released:
+      quote: null
+      value: unknown
+    cross_model:
+      quote: cross-backbone experience initialization
+      value: 'yes'
+    held_out:
+      quote: null
+      value: unknown
+    matched_budget:
+      quote: null
+      value: unknown
+  evidence_notice: 来源、身份、日期及范围逐项核验；证据绑定当前版本与哈希。未复现实验，未全表重算。
+  links:
+    arxiv: https://arxiv.org/abs/2610.23288
+    s2: https://www.semanticscholar.org/paper/00f2980617c653bd7b470cb428980cb4389c41b0
+  signals:
+    seed_hits: 4
+    author_tracked: false
+    hf_upvotes: 0
+  guard_failed: false
+  direction_override:
+    primary: embodied
+    secondary: []
+    harness_sub: null
+  summary_override: null
+  promote_to_repo: false
+  note: 固定能力目录、验证器、执行合约与模型/运动权重下，系统修订当前搬运任务的协调policy，保留策略记录和代码范例作为检索经验。接受代码片段被检索用于生成下一动作，正文明确能力接口不演化；未见把可调用工具/技能文件或自身控制程序按反馈修订。可归具身/经验RSI，不计Harness方法。
+    当前动作policy与可检索经验样例不等于反馈改写并保留自身Harness。 本次仅落实当前规范版本；候选新版不采用，保留旧判断及纠正链，不改 first_seen 或科学字段，不算11/16新论文。
+  announced_source: published
+  news_date: '2026-10-16'
+  daily_section: historical
+  source_review_evidence:
+    official_url: https://arxiv.org/html/2610.23288v1
+    reviewed_version: 1
+    body_sha256: e191f59f3f6057d584f3a9947e17c21e2d1ab6fc861c08101fff9cbf70f8b884
+    extracted_text_sha256: 508001829c6cbd5d7dbe0e6d6e16ffcddfe882641e30102f9c9cdff431838eaf
+    version_binding: matching_arxiv_page_watermark
+    quotes:
+    - location: '#S1.p4'
+      quote: Foundation model and motor policy weights remain fixed.
+      matching: reviewed current-version text section
+    - location: '#A1.SS4.p1'
+      quote: The static skill catalog belongs to the capability interface and does not evolve.
+      matching: reviewed current-version text section
+    - location: '#A1.SS4.p2'
+      quote: These entries retain accepted code and effective parameters but remain subject to the current subtask
+        and execution constraints.
+      matching: reviewed current-version text section
+    - location: '#A1.SS4.p3'
+      quote: Standard fresh runs start with empty dynamic memory; transfer runs preload a fixed source bank and
+        update only their own subsequent experience.
+      matching: reviewed current-version text section
+    - location: '#A1.SS2.p3'
+      quote: Generated policies cannot change the verifier, invoke simulator restoration, or access low-level controller
+        handles.
+      matching: reviewed current-version text section
+    - location: '#S4.SS6.SSS0.Px1.p1'
+      quote: Unequal source banks and the absence of a matched empty-memory condition prevent a causal transfer
+        claim.
+      matching: reviewed current-version text section
+    review_receipt_hashes:
+    - 9e210c198f23020647ac7eafd131da1c21ed4ad1a33b77fb57ba8c3b17eeba45
+    - dfc258199c032868e9824f6f3bd59e8090d2389916fbcc5d42b74052f86c54b7
+    candidate_version_adopted: false
+- id: arxiv:2610.17130
+  title: 'EvoQuantLab: Training-Free Dual-Loop Evolution for Auditable Quantitative Research'
+  announced: '2026-10-12'
+  window_status: stale
+  in_repo: false
+  gate: {}
+  llm_primary: ai4ai
+  decision: backlog
+  arxiv_id: '2610.17130'
+  version: 1
+  source_hash: d2d3c327e74e334337363aab875f0e5ed176a91c00411b5b287a58a50a8b5725
+  published: '2026-10-12'
+  updated: '2026-10-12'
+  hf_daily_dates: []
+  abstract: Automated alpha factor discovery is critical for modern quantitative research. While large language
+    models (LLMs) have increasingly been integrated into quantitative workflows, existing agent-based approaches
+    remain highly susceptible to severe backtest overfitting. To address this challenge, we propose EvoQuantLab,
+    a training-free, dual-loop self-evolving framework for robust factor discovery. Instead of relying entirely
+    on LLM generation, EvoQuantLab deploys an inner genetic-programming (GP) loop that dramatically improves token
+    efficiency while evolving typed factor expressions under structural and diversity constraints. An outer diagnosis
+    loop then systematically audits evidence across cycles to drive protocol-level improvements. Furthermore, our
+    evaluation pipeline applies multi-metric validation to rigorously filter out spurious factors before deployment.
+    Extensive out-of-sample experiments across both daily and hourly frequencies -- covering equities and cryptocurrency
+    -- demonstrate the robustness of EvoQuantLab. Specifically, on daily CSI 500 and S&P 500 tasks, EvoQuantLab
+    achieves leading annualized returns of 18.34% and 21.30%, consistently outperforming existing agent baselines.
+    On high-turnover hourly cryptocurrency data, EvoQuantLab delivers a 37.91% annualized return while effectively
+    avoiding execution collapse.
+  llm:
+    classify:
+      cache_key: 77fd363e6025c0cef54be44d2df66a569c82cbb4a3bfe406fcbace9a59fbc396
+      data:
+        confidence: 0.68
+        harness_sub: null
+        improved_object_zh: 因子表达式与发现协议
+        primary: ai4ai
+        secondary: []
+      model: deepseek-flash
+      prompt_hash: e03402e6b6b3edb06d35a39f49a100f4653ebb3820fcf09cb1608930fb517d67
+      provider: deepseek
+      response_prompt_hash: 1cb87a806330338b1325c57acf0ee018f095f8731565162ae66fc5765a6a356a
+      retry_count: 0
+      template_hash: 9b43c1bb2d80f00d12195707933c97a27d0eaf5d7b675fc0095afb4e93e4a236
+      truncated_fields: []
+    confidence: 0.68
+    evidence:
+      cache_key: 9b74ff2dbd6d02b495704747ef03c3b763d4300d9b33b307eaadc0d3edf9104f
+      data:
+        code_released:
+          quote: null
+          value: unknown
+        cross_model:
+          quote: null
+          value: unknown
+        held_out:
+          quote: Extensive out-of-sample experiments
+          value: 'yes'
+        matched_budget:
+          quote: null
+          value: unknown
+      model: deepseek-flash
+      prompt_hash: 8ad1e8e7f862c112cd2b4906b485505dfac641684947a75f2be1d1381e010697
+      provider: deepseek
+      response_prompt_hash: ff2a5709630d148c8ad778751fe0b6dd1ef665a16b141eff0336736260cfdc1b
+      retry_count: 0
+      template_hash: 93cbf63e5c24b852d5aa20514549e66a83e25c8e53c4444a93616a4c7413b6f1
+      truncated_fields: []
+    exclude_reason: null
+    harness_sub: null
+    improved_object_zh: 因子表达式与发现协议
+    label: include
+    primary: ai4ai
+    reason_zh: 双环自进化框架，外层诊断跨周期审计证据并改进协议，具备持续反馈与成果继承。
+    relevance:
+      cache_key: 2b50ebc525e4be57ed2e271567df7accf7713825bd7e973b78d76c2a95708029
+      data:
+        confidence: 0.72
+        exclude_reason: null
+        label: include
+        reason_zh: 双环自进化框架，外层诊断跨周期审计证据并改进协议，具备持续反馈与成果继承。
+        scope_kind: method
+        scope_support:
+          exclusion_quote: null
+          feedback_quote: An outer diagnosis loop then systematically audits evidence across cycles to drive protocol-level
+            improvements.
+          object_quote: An outer diagnosis loop then systematically audits evidence across cycles to drive protocol-level
+            improvements.
+          persistence_quote: An outer diagnosis loop then systematically audits evidence across cycles to drive
+            protocol-level improvements.
+          study_quote: null
+      model: deepseek-flash
+      prompt_hash: f73ad792caaeb0745368ed0d45a7c28620b544223ba1bae43daea411d5116be6
+      provider: deepseek
+      response_prompt_hash: 01fdae557a3f5ab49d2bf92e1239759d558eab32b0e8c3fe117972b002d7aa41
+      retry_count: 0
+      template_hash: 9992577817aafe320963871726f2bf2b408948445cb351a06e1dc42be9b9672e
+      truncated_fields: []
+    scope_guard:
+      issues: []
+      model_label: include
+      supported: true
+    scope_kind: method
+    scope_support:
+      exclusion_quote: null
+      feedback_quote: An outer diagnosis loop then systematically audits evidence across cycles to drive protocol-level
+        improvements.
+      object_quote: An outer diagnosis loop then systematically audits evidence across cycles to drive protocol-level
+        improvements.
+      persistence_quote: An outer diagnosis loop then systematically audits evidence across cycles to drive protocol-level
+        improvements.
+      study_quote: null
+    secondary: []
+  summary_zh: ''
+  summary_en: ''
+  evidence_quick:
+    code_released:
+      quote: null
+      value: unknown
+    cross_model:
+      quote: null
+      value: unknown
+    held_out:
+      quote: Extensive out-of-sample experiments
+      value: 'yes'
+    matched_budget:
+      quote: null
+      value: unknown
+  evidence_notice: 来源、身份、日期及范围逐项核验；证据绑定当前版本与哈希。未复现实验，未全表重算。
+  links:
+    arxiv: https://arxiv.org/abs/2610.17130
+    s2: https://www.semanticscholar.org/paper/4233542406288f7c83c271541246d6b6380ed05b
+  signals:
+    seed_hits: 1
+    author_tracked: false
+    hf_upvotes: 0
+  guard_failed: false
+  direction_override:
+    primary: harness
+    secondary: []
+    harness_sub: improver
+  summary_override:
+    summary_zh: EvoQuantLab 在不训练模型权重的量化研究流程中，用开发阶段的搜索轨迹与过拟合诊断修订后续研究循环的协议、终端预算与约束，并将带父版本记录的子协议加载到下一轮。Harness 证据来自这层持久研究控制程序，内层生成的金融因子本身仍是任务产物；跨轮案例属于时间序列审计，不能单独归因为协议更新的因果收益。
+    summary_en: EvoQuantLab uses search traces and development-stage overfitting diagnostics to revise the protocol,
+      terminal budgets, and constraints of subsequent quantitative research cycles without training model weights.
+      Accepted child protocols retain their parent lineage and are loaded in the next cycle. The Harness evidence
+      concerns this persistent research controller, not the generated financial factors; the cycle case study is
+      a temporal audit rather than a causal comparison.
+  promote_to_repo: false
+  note: 把子类从 component 明确为 improver：外循环依据执行与开发证据修订的不是外部因子本身，而是负责后续搜索、验证与准入的研究控制协议。协议接受、版本化并在下一轮生效，符合 taxonomy 的改进器自身进化。范围纳入不变，不把观察性跨轮案例声称为因果对照。
+    代码/原始交易序列未复现，版权数据和代码承诺未来发布不等于本次可复现通过。 仅有限市场与固定OOS协议；候选v2未正式采用。 本次仅落实当前规范版本；候选新版不采用，保留旧判断及纠正链，不改 first_seen 或科学字段，不算11/16新论文。
+  announced_source: published
+  news_date: '2026-10-12'
+  daily_section: historical
+  source_review_evidence:
+    official_url: https://arxiv.org/html/2610.17130v1
+    reviewed_version: 1
+    body_sha256: 565f07a4387a8029b2562a5cfb47ef6b278591e6f1dce2a1907f0345b3d8231e
+    extracted_text_sha256: a4e16719aaa9a404b417639c3509b18898e0695b471191dcf222b745ac659c59
+    version_binding: matching_arxiv_page_watermark
+    quotes:
+    - location: '#S3.SS4.p1'
+      quote: it audits accumulated training and development evidence and proposes bounded protocol changes that
+        take effect only in the next cycle.
+      matching: reviewed current-version text section
+    - location: '#A1.I1.i6.p1'
+      quote: Reject patches that touch an immutable field, lack evidence, lack a regression test, or attempt to
+        change the completed cycle.
+      matching: reviewed current-version text section
+    - location: '#A4.SS1.p1'
+      quote: The resulting child policy exposed 15 cross-layer terminal bans to the next cycle.
+      matching: reviewed current-version text section
+    - location: '#A4.SS1.p2'
+      quote: Cycle 5 explicitly loaded this policy before starting a new search.
+      matching: reviewed current-version text section
+    - location: '#A4.SS3.p3'
+      quote: The compiled policy assigned the terminal zero next-cycle budget and did not inject its formula.
+      matching: reviewed current-version text section
+    - location: '#A4.SS1.p3'
+      quote: this is a temporal audit trace rather than a controlled causal comparison;
+      matching: reviewed current-version text section
+    review_receipt_hashes:
+    - fd3584e20b19ffe7105cd7a2be1fc15296efd1157167cb8a088c92b469f6e736
+    - 7caf6c807a365d5bd94860172f79ab7253b6f35161bf32edfdedd28d86b90641
+    - 4f96aade3e20fd6c7da828a1daff51b252b9a538e700e821effe0a772b3d7965
+    candidate_version_adopted: false
+- id: arxiv:2609.38662
+  title: 'CollabFlow: Recursive Self-Improvement of Agent Collaboration'
+  announced: '2026-09-29'
+  window_status: stale
+  in_repo: false
+  gate: {}
+  llm_primary: model_weights
+  decision: backlog
+  arxiv_id: '2609.38662'
+  version: 1
+  source_hash: 3eba14316633999b6cee6e3bc197a36bbfe1e248b158aa9eaaa28f34f8955c59
+  published: '2026-09-29'
+  updated: '2026-09-29'
+  hf_daily_dates: []
+  abstract: 'Recursive self-improvement (RSI) lets a system improve from its own outcomes; in LLM-based multi-agent
+    systems, Agents refine one another within a task, and outcomes improve how they collaborate across tasks. However,
+    existing multi-agent collaboration leaves this loop open: collaboration is pre-defined at the operator level,
+    topology-only learning keeps verbatim exchange that propagates errors, and reward maximization on a system''s
+    own outcomes concentrates on a few teams. To address these challenges, we propose CollabFlow, an RSI system
+    of Learned Agent Collaboration: a trainable Collab-Director constructs teams of complete Agents, a frozen executor
+    runs them, and each round''s outcomes retrain the director. Within each round, the edges of a collaboration
+    graph carry protocols of Evidence-Conditioned Communication: a receiver adopts a differing answer only when
+    the sender''s evidence is stronger by a margin, so the director learns who communicates and how. Across rounds,
+    we further propose Collaborative Trajectory Balance (CTB), a flow-based objective that credits each team once
+    across its construction orders and targets a reward-proportional distribution over teams, so several good teams
+    stay in play. We also bound how far this self-generated target moves between rounds, which shrinks as records
+    accumulate. On twelve datasets, CollabFlow outperforms all baselines and keeps improving across rounds. Code
+    is available at https://anonymous.4open.science/r/CollabFlow-631E.'
+  llm:
+    classify:
+      cache_key: 5201d1118b287c5b5bc5934097aac67134b6d7dc2b6c3de675aa9d4c8512aa5b
+      data:
+        confidence: 0.86
+        harness_sub: null
+        improved_object_zh: 协作主管模型权重
+        primary: model_weights
+        secondary: []
+      model: deepseek-flash
+      prompt_hash: 3d49668bd594f18b038fa84c9b3878fb4c487f6e216a1b7ed48f3d01a9222173
+      provider: deepseek
+      response_prompt_hash: 79f724962a2e649bc8d5a736721d9e31cff4b1f6219d26174e915733c5098f19
+      retry_count: 0
+      template_hash: 9b43c1bb2d80f00d12195707933c97a27d0eaf5d7b675fc0095afb4e93e4a236
+      truncated_fields: []
+    confidence: 0.86
+    evidence:
+      cache_key: 281a05838dd5a43cd383a9b9f9dc98bfdba9ca961b421f40dca4075afe1044e3
+      data:
+        code_released:
+          quote: Code is available at
+          value: 'yes'
+        cross_model:
+          quote: null
+          value: unknown
+        held_out:
+          quote: null
+          value: unknown
+        matched_budget:
+          quote: null
+          value: unknown
+      model: deepseek-flash
+      prompt_hash: 4ed441e5bda32e7a552fca4410131ab862f8fc1ecdbef988972e81e6dab23e54
+      provider: deepseek
+      response_prompt_hash: 6f0b8f80bdd6243d627504d8216c31393bd60113781c7f1d8851dee2da78ce06
+      retry_count: 0
+      template_hash: 93cbf63e5c24b852d5aa20514549e66a83e25c8e53c4444a93616a4c7413b6f1
+      truncated_fields: []
+    exclude_reason: null
+    harness_sub: null
+    improved_object_zh: 协作主管模型权重
+    label: include
+    primary: model_weights
+    reason_zh: 提出可训练Collab-Director，每轮结果回训并跨轮持续改进协作，属方法级RSI。
+    relevance:
+      cache_key: 77e64265f7f6ff39075b47079e10fceaab153e46744c240e74c74913aba666f2
+      data:
+        confidence: 0.9
+        exclude_reason: null
+        label: include
+        reason_zh: 提出可训练Collab-Director，每轮结果回训并跨轮持续改进协作，属方法级RSI。
+        scope_kind: method
+        scope_support:
+          exclusion_quote: null
+          feedback_quote: each round's outcomes retrain the director
+          object_quote: a trainable Collab-Director constructs teams of complete Agents, a frozen executor runs
+            them
+          persistence_quote: On twelve datasets, CollabFlow outperforms all baselines and keeps improving across
+            rounds.
+          study_quote: null
+      model: deepseek-flash
+      prompt_hash: fb986918f221425a087226dd38a534a7b8a3e00032b1c4d8e9de906f57df8018
+      provider: deepseek
+      response_prompt_hash: 4680148c19b5d8456a3261d7374b4b8d684f6c01075586fc27b497979c7ef34e
+      retry_count: 0
+      template_hash: 9992577817aafe320963871726f2bf2b408948445cb351a06e1dc42be9b9672e
+      truncated_fields: []
+    scope_guard:
+      issues: []
+      model_label: include
+      supported: true
+    scope_kind: method
+    scope_support:
+      exclusion_quote: null
+      feedback_quote: each round's outcomes retrain the director
+      object_quote: a trainable Collab-Director constructs teams of complete Agents, a frozen executor runs them
+      persistence_quote: On twelve datasets, CollabFlow outperforms all baselines and keeps improving across rounds.
+      study_quote: null
+    secondary: []
+  summary_zh: ''
+  summary_en: ''
+  evidence_quick:
+    code_released:
+      quote: null
+      value: unknown
+    cross_model:
+      quote: null
+      value: unknown
+    held_out:
+      quote: null
+      value: unknown
+    matched_budget:
+      quote: null
+      value: unknown
+  evidence_notice: 来源、身份、日期及范围逐项核验；证据绑定当前版本与哈希。未复现实验，未全表重算。
+  links:
+    arxiv: https://arxiv.org/abs/2609.38662
+    s2: https://www.semanticscholar.org/paper/d255740241b796b74f99f716b0c639c610d1445d
+  signals:
+    seed_hits: 1
+    author_tracked: false
+    hf_upvotes: 0
+  guard_failed: false
+  direction_override:
+    primary: harness
+    secondary: []
+    harness_sub: coevolution
+  summary_override:
+    summary_zh: CollabFlow 一边训练协作规划器，一边依据团队执行结果增删改技能库，并将修订后的文本策略绑定到后续轮次的 Agent。两条更新链使其符合模型与外部 Harness 共演化。技能编辑分析聚焦于增益最大的步骤，且规划器同步训练，因此不能据此把收益单独归因于技能修改。
+    summary_en: CollabFlow trains a collaboration director while adding, modifying, and removing library skills
+      in response to team execution outcomes. Revised textual strategies are bound to agents in later evolution
+      steps, supporting a model-and-Harness coevolution classification. Its skill-edit analysis selects the steps
+      with the largest gains while the director also changes, so the observed gains cannot be attributed to skill
+      edits alone.
+  promote_to_repo: false
+  note: 纠正旧exclude：正文既训练director权重，也明确根据使用技能的团队结果新增/修改/删除持久skill library，并在后续evolution steps绑定这些文本策略。后者有独立修改与跨轮保留，按owner共演化口径可归Harness/coevolution，不能仅因executor/profile固定或主贡献为CTB权重训练排除。
+    观察性技能编辑trace与director训练一起变化；未独立因果分离每次skill edit效果。 外部skill文本完整版本链和anonymous代码未执行审计；范围意见依据版本绑定论文，不声称代码复现。 本次仅落实当前规范版本；候选新版不采用，保留旧判断及纠正链，不改
+    first_seen 或科学字段，不算11/16新论文。
+  announced_source: published
+  news_date: '2026-09-29'
+  daily_section: historical
+  source_review_evidence:
+    official_url: https://arxiv.org/html/2609.38662v1
+    reviewed_version: 1
+    body_sha256: f9f9ea72a11b963cae61b48cb98413b135fce016acda9ad6261c0f86943bf5fc
+    extracted_text_sha256: 278f833a951fb67c625913badfceae696ed9c9936f6db0bb77fe61bb9681566c
+    version_binding: matching_arxiv_page_watermark
+    quotes:
+    - location: '#S3.p3'
+      quote: Across rounds, CollabFlow updates the parameters
+      matching: reviewed current-version text section
+    - location: '#A1.SS2.p1'
+      quote: Agent profile definitions and executor parameters remain fixed;
+      matching: reviewed current-version text section
+    - location: '#A1.SS2.p2'
+      quote: Between evolution steps, the loop adds, modifies or deletes library skills from the outcomes of the
+        teams that used them;
+      matching: reviewed current-version text section
+    - location: '#S5.p8'
+      quote: Between evolution steps, the loop edits the skills the director binds to Agents
+      matching: reviewed current-version text section
+    - location: '#A9.p1'
+      quote: only the director (with its backward kernel and normalizer), the skill library, and the reliability
+        records change.
+      matching: reviewed current-version text section
+    review_receipt_hashes:
+    - 1a466e1b9d9ce4d526ea78ca33d7f1e16883f59908cbb439521259518b4f0f92
+    - 97a24ecea0b9e933b5c3bdaaccf3362546dd6a6dea63e8a974022e152c3169ba
+    - 9025399898f47391384896e54667836d1dc6f36b5988bb5fc1ea4543296ec7c6
+    candidate_version_adopted: false
+- id: arxiv:2610.38946
+  title: 'MAS-Loop: Beyond One-Shot Orchestration towards Self-Evolving Multi-Agent Systems'
+  announced: '2026-10-28'
+  window_status: backlog
+  in_repo: false
+  gate: {}
+  llm_primary: ''
+  decision: reject
+  arxiv_id: '2610.38946'
+  version: 1
+  source_hash: 146f049aa4f6bcd17f8cdc17cdbf4859abfa6945a0812d4145b028f4ec52a647
+  published: '2026-10-28'
+  updated: '2026-10-28'
+  hf_daily_dates: []
+  abstract: 'Training-time multi-agent system (MAS) design seeks to learn reusable orchestration policies, yet prevailing
+    approaches remain largely one-shot: an Orchestrator generates a system but only observes and learns from its
+    terminal outcome. This paradigm discards execution trajectories that expose system-level failures and contain
+    fine-grained information beyond the terminal outcome, leaving no direct basis for revising the source MAS, evaluating
+    the updated MAS, or learning from the resulting contrast. To this end, we introduce MAS-Loop, an execution-grounded
+    framework that closes this feedback loop by coupling an Orchestrator with a trajectory-conditioned Refiner.
+    For each task, the Orchestrator constructs and executes a source MAS to obtain an outcome score and an intermediate
+    trajectory. Conditioned on the trajectory, the Refiner localizes an actionable failure, formulates a trajectory-grounded
+    diagnosis, and proposes a bounded patch to the agents, information flow, or execution configuration. The executable
+    updated MAS is re-executed on the same task to measure its realized outcome under stochastic execution. This
+    pair-MAS comparison provides complementary learning signals: the Orchestrator learns to generate strong systems
+    with fewer recoverable failures, whereas the Refiner learns to expose and repair observed weaknesses, thereby
+    driving policy-level co-evolution across training iterations. Experiments show that MAS-Loop achieves the strongest
+    overall performance among the evaluated baselines, with consistent gains from refinement across all evaluated
+    benchmarks. The co-evolution process also yields MAS-JudgeCorpus, a dataset of execution-grounded source-updated
+    pairs with orchestration- and trajectory-level supervision, which can provide the community with support for
+    MAS reward modeling and trajectory-aware investigation.'
+  llm: {}
+  summary_zh: ''
+  summary_en: ''
+  evidence_quick: {}
+  evidence_notice: 来源、身份、日期及范围逐项核验；证据绑定当前版本与哈希。未复现实验，未全表重算。
+  links:
+    arxiv: https://arxiv.org/abs/2610.38946
+    s2: https://www.semanticscholar.org/paper/4379dc66d837b5ef0d5f346e2cc05ac9a5be8388
+  signals:
+    seed_hits: 2
+    author_tracked: false
+    hf_upvotes: 0
+  guard_failed: false
+  direction_override:
+    primary: model_weights
+    secondary: []
+    harness_sub: null
+  summary_override: null
+  promote_to_repo: false
+  note: 每个任务独立采样MAS，Refiner仅对该样本作一次patch和一次重执行；跨训练迭代保留的是Orchestrator/Refiner的GRPO权重。固定编译器/操作集合下没有已修订外部图/角色程序跨任务继承的证据，不因两模型共训练或图patch本身而归Harness共演化。
+    不能把去掉gold label诊断输入等安全边界误当Harness自动更新；未重跑RL。 本次仅落实当前规范版本；候选新版不采用，保留旧判断及纠正链，不改 first_seen 或科学字段，不算11/16新论文。
+  announced_source: published
+  news_date: '2026-10-28'
+  daily_section: historical
+  source_review_evidence:
+    official_url: https://arxiv.org/html/2610.38946v1
+    reviewed_version: 1
+    body_sha256: f25aeeeacef51c59b6b88f6f7912dab2dc36e0e94b711359ade8dc7f6ce3393f
+    extracted_text_sha256: 7b7483118554ac1a8d93d823725e58dfa37b50556dc385bee4b104b2882b6367
+    version_binding: matching_arxiv_page_watermark
+    quotes:
+    - location: '#S3.SS2.p1'
+      quote: the Orchestrator instantiates a task-specific computational organization.
+      matching: reviewed current-version text section
+    - location: '#S3.SS2.p4'
+      quote: Each source MAS receives one Refiner decision and one independent updated execution;
+      matching: reviewed current-version text section
+    - location: '#S3.SS3.p4'
+      quote: 'We apply GRPO separately to these two batches using their corresponding rewards:'
+      matching: reviewed current-version text section
+    - location: '#S3.SS2.p3'
+      quote: A deterministic patch compiler applies the canonicalized operations to obtain the updated MAS
+      matching: reviewed current-version text section
+    review_receipt_hashes:
+    - 88a730ced19e8fde31a18a50278bcafb362ec4aec5dfd1b14f1b27e608924a28
+    - 767a38cbec0e1f38d402d658980e242cda70a5a0459ea1359120dbd90d6d39bc
+    candidate_version_adopted: false
+- id: arxiv:2609.39022
+  title: From Verification Failures to Reusable Guidance for Coding Agents
+  announced: '2026-09-30'
+  window_status: stale
+  in_repo: false
+  gate: {}
+  llm_primary: experience_world_model
+  decision: backlog
+  arxiv_id: '2609.39022'
+  version: 1
+  source_hash: 0e737875c1f700543ae9d582fe4f5953d8bac138f0842046273f799c546780be
+  published: '2026-09-30'
+  updated: '2026-09-30'
+  hf_daily_dates: []
+  abstract: Coding agents need to establish that a program satisfies a specification and that the specification
+    captures the requested behavior. We study how expert diagnosis of verification failures can become reusable
+    guidance for this work. Our approach combines executable language definitions in the K framework with a kit
+    of procedures for constructing specifications, repairing proofs, and auditing their adequacy. A human-guided
+    development campaign on HumanEval, a benchmark of 164 Python programming tasks, achieves a 164/164 success rate
+    with the semantics and the kit, measured by final AI audit Pass verdicts after two targeted repairs. To examine
+    whether auditing detects problems that successful proofs leave unresolved, we construct 12 author-reviewed pairs
+    of clean and defective packages. Every package passes its K proofs, and completed audits identify all defects
+    and accept all clean packages. We then use KleverBench to test specification and proof construction for 31 programs
+    with changed operator meanings. Comparisons with complete acceptance rules and equally long generic advice yield
+    mixed results across two model and budget settings, motivating further work on selecting useful guidance within
+    resource limits. Human-reviewed Optimism proofs establish expected pause reverts for six operations within declared
+    input bounds under London semantics with unbounded gas. We report progress, difficulties, and lessons toward
+    agents that deliver programs with checkable correctness arguments.
+  llm:
+    classify:
+      cache_key: 0c6cc9ffbcf88489d6d1b59765beef9d3512574827814cfa0db72963833ddd30
+      data:
+        confidence: 0.55
+        harness_sub: null
+        improved_object_zh: 可复用验证指导
+        primary: experience_world_model
+        secondary:
+        - evaluation_benchmark
+      model: deepseek-flash
+      prompt_hash: dcc79de1c7900b22b707caa6b2a373b0ceda6d8b694c36edd30efcac9813fc6e
+      provider: deepseek
+      response_prompt_hash: 370b17cbfdeb4f34379ab6d55fd2978175763ef9114cea2bb6e6171044baf8d7
+      retry_count: 0
+      template_hash: 9b43c1bb2d80f00d12195707933c97a27d0eaf5d7b675fc0095afb4e93e4a236
+      truncated_fields: []
+    confidence: 0.55
+    exclude_reason: null
+    harness_sub: null
+    improved_object_zh: 可复用验证指导
+    label: borderline
+    primary: experience_world_model
+    reason_zh: 摘要提出将验证失败诊断转为可复用指导，但未明确显示该指导在后续任务或改进轮次中被采用并持续改写工件，故存疑。
+    relevance:
+      cache_key: 7614a360ff64ac2cbf28f224ed54df2c24da4a5c3053dd48d4c568ed183d2265
+      data:
+        confidence: 0.65
+        exclude_reason: null
+        label: borderline
+        reason_zh: 摘要提出将验证失败诊断转为可复用指导，但未明确显示该指导在后续任务或改进轮次中被采用并持续改写工件，故存疑。
+        scope_kind: unknown
+        scope_support:
+          exclusion_quote: null
+          feedback_quote: We study how expert diagnosis of verification failures can become reusable guidance for
+            this work.
+          object_quote: Our approach combines executable language definitions in the K framework with a kit of procedures
+            for constructing specifications, repairing proofs, and auditing their adequacy.
+          persistence_quote: null
+          study_quote: null
+      model: deepseek-flash
+      prompt_hash: 8b4c2a71c82095976b062a01eb06bb7975b7cad2bec98173964288ed256b0877
+      provider: deepseek
+      response_prompt_hash: 3a2f5372d2c8e16c9a670f8c7521dc48020a63f5d567673317292712ca32baad
+      retry_count: 0
+      template_hash: 9992577817aafe320963871726f2bf2b408948445cb351a06e1dc42be9b9672e
+      truncated_fields: []
+    scope_guard:
+      issues:
+      - scope_kind
+      model_label: borderline
+      supported: false
+    scope_kind: unknown
+    scope_support:
+      exclusion_quote: null
+      feedback_quote: We study how expert diagnosis of verification failures can become reusable guidance for this
+        work.
+      object_quote: Our approach combines executable language definitions in the K framework with a kit of procedures
+        for constructing specifications, repairing proofs, and auditing their adequacy.
+      persistence_quote: null
+      study_quote: null
+    secondary:
+    - evaluation_benchmark
+  summary_zh: ''
+  summary_en: ''
+  evidence_quick:
+    code_released:
+      quote: null
+      value: unknown
+    cross_model:
+      quote: null
+      value: unknown
+    held_out:
+      quote: null
+      value: unknown
+    matched_budget:
+      quote: null
+      value: unknown
+  evidence_notice: 来源、身份、日期及范围逐项核验；证据绑定当前版本与哈希。未复现实验，未全表重算。
+  links:
+    arxiv: https://arxiv.org/abs/2609.39022
+    s2: https://www.semanticscholar.org/paper/c5398f399c2ad1a466162a120004d152b67843a5
+  signals:
+    seed_hits: 2
+    author_tracked: false
+    hf_upvotes: 0
+  guard_failed: false
+  direction_override:
+    primary: evaluation_benchmark
+    secondary:
+    - harness
+    harness_sub: null
+  summary_override:
+    summary_zh: 研究将专家对验证失败的诊断沉淀为版本化的程序指导、技能与工具接口，并比较这些资源对编码 Agent 验证行为的影响。可作为 Harness 专项评测收录；资源由专家维护，受控对照的效应区间跨零，既不证明自主
+      Harness 演化，也未确认普遍收益或独立留出集迁移。
+    summary_en: This study turns expert diagnoses of verification failures into versioned procedural guidance, skills,
+      and tool interfaces, and evaluates how these resources affect coding-agent verification. It supports a Harness-specific
+      evaluation classification. The resources are expert maintained and the controlled effect intervals span zero;
+      the study does not establish autonomous Harness evolution, a general benefit, or transfer to an independently
+      held-out task family.
+  promote_to_repo: false
+  note: 把初稿排除/待定修正为限定的 Harness 专项评测：研究明确追踪验证反馈如何进入版本化的程序指导、技能与工具接口，并对固定资源在后续编码/验证任务中的作用作受控比较。专家 curation 不是自主方法证据，但不应排除对象明确的
+    Harness 专项评测。仅 primary=evaluation_benchmark、secondary=[harness]，不归自主 Harness 演化方法。 专家撰写维护，不称自主演化。 既有程序对kit编辑者的曝光未知，不能称独立留出集。
+    历史97 Pass + 67 Concerns区别于定向修复后的最终164/164 Pass。 受控对照的四个效应区间均跨零，不证明普遍收益。 未重跑证明、模型或全部附录数据。 本次仅落实当前规范版本；候选新版不采用，保留旧判断及纠正链，不改
+    first_seen 或科学字段，不算11/16新论文。
+  announced_source: published
+  news_date: '2026-09-30'
+  daily_section: historical
+  source_review_evidence:
+    official_url: https://arxiv.org/html/2609.39022v1
+    reviewed_version: 1
+    body_sha256: 85d837422e3cd5e40847f71367e6be8342c86f3dbea13cd234e41cfc7fea3100
+    extracted_text_sha256: f3e0629a32d7606ca7058ae87f86ea5b726b74e23fe66804e69d7445f0ddb31f
+    version_binding: matching_arxiv_page_watermark
+    quotes:
+    - location: '#S1.p3'
+      quote: We investigate how expert-curated procedures connect language semantics, specifications, proof extensions,
+        and adequacy checks.
+      matching: reviewed current-version text section
+    - location: '#S3.SS1.p1'
+      quote: Experts inspected failures, diagnosed their causes, wrote procedures with applicability conditions,
+        attached checking examples, and retained the changes in versioned resources.
+      matching: reviewed current-version text section
+    - location: '#S3.SS1.p3'
+      quote: Its effect on later tasks is unmeasured.
+      matching: reviewed current-version text section
+    - location: '#S5.SS2.p1'
+      quote: Kit instead adds a fixed historical core of procedures
+      matching: reviewed current-version text section
+    - location: '#S8.p2'
+      quote: The present comparisons use a fixed historical core on existing programs whose prior exposure to kit
+        editors is unknown.
+      matching: reviewed current-version text section
+    review_receipt_hashes:
+    - 9af317dd6efa53022570267f1c6bd6940fda01b2ac7448b2d626c950d8014a90
+    - cd79c2578ecb320db364f2759ca9f6c6ff64cdaeaccef59c271b64b985a78620
+    - 2da5bdc5eb1296eda2cf1eb0db558e76afe80f007812ba69d42ce4ea57ad3e92
+    candidate_version_adopted: false
+- id: arxiv:2610.09832
+  title: 'SkillForge: Co-Evolving Skills and Agents via Dynamic Skill Lifecycles'
+  announced: '2026-10-07'
+  window_status: stale
+  in_repo: false
+  gate:
+    feedback_driven:
+      quote: Reinforcement learning takes over from this checkpoint, and at each iteration selective retirement,
+        stabilization, and LLM-guided mutation continue to forge the skill library alongside policy optimiza
+      value: 'yes'
+    harness_specific: 'no'
+    improved_object: model_weights
+    improved_object_zh: 模型权重
+    model_frozen: 'no'
+    persists_across_tasks:
+      quote: Reinforcement learning takes over from this checkpoint, and at each iteration selective retirement,
+        stabilization, and LLM-guided mutation continue to forge the skill library alongside policy optimiza
+      value: 'yes'
+    study_quote: null
+    suggested_primary: model_weights
+    verdict: other_direction
+    why_zh: RL/SFT训练模型权重为主，技能库仅协同演化，不构成Harness
+  llm_primary: model_weights
+  decision: backlog
+  arxiv_id: '2610.09832'
+  version: 1
+  source_hash: f833ae444924f9cb9b3c3211ab9f01b3cf7c2b28f02ede4a52eb487e00612cb8
+  published: '2026-10-07'
+  updated: '2026-10-07'
+  hf_daily_dates: []
+  abstract: Memory-augmented reinforcement learning strengthens LLM agents'ability to solve complex long-horizon
+    tasks. Skills are one such form of memory, pairing instructions with an applicability condition over task types.
+    However, retaining every skill indiscriminately as the policy improves lets obsolete or harmful entries accumulate
+    and mislead the agent. We propose SkillForge, an agentic RL method that compiles and evolves the skill library
+    through a fitness-driven skill lifecycle of trial, active, stable, and retired states, so that the skills and
+    the model co-evolve throughout training. A pre-RL evaluation phase first uses the base model's own rollouts
+    to pre-retire low-fitness skills, yielding a filtered library that then seeds supervised fine-tuning. Reinforcement
+    learning takes over from this checkpoint, and at each iteration selective retirement, stabilization, and LLM-guided
+    mutation continue to forge the skill library alongside policy optimization. Across multiple interactive agent
+    benchmarks, SkillForge achieves the highest aggregate success rate, delivering up to 7.8% relative improvement
+    over the strongest baseline while keeping the skill library compact throughout training. We introduce SkillFurnace,
+    a dataset of 5k+ annotated records bundling retirement-filtered SFT trajectories, evolved skill libraries with
+    fitness annotations, and retirement events with human-annotated failure categories to support research on skill
+    quality and lifecycle management.
+  llm:
+    classify:
+      cache_key: da52075c4054fd5f9225db2f8742f8671c5fef741649ea71c0260e7edb929243
+      data:
+        confidence: 0.74
+        harness_sub: coevolution
+        improved_object_zh: 技能库与策略协同
+        primary: harness
+        secondary:
+        - model_weights
+      model: deepseek-flash
+      prompt_hash: 8eb853a75c056c8d2376de4b473df2b3d06f9cef51e4bb2bda5fb6aa6050f5db
+      provider: deepseek
+      response_prompt_hash: 88d43dc257b9181ce39b6923b144c9b5e2fff8ff93c3c710589bf2f85a2cc7b0
+      retry_count: 0
+      template_hash: 9b43c1bb2d80f00d12195707933c97a27d0eaf5d7b675fc0095afb4e93e4a236
+      truncated_fields: []
+    confidence: 0.74
+    evidence:
+      cache_key: 834645043e2443af3f71ff3e7ecf55e8a98ccf6c2d0f3528f88cea8f4866fa68
+      data:
+        code_released:
+          quote: null
+          value: unknown
+        cross_model:
+          quote: null
+          value: unknown
+        held_out:
+          quote: null
+          value: unknown
+        matched_budget:
+          quote: null
+          value: unknown
+      model: deepseek-flash
+      prompt_hash: 580e969b0d7ddd510b1186a2e3d854577510bf4ca639b92121ad10ba1a170154
+      provider: deepseek
+      response_prompt_hash: a5e06bdf09db5512fff03f58318a96cd50b10d3b2095c2e393f1499a1449ffd5
+      retry_count: 0
+      template_hash: 93cbf63e5c24b852d5aa20514549e66a83e25c8e53c4444a93616a4c7413b6f1
+      truncated_fields: []
+    exclude_reason: null
+    harness_gate:
+      agreement: true
+      sample_count: 1
+      samples:
+      - cache_key: f089b2334212429bfd9ca2d62293858accefc2dab7884722617b8279cef7e261
+        data:
+          feedback_driven:
+            quote: Reinforcement learning takes over from this checkpoint, and at each iteration selective retirement,
+              stabilization, and LLM-guided mutation continue to forge the skill library alongside policy optimiza
+            value: 'yes'
+          harness_specific: 'no'
+          improved_object: model_weights
+          improved_object_zh: 模型权重
+          model_frozen: 'no'
+          persists_across_tasks:
+            quote: Reinforcement learning takes over from this checkpoint, and at each iteration selective retirement,
+              stabilization, and LLM-guided mutation continue to forge the skill library alongside policy optimiza
+            value: 'yes'
+          study_quote: null
+          suggested_primary: model_weights
+          verdict: other_direction
+          why_zh: RL/SFT训练模型权重为主，技能库仅协同演化，不构成Harness
+        model: deepseek-v4-pro
+        prompt_hash: df047fd6b23c236cdab1bab04db0ef17fee7963595c8632db309235d8b817dab
+        provider: deepseek
+        response_prompt_hash: ed83aade617c44e3d9b0f87529bef20c9fd00eaf15153f73a56979516d883772
+        retry_count: 0
+        template_hash: 91a3d86abc541d89f4f6fe7a8804cd757c97c41c1e228d5cc185963b37a64cba
+        truncated_fields:
+        - feedback_driven.quote
+        - persists_across_tasks.quote
+    harness_sub: null
+    improved_object_zh: 模型权重
+    label: include
+    primary: model_weights
+    reason_zh: SkillForge 将技能库作为可复用外部工件，按适应度生命周期多轮演化，并由 rollout 反馈驱动，演化结果继续用于后续训练迭代。
+    relevance:
+      cache_key: 85793371eb2d223fa901979c799e9feed3b8c84684b3f4a207ca299458ce7a79
+      data:
+        confidence: 0.88
+        exclude_reason: null
+        label: include
+        reason_zh: SkillForge 将技能库作为可复用外部工件，按适应度生命周期多轮演化，并由 rollout 反馈驱动，演化结果继续用于后续训练迭代。
+        scope_kind: method
+        scope_support:
+          exclusion_quote: null
+          feedback_quote: uses the base model's own rollouts to pre-retire low-fitness skills
+          object_quote: compiles and evolves the skill library through a fitness-driven skill lifecycle of trial,
+            active, stable, and retired states
+          persistence_quote: yielding a filtered library that then seeds supervised fine-tuning
+          study_quote: null
+      model: deepseek-flash
+      prompt_hash: 59e6bcaea2354ef059b4f9b72ec77b107d8a8296e2b1ee8ffc3529660f237ac6
+      provider: deepseek
+      response_prompt_hash: ef90ce7a9c00e1420883131981581db2be61dda1d1040476a8e9814cdf27ffaf
+      retry_count: 0
+      template_hash: 9992577817aafe320963871726f2bf2b408948445cb351a06e1dc42be9b9672e
+      truncated_fields: []
+    scope_guard:
+      issues: []
+      model_label: include
+      supported: true
+    scope_kind: method
+    scope_support:
+      exclusion_quote: null
+      feedback_quote: uses the base model's own rollouts to pre-retire low-fitness skills
+      object_quote: compiles and evolves the skill library through a fitness-driven skill lifecycle of trial, active,
+        stable, and retired states
+      persistence_quote: yielding a filtered library that then seeds supervised fine-tuning
+      study_quote: null
+    secondary: []
+  summary_zh: ''
+  summary_en: ''
+  evidence_quick:
+    code_released:
+      quote: null
+      value: unknown
+    cross_model:
+      quote: null
+      value: unknown
+    held_out:
+      quote: null
+      value: unknown
+    matched_budget:
+      quote: null
+      value: unknown
+  evidence_notice: 来源、身份、日期及范围逐项核验；证据绑定当前版本与哈希。未复现实验，未全表重算。
+  links:
+    arxiv: https://arxiv.org/abs/2610.09832
+    s2: https://www.semanticscholar.org/paper/73995808d3b94bc0a4a8118876309ab0a8089c08
+  signals:
+    seed_hits: 1
+    author_tracked: false
+    hf_upvotes: 0
+  guard_failed: false
+  direction_override:
+    primary: harness
+    secondary: []
+    harness_sub: coevolution
+  summary_override:
+    summary_zh: SkillForge 同时训练模型并维护外部技能库。它根据执行回报和失败轨迹生成子技能；试用技能达到使用次数门槛后转为活跃状态，稳定与退休再按表现和使用次数管理，更新后的技能库用于后续检索。它符合模型与
+      Harness 共演化；共享任务回报并不能单独确认每个技能的因果贡献，且教师会带入外部知识。
+    summary_en: SkillForge trains the model while maintaining an external skill library. Execution rewards and failure
+      trajectories guide child-skill generation. Trial skills become active after a usage threshold; fitness and
+      usage govern stabilization and retirement, and later rollouts retrieve from the revised library. This supports
+      a model-and-Harness coevolution classification. Shared task rewards do not isolate each skill’s causal contribution,
+      and the teacher can introduce external knowledge.
+  promote_to_repo: false
+  note: 两版本均以检索技能的任务执行回报维护外部文本技能库：从失败轨迹生成子技能，累计fitness决定推广、退休和后续检索，同时GRPO训练模型权重。技能含行为原则和适用条件，Forge更新后的库用于下一轮rollout，满足外部Harness与模型分别持久更新；不是只增加记忆样本或训练权重。
+    共享episode reward不等于逐个技能因果贡献；teacher带入外部知识。 只审读论文范围及关键变化，未执行SkillFurnace/实验。 v1案例说明存在试用门保护表述与实际生命周期流程张力，不重复过强论断。
+    本次仅落实当前规范版本；候选新版不采用，保留旧判断及纠正链，不改 first_seen 或科学字段，不算11/16新论文。 11/18恢复核验纠正：Make usage-only trial-to-active transition
+    explicit; preserve coevolution scope and all source facts.
+  announced_source: published
+  news_date: '2026-10-07'
+  daily_section: historical
+  source_review_evidence:
+    official_url: https://arxiv.org/html/2610.09832v1
+    reviewed_version: 1
+    body_sha256: 457f19bbd1b919e7f6b6713474198f903cf6dd8b29d28e757421a6e28f26d0a6
+    extracted_text_sha256: 5fd16d3f70c3ce6d31d3e997f87966c48d47735da359f9d10482a7c9d1ae2895
+    version_binding: matching_arxiv_page_watermark
+    quotes:
+    - location: '#S3.SS2.p1'
+      quote: a behavioral principle
+      matching: reviewed current-version text section
+    - location: '#S4.SS3.p1'
+      quote: the active library
+      matching: reviewed current-version text section
+    - location: '#S4.SS3.p3'
+      quote: collect their recent failure trajectories
+      matching: reviewed current-version text section
+    - location: '#S4.SS3.p3'
+      quote: assembles the parent skill’s content, fitness statistics, and failure examples into a structured template.
+      matching: reviewed current-version text section
+    - location: '#S4.SS4.p2'
+      quote: 'Skills and policy thus co-evolve:'
+      matching: reviewed current-version text section
+    review_receipt_hashes:
+    - aeac9cf9276374a784ea697ad8ca83743e1e507fe7f7eb2e7c660cabb6809f42
+    - 14ddf0bb5398b67d733480820b4aca8d2443a7b9dbec4002024782fccd09743c
+    candidate_version_adopted: false
+- id: arxiv:2610.22686
+  title: Multimodal Filesystem Memory For Long-Horizon Embodied Agents
+  announced: '2026-10-15'
+  window_status: stale
+  in_repo: false
+  gate: {}
+  llm_primary: experience_world_model
+  decision: backlog
+  arxiv_id: '2610.22686'
+  version: 1
+  source_hash: 6c56a4f6482f5c06b50d1c8ddb452e02bf9b4b8a85fc897f6de8123b6e7907ed
+  published: '2026-10-15'
+  updated: '2026-10-15'
+  hf_daily_dates: []
+  abstract: Agents operating over long horizons need an effective memory that allows them to reuse their experience
+    throughout long interactions. If the entire history of an interaction is retained, it becomes difficult to find
+    the relevant experience, while compressing it into summaries may result in the loss of visual and spatial details
+    that are required later on. We present \textbf{MFM}, a multimodal filesystem memory architecture that keeps
+    complementary types of agent memory. \textbf{Episodic memory} stores the observations, actions, and outcomes,
+    and \textbf{spatial memory} associates experiences with locations. \textbf{Semantic and procedural memory} build
+    up general knowledge and reusable methods of acting, and \textbf{working memory} holds the current plans. MFM
+    makes use of searchable textual records to connect these different representations to the underlying multimodal
+    episodes. The agents are able to find previous experiences by means of contextual cues and to examine the original
+    observations in order to recover details that are missing from their textual descriptions. Through consolidation,
+    the agents convert experience into higher-level knowledge and procedures while still keeping references to the
+    original episodes. In the case of long-horizon Minecraft and computer-use tasks, MFM leads to improved performance
+    with three base models. With GPT-6-Astra, MFM completes \emph{Mine Diamond from Scratch} and reaches 16 out
+    of 24 milestones on the \emph{Ender Dragon} task, as against 12.7 for the best baseline. On CUABench-KiCad it
+    attains a mean reward of 0.440, as compared to 0.400 for the best baseline and 0.267 in the case of no persistent
+    memory.
+  llm:
+    classify:
+      cache_key: 9ec4a30cd50e8de5a230d614bb8aa9f37c7b977435ab44b0190736ce6385221f
+      data:
+        confidence: 0.78
+        harness_sub: null
+        improved_object_zh: 多模态文件系统记忆
+        primary: experience_world_model
+        secondary: []
+      model: deepseek-flash
+      prompt_hash: 946f1e99aceb8fda4019ed129255c1eeac7ca52ad2acf58b6edd4796815b2071
+      provider: deepseek
+      response_prompt_hash: ff9e40aea3a45defcff0bc2ac26f09cebec8787e58ebd074a2a217bafeff6cbe
+      retry_count: 0
+      template_hash: 9b43c1bb2d80f00d12195707933c97a27d0eaf5d7b675fc0095afb4e93e4a236
+      truncated_fields: []
+    confidence: 0.78
+    evidence:
+      cache_key: a169928d03465e47ab989c10f53a55809336e9d57e4af1fbe096880bfca93d00
+      data:
+        code_released:
+          quote: null
+          value: unknown
+        cross_model:
+          quote: improved performance with three base models
+          value: 'yes'
+        held_out:
+          quote: null
+          value: unknown
+        matched_budget:
+          quote: null
+          value: unknown
+      model: deepseek-flash
+      prompt_hash: 90e1d820e6ae1bef988bfd595cabec196439b9f7ba3b76c31d442d3469646cd2
+      provider: deepseek
+      response_prompt_hash: 6a8f1821aef953ea56bac31c38994ea4fd9da9e7e522cfed3141c12d3ad62a5f
+      retry_count: 0
+      template_hash: 93cbf63e5c24b852d5aa20514549e66a83e25c8e53c4444a93616a4c7413b6f1
+      truncated_fields: []
+    exclude_reason: null
+    harness_sub: null
+    improved_object_zh: 多模态文件系统记忆
+    label: include
+    primary: experience_world_model
+    reason_zh: 提出多模态文件系统记忆架构，通过经验整合为可复用知识与程序，支持长期任务复用，属记忆管理型Harness改进。
+    relevance:
+      cache_key: 3508d2d15c7e589f8df9acb105913f4fed47e6f0fb0827f61b15a8570623f446
+      data:
+        confidence: 0.82
+        exclude_reason: null
+        label: include
+        reason_zh: 提出多模态文件系统记忆架构，通过经验整合为可复用知识与程序，支持长期任务复用，属记忆管理型Harness改进。
+        scope_kind: method
+        scope_support:
+          exclusion_quote: null
+          feedback_quote: Through consolidation, the agents convert experience into higher-level knowledge and procedures
+            while still keeping references to the original episodes.
+          object_quote: a multimodal filesystem memory architecture that keeps complementary types of agent memory
+          persistence_quote: build up general knowledge and reusable methods of acting
+          study_quote: null
+      model: deepseek-flash
+      prompt_hash: 6d5d1a643d82013d06d236d0b6e510bedf81f428ec741dd6397c7fc7538ef216
+      provider: deepseek
+      response_prompt_hash: c1330d44f5999c36b9f51927904452d9b67569346650c9054257c4ffce449bb3
+      retry_count: 0
+      template_hash: 9992577817aafe320963871726f2bf2b408948445cb351a06e1dc42be9b9672e
+      truncated_fields: []
+    scope_guard:
+      issues: []
+      model_label: include
+      supported: true
+    scope_kind: method
+    scope_support:
+      exclusion_quote: null
+      feedback_quote: Through consolidation, the agents convert experience into higher-level knowledge and procedures
+        while still keeping references to the original episodes.
+      object_quote: a multimodal filesystem memory architecture that keeps complementary types of agent memory
+      persistence_quote: build up general knowledge and reusable methods of acting
+      study_quote: null
+    secondary: []
+  summary_zh: ''
+  summary_en: ''
+  evidence_quick:
+    code_released:
+      quote: null
+      value: unknown
+    cross_model:
+      value: unknown
+      quote: null
+    held_out:
+      quote: null
+      value: unknown
+    matched_budget:
+      quote: null
+      value: unknown
+  evidence_notice: 来源、身份、日期及范围逐项核验；证据绑定当前版本与哈希。未复现实验，未全表重算。
+  links:
+    arxiv: https://arxiv.org/abs/2610.22686
+    s2: https://www.semanticscholar.org/paper/bd55b40184229d1b0a04dc21148b49ba7c258206
+  signals:
+    seed_hits: 1
+    author_tracked: false
+    hf_upvotes: 0
+  guard_failed: false
+  direction_override:
+    primary: harness
+    secondary: []
+    harness_sub: component
+  summary_override:
+    summary_zh: Multimodal Filesystem Memory 允许 Agent 根据执行结果创建、修改和停用文本或可执行 procedure，并在后续生命与任务中复用。Harness 证据来自可修改的过程技能分支；位置笔记和工作记忆仍属于记忆内容。这些技能复用结果不代表所有任务成功率提高，也不意味着每个存储过程都有益或技能库越大越好。
+    summary_en: Multimodal Filesystem Memory lets an agent create, revise, and disable textual or executable procedures
+      using execution feedback, then reuse them in later lives and tasks. The Harness evidence concerns editable
+      procedural skills; spatial notes and working-memory content remain a separate memory branch. These skill-reuse
+      results do not establish a success-rate improvement across all tasks, nor do they show that every stored procedure
+      is beneficial or that a larger skill library is always better.
+  promote_to_repo: false
+  note: 范围纳入依据是可执行/文本procedure的反馈修改与跨life/后续任务复用，不是notes、grid或工作记忆内容。当前v1已说明修改procedure，并给出因前一life熔岩死亡禁用继承的level_step、跨life调用bridge_north，以及给新任务安装前序脚本的对照；外部技能工件持久更新充分。
+    记忆数据更新与Harness procedure分支明确分开；不能泛化为全部记忆系统属于Harness。 主方法成本统计只对具体运行，不保证所有条件等预算；未重跑游戏或KiCad。 本次仅落实当前规范版本；候选新版不采用，保留旧判断及纠正链，不改
+    first_seen 或科学字段，不算11/16新论文。 纠正旧自动证据标签：分别测试多个模型不等于改进结果跨模型迁移，cross_model改为unknown；canonical原始模型输出保留，修正保存在审核意见中。
+  announced_source: published
+  news_date: '2026-10-15'
+  daily_section: historical
+  source_review_evidence:
+    official_url: https://arxiv.org/html/2610.22686v1
+    reviewed_version: 1
+    body_sha256: f4630633078fae50299f76cd548118f70f9941672cce132d2a2af45effc5a5cc
+    extracted_text_sha256: 23b971df18dbd973e24d123b69d7e1cf53430b3d16fb336202e7b27f0ca7d966
+    version_binding: matching_arxiv_page_watermark
+    quotes:
+    - location: '#S3.SS2.p7'
+      quote: In the procedures/ directory there are textual or executable sequences of actions which the agent is
+        able to reuse and modify during later interactions.
+      matching: reviewed current-version text section
+    - location: '#S3.SS4.p3'
+      quote: the agent is able to convert a sequence of actions into a textual or executable procedure and then
+        modify it as a result of the changes revealed by later attempts.
+      matching: reviewed current-version text section
+    - location: '#S5.SS1.p1'
+      quote: it is the agent itself that decides which behaviours to keep and when to reuse them.
+      matching: reviewed current-version text section
+    - location: '#S5.SS1.p2'
+      quote: The agent also disabled one inherited procedure, level_step , having traced the previous death in the
+        lava back to this procedure’s release of the sneak key.
+      matching: reviewed current-version text section
+    review_receipt_hashes:
+    - 2db90ed471dc7e5ac3807cdc95aa9d33e97be3463aea7f85b9f45b6f62216b6a
+    - 4687aac15756c5c9d59586a346d6e4df0b1277acee3887c3d7cebf2d00561275
+    candidate_version_adopted: false
+- id: arxiv:2610.04008
+  title: 'SkillScriptBench: Benchmarking Self-Evolution of Executable Agent Skill Packages Beyond Markdown'
+  announced: '2026-10-02'
+  window_status: stale
+  in_repo: false
+  gate:
+    feedback_driven:
+      quote: null
+      value: unclear
+    harness_specific: 'yes'
+    improved_object: skill_files
+    improved_object_zh: 技能文件
+    model_frozen: 'yes'
+    persists_across_tasks:
+      quote: null
+      value: unclear
+    study_quote: Existing benchmarks do not systematically distinguish documentation repair, script repair, and
+      preservation when evaluating skill self-evolution.
+    suggested_primary: evaluation_benchmark
+    verdict: other_direction
+    why_zh: 基准评测可执行技能包自演化，非Harness方法论文
+  llm_primary: evaluation_benchmark
+  decision: backlog
+  arxiv_id: '2610.04008'
+  version: 1
+  source_hash: ead29772193279687a340318f87c3004be403b39094d078534673ca5fcc5ab83
+  published: '2026-10-02'
+  updated: '2026-10-02'
+  hf_daily_dates: []
+  abstract: 'Executable Agent Skills combine natural-language instructions and scripts into reusable packages for
+    LLM agents, and revising them requires fixing errors without breaking correct behavior. Existing benchmarks
+    do not systematically distinguish documentation repair, script repair, and preservation when evaluating skill
+    self-evolution. We introduce SkillScriptBench, a 350-task benchmark designed to evaluate these capabilities
+    separately. From a survey of over 35,000 GitHub-hosted Skill roots, we select 100 packages and construct 150
+    repair tasks. Each task pairs a package containing injected script faults with a maintenance request and executable
+    checks of the required behavior. A complementary controlled track contains 200 tasks from 50 packages, each
+    evaluated under the same maintenance request in four states: clean, documentation faults, script faults, and
+    faults in both. Across four LLMs, methods that edit both documentation and scripts can repair script faults
+    but do not consistently outperform Markdown-only revision on documentation repair or preservation. We therefore
+    introduce AST-Guided Skill Revision, which uses abstract syntax trees and calling relationships to link maintenance
+    requirements to relevant code locations. It restricts script edits to these locations and updates the documentation
+    to match the revised scripts. Averaged across models, this revision stage yields absolute gains in repair success
+    of 21.9% for Raw Package and 27.7% for CoEvoSkills on faulty packages. Absolute gains in the proportion of tasks
+    solved in all three runs reach 20.8% and 31.5%, respectively, indicating more consistent repair success across
+    repeated runs.'
+  llm:
+    classify:
+      cache_key: 65414828b9a06805d90268849e2a40dc9acbe699914eeb10cca6666de803cd85
+      data:
+        confidence: 0.62
+        harness_sub: null
+        improved_object_zh: 可执行技能包修复
+        primary: evaluation_benchmark
+        secondary:
+        - harness
+      model: deepseek-flash
+      prompt_hash: 2257e0c11071773cad19b8745407acd5e1980cb825313ab0b06da3393b684bec
+      provider: deepseek
+      response_prompt_hash: 65216c05ffa851507270bb340a2a422fbeecd7414c73573180c8e735377c8172
+      retry_count: 0
+      template_hash: 9b43c1bb2d80f00d12195707933c97a27d0eaf5d7b675fc0095afb4e93e4a236
+      truncated_fields: []
+    confidence: 0.62
+    evidence:
+      cache_key: e6c76ab95a2047be63e152310b3a47619b658fa97b9c16bd35840e6a12c8845b
+      data:
+        code_released:
+          quote: null
+          value: unknown
+        cross_model:
+          quote: Averaged across models
+          value: 'yes'
+        held_out:
+          quote: null
+          value: unknown
+        matched_budget:
+          quote: null
+          value: unknown
+      model: deepseek-flash
+      prompt_hash: 58495cc1612cf912cb3c2fa05f48f97f5e18385e153e7f0afd6b48673a756384
+      provider: deepseek
+      response_prompt_hash: f5fb2bd2bd03f55ef88f8f0d929901129cb627e15172a27819e31c1b5b5bea32
+      retry_count: 0
+      template_hash: 93cbf63e5c24b852d5aa20514549e66a83e25c8e53c4444a93616a4c7413b6f1
+      truncated_fields: []
+    exclude_reason: null
+    harness_gate:
+      agreement: true
+      sample_count: 1
+      samples:
+      - cache_key: d2613d6e4bbaf6c72e5200ddb87db29ca326d1f5f60e97ce96de8a54899ae3ae
+        data:
+          feedback_driven:
+            quote: null
+            value: unclear
+          harness_specific: 'yes'
+          improved_object: skill_files
+          improved_object_zh: 技能文件
+          model_frozen: 'yes'
+          persists_across_tasks:
+            quote: null
+            value: unclear
+          study_quote: Existing benchmarks do not systematically distinguish documentation repair, script repair,
+            and preservation when evaluating skill self-evolution.
+          suggested_primary: evaluation_benchmark
+          verdict: other_direction
+          why_zh: 基准评测可执行技能包自演化，非Harness方法论文
+        model: deepseek-v4-pro
+        prompt_hash: 1af31942e9058a3b434b900c078618c140be2df74d0a0603518090d2c8dfe420
+        provider: deepseek
+        response_prompt_hash: f8e102997c5d6231b3a9f422f84a51c1426a653300b4f98973936a641dd62040
+        retry_count: 0
+        template_hash: 91a3d86abc541d89f4f6fe7a8804cd757c97c41c1e228d5cc185963b37a64cba
+        truncated_fields: []
+    harness_sub: null
+    improved_object_zh: 技能文件
+    label: include
+    primary: evaluation_benchmark
+    reason_zh: 专门评测可执行Agent技能包的自进化、修复与保持能力，属评测类。
+    relevance:
+      cache_key: 901e8b95ecf287fd0cda39771032fffe8fd8973843bfa3038e3977491bbc58c5
+      data:
+        confidence: 0.88
+        exclude_reason: null
+        label: include
+        reason_zh: 专门评测可执行Agent技能包的自进化、修复与保持能力，属评测类。
+        scope_kind: evaluation
+        scope_support:
+          exclusion_quote: null
+          feedback_quote: null
+          object_quote: null
+          persistence_quote: null
+          study_quote: Existing benchmarks do not systematically distinguish documentation repair, script repair,
+            and preservation when evaluating skill self-evolution.
+      model: deepseek-flash
+      prompt_hash: fcba0c5c43abfcbb7930101b88a255069d17e1717a786bab9220ec023ce33653
+      provider: deepseek
+      response_prompt_hash: f061be4fce0a1b7681e74ef92643d819a94eb77d3c2d10670c4157bc9cd40990
+      retry_count: 0
+      template_hash: 9992577817aafe320963871726f2bf2b408948445cb351a06e1dc42be9b9672e
+      truncated_fields: []
+    scope_guard:
+      issues: []
+      model_label: include
+      supported: true
+    scope_kind: evaluation
+    scope_support:
+      exclusion_quote: null
+      feedback_quote: null
+      object_quote: null
+      persistence_quote: null
+      study_quote: Existing benchmarks do not systematically distinguish documentation repair, script repair, and
+        preservation when evaluating skill self-evolution.
+    secondary: []
+  summary_zh: ''
+  summary_en: ''
+  evidence_quick:
+    code_released:
+      quote: null
+      value: unknown
+    cross_model:
+      value: unknown
+      quote: null
+    held_out:
+      quote: null
+      value: unknown
+    matched_budget:
+      quote: null
+      value: unknown
+  evidence_notice: 来源、身份、日期及范围逐项核验；证据绑定当前版本与哈希。未复现实验，未全表重算。
+  links:
+    arxiv: https://arxiv.org/abs/2610.04008
+    s2: https://www.semanticscholar.org/paper/839f634ec6404af9713561ab3e91f0363f8f6e59
+  signals:
+    seed_hits: 1
+    author_tracked: false
+    hf_upvotes: 0
+  guard_failed: false
+  direction_override:
+    primary: evaluation_benchmark
+    secondary:
+    - harness
+    harness_sub: null
+  summary_override:
+    summary_zh: SkillScriptBench 评测 Agent 对技能包说明和可执行脚本的修复，检查验证反馈下的修订、文档与代码一致性及原有正确行为的保留。它适合作为 Harness 专项评测。故障均为构造或注入，局部维护结果尚不能证明跨任务长期自主演化或下游系统的普遍可靠性。
+    summary_en: SkillScriptBench evaluates repairs to skill-package instructions and executable scripts, including
+      feedback-guided revision, documentation–code consistency, and preservation of correct behavior. It is a Harness-specific
+      evaluation. Its faults are constructed or injected, so local maintenance results do not establish long-term
+      autonomous evolution across tasks or general downstream reliability.
+  promote_to_repo: false
+  note: 限定为Harness专项评测：对象是实际Agent Skill package的SKILL.md和可执行脚本，测反馈修复、文档/代码一致性及保留正确行为。包含CoEvoSkills surrogate verifier执行反馈与AST辅助修订，但评测是单个package维护，不把一次AST
+    pass冒称已经验证跨任务自主演化或长程Agent可靠性。 全部故障为构造/注入，偏Python、有限语言；未执行公开包或重新标注。 评测对象明确属于Harness技能工件，但不将本benchmark本身宣称为递归自改方法。
+    本次仅落实当前规范版本；候选新版不采用，保留旧判断及纠正链，不改 first_seen 或科学字段，不算11/16新论文。 纠正旧自动证据标签：分别测试多个模型不等于改进结果跨模型迁移，cross_model改为unknown；canonical原始模型输出保留，修正保存在审核意见中。
+  announced_source: published
+  news_date: '2026-10-02'
+  daily_section: historical
+  source_review_evidence:
+    official_url: https://arxiv.org/html/2610.04008v1
+    reviewed_version: 1
+    body_sha256: ff43bd854ba1a7b3bf07faedfeb9ff77dc23b0fdf85fb95c7848b83f2fa8aaf0
+    extracted_text_sha256: 22f7f3e1231a6a818ee57c7c53a36cf44f8c7bb489a753a40fe3d83bb2cdcc68
+    version_binding: matching_arxiv_page_watermark
+    quotes:
+    - location: '#S2.SS1.p1'
+      quote: Revision targets the natural-language instructions and behavioral specifications in SKILL.md , the
+        implementation code of bundled executable scripts, or both.
+      matching: reviewed current-version text section
+    - location: '#S2.SS4.p1'
+      quote: Success requires passing all applicable tests in both categories.
+      matching: reviewed current-version text section
+    - location: '#S3.SS3.p1'
+      quote: Edits leave source text outside the selected spans unchanged and are accepted only if the resulting
+        scripts pass syntax and applicable interface-preservation checks.
+      matching: reviewed current-version text section
+    - location: '#S3.SS4.p1'
+      quote: A failure reported by the verifier or its executed checks triggers the generator to revise SKILL.md
+        and scripts using the diagnosis and check results.
+      matching: reviewed current-version text section
+    - location: '#A4.p1'
+      quote: reliability in long-horizon downstream Agent workflows remains to be evaluated.
+      matching: reviewed current-version text section
+    review_receipt_hashes:
+    - e0381fcfdff6207c3af06a2daee5116a4b4b5ea3689b9fd00a0ddacb84e9f4a6
+    - e11a1bcea6df7e29ce25af242367bf28f40224a5317cee080a3814c1d7841a13
+    candidate_version_adopted: false
+- id: arxiv:2610.22192
+  title: 'Terminal-RSI: Recursive Self-Improving Terminal Agents via Recursive Self-Rewrite and Policy-Refine'
+  announced: '2026-10-15'
+  window_status: stale
+  in_repo: false
+  gate: {}
+  llm_primary: model_weights
+  decision: reject
+  arxiv_id: '2610.22192'
+  version: 2
+  source_hash: 79720faef3a9027270edc0645e817e1ccfec609976af970968a1eff23544ca64
+  published: '2026-10-15T16:43:56Z'
+  updated: '2026-10-25T06:56:48Z'
+  hf_daily_dates:
+  - '2026-10-16'
+  abstract: 'Converting verifier outcomes into useful policy updates and partial progress into complete task resolution
+    is crucial for terminal agents. We present Terminal-RSI, which alternates Recursive Self-Rewrite (RSR) of verified
+    trajectories with critic-inheriting Recursive Policy-Refine (RPR). We formulate Turn-Boundary Skip-Observation
+    GAE (TB-GAE) to retain token-specific baselines while applying decay across interaction turns. Family Dense
+    Reward (FDR) calibrates semantic progress across task families; Success-Prioritized Reward (SPR) separates strict
+    success from bounded partial credit. A Warm-up Critic Model, recursive critic handoff, and stage-specific learning
+    rates coordinate the two refinement phases. The five-stage sequence from Qwen3.8-27B base model through RSR-1,
+    RPR-1, RSR-2, and RPR-2 yields Terminal-RSI-27B: 19.84% on Terminal-Bench 4.0, 86.52% on Terminal-Bench 2.1,
+    16.95% on Terminal-Bench 3.0, and 79.00% on Terminal-Bench Hard. On LHTB, process reward rises from 0.21 to
+    0.37 and strict completion from 0/46 to 5/46; SWR100 success doubles from 3.00% to 6.00%. By recursively coupling
+    verified trajectory rewriting with critic-inheriting policy refinement, each retained stage consolidates discovered
+    behaviors and progressively advances the agent from partial local repairs to strict terminal verification.'
+  llm:
+    classify:
+      cache_key: 0e5f67bc9a8f8b72f5100fd9453c88f0ed32c101ac9caaa9181d8cb606c315e0
+      data:
+        confidence: 0.86
+        harness_sub: null
+        improved_object_zh: 终端Agent模型权重
+        primary: model_weights
+        secondary: []
+      model: deepseek-flash
+      prompt_hash: 3b91948fa4fce92232a7597793c7cef8aaa7475c8d4f05549e86f851d8639b62
+      provider: deepseek
+      response_prompt_hash: f2c22fbfc2051a608ec7487c092763906ffca03fa391e5522f76b8c430f6f8e1
+      retry_count: 0
+      template_hash: 9b43c1bb2d80f00d12195707933c97a27d0eaf5d7b675fc0095afb4e93e4a236
+      truncated_fields: []
+    confidence: 0.82
+    evidence:
+      cache_key: 2dff350104cf80b49dcf3a72848d8e6bc72664036b77d89a0a722b492eddf583
+      data:
+        code_released:
+          quote: null
+          value: unknown
+        cross_model:
+          quote: null
+          value: unknown
+        held_out:
+          quote: null
+          value: unknown
+        matched_budget:
+          quote: null
+          value: unknown
+      model: deepseek-flash
+      prompt_hash: b1ef9a337e4c1b93a571b4900f4764deef0247d56fff8eba7ad81d0827c13fe5
+      provider: deepseek
+      response_prompt_hash: 0ddc7725b00a46f6bd802f149e3910df13b00a6c592c8583dae05a91157affaa
+      retry_count: 0
+      template_hash: 93cbf63e5c24b852d5aa20514549e66a83e25c8e53c4444a93616a4c7413b6f1
+      truncated_fields: []
+    exclude_reason: null
+    harness_sub: null
+    improved_object_zh: 终端Agent模型权重
+    label: include
+    number_guard:
+      attempts: 1
+      ok: true
+    primary: model_weights
+    reason_zh: 提出RSR与RPR交替的多阶段自改进闭环，验证轨迹驱动策略更新，各阶段保留并继承成果。
+    relevance:
+      cache_key: ff7711a4ee65dd568961145cfcd9533a68e6f6630a4f0de5db6cd2424ae67082
+      data:
+        confidence: 0.82
+        exclude_reason: null
+        label: include
+        reason_zh: 提出RSR与RPR交替的多阶段自改进闭环，验证轨迹驱动策略更新，各阶段保留并继承成果。
+        scope_kind: method
+        scope_support:
+          exclusion_quote: null
+          feedback_quote: Converting verifier outcomes into useful policy updates and partial progress into complete
+            task resolution
+          object_quote: alternates Recursive Self-Rewrite (RSR) of verified trajectories with critic-inheriting
+            Recursive Policy-Refine (RPR)
+          persistence_quote: each retained stage consolidates discovered behaviors and progressively advances the
+            agent from partial local repairs to strict terminal verification
+          study_quote: null
+      model: deepseek-flash
+      prompt_hash: 7ec605cfbc8a56d4fc2588c0f92f30f7a7cdec1d17636a545f389fae7042719b
+      provider: deepseek
+      response_prompt_hash: 681e53c74bdaa05e418701fb51491721d7da9a953ef8f2ebba00d2f9f7fec82f
+      retry_count: 0
+      template_hash: 9992577817aafe320963871726f2bf2b408948445cb351a06e1dc42be9b9672e
+      truncated_fields: []
+    scope_guard:
+      issues: []
+      model_label: include
+      supported: true
+    scope_kind: method
+    scope_support:
+      exclusion_quote: null
+      feedback_quote: Converting verifier outcomes into useful policy updates and partial progress into complete
+        task resolution
+      object_quote: alternates Recursive Self-Rewrite (RSR) of verified trajectories with critic-inheriting Recursive
+        Policy-Refine (RPR)
+      persistence_quote: each retained stage consolidates discovered behaviors and progressively advances the agent
+        from partial local repairs to strict terminal verification
+      study_quote: null
+    secondary: []
+    summarize:
+      cache_key: 307c35dcaae59c101cac038c0f70bbd711166b7a2cc549aef17ed56fd8520094
+      data:
+        summary_zh: Terminal-RSI 通过交替验证轨迹的 RSR 与继承 critic 的 RPR 改进终端智能体，其 Terminal-RSI-27B 在 Terminal-Bench 4.0
+          上达到 19.84%。
+      model: deepseek-flash
+      prompt_hash: da1fb42153238dcf284f8ba89d8c602f7b6b056ce16d9a0707d1b547601241db
+      provider: deepseek
+      response_prompt_hash: 158f8f34abd8118b9572fd37390163ff4458610e4ead7020e27b1de9b8b722db
+      retry_count: 0
+      template_hash: 958d92fd69d3f505f16415cb7934ea0c49bfe1e064b8fb77f87ac81ea743be41
+      truncated_fields: []
+    translate:
+      cache_key: 104620d4013dd24fd73cb808ec3f461c30d42e7c096b1ebd1a729eb0521424bf
+      data:
+        summary_en: Terminal-RSI improves terminal agents by alternating RSR from verified trajectories and critic-inherited
+          RPR; Terminal-RSI-27B reaches 19.84% on Terminal-Bench 4.0.
+      model: deepseek-flash
+      prompt_hash: d5b2830ee02bdfe427fba6999ba91a0799e3ecfb901b4f23810fd48151c16e19
+      provider: deepseek
+      response_prompt_hash: 6259d6e755bf77b76f5588fccce0004df90022a94b40d8b5865ad0897ebc5037
+      retry_count: 0
+      template_hash: 18eac62d40d22923a676eb1ffa2d01169fcde703befec16fdfed06daa29afd47
+      truncated_fields: []
+  summary_zh: Terminal-RSI 通过交替验证轨迹的 RSR 与继承 critic 的 RPR 改进终端智能体，其 Terminal-RSI-27B 在 Terminal-Bench 4.0 上达到 19.84%。
+  summary_en: Terminal-RSI improves terminal agents by alternating RSR from verified trajectories and critic-inherited
+    RPR; Terminal-RSI-27B reaches 19.84% on Terminal-Bench 4.0.
+  evidence_quick:
+    code_released:
+      quote: null
+      value: unknown
+    cross_model:
+      quote: null
+      value: unknown
+    held_out:
+      quote: null
+      value: unknown
+    matched_budget:
+      quote: null
+      value: unknown
+  evidence_notice: 来源、身份、日期及范围逐项核验；证据绑定当前版本与哈希。未复现实验，未全表重算。
+  links:
+    arxiv: https://arxiv.org/abs/2610.22192
+    hf: https://huggingface.co/papers/2610.22192
+  signals:
+    seed_hits: 0
+    author_tracked: false
+    hf_upvotes: 41
+  guard_failed: false
+  direction_override:
+    primary: model_weights
+    secondary: []
+    harness_sub: null
+  summary_override: null
+  promote_to_repo: false
+  note: RSR把验证通过的运行轨迹改写/重放为actor监督数据并去掉private runbooks，RPR继续训练actor/critic；跨阶段继承的是参数。FDR/SPR是phase内固定的训练reward
+    lookup，不是部署时被系统持续修改保留的工具/技能/控制器。终端修复产物是任务代码，未见自身Harness跨任务更新，维持权重型RSI排除。 未重跑训练、受保护测试或检查完整checkpoint manifests。
+    候选删去限制不证明独立复现实验通过；保留v2旧结论及真实性边界。 本次仅落实当前规范版本；候选新版不采用，保留旧判断及纠正链，不改 first_seen 或科学字段，不算11/16新论文。
+  announced_source: published
+  news_date: '2026-10-16'
+  daily_section: historical
+  source_review_evidence:
+    official_url: https://arxiv.org/html/2610.22192v2
+    reviewed_version: 2
+    body_sha256: c813c32d88298d6461917c44b5620f9e73346f8696f77cd1a9e1f57b6bab4eaf
+    extracted_text_sha256: ffe42fb19b4785da3b4772d02452fe7782c44667af2508578b9f1f5201fa78d5
+    version_binding: matching_arxiv_page_watermark
+    quotes:
+    - location: '#S2.SS1.p2'
+      quote: Accepted replay and actor-only supervision are
+      matching: reviewed current-version text section
+    - location: '#S2.SS1.p2'
+      quote: removes private runbooks and reviewer dialogue.
+      matching: reviewed current-version text section
+    - location: '#S2.SS1.p3'
+      quote: Retained parameters
+      matching: reviewed current-version text section
+    - location: '#S2.SS1.p3'
+      quote: 'initialize the next rewrite and critic calibration, keeping the actor fixed during value updates:'
+      matching: reviewed current-version text section
+    - location: '#S2.SS2.p4'
+      quote: The resulting lookup is frozen within phase; it introduces neither per-batch normalization nor a current-trajectory
+        length bonus.
+      matching: reviewed current-version text section
+    review_receipt_hashes:
+    - c44d794b651a2841668ffb143233ea395122ef9acddb6523e110cf9e771c99ee
+    - 84c48a6faab3f83ba03973cc0ff4e78f313103c68b57a508662010c9ce0851a6
+    candidate_version_adopted: false
+- id: arxiv:2610.02196
+  title: 'InterEvolve: Test-Time Evolution of Reward Programs for Humanoid Loco-Manipulation'
+  announced: '2026-10-01'
+  window_status: stale
+  in_repo: false
+  gate: {}
+  llm_primary: data_task
+  decision: backlog
+  arxiv_id: '2610.02196'
+  version: 1
+  source_hash: c796f8e3763e567297df6cefc48efed62c8ab9cd6c984967786a50209a35348b
+  published: '2026-10-01'
+  updated: '2026-10-01'
+  hf_daily_dates: []
+  abstract: 'We study test-time evolution for humanoid loco-manipulation: solving tasks that a controller was never
+    trained for by repurposing its existing skills, improving from its own attempts, and retaining what it learns,
+    without retraining. Our key insight is that a broad controller already holds much of the competence a new task
+    needs, and that this competence becomes accessible through an interface between planning and control that is
+    expressive enough to specify contact-rich, multi-stage interactions, yet executable and measurable enough that
+    execution feedback can guide planning from experience. InterEvolve realizes this interface with two components.
+    First, we develop an object-aware forward-backward (FB) behavioral foundation model, whose object residuals
+    on a frozen body prior turn a new reward about the body or objects into loco-manipulation behavior at test time.
+    Second, we specify tasks as reward programs: staged rewards with completion conditions and tunable constants.
+    A large language model (LLM) agent revises the program structure in context, drawing on execution feedback and
+    a skill library of verified programs, while a numerical optimizer tunes its constants. With every candidate
+    verified across parallel simulation scenarios, the program explores new ways to induce, repurpose, and compose
+    the controller''s existing motor competence for the task at hand, and thus improves over iterations. Experiments
+    show that human-designed rewards leave much of the FB model''s loco-manipulation competence untapped, whereas
+    the programs InterEvolve evolves release it, sometimes through novel strategies. It further produces behaviors
+    for diverse tasks, complex scenes, and long-horizon compositions in simulation, and evolved skills run autonomously
+    on a physical Unitree G1 from egocentric onboard perception.'
+  llm:
+    classify:
+      cache_key: 6c3d731296d836da0dde2b6d8ddf9e7229cd8a4ed2ab0b35bc53c9e61d63e862
+      data:
+        confidence: 0.74
+        harness_sub: null
+        improved_object_zh: 奖励程序
+        primary: data_task
+        secondary: []
+      model: deepseek-flash
+      prompt_hash: fe6039489c1d11ebcc82389046f334183353489daa8c07111433b6434497de08
+      provider: deepseek
+      response_prompt_hash: 4d435826b6191be18277068c6212426efab474311bebcf4b39270ccbe51f5dc5
+      retry_count: 0
+      template_hash: 9b43c1bb2d80f00d12195707933c97a27d0eaf5d7b675fc0095afb4e93e4a236
+      truncated_fields: []
+    confidence: 0.74
+    evidence:
+      cache_key: e41327725aa70d30c96753059256859af2e213eff2107c954f86560e9feda481
+      data:
+        code_released:
+          quote: null
+          value: unknown
+        cross_model:
+          quote: null
+          value: unknown
+        held_out:
+          quote: tasks that a controller was never trained for
+          value: 'yes'
+        matched_budget:
+          quote: null
+          value: unknown
+      model: deepseek-flash
+      prompt_hash: 6889f9f5ae4c13b51c124ea9d59c2f186e8d01404e80d15ac10aab9999565fa0
+      provider: deepseek
+      response_prompt_hash: 1f05b4441b026b7efbe63137601276c6d863f6492a3104a56e6dd37c95a8695c
+      retry_count: 0
+      template_hash: 93cbf63e5c24b852d5aa20514549e66a83e25c8e53c4444a93616a4c7413b6f1
+      truncated_fields: []
+    exclude_reason: null
+    harness_sub: null
+    improved_object_zh: 奖励程序
+    label: include
+    primary: data_task
+    reason_zh: LLM 依据执行反馈改写奖励程序，并用已验证程序库保留经验，属外部工件迭代改进。
+    relevance:
+      cache_key: e99a8da0d9f0096fe1ec3ac963e58613b8d5473a8840324f8ae2d66b05637d2c
+      data:
+        confidence: 0.8
+        exclude_reason: null
+        label: include
+        reason_zh: LLM 依据执行反馈改写奖励程序，并用已验证程序库保留经验，属外部工件迭代改进。
+        scope_kind: method
+        scope_support:
+          exclusion_quote: null
+          feedback_quote: With every candidate verified across parallel simulation scenarios
+          object_quote: A large language model (LLM) agent revises the program structure in context, drawing on
+            execution feedback and a skill library of verified programs, while a numerical optimizer tunes its constants.
+          persistence_quote: improving from its own attempts, and retaining what it learns, without retraining
+          study_quote: null
+      model: deepseek-flash
+      prompt_hash: e4ecbc7cfe760ca20211ce3df30ae5e83d2f8b29d287594fab449ef0fbd987d1
+      provider: deepseek
+      response_prompt_hash: b33cb8c108d9cb4d352207f04d304f42fc893d2de1bb5d9df8941cd5982cab64
+      retry_count: 0
+      template_hash: 9992577817aafe320963871726f2bf2b408948445cb351a06e1dc42be9b9672e
+      truncated_fields: []
+    scope_guard:
+      issues: []
+      model_label: include
+      supported: true
+    scope_kind: method
+    scope_support:
+      exclusion_quote: null
+      feedback_quote: With every candidate verified across parallel simulation scenarios
+      object_quote: A large language model (LLM) agent revises the program structure in context, drawing on execution
+        feedback and a skill library of verified programs, while a numerical optimizer tunes its constants.
+      persistence_quote: improving from its own attempts, and retaining what it learns, without retraining
+      study_quote: null
+    secondary: []
+  summary_zh: ''
+  summary_en: ''
+  evidence_quick:
+    code_released:
+      quote: null
+      value: unknown
+    cross_model:
+      quote: null
+      value: unknown
+    held_out:
+      quote: tasks that a controller was never trained for
+      value: 'yes'
+    matched_budget:
+      quote: null
+      value: unknown
+  evidence_notice: 来源、身份、日期及范围逐项核验；证据绑定当前版本与哈希。未复现实验，未全表重算。
+  links:
+    arxiv: https://arxiv.org/abs/2610.02196
+    s2: https://www.semanticscholar.org/paper/17013cc3aeb4c6ca7f47ba513d9598ce419276ec
+  signals:
+    seed_hits: 1
+    author_tracked: false
+    hf_upvotes: 0
+  guard_failed: false
+  direction_override:
+    primary: harness
+    secondary: []
+    harness_sub: component
+  summary_override:
+    summary_zh: InterEvolve 根据仿真执行反馈修改分阶段奖励程序、转移条件和常数，用它们在推理时驱动冻结的控制器，并将选中的程序与验证记录保留在技能库中供后续任务组合和修改。它符合 Harness
+      组件演化；模型冻结限于演化阶段，实机展示沿用仿真中生成的程序，未证明物理环境中的在线自主演化。
+    summary_en: InterEvolve revises staged reward programs, transition conditions, and constants using simulation
+      feedback. These programs drive a frozen controller at inference, and selected programs with verifier records
+      enter a skill library for later composition and adaptation. This supports Harness-component evolution. Freezing
+      applies to the evolution phase, and physical demonstrations reuse simulation-evolved programs rather than
+      establishing autonomous online evolution on a robot.
+  promote_to_repo: false
+  note: 当前 v1 与候选 v2 都以执行反馈修改分阶段 reward program、转移条件和常数，在推理时驱动冻结控制器；reward 不用于该阶段重新训练权重。最终程序、常数和验证记录被写入跨任务技能库，后续任务可组合及修改，符合外部
+    Harness component。前置的 object-conditioned residual 预训练与冻结后的程序演化明确分开。 冻结适用于演化阶段，整个研究管线包含前置权重预训练。 实机部署使用仿真中生成程序/latent
+    配合闭环冻结控制器，不能称物理环境中的自主在线演化。 本文范围审查与数字口径抽核不等于重跑机器人实验或审完全部图像与原始轨迹。 本次仅落实当前规范版本；候选新版不采用，保留旧判断及纠正链，不改 first_seen
+    或科学字段，不算11/16新论文。
+  announced_source: published
+  news_date: '2026-10-01'
+  daily_section: historical
+  source_review_evidence:
+    official_url: https://arxiv.org/html/2610.02196v1
+    reviewed_version: 1
+    body_sha256: e02daa9713f8c1d093aaafaf7eeb006fa6cdee6893e8a4a48506692f8885aa94
+    extracted_text_sha256: ccca11a30dea8dab61db62a6ce86535bff3bbb09fb52447d7ea7100b3d7a9626
+    version_binding: matching_arxiv_page_watermark
+    quotes:
+    - location: '#S3.SS3.p1'
+      quote: A new reward therefore requires only a new prompt for the same policy.
+      matching: whitespace_normalized; PDF location is a section label, not a DOM selector
+    - location: '#S3.SS4.p2'
+      quote: The agent learns only from this context, as its weights stay fixed.
+      matching: whitespace_normalized; PDF location is a section label, not a DOM selector
+    - location: '#S3.SS4.p6'
+      quote: the agent can compose or adapt established programs instead of evolving from scratch.
+      matching: whitespace_normalized; PDF location is a section label, not a DOM selector
+    - location: '#A4.SS6.p1'
+      quote: The source library is frozen before target search and excludes the target task instances
+      matching: whitespace_normalized; PDF location is a section label, not a DOM selector
+    - location: '#A4.SS6.p2'
+      quote: None of the three tasks, and no program written for them, is in any source library.
+      matching: whitespace_normalized; PDF location is a section label, not a DOM selector
+    review_receipt_hashes:
+    - f675bd4e1d2ddbbc3de9e630d6c3f03335721ef27097630a7501fcb402a1ff9e
+    - 42fec78e69351ce27bae825cc53c9e1bfcdc952a02a7591d01535d74940336a9
+    candidate_version_adopted: false
+- id: arxiv:2610.24453
+  title: 'Hippo: Training-Free Agent Self-Evolution via Hippocampal Replay'
+  announced: '2026-10-17'
+  window_status: backlog
+  in_repo: false
+  gate: {}
+  llm_primary: experience_world_model
+  decision: reject
+  arxiv_id: '2610.24453'
+  version: 1
+  source_hash: 10cb1d118ab14033ab269d7f30d60d71b88ff173c481c8782d41ad47eb1ed9ef
+  published: '2026-10-17T04:43:26Z'
+  updated: '2026-10-17T04:43:26Z'
+  hf_daily_dates: []
+  abstract: 'Motivated by recursive self-improvement (RSI), we study how LLM agents can learn through external memory
+    without updating model parameters. Extracting useful experience from a single attempt is difficult: flawed reasoning
+    can produce success, while poor execution can obscure a sound strategy. Preserving its value over time is also
+    difficult: our accumulation baseline without consolidation initially improves but eventually performs below
+    a no-memory baseline. Our key idea is to compare attempts at the same task to identify reusable decisions and
+    refine when they apply. We introduce Hippo, a memory framework inspired by selective hippocampal encoding and
+    replay that learns from these comparisons when shortcomings are diagnosed. It compares the resulting experience
+    with existing memory to merge overlaps and resolve conflicts through explicit applicability conditions. This
+    allows prior guidance to be revised without storing every lesson as a separate entry. Experiments on SWE-bench
+    Verified, WebArena, and Mind2Web show performance gains in all three settings and substantially fewer retained
+    experiences than the accumulation baseline. The gains extend across the evaluated base models of varying capabilities,
+    indicating that memory-based adaptation remains useful even for highly capable models.'
+  llm:
+    classify:
+      cache_key: f557b56323805f5e49c01778725938306da0702fed219ef4bc1c4e4cecce0660
+      data:
+        confidence: 0.86
+        harness_sub: null
+        improved_object_zh: 外部经验记忆条目
+        primary: experience_world_model
+        secondary: []
+      model: deepseek-flash
+      prompt_hash: 5c911e4366655877e29475ec7b1c7001d5ecf15b6aff0f467ae1bb7e1afa329b
+      provider: deepseek
+      response_prompt_hash: 9096222cf640005cd3edcbc2bd5df054fe9e5230a22718c52b9dec79ce1393ca
+      retry_count: 0
+      template_hash: 9b43c1bb2d80f00d12195707933c97a27d0eaf5d7b675fc0095afb4e93e4a236
+      truncated_fields: []
+    confidence: 0.68
+    evidence:
+      cache_key: 031a31d56d04a9720cf2297a7e5dc0bde95680a32d1f5a135d6733e0b2174ee5
+      data:
+        code_released:
+          quote: null
+          value: unknown
+        cross_model:
+          quote: The gains extend across the evaluated base models
+          value: 'yes'
+        held_out:
+          quote: null
+          value: unknown
+        matched_budget:
+          quote: null
+          value: unknown
+      model: deepseek-flash
+      prompt_hash: 1d8daa4197f8f0c627bf5945e0ada415230f600ce29fa6fe26226499c8ac99b4
+      provider: deepseek
+      response_prompt_hash: 7fd83b3f12d56e697d594738fb88b6c462698bf1cc7a84e44e4b3f16ce8fd89a
+      retry_count: 0
+      template_hash: 93cbf63e5c24b852d5aa20514549e66a83e25c8e53c4444a93616a4c7413b6f1
+      truncated_fields: []
+    exclude_reason: null
+    harness_sub: null
+    improved_object_zh: 外部经验记忆条目
+    label: include
+    primary: experience_world_model
+    reason_zh: 提出免训练外部记忆框架：比较同一任务的多次尝试、诊断不足，合并并修订可复用经验，形成跨任务持久的记忆机制。
+    relevance:
+      cache_key: 2940ac6acb8609e39f9acd66f0b7f31286d8a90bb9cde479917f188bec612c13
+      data:
+        confidence: 0.68
+        exclude_reason: null
+        label: include
+        reason_zh: 提出免训练外部记忆框架：比较同一任务的多次尝试、诊断不足，合并并修订可复用经验，形成跨任务持久的记忆机制。
+        scope_kind: method
+        scope_support:
+          exclusion_quote: null
+          feedback_quote: Our key idea is to compare attempts at the same task to identify reusable decisions and
+            refine when they apply.
+          object_quote: Hippo, a memory framework inspired by selective hippocampal encoding and replay
+          persistence_quote: This allows prior guidance to be revised without storing every lesson as a separate
+            entry.
+          study_quote: null
+      model: deepseek-flash
+      prompt_hash: da35f8059aba5e6891a43b81fdae9895c3a2d43fc79c02545f6409a3c440607f
+      provider: deepseek
+      response_prompt_hash: a2d31e4ead2c33f655d7bbb53297d33b3f0ef1b90571b6e9da32ce081dd40b46
+      retry_count: 0
+      template_hash: 9992577817aafe320963871726f2bf2b408948445cb351a06e1dc42be9b9672e
+      truncated_fields: []
+    scope_guard:
+      issues: []
+      model_label: include
+      supported: true
+    scope_kind: method
+    scope_support:
+      exclusion_quote: null
+      feedback_quote: Our key idea is to compare attempts at the same task to identify reusable decisions and refine
+        when they apply.
+      object_quote: Hippo, a memory framework inspired by selective hippocampal encoding and replay
+      persistence_quote: This allows prior guidance to be revised without storing every lesson as a separate entry.
+      study_quote: null
+    secondary: []
+  summary_zh: ''
+  summary_en: ''
+  evidence_quick:
+    code_released:
+      quote: null
+      value: unknown
+    cross_model:
+      value: unknown
+      quote: null
+    held_out:
+      quote: null
+      value: unknown
+    matched_budget:
+      quote: null
+      value: unknown
+  evidence_notice: 来源、身份、日期及范围逐项核验；证据绑定当前版本与哈希。未复现实验，未全表重算。
+  links:
+    arxiv: https://arxiv.org/abs/2610.24453
+    s2: https://www.semanticscholar.org/paper/7084796a8b9077721ee2d24ad333a4bbae493c11
+  signals:
+    seed_hits: 1
+    author_tracked: false
+    hf_upvotes: 0
+  guard_failed: false
+  direction_override:
+    primary: experience_world_model
+    secondary: []
+    harness_sub: null
+  summary_override: null
+  promote_to_repo: false
+  note: 两版本修改的都是持久 L2 经验条目及适用条件：比较 rollout 诊断后增删或替换经验，经固定检索和注入流程用于后续任务。条目中确实有 procedure 文字，但未展示反馈驱动修改管理机制、工具实现或独立技能执行工件；按当前判据为经验与记忆，不因模型冻结或跨任务复用而直接归
+    Harness。 排除原因是经验条目和固定管理机制的边界，不否认经验文字含有过程性指导。 跨任务长期记忆表现不是单个超长任务能力；judge 盲点和额外 rollout 成本仍在。 仅对照相关正文与关键口径，未声称全文/全表一致或执行实验复现。
+    本次仅落实当前规范版本；候选新版不采用，保留旧判断及纠正链，不改 first_seen 或科学字段，不算11/16新论文。 11/18恢复核验纠正：Multiple independent single-model
+    runs do not establish transfer of the evolved artifact between models.
+  announced_source: published
+  news_date: '2026-10-17'
+  daily_section: historical
+  source_review_evidence:
+    official_url: https://arxiv.org/pdf/2610.24453v1
+    reviewed_version: 1
+    body_sha256: 3d17f21b17dee394b5e1e8b4404f70b434f50f81c6b70e5cc19ceaf6ae894da4
+    extracted_text_sha256: f80cad6db138cdc45ad13d0c94f1baed89655b964509b8e8c2f296ba861dd45f
+    version_binding: matching_first_page_watermark_and_explicit_version_url
+    quotes:
+    - location: PDF extracted text; S3.SS3
+      quote: Duplicate candidates are discarded.
+      matching: whitespace_normalized; PDF location is a section label, not a DOM selector
+    - location: PDF extracted text; S3.SS3
+      quote: When new guidance replaces an old entry, the engine adds the replacement and deletes the old entry.
+      matching: whitespace_normalized; PDF location is a section label, not a DOM selector
+    - location: PDF extracted text; S3.SS3
+      quote: Entries outside the deletion set retain their original text.
+      matching: whitespace_normalized; PDF location is a section label, not a DOM selector
+    - location: PDF extracted text; A7.SS2
+      quote: The actor receives the selected experience as an optional hint.
+      matching: whitespace_normalized; PDF location is a section label, not a DOM selector
+    - location: PDF extracted text; A3
+      quote: Model parameters remain fixed throughout the run.
+      matching: whitespace_normalized; PDF location is a section label, not a DOM selector
+    review_receipt_hashes:
+    - a1277685dcf6aa4f29060b58ad247f5fcaabcca0f7a1a69434bae899930a0ada
+    - e73875878fa5954f3b2a4370eaab68e241b4097b6561b590371b3d4cf750ec0a
+    candidate_version_adopted: false
+- id: s2:369a7a9f02b9aa1e3150b0747e8de9066625f060
+  title: Household Instruction Disambiguation via Risk-Aware Direct Preference Optimization
+  announced: '2026-11-13'
+  window_status: backlog
+  in_repo: false
+  gate: {}
+  llm_primary: ''
+  decision: defer
+  arxiv_id: null
+  version: 0
+  source_hash: 129279809ad0fc9602652b9b789fc30e370befe4ac0d046bac2f237a938a4077
+  published: '2026-11-13'
+  updated: ''
+  hf_daily_dates: []
+  abstract: ''
+  llm: {}
+  summary_zh: ''
+  summary_en: ''
+  evidence_quick: {}
+  evidence_notice: 官方元数据与访问失败已核验；缺摘要/正文，范围 unknown，作者差异待澄清。
+  links:
+    doi: https://doi.org/10.1016/j.eswa.2026.135083
+    s2: https://www.semanticscholar.org/paper/369a7a9f02b9aa1e3150b0747e8de9066625f060
+    url: https://www.sciencedirect.com/science/article/pii/S0957417426039850?v=s5
+  signals:
+    seed_hits: 1
+    author_tracked: false
+    hf_upvotes: 0
+  guard_failed: false
+  direction_override: null
+  summary_override: null
+  promote_to_repo: false
+  note: 官方元数据确认标题与 DOI，并明确在线日为 11/13；未取得摘要或正文，不能仅凭 DPO/家庭机器人标题判断 Harness 范围。S2 第二作者与出版者元数据存在非格式差异，人物对应尚未澄清。 Elsevier
+    XML 的 HTTP 200 只提供 coredata；ScienceDirect 403、text/plain 400。不将元数据成功当全文成功，不把 Crossref 的月份补成 11/01，不合并两种作者名。
+    Yanchang Cai 来自出版者提交到 Crossref 的作者元数据；本次 XML 没有作者名单。
+  announced_source: elsevier:coverDisplayDate_available_online
+  news_date: '2026-11-13'
+  daily_section: historical
+  source_review_evidence:
+    canonical_source_hash: 129279809ad0fc9602652b9b789fc30e370befe4ac0d046bac2f237a938a4077
+    publication_date: '2026-11-13'
+    revision_date: unknown
+    version: unknown
+    version_zero_is_unknown_placeholder: true
+    scope_body_review_complete: false
+    primary_review_sha256: db92e5471e3e536ba3725f49de88d249da55ba3af937cafbb8511dc5c1485470
+    independent_cross_review_sha256: bf01f07c08d8c302948191563273314c79d42882977c88657b016e4e4ab82774
+    evidence:
+    - quote: <prism:coverDisplayDate>Available online 13 November 2026</prism:coverDisplayDate>
+      archived_path: data/feed/raw/maintenance-2026-11-16/source-intake/additional-official-sources/household-publisher-linked-1.body
+      sha256: 3e48d84bf989fa8c9bd68b9c91e58979cf537f7179e593dca4032aa09b43037f
+    - publisher_author: Yanchang Cai
+      s2_author: Yan-Qing Cai
+      archived_path: data/feed/raw/maintenance-2026-11-16/source-intake/additional-official-sources/household-crossref.body
+      sha256: c51a0ca33e319ad3533acc83f4e93b1117f699b1018e9818340bb4a96563e964
+    official_url: https://doi.org/10.1016/j.eswa.2026.135083
+    s2_original_date: '2026-11-01'
+lab_updates:
+- id: post:https://openai.com/index/our-new-blog-for-science
+  title: Our new blog for science
+  announced: '2026-11-15'
+  window_status: backlog
+  in_repo: false
+  gate: {}
+  llm_primary: ''
+  decision: reject
+  arxiv_id: null
+  version: 0
+  source_hash: 6e6e914a09c0d24a577f652bd5b265a79cb0cde01e12ba74fae099d141f94038
+  published: '2026-11-15T22:00:00+00:00'
+  updated: ''
+  hf_daily_dates: []
+  abstract: The OpenAI science blog shares new findings, practical methods, and firsthand accounts from researchers
+    using AI to advance scientific discovery.
+  llm: {}
+  summary_zh: ''
+  summary_en: ''
+  evidence_quick: {}
+  evidence_notice: 来源、身份、日期及范围逐项核验；证据绑定当前版本与哈希。未复现实验，未全表重算。
+  links:
+    url: https://openai.com/index/our-new-blog-for-science
+  signals:
+    seed_hits: 0
+    author_tracked: false
+    hf_upvotes: 0
+  guard_failed: false
+  direction_override: null
+  summary_override: null
+  promote_to_repo: false
+  note: 栏目公告与研究汇总，没有提出或测试执行反馈驱动的可复用 Harness 修改。 正文中的既有研究与数字仅是被引用背景，本次没有将其复核、复现或转为新增论文。 本文为官方公告，文中旧研究引用不作为今天新增论文。
+  announced_source: published
+  news_date: '2026-11-15'
+  daily_section: historical
+  source_review_evidence:
+    canonical_source_hash: 6e6e914a09c0d24a577f652bd5b265a79cb0cde01e12ba74fae099d141f94038
+    publication_date: '2026-11-15'
+    revision_date: unknown
+    version: unknown
+    version_zero_is_unknown_placeholder: true
+    scope_body_review_complete: true
+    primary_review_sha256: 53dcf9637100d6de8c2ba2657108fb671cf5012f816c4657378f8de131d72a1a
+    independent_cross_review_sha256: c9a4db6f13a87e0bba6db2c418c8f40ac98f17bab898a78b389da7aaeaf92747
+    evidence:
+    - quote: We’re starting the OpenAI science blog to give scientists and academic researchers a place to share
+        what they’re discovering with AI and how they’re doing the work.
+      start: 64
+      end: 228
+      archived_path: data/feed/raw/maintenance-2026-11-16/source-intake/post-fulltexts/our-new-blog-for-science.txt
+      sha256: 0cb687683abd3769a54dd938d5340bbcdb2c186c7145848d744867a7b3d544f7
+    - quote: 'Methods and practical guidance: Examples of how scientists use our models for tasks such as scientific
+        computing, data analysis, exploring literature, and planning experiments.'
+      start: 637
+      end: 813
+      archived_path: data/feed/raw/maintenance-2026-11-16/source-intake/post-fulltexts/our-new-blog-for-science.txt
+      sha256: 0cb687683abd3769a54dd938d5340bbcdb2c186c7145848d744867a7b3d544f7
+    official_url: https://openai.com/index/our-new-blog-for-science/
+- id: post:https://openai.com/index/step-toward-defining-the-standard-model
+  title: A step toward defining the Standard Model on a lattice
+  announced: '2026-11-15'
+  window_status: backlog
+  in_repo: false
+  gate: {}
+  llm_primary: ''
+  decision: reject
+  arxiv_id: null
+  version: 0
+  source_hash: 376c87de1d610742246fec34818f26070753f2d1ba52a293beb9d69836733af4
+  published: '2026-11-15T22:00:01+00:00'
+  updated: ''
+  hf_daily_dates: []
+  abstract: Explore a candidate nonperturbative lattice definition of the Standard Model and how GPT-6 Astra helped
+    turn the idea into a detailed proof.
+  llm: {}
+  summary_zh: ''
+  summary_en: ''
+  evidence_quick: {}
+  evidence_notice: 来源、身份、日期及范围逐项核验；证据绑定当前版本与哈希。未复现实验，未全表重算。
+  links:
+    url: https://openai.com/index/step-toward-defining-the-standard-model
+  signals:
+    seed_hits: 0
+    author_tracked: false
+    hf_upvotes: 0
+  guard_failed: false
+  direction_override: null
+  summary_override: null
+  promote_to_repo: false
+  note: 人与模型多轮改进的对象为外部粒子物理构造与证明，正文未给出 Agent 自身提示、工具、路由或工作流被反馈改写并跨任务保留的证据。 只作来源与范围审核，不判断或复现物理证明；不发布科学性能数字，不将公告内旧研究引用当成当日新论文。
+    本文为官方公告，文中旧研究引用不作为今天新增论文。
+  announced_source: published
+  news_date: '2026-11-15'
+  daily_section: historical
+  source_review_evidence:
+    canonical_source_hash: 376c87de1d610742246fec34818f26070753f2d1ba52a293beb9d69836733af4
+    publication_date: '2026-11-15'
+    revision_date: unknown
+    version: unknown
+    version_zero_is_unknown_placeholder: true
+    scope_body_review_complete: true
+    primary_review_sha256: 53dcf9637100d6de8c2ba2657108fb671cf5012f816c4657378f8de131d72a1a
+    independent_cross_review_sha256: c9a4db6f13a87e0bba6db2c418c8f40ac98f17bab898a78b389da7aaeaf92747
+    evidence:
+    - quote: Developing this refinement strategy into a proof required several rounds of work with Astra and discussions
+        with outside experts.
+      start: 14533
+      end: 14662
+      archived_path: data/feed/raw/maintenance-2026-11-16/source-intake/post-fulltexts/step-toward-defining-the-standard-model.txt
+      sha256: 8f219501dc9821b9dbeb6c008f55a259874a8d63456c6908d6d85fa59fe7999d
+    - quote: The result is a candidate nonperturbative lattice definition for the Standard Model
+      start: 15334
+      end: 15417
+      archived_path: data/feed/raw/maintenance-2026-11-16/source-intake/post-fulltexts/step-toward-defining-the-standard-model.txt
+      sha256: 8f219501dc9821b9dbeb6c008f55a259874a8d63456c6908d6d85fa59fe7999d
+    - quote: The construction also leaves open the question of defining the interacting theory in continuous spacetime.
+      start: 16125
+      end: 16231
+      archived_path: data/feed/raw/maintenance-2026-11-16/source-intake/post-fulltexts/step-toward-defining-the-standard-model.txt
+      sha256: 8f219501dc9821b9dbeb6c008f55a259874a8d63456c6908d6d85fa59fe7999d
+    official_url: https://openai.com/index/step-toward-defining-the-standard-model/
