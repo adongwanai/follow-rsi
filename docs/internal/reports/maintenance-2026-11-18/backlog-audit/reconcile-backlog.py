@@ -14,7 +14,7 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[5]
 sys.path.insert(0, str(ROOT))
-from scripts.feed.review import source_hash
+from scripts.feed.review import OWNER_FIELDS, day_week, source_hash
 
 REPORT = ROOT / 'docs/internal/reports/maintenance-2026-11-18/backlog-audit'
 RAW = ROOT / 'data/feed/raw/maintenance-2026-11-18/backlog-audit'
@@ -24,6 +24,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--stage', required=True)
 parser.add_argument('--canonical', default='data/feed/items.jsonl')
 parser.add_argument('--adjudication', default='docs/internal/reports/maintenance-2026-11-18/primary-review/final-adjudication.json')
+parser.add_argument('--post-application', action='store_true')
 args = parser.parse_args()
 assert re.fullmatch(r'[a-z0-9-]+', args.stage)
 OUT = RAW / args.stage
@@ -32,6 +33,7 @@ assert not OUT.exists() and not DOC.exists(), 'Each stage is immutable; use a ne
 OUT.mkdir()
 DOC.mkdir()
 inputs = {}
+stored_paths = {}
 
 
 def sha(data):
@@ -44,6 +46,7 @@ def relative(path):
 
 def read(path):
     path = ROOT / path if not Path(path).is_absolute() else Path(path)
+    path = stored_paths.get(path, path)
     data = path.read_bytes()
     inputs[relative(path)] = {'sha256': sha(data), 'bytes': len(data)}
     return gzip.decompress(data) if path.suffix == '.gz' else data
@@ -58,8 +61,13 @@ def lines(path):
 
 
 def reference(path, index=None):
-    key = relative(path) if isinstance(path, Path) else path
+    path = ROOT / path if not Path(path).is_absolute() else Path(path)
+    original = path
+    path = stored_paths.get(path, path)
+    key = relative(path)
     result = {'path': key, 'sha256': inputs[key]['sha256']}
+    if path != original:
+        result['original_path'] = relative(original)
     if index is not None:
         result['index'] = index
     return result
@@ -84,9 +92,11 @@ def content_key(row):
 
 
 canonical_path = ROOT / args.canonical
+storage_index = load(REPORT / 'source-storage-index.json')
+stored_paths = {ROOT / row['original_path']: ROOT / row['stored_path'] for row in storage_index['files']}
 read(Path(__file__))
 canonical = {r['id']: r for r in lines(canonical_path)}
-baseline_path = ROOT / 'build/maintenance-2026-11-18/source-intake/canonical-baseline.jsonl'
+baseline_path = RAW / 'maintenance-start-canonical-v1.jsonl.gz'
 baseline = {r['id']: r for r in lines(baseline_path)}
 old_path = OLD / 'backlog-ledger.jsonl.gz'
 old_rows = lines(old_path)
@@ -106,7 +116,7 @@ for day, board in hf['boards'].items():
         hf_dates[ident].add(day)
 integration = load(ROOT / 'docs/internal/reports/maintenance-2026-11-18/source-intake/integration-receipt.json')
 
-issue_path = RAW / 'remote-refresh-v1/open-issues.json'
+issue_path = RAW / ('post-application-issues-v1/open-issues.json.gz' if args.post_application else 'remote-refresh-v1/open-issues.json')
 issues = load(issue_path)
 issue_ids = defaultdict(list)
 for issue in issues:
@@ -147,12 +157,93 @@ pr134_receipt = {'github_pr': 134, 'owner_login': pr134['merged_by']['login'], '
 adjudication_path = ROOT / args.adjudication
 adjudication = {r['id']: (i, r) for i, r in enumerate(load(adjudication_path)['items'])} if adjudication_path.exists() else {}
 
+applications, application_receipts, disposition, application_checks, application_events = {}, {}, {}, [], []
+if args.post_application:
+    publication = ROOT / 'docs/internal/reports/maintenance-2026-11-18/publication-final'
+    prior_boundaries = load(publication / 'prior-canonical-boundaries.json')
+    assert set(prior_boundaries) == set(canonical)
+    assert all(source_hash(canonical[key]) == value['source_hash'] and canonical[key]['first_seen'] == value['first_seen']
+               for key, value in prior_boundaries.items())
+    for number in (134, 137, 135, 138):
+        applied_path = publication / f'applied-review-{number}.json'
+        verified_path = publication / f'verified-review-{number}.json'
+        applied, verified = load(applied_path), load(verified_path)
+        assert all(applied[key] == value for key, value in verified.items())
+        merged_path = ROOT / f'docs/internal/reports/maintenance-2026-11-18/pr-audit/pr-{number}-merged.json'
+        merged = load(merged_path)
+        assert merged['merged'] and merged['head']['sha'] == verified['head']
+        assert merged['head']['repo']['full_name'] == merged['base']['repo']['full_name'] == 'adongwanai/follow-rsi'
+        assert merged['base']['ref'] == 'main' and merged['merge_commit_sha'] == verified['merge_commit']
+        assert merged['merged_by']['type'] == 'User' and merged['merged_by']['login'] == verified['owner_login'] == 'adongwanai'
+        request = verified['request']
+        assert merged['head']['ref'] == 'feed/review-' + request['date']
+        content = read(review134_path if number == 134 else ROOT / request['path'])
+        assert sha(content) == verified['review_sha256']
+        document = yaml.safe_load(content)
+        proposals = {entry['id']: entry for group in ('items', 'lab_updates') for entry in document[group]}
+        assert len(applied['selected_ids']) == applied['applied_records']
+        assert len(set(applied['selected_ids'])) == len(applied['selected_ids'])
+        for ident in applied['selected_ids']:
+            assert ident != 'arxiv:2611.16378'
+            proposal = proposals[ident]
+            expected = {field: deepcopy(proposal[field]) for field in OWNER_FIELDS if field in proposal}
+            expected.update(kind='daily', date=request['date'], week=day_week(request['date']), source_hash=proposal['source_hash'],
+                            reviewed_on=document['reviewed_on'], **{key: verified[key] for key in ('github_pr', 'owner_login', 'merge_commit')})
+            formal = canonical[ident]['review']
+            current_match = {key: value for key, value in formal.items() if key != 'reviewed_at'} == expected
+            history_matches = [entry for entry in canonical[ident].get('review_history', [])
+                               if {key: value for key, value in entry.items() if key != 'reviewed_at'} == expected]
+            assert current_match or len(history_matches) == 1, ident
+            applied_review = formal if current_match else history_matches[0]
+            assert formal['source_hash'] == source_hash(canonical[ident]), ident
+            assert applied_review['reviewed_at'][:10] == '2026-11-18', ident
+            applications[ident] = {'github_pr': number, 'decision': proposal['decision'], 'applied_ref': reference(applied_path),
+                                   'verified_ref': reference(verified_path), 'actual_merged_pr_ref': reference(merged_path),
+                                   'formal_decision_all_fields_match': True,
+                                   'approved_review_location': 'current_review' if current_match else 'review_history'}
+            application_events.append({'id': ident, **applications[ident]})
+        application_receipts[number] = verified
+        application_checks.append({'github_pr': number, 'selected': len(applied['selected_ids']),
+                                   'all_fields_match_exact_approved_rows_in_current_or_history': True,
+                                   'current_reviews': sum(entry['github_pr'] == number and entry['approved_review_location'] == 'current_review' for entry in application_events),
+                                   'preserved_history_reviews': sum(entry['github_pr'] == number and entry['approved_review_location'] == 'review_history' for entry in application_events),
+                                   'decision_counts': dict(Counter(proposals[key]['decision'] for key in applied['selected_ids']))})
+    assert len(application_events) == 177 and len(applications) == 175
+    assert all(entry['approved_review_location'] == 'current_review' for entry in applications.values())
+    disposition_path = ROOT / 'data/feed/raw/maintenance-2026-11-18/historical-disposition/disposition-ledger-v2.jsonl.gz'
+    disposition = {entry['id']: (index, entry) for index, entry in enumerate(lines(disposition_path))}
+    assert set(disposition) == set(carryforward)
+    for ident, (_, entry) in disposition.items():
+        assert source_hash(canonical[ident]) == entry['canonical_source_hash_at_archive']
+        assert canonical[ident]['first_seen'] == entry['first_seen_preserved']
+        if entry['decision_suggestion'] is None:
+            assert ident not in applications and canonical[ident]['review'] == entry['canonical_review_before'], ident
+        else:
+            assert applications[ident]['github_pr'] == 135
+            assert canonical[ident]['review']['decision'] == entry['decision_suggestion']
+            assert entry['canonical_review_before'] in canonical[ident]['review_history'], ident
+    protected_ege = load(publication / 'prior-ege-review.json')
+    ege_metadata_path = publication / 'ege-metadata-only-receipt.json'
+    ege_metadata = load(ege_metadata_path)
+    ege = canonical['arxiv:2611.16378']
+    assert ege['review'] == protected_ege and ege_metadata in ege['metadata_review_receipts']
+    assert ege_metadata['source_hash'] == source_hash(ege)
+    assert ege_metadata['previous_approval_source_hash'] == protected_ege['source_hash']
+    assert all(ege_metadata[key] == application_receipts[137][key] for key in ('github_pr', 'owner_login', 'merge_commit'))
+    assert ege_metadata['date'] == '2026-11-16' and ege_metadata['reviewed_on'] == '2026-11-18'
+    assert ege_metadata['review_preserved'] and not ege_metadata['republished'] and not ege_metadata['scientific_content_reapproved']
+    prior_manifest_hashes = load(publication / 'prior-manifests.json')
+    assert all(sha(read(ROOT / path)) == expected for path, expected in prior_manifest_hashes.items())
+    assert not (ROOT / 'site/daily/2026-10-27.json').exists()
+
 local_publications = defaultdict(list)
-for directory in ['site/daily', 'site/recaps']:
+for directory in ['site/daily', 'site/recaps', 'site/weekly']:
     for path in sorted((ROOT / directory).glob('*.json')):
         edition = load(path)
-        for item in edition.get('items', []):
-            local_publications[item['id']].append({'date': edition.get('date'), 'reviewed_on': edition.get('reviewed_on'), 'artifact': reference(path), 'live_verified_by_this_audit': False})
+        for item in edition.get('items', []) + edition.get('backlog', []):
+            local_publications[item['id']].append({'date': edition.get('date'), 'week': edition.get('week'),
+                'kind': edition.get('kind', 'weekly' if directory == 'site/weekly' else 'daily'),
+                'reviewed_on': edition.get('reviewed_on'), 'artifact': reference(path), 'live_verified_by_this_audit': False})
 
 # Keep full old task evidence and separately retain every new raw metadata observation.
 old_candidates_path = ROOT / 'data/feed/version-candidates/weekly-scan-2026-11-09.jsonl.gz'
@@ -289,6 +380,64 @@ for ident in sorted(universe):
     latest_advice_applied = not latest_advice or (latest_advice.get('source_hash') == row['canonical_source_hash'] and latest_advice.get('decision') == formal.get('decision'))
     if row['formal_review_source_hash_matches'] and formal.get('decision') in {'accept', 'reject', 'backlog', 'move'} and latest_advice_applied:
         row.update(processing_bucket='formal_or_catalog_record', status='formal_' + formal['decision'] + '_source_bound', next_actions=[] if formal['decision'] in {'reject', 'move'} else ['verify_dated_publication_separately'] if formal['decision'] == 'accept' else ['retain_inclusion_scope_and_prepare_separate_eligible_publication'])
+    if ident in disposition:
+        index, latest = disposition[ident]
+        row['historical_reason_zh'] = deepcopy(row['reason_zh'])
+        row['historical_pr135_pending_checks'] = row.pop('pr135_pending_evidence_or_editorial_checks', [])
+        row['historical_disposition_ref'] = {**reference(disposition_path, index), 'source_hash_matches': True}
+        row['work_category'] = latest['work_category']
+        row['scope_recommendation'] = latest['scope_recommendation']
+        row['reason_zh'] = latest['reason_zh']
+        row['current_reason_zh'] = [latest['work_status_zh'], latest['next_action_zh']]
+        row['current_pending_evidence_or_editorial_checks'] = latest['pending_evidence_or_editorial_checks']
+        row['formal_review_unchanged_from_PR135_archive'] = current['review'] == latest['canonical_review_before']
+        if latest['decision_suggestion'] is None:
+            bucket = {'editorial_not_external_blocker': 'editorial_pending',
+                      'item_specific_artifact_evidence_gap': 'pending_evidence',
+                      'external_source_access_blocker': 'external_blocked',
+                      'item_specific_scope_evidence_gap': 'pending_evidence',
+                      'post_approval_counterevidence': 'pending_evidence',
+                      'already_cataloged_no_new_publication_claim': 'formal_or_catalog_record',
+                      'bounded_review_evidence': 'bounded_scope_screen'}[latest['work_category']]
+            row.update(processing_bucket=bucket, status=latest['current_work_status'], next_actions=latest['next_actions'])
+    if ident in applications:
+        row.setdefault('historical_reason_zh', deepcopy(row['reason_zh']))
+        row['current_dated_application'] = applications[ident]
+        row['dated_application_history'] = [entry for entry in application_events if entry['id'] == ident]
+        row['scope_recommendation'] = {'accept': 'include', 'backlog': 'include', 'reject': 'exclude', 'defer': 'borderline'}[formal['decision']]
+        row['reason_zh'] = [formal['note']]
+        row['current_reason_zh'] = [formal['note']]
+        row['current_pending_evidence_or_editorial_checks'] = []
+        if formal['decision'] == 'defer':
+            row.update(processing_bucket='pending_evidence', status='specific_evidence_gap_retained_with_dated_receipt',
+                       next_actions=['resolve_item_specific_evidence_gap_using_saved_reason'])
+            row['current_pending_evidence_or_editorial_checks'] = [formal['note']]
+        else:
+            row.update(processing_bucket='formal_or_catalog_record', status='formal_' + formal['decision'] + '_source_bound',
+                       next_actions=[] if formal['decision'] == 'reject' else ['verify_publication_PR_Pages_and_live_endpoints'])
+        if ident in disposition:
+            row['work_category'] = 'applied_source_bound_disposition'
+    if args.post_application and ident == 'arxiv:2611.16378':
+        row['historical_reason_zh'] = deepcopy(row['reason_zh'])
+        row.update(processing_bucket='formal_or_catalog_record', status='formal_accept_preserved_hf_metadata_receipted',
+                   scope_recommendation='include', reason_zh=[protected_ege['note'], ege_metadata['note']],
+                   next_actions=[], current_reason_zh=[ege_metadata['note']],
+                   metadata_only_approval_ref=reference(ege_metadata_path),
+                   original_review_object_unchanged=True, scientific_content_reapproved=False,
+                   current_metadata_source_hash_bound=True, new_daily_or_retrospective_reprint=False)
+        assert not row['formal_review_source_hash_matches'], 'Do not rebind EGE old scientific approval to the new metadata hash.'
+    if args.post_application and not row['reason_zh']:
+        if current:
+            assert row['formal_review_source_hash_matches'] and formal.get('note'), ident
+            row['reason_zh'] = [formal['note']]
+            row['restored_formal_review_reason_ref'] = {**reference(canonical_path), 'id': ident, 'field': 'review.note',
+                                                       'new_source_reading_claimed': False}
+        else:
+            assert row['processing_bucket'] in {'outside_candidate_window', 'source_date_metadata_unavailable'}, ident
+            row['reason_zh'] = [
+                f"{ident}：仅保存在绑定的原始/历史发现记录，当前不在规范库；窗口状态={','.join(row['current_raw_dispositions']) or row['status']}。本记录是来源日期与窗口处置，不是按标题作范围排除。"
+                if row['processing_bucket'] == 'outside_candidate_window' else
+                f"{ident}：原始/历史发现记录缺失可核验的发表日期，仍保留来源日期待补；没有声称范围排除或正式入库。"]
     row['new_model_success_claimed'] = False
     row['historical_error_retained_even_if_offline_scope_resolved'] = bool(row.get('historical_model_error') or row.get('preserved_historical_model_error'))
     ledger.append(row)
@@ -301,8 +450,26 @@ for issue in issues:
     if issue['number'] in existing_issue_checks:
         item['prior_verified_disposition'] = existing_issue_checks[issue['number']]
         item['recommend_close'] = existing_issue_checks[issue['number']]['recommend_close']
+        if item['recommend_close']:
+            item['closure_basis'] = existing_issue_checks[issue['number']]['disposition']
+    if args.post_application and len(ids) == 1:
+        ident = ids[0]
+        decision = (canonical.get(ident, {}).get('review') or {}).get('decision')
+        if ident in applications and decision == 'reject':
+            item.update(recommend_close=True, closure_basis='current_exact_source_dated_reject_applied',
+                        current_application=applications[ident])
+        elif decision in {'accept', 'backlog'} and local_publications[ident] and not item['recommend_close']:
+            item.update(recommend_close_after_live_verification=True,
+                        closure_basis='source_bound_inclusion_rendered_locally_publication_not_yet_live_verified',
+                        local_publication_artifacts=local_publications[ident],
+                        required_before_close=['verify_publication_PR_merge_and_Pages_deployment', 'verify_exact_item_in_live_JSON_and_HTML'])
     if issue['number'] == 60:
         item.update(status='umbrella_evidence_followup_retained', blocker_ids=sorted(blockers), remaining_scope_evidence_ids=[r['id'] for r in ledger if r['in_canonical'] and r['processing_bucket'] == 'pending_evidence'])
+        if args.post_application:
+            item.update(pr135_remaining_work_categories=dict(Counter(entry['work_category'] for _, entry in disposition.values() if entry['decision_suggestion'] is None)),
+                        pr135_resolved_ids=sorted(key for key, (_, entry) in disposition.items() if entry['decision_suggestion'] is not None),
+                        editorial_ids=[r['id'] for r in ledger if r['processing_bucket'] == 'editorial_pending'],
+                        bounded_screen_ids=[r['id'] for r in ledger if r['processing_bucket'] == 'bounded_scope_screen'])
     if issue['number'] in {115, 116}:
         item.update(status='version_pair_recovered_partial_readback_full_review_pending', partial_version_readback={**reference(pair_path), 'id': ids[0]})
     issue_audit.append(item)
@@ -313,7 +480,7 @@ jlout('weekly-metadata-observations.jsonl.gz', observations)
 jlout('daily-metadata-review-tasks.jsonl.gz', daily_tasks)
 jsonout(DOC / 'issue-disposition.json', {'snapshot': reference(issue_path), 'items': issue_audit, 'closures_performed': 0})
 jsonout(DOC / 'source-hash-boundaries.json', {'items': source_changes, 'formal_hashes_rebound_by_this_audit': 0})
-jsonout(DOC / 'approved-nov16-application-audit.json', {'provenance': pr134_receipt, 'items': [{'id': ident, 'approved_decision': proposal['decision'], 'approved_source_hash': proposal['source_hash'], 'canonical_source_hash': by_id[ident]['canonical_source_hash'], 'applied_with_exact_provenance': bool((canonical[ident].get('review') or {}).get('github_pr') == 134 and (canonical[ident].get('review') or {}).get('merge_commit') == pr134['merge_commit_sha'] and (canonical[ident].get('review') or {}).get('source_hash') == proposal['source_hash'] and (canonical[ident].get('review') or {}).get('decision') == proposal['decision'])} for ident, proposal in approved.items()]})
+jsonout(DOC / 'approved-nov16-application-audit.json', {'provenance': pr134_receipt, 'items': [{'id': ident, 'approved_decision': proposal['decision'], 'approved_source_hash': proposal['source_hash'], 'canonical_source_hash': by_id[ident]['canonical_source_hash'], 'current_review_has_exact_provenance': bool((canonical[ident].get('review') or {}).get('github_pr') == 134 and (canonical[ident].get('review') or {}).get('merge_commit') == pr134['merge_commit_sha'] and (canonical[ident].get('review') or {}).get('source_hash') == proposal['source_hash'] and (canonical[ident].get('review') or {}).get('decision') == proposal['decision']), 'current_or_preserved_history_application': [event for event in application_events if event['github_pr'] == 134 and event['id'] == ident]} for ident, proposal in approved.items()]})
 current_rows = [r for r in ledger if r['in_canonical']]
 summary = {'date': '2026-11-18', 'stage': args.stage, 'finished_at': datetime.now(timezone.utc).isoformat(), 'canonical_input': reference(canonical_path), 'old_ledger': reference(old_path), 'universe_ids': len(ledger), 'canonical_ids': len(canonical), 'prior_canonical_ids': sum(r['in_canonical'] for r in old_rows), 'baseline_canonical_ids': len(baseline), 'canonical_buckets': dict(Counter(r['processing_bucket'] for r in current_rows)), 'all_id_buckets': dict(Counter(r['processing_bucket'] for r in ledger)), 'all_ids_have_recoverable_status': all(r.get('status') and 'next_actions' in r for r in ledger), 'old_ids_missing': sorted(set(old) - set(by_id)), 'old_discovery_members_preserved': sum(bool(r.get('legacy_discovery_member')) for r in ledger), 'old_historical_model_errors_preserved': sum(r['historical_error_retained_even_if_offline_scope_resolved'] for r in ledger), 'source_hash_changes_from_nov15': len(source_changes), 'existing_first_seen_changed': [ident for ident in baseline if ident in canonical and baseline[ident].get('first_seen') != canonical[ident].get('first_seen')], 'missing_current_window_ids': [ident for ident, occurrences in raw_by_id.items() if any(r['disposition'] == 'within_requested_source_window' for _, r in occurrences) and ident not in canonical], 'missing_hf_ids_or_dates': [{'id': r['id'], 'missing_dates': r['missing_canonical_hf_dates']} for r in ledger if r['missing_canonical_hf_dates']], 'current_raw_occurrences': len(raw_rows), 'current_raw_unique_ids': len(raw_by_id), 'old_version_task_count': len(old_tasks), 'new_weekly_metadata_observation_count': len(observations), 'scan_observations_reusing_same_content_task': scan_reused, 'combined_version_task_count': len(ordered_tasks), 'version_task_statuses': dict(Counter(t['status'] for t in ordered_tasks)), 'old_daily_metadata_task_count': len(daily_tasks), 'old_version_scope_comparisons_completed': progress['scope_comparisons_completed'], 'old_fulltext_or_original_identity_pending': len(recovered), 'old_recovered_version_pairs': sum(r['status'] == 'recovered' for r in recovered.values()), 'old_missing_original_version_identity': sum(r['status'] == 'missing_original_version_identity' for r in recovered.values()), 'new_version_pair_partial_readbacks': len(pair_readbacks), 'new_complete_scientific_version_reviews_by_this_audit': 0, 'formal_version_adoptions_by_this_audit': 0, 'approved_nov16_decisions': dict(Counter(r['decision'] for r in approved.values())), 'current_adjudicated_rows': len(adjudication), 'open_issue_snapshot_count': len(issues), 'recommended_issue_closures_from_existing_verified_evidence': [r['number'] for r in issue_audit if r['recommend_close']], 'source_blocker_retries': len(blockers), 'all_current_publications_live_verified': False, 'paid_requests': 0, 'production_writes': 0, 'github_writes': 0}
 assert not summary['old_ids_missing'] and not summary['existing_first_seen_changed']
@@ -324,6 +491,55 @@ summary['pr135_original_defer_ids_preserved'] = sum(bool(r.get('pr135_preserved_
 summary['canonical_ids_in_raw_only_buckets'] = [r['id'] for r in current_rows if r['processing_bucket'] in {'outside_candidate_window', 'source_date_metadata_unavailable', 'pending_intake_integration'}]
 summary['current_adjudication_source_hash_mismatches'] = [ident for ident, (_, proposal) in adjudication.items() if ident not in canonical or source_hash(canonical[ident]) != proposal['source_hash']]
 summary['restored_saved_item_specific_reasons'] = sum(bool(r.get('restored_saved_reason_ref')) for r in ledger)
+if args.post_application:
+    new_ids = sorted(set(canonical) - set(baseline))
+    preserved = [entry for _, entry in disposition.values() if entry['decision_suggestion'] is None]
+    resolved = [entry for _, entry in disposition.values() if entry['decision_suggestion'] is not None]
+    summary.update(
+        exact_application_events=len(application_events), exact_application_unique_ids=len(applications), application_groups=application_checks,
+        all_canonical_source_hashes_and_first_seen_unchanged_by_apply=True,
+        old_publication_manifests_byte_identical=True,
+        ege_original_review_preserved_with_separate_metadata_receipt=True,
+        historical_PR135_dispositions_applied=len(resolved),
+        historical_PR135_applied_decisions=dict(Counter(entry['decision_suggestion'] for entry in resolved)),
+        historical_PR135_original_reviews_preserved=len(preserved),
+        historical_PR135_remaining_work_categories=dict(Counter(entry['work_category'] for entry in preserved)),
+        new_canonical_records=len(new_ids),
+        new_canonical_kinds=dict(Counter(canonical[key]['kind'] for key in new_ids)),
+        new_canonical_formal_decisions=dict(Counter(canonical[key]['review']['decision'] for key in new_ids)),
+        new_canonical_without_raw_or_issue_evidence=[key for key in new_ids if not raw_by_id[key] and not issue_ids[key]],
+        current_hf_board_counts={day: len(board['ids']) for day, board in hf['boards'].items()},
+        current_hf_unique_members=sum(bool(dates) for dates in hf_dates.values()),
+        restored_source_bound_formal_review_reasons=sum(bool(row.get('restored_formal_review_reason_ref')) for row in ledger),
+        canonical_items_without_reason=[row['id'] for row in current_rows if not row['reason_zh']],
+        all_ids_without_reason=[row['id'] for row in ledger if not row['reason_zh']],
+        recommended_issue_closures_now=[entry['number'] for entry in issue_audit if entry['recommend_close']],
+        recommended_issue_closures_after_live_publication=[entry['number'] for entry in issue_audit if entry.get('recommend_close_after_live_verification')],
+        remaining_issue_numbers=[entry['number'] for entry in issue_audit if not entry['recommend_close'] and not entry.get('recommend_close_after_live_verification')],
+        issue_snapshot_observation=load(RAW / 'post-application-issues-v1/request-receipt.json'))
+    assert len(resolved) == 29 and len(preserved) == 92
+    assert not summary['missing_current_window_ids'] and not summary['missing_hf_ids_or_dates']
+    assert not summary['new_canonical_without_raw_or_issue_evidence']
+    assert not summary['all_ids_without_reason']
+    jsonout(DOC / 'dated-application-readback.json', {
+        'checked_against_saved_actual_merged_PR_responses': True, 'application_groups': application_checks,
+        'items': [{'id': key, **value} for key, value in sorted(applications.items())],
+        'all_application_events': application_events,
+        'prior_canonical_boundaries': reference(publication / 'prior-canonical-boundaries.json'),
+        'source_hash_and_first_seen_unchanged_for_all': len(canonical),
+        'ege_metadata_receipt': reference(ege_metadata_path), 'ege_full_original_review_object_preserved': True,
+        'canonical_writes_by_this_audit': 0, 'live_publication_verified_by_this_audit': False})
+    jsonout(DOC / 'new-canonical-and-hf-reconciliation.json', {
+        'new_canonical_items': [{'id': key, 'kind': canonical[key]['kind'], 'first_seen': canonical[key]['first_seen'],
+                                 'source_hash': source_hash(canonical[key]), 'decision': canonical[key]['review']['decision'],
+                                 'github_pr': canonical[key]['review']['github_pr'],
+                                 'raw_references': by_id[key]['current_raw_refs'], 'issue_references': issue_ids[key]}
+                                for key in new_ids],
+        'hf_board_members': {day: [{'id': key, 'canonical_hf_daily_dates': canonical[key]['hf_daily_dates'],
+                                   'first_seen': canonical[key]['first_seen'], 'new_canonical': key in new_ids}
+                                  for key in board['ids']] for day, board in hf['boards'].items()},
+        'all_raw_window_members_present': True, 'missing_hf_ids_or_dates': [],
+        'first_seen_changed_from_maintenance_start': [], 'new_models_or_version_adoptions_claimed': False})
 assert summary['pr135_original_defer_ids_preserved'] == 121
 assert not summary['canonical_ids_in_raw_only_buckets']
 summary['input_drift'] = [path for path, evidence in inputs.items() if sha((ROOT / path).read_bytes()) != evidence['sha256']]

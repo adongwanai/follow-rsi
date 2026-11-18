@@ -281,8 +281,10 @@ def _markdown(edition, lang, directions, config, subdirections=None):
                 lines.append(f"- {_md(name)} · {source['count']} · {source['run_at']}" + (f" · {notice}" if notice else ""))
             lines.append("")
     if retrospective:
-        lines += [("第 0 期 · 历史回顾；下列论文不是当日新增。" if lang == "zh" else
-                   "Edition 0 · Historical retrospective; these papers are not today's new publications."), ""]
+        inaugural = edition['start'] == '2026-10-14' and edition['end'] == '2026-10-27'
+        prefix = ("第 0 期 · " if lang == "zh" else "Edition 0 · ") if inaugural else ""
+        lines += [prefix + ("历史回顾；下列论文不是当日新增。" if lang == "zh" else
+                            "Historical retrospective; these papers are not today's new publications."), ""]
     if edition.get("editor_note_" + lang):
         lines += ["## 编辑的话" if lang == "zh" else "## Editor's note", "", edition["editor_note_" + lang], ""]
     if edition["picks"]:
@@ -433,7 +435,9 @@ def _write_feed(root, editions, config, retracted):
         period = edition["start"] + "--" + edition["end"] if retrospective else edition["date"]
         entry = element(feed, "entry")
         element(entry, "id", ("urn:follow-rsi:recap:" if retrospective else "urn:follow-rsi:daily:") + period)
-        element(entry, "title", "Follow RSI · " + ("Edition 0 · " + edition["title_en"] if retrospective else
+        recap_prefix = ("Edition 0 · " if retrospective and edition['start'] == '2026-10-14'
+                        and edition['end'] == '2026-10-27' else "")
+        element(entry, "title", "Follow RSI · " + (recap_prefix + edition["title_en"] if retrospective else
                                                   period + " · Collection and review bulletin" if status_only else period))
         element(entry, "category", term="retrospective" if retrospective else "daily_status" if status_only else "daily")
         element(entry, "updated", edition.get("updated_at", edition["published_at"]))
