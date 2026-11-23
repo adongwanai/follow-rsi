@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 import argparse, gzip, hashlib, json, sys, shutil
 import yaml
 
-p=argparse.ArgumentParser();p.add_argument('--root',default='/Users/mac/Desktop/2026-money/AgentGuide/awesome-harness-evolution');p.add_argument('--output',default='/private/tmp/follow-rsi-2026-11-23-backlog-final');args=p.parse_args()
+p=argparse.ArgumentParser();p.add_argument('--root',default=str(Path.cwd()));p.add_argument('--output',default='/private/tmp/follow-rsi-2026-11-23-backlog-final');args=p.parse_args()
 R=Path(args.root);O=Path(args.output);O.mkdir(parents=True,exist_ok=True);sys.path.insert(0,str(R))
 from scripts.feed.review import source_hash
 DAY='2026-11-23'
