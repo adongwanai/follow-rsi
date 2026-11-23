@@ -85,7 +85,7 @@
 | 2026-08-06 | [HarnessOpt-Bench: Evaluating LLMs at Harness Optimization](papers/harnessopt-bench.md) | 优化器拿到种子 Harness 和固定评估预算，提交后在搜索期间不可见的测试集上计分。5 个前沿模型、111 次运行：优化器模型本身比它用的编码 Harness 更重要，原生 Harness 并不总是更好。 |  | ❔ ❔ ❔ ❔ |
 | 2026-09 | [Reflections on Trusting Trust, Revisited](papers/trusting-trust-revisited.md) | 用投毒 benchmark 污染自修改编码 Agent；顺带发现 DGM 与 Hyperagents 的容器里可从 git 历史拿到答案，已被作者确认。复现这两个基线前必看。 |  | ❔ ❔ ❔ ❔ |
 | 2026-09 | [Safe Harness Self-Evolution: A Theoretical Analysis of Feasibility and Limits](papers/safe-harness-self-evolution.md) | 在固定参考分布上，被认证的改进可以累积；但在不受限的组合下，当前改进不能保证后续还能改进。适合为准入规则找理论依据。 |  | ❔ ❔ ❔ ❔ |
-| 2026-09 | [Audit the Scaffold, Not the Checkpoint](papers/audit-the-scaffold.md) | 「平稳性二分」：可达编辑集合不扩张时，迭代自修改必然收益递减；SWE-bench 上每轮提升趋于零。解释「过早饱和」的好材料。 |  | ❔ ❔ ❔ ❔ |
+| 2026-09 | [Audit the Scaffold, Not the Checkpoint](papers/audit-the-scaffold.md) | 理论在单调改进等假设下刻画收益趋零；实证为描述性饱和，固定模型改变 scaffold 的关键实验尚未执行。 |  | ❔ ❔ ❔ ❔ |
 | 2026-09-01 | [HarnessDev: Can LLMs Create and Evolve Their Own Agent Harness?](papers/harnessdev.md) | 评测模型在权重固定时创建与迭代修改可复用 Harness 的能力。Creation 覆盖六个模型、五个基准；Evolution 根据反馈集修改代码，再冻结版本评估 630 道 SWE-Pro 留出题，并区分创建者与执行器。 | 五条 self-runtime 轨迹的留出增益为 +1.43 至 +4.44 个百分点（均值 +3.11）；四条全程固定 Gemini 的轨迹中三条退步。每个创建者–执行器组合仅一条演化线，未做匹配搜索预算对照，成本不含完整开发开销。 | ✅ ❌ ✅ ◐ |
 | 2026-10 | [Auditing the Product, Not the Recursion](papers/auditing-product.md) | 114 篇研究中，声称改进了「改进流程」的 26 篇里只有 4 篇在相同起点、相同预算下比较了前后两代流程。 |  | ❔ ❔ ❔ ❔ |
 | 2026-10-13 | [Self-Evolving Agent Harness](papers/self-evolving-agent-harness.md) | 把 Harness 自进化拆成「更新对象」与「提案/准入机制」，给出持续 PAC 学习下的泛化界、保留界与基于新鲜验证数据的准入规则。理论界依赖明确假设。 |  | ❔ ❔ ❔ ❔ |
@@ -134,7 +134,7 @@
 | 2026-08 | [Self-Evolving Embodied Agents via Skill-Harness Evolution (SHAPER)](papers/shaper.md) | 具身场景下冻结模型，同时演化技能与上下文代码 Harness。 |  | ❔ ❔ ❔ ❔ |
 | 2026-08 | [SBCO: Self-Supervised, Verifier-Grounded Harness Optimization For Planning Agents](papers/sbco.md) | 面向有显式约束的规划任务，用固定元 Agent 和学到的验证器库做块坐标上升。 |  | ❔ ❔ ❔ ❔ |
 | 2026-08 | [JIT-Agent: Scaling Harness Intelligence via Just-in-Time Harness Evolution](papers/jit-agent.md) | 在模块化的 Harness 设计空间上做即时演化。 |  | ❔ ❔ ❔ ❔ |
-| 2026-09 | [Self-Evolving Harness on Multiple Tasks with the Agent as Its Own Optimizer](papers/self-evolving-multi-task.md) | 每批演化混合五个领域的基准，只在留出任务上计分。 |  | ❔ ❔ ❔ ❔ |
+| 2026-09 | [Multi-Task Self-Evolving Harnesses with the Agent as Its Own Optimizer](papers/self-evolving-multi-task.md) | 冻结模型依据训练任务的执行记录与评分编辑自身 Harness；阶段末冻结版本，再以独立留出任务评估。 |  | ❔ ❔ ❔ ❔ |
 | 2026-09 | [Composing Task-specific Agent Harnesses at Test Time with Reusable Primitives (STITCH)](papers/stitch.md) | 测试时用可复用原语组装任务专用 Harness，比固定 Harness 最多高 12 分。 |  | ❔ ❔ ❔ ❔ |
 | 2026-10 | [Recurrent Harness for Agentic Continual Learning (ReHarness)](papers/reharness.md) | 面向持续学习的循环 Harness，在流式在线协议下增加反向修订。 |  | ❔ ❔ ❔ ❔ |
 | 2026-10-15 | [R$^2$Orch: Recursive Self-Improvement for Agent Orchestration via Self-Play within a Skill-Internalization Loop](papers/feed-2610-22740.md) **待细读 / Needs verification** | 在训练中按反馈共演化编排模型与版本化技能；部署时不携带技能。 |  | ❔ ❔ ❔ ❔ |
