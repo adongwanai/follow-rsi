@@ -27,11 +27,11 @@ RSI papers appear every day, but every claim of improvement needs scrutiny. Foll
 
 <!-- AUTO:TODAY:START -->
 
-**[2026-11-18](https://adongwanai.github.io/follow-rsi/daily/2026-11-18.html)** · Collection and review brief
+**[2026-11-23](https://adongwanai.github.io/follow-rsi/daily/2026-11-23.html)** · Collection and review brief
 
-Collection and review bulletin published; no new papers were included. Collection and review record before publication: At this snapshot, HF Nov 18 returned not_ready and explicitly reported available_through Nov 17. This is neither an empty board nor evidence that every source has no update. Complete Nov 17 (41 papers) and Nov 16 (40 papers) boards were also fetched, with all late members and recommendation dates reconciled. All 12 enabled sources were actually attempted on Nov 18 between 09:17 and 09:22 Asia/Shanghai. The strict source window contained 423 occurrences across 388 stable IDs and added 122 new records (103 papers and 19 posts). Seven historical issue paper candidates were separately verified and ingested, bringing total new records to 129 (110 papers and 19 posts), not 129 inclusions. Three arXiv queries returned zero window entries; the five RSS feeds returned 5, 6, 47, 7 and 0. Release checks succeeded for 13 GitHub repositories with no window releases. S2 citations retained 277 window occurrences across 246 IDs, but 46 requests included 15 rate limits and reached a 180-second cutoff. Author identity lookup succeeded but paper traversal was blocked by six rate limits; unvisited coverage remains unknown. The 129 newly ingested identities have item-specific scope findings: 12 inclusion recommendations, 112 exclusions and five evidence deferrals. ESI keeps prompts and skills fixed in its principal experiment; SPG-Select lacks a bound feedback-to-deployed-skill change record; ForgeSystem and RecurIR lack a verifiable deployed Harness artifact chain; the S2 survey remains rate-limited. Positive papers are placed in the true Nov 16 source window or separately labelled historical additions, not presented as new papers in today's bulletin. The historical model evaluation is not complete; recall remains 0.892857 against threshold 0.90. Its warning is retained; no paid model evaluation was rerun and engineering tests are not quality evaluation.
+Collection and review bulletin published; no new papers were included. Collection and review record before publication: At the Nov 23 snapshot, all 13 papers on the complete same-day HF board were excluded after scope review; no same-day paper qualifies. Complete Nov 18–22 boards were also fetched (39, 50, 50, 0 and 0 papers). Qualifying earlier papers retain their recommendation dates rather than being presented as today’s discoveries. All 12 enabled sources were attempted on Nov 23 at 15:53–15:58 Asia/Shanghai. There were 4,684 raw occurrences across 4,416 stable IDs; 520 window occurrences across 471 IDs added 234 canonical records (213 papers and 21 posts). The three arXiv queries yielded 15, 17 and 2 window records; the five RSS feeds yielded 9, 7, 49, 7 and 0. Release queries succeeded for all 13 GitHub repositories with no window release. S2 citations made 47 requests including 19 rate limits and retained 262 window occurrences before the 180-second cutoff; authors made eight requests including six rate limits, with only partial identity lookup and unfinished paper traversal. Unvisited coverage remains unknown.Item-specific three-round review yields 29 inclusions (25 in delayed Nov 18–20 editions and four historical additions), 202 exclusions and three evidence deferrals. EVA-RSI needs a demonstrated Harness-edit chain, DailyBrick needs a deployed cross-configuration update, and the S2-only survey needs its full text. Six older external evidence gaps remain itemized. Historical global evaluation remains incomplete at recall 0.892857 versus 0.90, without a threshold change or pass claim. Paid model requests and generation tokens are zero; scope review is not experimental replication.
 
-[Read this edition →](https://adongwanai.github.io/follow-rsi/daily/2026-11-18.html)
+[Read this edition →](https://adongwanai.github.io/follow-rsi/daily/2026-11-23.html)
 
 <!-- AUTO:TODAY:END -->
 
@@ -135,7 +135,7 @@ Icons: held-out · matched budget · cross-model · cost; ❔ means not yet revi
 
 <!-- AUTO:SOURCES:START -->
 
-Sources with recorded successful runs: arxiv-adjacent · arxiv-harness · arxiv-rsi · github-releases · hf-daily · rss-deepmind · rss-metr · rss-openai · rss-sakana · rss-weco · s2-citations。 Failed in the latest run: arxiv-adjacent · arxiv-harness · arxiv-rsi · s2-authors · s2-citations。 Daily list not ready: hf-daily。 [Source status](https://adongwanai.github.io/follow-rsi/feed/status.json).
+Sources with recorded successful runs: arxiv-adjacent · arxiv-harness · arxiv-rsi · github-releases · hf-daily · rss-deepmind · rss-metr · rss-openai · rss-sakana · rss-weco · s2-citations。 Failed in the latest run: s2-authors · s2-citations。 [Source status](https://adongwanai.github.io/follow-rsi/feed/status.json).
 
 <!-- AUTO:SOURCES:END -->
 
@@ -143,7 +143,7 @@ Discover → deduplicate → Harness gate → summary and number checks → **hu
 
 <!-- AUTO:METRICS:START -->
 
-[Weekly metrics](digests/2026-W46.en.md)
+[Weekly metrics](digests/2026-W47.en.md)
 
 <!-- AUTO:METRICS:END -->
 
