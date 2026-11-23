@@ -23,7 +23,7 @@
 | 改进时机 | ❔ 未审 |
 | 演化结构 | ❔ 未审 |
 
-**一句话**：「平稳性二分」：可达编辑集合不扩张时，迭代自修改必然收益递减；SWE-bench 上每轮提升趋于零。解释「过早饱和」的好材料。
+**一句话**：理论在单调改进等假设下刻画收益趋零；实证为描述性饱和，固定模型改变 scaffold 的关键实验尚未执行。
 
 <details><summary>English</summary>
 
@@ -42,7 +42,7 @@
 | Timing | ❔ not yet reviewed |
 | Topology | ❔ not yet reviewed |
 
-**Summary**: A “stationarity dichotomy”: when the set of reachable edits does not expand, iterative self-modification must yield diminishing returns; per-round gains on SWE-bench approach zero. Useful for explaining early saturation.
+**Summary**: Under assumptions including monotone improvement, the theory characterizes diminishing gains. The empirical saturation is descriptive; the decisive fixed-model, varied-scaffold experiment remains unrun.
 
 </details>
 

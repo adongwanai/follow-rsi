@@ -58,7 +58,7 @@
 
 - [SBCO: Self-Supervised, Verifier-Grounded Harness Optimization For Planning Agents](sbco.md)
 - [Self-Evolving Embodied Agents via Skill-Harness Evolution (SHAPER)](shaper.md)
-- [Self-Evolving Harness on Multiple Tasks with the Agent as Its Own Optimizer](self-evolving-multi-task.md)
+- [Multi-Task Self-Evolving Harnesses with the Agent as Its Own Optimizer](self-evolving-multi-task.md)
 - [Composing Task-specific Agent Harnesses at Test Time with Reusable Primitives (STITCH)](stitch.md)
 
 <!-- AUTO:RELATED:END -->

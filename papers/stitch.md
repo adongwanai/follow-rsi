@@ -56,7 +56,7 @@
 
 ## 相关论文
 
-- [Self-Evolving Harness on Multiple Tasks with the Agent as Its Own Optimizer](self-evolving-multi-task.md)
+- [Multi-Task Self-Evolving Harnesses with the Agent as Its Own Optimizer](self-evolving-multi-task.md)
 - [Recurrent Harness for Agentic Continual Learning (ReHarness)](reharness.md)
 - [JIT-Agent: Scaling Harness Intelligence via Just-in-Time Harness Evolution](jit-agent.md)
 - [SBCO: Self-Supervised, Verifier-Grounded Harness Optimization For Planning Agents](sbco.md)
