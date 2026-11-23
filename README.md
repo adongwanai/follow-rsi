@@ -27,11 +27,11 @@ RSI 论文每天都在冒，但不是每个「变强了」都经得起检验。F
 
 <!-- AUTO:TODAY:START -->
 
-**[2026-11-18](https://adongwanai.github.io/follow-rsi/daily/2026-11-18.html)** · 采集与审核简报
+**[2026-11-23](https://adongwanai.github.io/follow-rsi/daily/2026-11-23.html)** · 采集与审核简报
 
-采集与审核简报已发布，本期未收录新论文。发布前采集与审核记录：截至该快照，HF11/18返回not_ready，available_through明确为11/17；这不等于空榜或所有来源没有更新。已同时复抓11/17全榜41篇与11/16全榜40篇，晚到成员和推荐日全部对账。11/18北京时间09:17–09:22实际尝试全部12路启用来源，严格窗口423次出现、388个稳定ID；窗口新增122条（103篇论文、19篇公告），另核实入库7个历史issue论文候选，总计新增129条（110篇论文、19篇公告），不是129篇已纳入论文。三路arXiv检索均成功返回窗口0条；五路RSS分别5、6、47、7、0条；13个GitHub仓库release检查成功、窗口0条。S2 citations保存277次窗口出现、246个ID，但46次请求含15次429且达到180秒截止；authors只有作者身份查询成功、论文遍历被6次429阻断，未访问覆盖仍unknown。新增129个ID完成逐项范围意见：12个新纳入建议、112个排除、5个待补；其中ESI的主实验固定prompt/skill，SPG-Select缺实际采用技能的反馈修改链，ForgeSystem/RecurIR缺可核验Harness工件部署链，S2综述受429阻断。新的正例分别按11/16真实来源窗口或历史补录呈现，今日简报没有伪造新增论文。旧模型评测recall为0.892857、阈值0.90且评测不完整，告警保留；未重跑付费模型，工程测试不代替质量评测。
+采集与审核简报已发布，本期未收录新论文。发布前采集与审核记录：截至11/23采集快照，当日HF完整榜单13篇均经范围审查排除，本期无合格当日论文。已同时复抓11/18–22全榜，分别39、50、50、0、0篇；旧榜正例按原推荐日补刊，不顺延冒充今天。11/23北京时间15:53–15:58实际尝试全部12路启用来源；原始4684次出现对应4416个稳定ID，来源窗口内520次出现、471个ID，新增规范记录234条（213篇论文、21篇公告）。三路arXiv窗口分别15、17、2条；五路RSS分别9、7、49、7、0条；13个GitHub仓库release查询均成功，窗口0条。S2 citations共47次请求含19次429，到180秒截止时保留262次窗口出现；authors为8次请求含6次429，仅身份查询部分成功，论文遍历未完成，未访问覆盖仍unknown。三轮逐项意见为29篇纳入（25篇按11/18–20真实窗口补刊，4篇历史补录）、202条排除、3条待补。待补为EVA-RSI的实际Harness修改链、DailyBrick跨配置部署链、仅S2截断摘要的综述原文；旧6项外部证据阻塞继续逐项保留。旧全局质量评测recall 0.892857、阈值0.90且未完整结束；没有改阈值或声称通过。付费模型请求0、生成token 0，范围审核不是实验复现。
 
-[阅读本期全部内容 →](https://adongwanai.github.io/follow-rsi/daily/2026-11-18.html)
+[阅读本期全部内容 →](https://adongwanai.github.io/follow-rsi/daily/2026-11-23.html)
 
 <!-- AUTO:TODAY:END -->
 
@@ -135,7 +135,7 @@ RSI 论文每天都在冒，但不是每个「变强了」都经得起检验。F
 
 <!-- AUTO:SOURCES:START -->
 
-已实际运行成功：arxiv-adjacent · arxiv-harness · arxiv-rsi · github-releases · hf-daily · rss-deepmind · rss-metr · rss-openai · rss-sakana · rss-weco · s2-citations。 本次失败：arxiv-adjacent · arxiv-harness · arxiv-rsi · s2-authors · s2-citations。 榜单未就绪：hf-daily。 [信源状态](https://adongwanai.github.io/follow-rsi/feed/status.json).
+已实际运行成功：arxiv-adjacent · arxiv-harness · arxiv-rsi · github-releases · hf-daily · rss-deepmind · rss-metr · rss-openai · rss-sakana · rss-weco · s2-citations。 本次失败：s2-authors · s2-citations。 [信源状态](https://adongwanai.github.io/follow-rsi/feed/status.json).
 
 <!-- AUTO:SOURCES:END -->
 
@@ -143,7 +143,7 @@ RSI 论文每天都在冒，但不是每个「变强了」都经得起检验。F
 
 <!-- AUTO:METRICS:START -->
 
-[本周质量指标](digests/2026-W46.md)
+[本周质量指标](digests/2026-W47.md)
 
 <!-- AUTO:METRICS:END -->
 
