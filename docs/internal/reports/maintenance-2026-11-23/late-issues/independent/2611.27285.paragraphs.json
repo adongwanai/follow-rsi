@@ -1,0 +1,227 @@
+[
+  {
+    "i": 0,
+    "anchor": "abstract1.1",
+    "text": "Agents for Image Restoration (IR) aim to leverage Multimodal Large Language Models (MLLMs) to autonomously perceive image degradation and invoke IR tools. However, existing IR agents typically rely on fine-tuning MLLM parameters to adapt to new IR tasks, leading to catastrophic forgetting of IR knowledge. To address this limitation, we propose a skill-augmented IR agent, dubbed SIR-Agent, that maintains IR knowledge in a scalable skill library and uses Recursive Self-Improvement (RSI) to facilitate efficient skill-library evolution. Specifically, we design a Chain Feedback-driven Skill Revision (CFSR) to evolve the skill library. The CFSR analyzes restoration chains to identify and revise weak operations in existing skills. The compatibility of a revised skill with known tasks decides if it replaces the original skill or is appended independently. Furthermore, to advance CFSR’s skill-library evolution, we present an RSI-driven skill meta-learning mechanism, which identifies CFSR’s inefficient operations and autonomously refines its revision strategy. Extensive experiments across 14 IR benchmarks, covering 6 single-degradation and 8 mixed-degradation scenarios, demonstrate SIR-Agent’s superior IR performance. Further evaluation on 7 unseen tasks validates SIR-Agent’s generalization to new IR tasks."
+  },
+  {
+    "i": 1,
+    "anchor": "p1.1",
+    "text": ""
+  },
+  {
+    "i": 2,
+    "anchor": "S1.p1.1",
+    "text": "Real-world images often contain multiple interacting degradations, making image restoration (IR) a problem of coordinating restoration operations. Task-specific restoration models [ 55 , 56 , 46 , 11 ] have improved restoration for individual degradations, while all-in-one models [ 32 , 33 , 50 , 51 ] support multiple restoration tasks within a shared network. For complex inputs, restoration quality also depends on which tools are selected, their execution order, and their configurations, since each operation changes the image presented to subsequent tools [ 3 ] . Multimodal large language model (MLLM)-driven IR agents address these decisions by perceiving degradation and invoking appropriate tools, allowing the restoration process to adapt to the input [ 3 , 66 , 64 , 49 , 19 ] . Their effectiveness therefore depends on restoration strategy knowledge: when an operation is useful, how it interacts with other operations, and how the knowledge can guide future tasks."
+  },
+  {
+    "i": 3,
+    "anchor": "S1.p2.1",
+    "text": "Existing IR agents [ 3 , 66 , 16 , 22 , 26 , 70 , 23 , 43 , 15 , 6 , 65 , 5 , 69 , 10 , 61 , 52 , 54 , 67 , 39 , 24 , 63 ] acquire and use restoration strategy knowledge through two complementary approaches, illustrated in Fig. 1 . Explicit memory-based IR agents [ 66 , 16 , 70 , 43 , 10 , 69 , 6 , 39 , 67 , 63 ] store restoration strategy knowledge outside the MLLM parameters. As shown in Fig. 1 (a), the agent retrieves external restoration strategy knowledge to generate a tool chain, while restoration feedback supports updates to the external memory. However, these agents [ 66 , 16 , 70 , 43 , 10 , 69 , 6 , 39 , 67 , 63 ] need to assemble restoration strategies on the fly for each input image, incurring repeated online planning overhead. To address this problem, as shown in Fig. 1 (b), implicit memory-based IR agents [ 3 , 23 , 22 , 15 , 26 , 54 , 65 , 5 , 52 , 61 , 24 ] encode restoration strategy knowledge in model parameters through offline training, allowing restoration decisions to be directly obtained from model inference. When adaptation to new IR tasks relies on MLLM fine-tuning, acquiring new restoration strategies changes parameters that also encode existing knowledge. Such continual parameter adaptation is susceptible to catastrophic forgetting [ 71 ] , making knowledge retention a central concern when expanding an IR agent’s capabilities."
+  },
+  {
+    "i": 4,
+    "anchor": "S1.p3.1",
+    "text": "To this end, we propose SIR-Agent, a skill-augmented IR agent that stores restoration strategy knowledge in an expandable IR skill library and keeps MLLM parameters frozen during adaptation. Each task skill specifies applicability conditions, an ordered sequence of restoration operations, and tool configurations. As shown in Fig. 1 (c), given a degraded image, the agent progressively loads relevant skill information, selects a task skill, and executes its operations. Since the final restored image alone cannot identify which operation should change, we introduce Chain Feedback-driven Skill Revision (CFSR) to revise task skills using feedback along their execution chains. CFSR examines intermediate restoration states and chain feedback to locate underperforming operations, then retrieves and compares candidate tools to form a patched skill. Because a revision that improves one input may degrade earlier cases, CFSR validates the patched skill on past degraded images and compares its outputs with those of the original skill. The comparison informs the patched skill’s applicability conditions and assesses compatibility through average quality gain and the rate of quality regression. A compatible patch updates the original skill; otherwise, the original is retained and the patched skill is added as a new entry with its inferred applicability conditions. To improve CFSR’s revision efficiency, we further introduce a skill meta-learning mechanism driven by Recursive Self-Improvement (RSI) [ 47 ] , which analyzes CFSR’s revision trajectories to identify inefficient revision operations and autonomously refines its revision rules. The updated rules guide subsequent skill revisions, whose trajectories in turn provide feedback for further rule refinement."
+  },
+  {
+    "i": 5,
+    "anchor": "S1.p4.1",
+    "text": "Our main contributions are as follows:"
+  },
+  {
+    "i": 6,
+    "anchor": "S1.I1.i1.p1.1",
+    "text": "We propose SIR-Agent, which stores restoration strategy knowledge in an expandable skill library while keeping MLLM parameters frozen. Its CFSR mechanism uses chain feedback and replay-based compatibility assessment to revise existing skills or create new ones, enabling adaptation to new IR tasks while retaining restoration capabilities on known tasks."
+  },
+  {
+    "i": 7,
+    "anchor": "S1.I1.i2.p1.1",
+    "text": "We present an RSI-driven skill meta-learning mechanism. It identifies inefficient operations in CFSR’s revision trajectories and autonomously refines CFSR’s revision rules, thereby improving the efficiency of subsequent skill revisions."
+  },
+  {
+    "i": 8,
+    "anchor": "S1.I1.i3.p1.1",
+    "text": "Extensive experiments on 14 seen and 7 unseen IR benchmarks demonstrate that SIR-Agent achieves superior restoration performance against competing methods and strong generalization to new IR tasks."
+  },
+  {
+    "i": 9,
+    "anchor": "S2.SS1.p1.1",
+    "text": "Explicit Memory. Explicit memory-based IR agents [ 66 , 16 , 70 , 43 , 10 , 69 , 6 , 39 , 67 , 63 ] use different forms of externally stored restoration strategy knowledge to guide restoration decisions. For task planning, external restoration strategy knowledge takes the form of experience documents and degradation-processing priors that guide task selection and execution order [ 66 , 16 , 70 ] . To capture context-dependent tool behavior, other methods organize external knowledge as tool portraits, causal relations, or hierarchical experience pools, supporting retrieval and feedback-driven updates [ 43 , 10 , 69 ] . Beyond planning guidance, successful trajectories and coordination records preserve execution experience for reuse on subsequent inputs [ 6 , 39 ] . Execution experience also informs specialized restoration tasks, where historical feedback is consolidated into statistical priors or retrievable cases to guide tool selection [ 67 , 63 ] ."
+  },
+  {
+    "i": 10,
+    "anchor": "S2.SS1.p2.1",
+    "text": "Nevertheless, when retrieved knowledge cannot be directly reused for the current input, a restoration strategy must still be assembled online, incurring repeated planning overhead [ 66 , 10 ] ."
+  },
+  {
+    "i": 11,
+    "anchor": "S2.SS1.p3.1",
+    "text": "Implicit Memory. To reduce repeated online planning, implicit memory-based IR agents [ 3 , 23 , 22 , 15 , 26 , 54 , 65 , 5 , 52 , 61 , 24 ] encode learned restoration knowledge in model parameters. Learned policies and tool-effect models can shift part of the planning effort to training, reducing repeated online exploration [ 65 , 5 , 61 ] . Some methods train visual-language controllers using labeled data, tool-use instructions, and task feedback. The controllers learn to select restoration tasks and tools based on the input degradations [ 3 , 23 , 22 , 15 ] . Lightweight controllers likewise learn policies for selecting restoration actions, tool paths, or expert configurations, encoding restoration strategy knowledge in their parameters [ 26 , 54 , 52 ] . Restoration decisions can additionally draw on learned models of tool effects, which support policy training through simulated trajectories or guide tool selection by predicting action outcomes before execution [ 5 , 61 ] . Parameter learning further extends from decision support to restoration execution, through joint optimization of plans and tools or quality-driven adaptation of weather-specific restorers alongside adaptive tool scheduling [ 65 , 24 ] ."
+  },
+  {
+    "i": 12,
+    "anchor": "S2.SS1.p4.1",
+    "text": "However, fine-tuning an MLLM for new IR tasks may cause catastrophic forgetting of previously learned IR knowledge [ 71 ] . In contrast, SIR-Agent keeps the MLLM parameters frozen and revises external IR skills to adapt to new tasks. Moreover, our CFSR leverages intermediate chain feedback to locate weak operations and revise skills. It evaluates compatibility to choose between updating an existing skill and keeping it alongside a newly created one, making prior-task compatibility part of skill revision."
+  },
+  {
+    "i": 13,
+    "anchor": "S2.SS2.p1.1",
+    "text": "Recursive self-improvement (RSI) has attracted growing interest as an approach to agent optimization [ 57 , 59 , 47 ] . RSI aims to improve both task performance and the procedure that produces further improvements. Agent optimization can target the external harness while keeping model parameters fixed [ 20 ] . The harness controls how the agent manages context, stores knowledge, and invokes tools."
+  },
+  {
+    "i": 14,
+    "anchor": "S2.SS2.p2.1",
+    "text": "At the code level, STOP [ 57 ] , SICA [ 35 ] , and DGM [ 58 ] revise their own programs and reuse them in later improvement rounds. Hyperagents [ 59 ] makes the improvement procedure directly editable as a meta-agent program. For skill-based agents, MetaSkill-Evolve [ 47 ] and Skill ∞ [ 40 ] express the improvement procedure as editable meta-skills. The meta-skills are themselves refined and then used to guide further skill optimization."
+  },
+  {
+    "i": 15,
+    "anchor": "S2.SS2.p3.1",
+    "text": "Building on RSI, we propose an RSI-driven skill meta-learning mechanism for SIR-Agent. CFSR revises restoration skills using chain feedback. Skill meta-learning then uses the revision trajectories to refine CFSR’s rules for subsequent revisions. Both restoration skills and their revision procedure therefore evolve while the MLLM parameters remain frozen."
+  },
+  {
+    "i": 16,
+    "anchor": "S3.SS1.p1.1",
+    "text": "The overall architecture of SIR-Agent is shown in Fig. 2 (a). Given a degraded image, the SIR-Agent progressively loads relevant skills from the skill library. The initial skill library is constructed from restoration trajectories, as detailed in Sec. 4.1 . Each skill specifies applicability conditions, ordered operations, and tool configurations. Once candidate skills are collected, the MLLM selects the skill whose applicability conditions match the observed degradations. The SIR-Agent invokes the configured tools in the specified order to obtain the restored image. The restoration trajectory provides CFSR with intermediate images, tool calls, configurations, and feedback to revise the selected skill."
+  },
+  {
+    "i": 17,
+    "anchor": "S3.SS1.p2.1",
+    "text": "In the skill revision stage of Fig. 2 (a), CFSR generates a patched skill from restoration-chain feedback and validates it on prior cases before updating the skill library. The revised skills support subsequent tasks, while revision trajectories record the update process. RSI-driven skill meta-learning uses the revision trajectories to refine CFSR’s rules for subsequent skill revisions. The two modules are detailed in Secs. 3.2 and 3.3 ."
+  },
+  {
+    "i": 18,
+    "anchor": "S3.SS2.p1.1",
+    "text": "Restoration skills enable strategy reuse but may become ineffective when degradation conditions change. Relying only on the final restored image makes it difficult to identify which operation needs revision, because the image reflects the combined effects of all operations. Therefore, we propose Chain Feedback-driven Skill Revision (CFSR), which uses restoration-chain feedback to guide targeted skill revision. As shown in Fig. 2 (b), CFSR comprises patched skill generation, patched skill validation, and skill updates. Patched skill generation takes a skill s s and its restoration trajectory as inputs. The MLLM examines intermediate images and chain feedback to identify suspicious steps. Localization considers residual degradations and the effects of each operation on subsequent steps. Using the restoration trajectory and identified operations, CFSR retrieves the top- K K candidate tools through LlamaIndex [ 25 ] . For each identified operation, CFSR tests candidate tools on the same intermediate input image and compares the restoration quality of their outputs. The best-performing tool is selected for each operation, and the selected replacements form a patched skill s ′ s^{\\prime} . The patched skill updates the associated tool configurations while retaining the operation order."
+  },
+  {
+    "i": 19,
+    "anchor": "S3.SS2.p2.1",
+    "text": "During patched skill validation, CFSR applies s ′ s^{\\prime} to historical degraded images { u n } n = 1 N \\{u_{n}\\}_{n=1}^{N} associated with s s . The new restored images are compared with the corresponding old restored images obtained using s s . Following the metric set used in [ 43 ] , we evaluate the old and new restored images with CLIP-IQA [ 42 ] , HyperIQA [ 38 ] , NIQE [ 29 ] , CPBD [ 31 ] , BRISQUE [ 28 ] , MUSIQ [ 18 ] , and LIQE [ 60 ] . To combine the metric scores, we normalize them to a common scale, with NIQE [ 29 ] and BRISQUE [ 28 ] reversed so that higher values consistently indicate better quality. The normalized scores are then aggregated into a single quality score Q Q . For each historical input u n u_{n} , F s ​ ( u n ) F_{s}(u_{n}) and F s ′ ​ ( u n ) F_{s^{\\prime}}(u_{n}) denote the old and new restored images, respectively. The per-image quality change is:"
+  },
+  {
+    "i": 20,
+    "anchor": "S3.SS2.p3.1",
+    "text": "The MLLM uses the paired restoration results and quality differences to infer the patched skill’s applicability conditions."
+  },
+  {
+    "i": 21,
+    "anchor": "S3.SS2.p4.1",
+    "text": "For skill updates, compatibility is assessed using the average quality gain Δ ​ Q ¯ \\overline{\\Delta Q} and regression rate R reg R_{\\mathrm{reg}} :"
+  },
+  {
+    "i": 22,
+    "anchor": "S3.SS2.p5.1",
+    "text": "where ϵ ≥ 0 \\epsilon\\geq 0 is a tolerance for small quality fluctuations and 𝟏 ​ [ ⋅ ] \\mathbf{1}[\\cdot] is the indicator function. Δ ​ Q ¯ \\overline{\\Delta Q} measures the overall benefit, while R reg R_{\\mathrm{reg}} captures losses on individual prior cases. However, a positive Δ ​ Q ¯ \\overline{\\Delta Q} can hide regressions on individual inputs. Therefore, a patched skill is compatible when Δ ​ Q ¯ > 0 \\overline{\\Delta Q}>0 and R reg ≤ τ R_{\\mathrm{reg}}\\leq\\tau , where τ \\tau is the permitted regression rate. A compatible patch updates the original skill; otherwise, the original skill is retained and the patched skill is added as a new entry with its inferred applicability conditions. CFSR records revision decisions, tool trials, replay outcomes, library updates, and resource usage in a revision trajectory, which RSI-driven skill meta-learning analyzes to improve CFSR’s revision rules."
+  },
+  {
+    "i": 23,
+    "anchor": "S3.SS3.p1.1",
+    "text": "Fixed revision rules cannot incorporate lessons from earlier revisions, so CFSR may repeat ineffective edits and redundant tool trials on similar cases. Inspired by RSI [ 47 ] , we design a skill meta-learning mechanism that improves CFSR’s external revision instructions using recorded trajectories, as illustrated in Fig. 3 . The MLLM examines the trajectories to connect inefficient revision steps with the instructions that guide them. For example, repeated edits without quality gains motivate changes to step priorities. Low-yield trials motivate adjustments to tool retrieval and ranking, while stalled search guides changes to candidate expansion, operation switching, or stopping. The resulting proposals target external revision rules, including those for step localization, tool selection, and revision control. To evaluate the proposals, CFSR is run with the current and candidate rules on the same validation cases and starting skills, using the same tool library and budget limits. Restoration gain is the mean Q Q improvement over the starting skills; revision cost is measured by actual tool calls and MLLM token usage. At round t t , the next CFSR rule set is selected from the current set ℛ t cur \\mathcal{R}_{t}^{\\mathrm{cur}} and the candidate set ℛ t cand \\mathcal{R}_{t}^{\\mathrm{cand}} proposed by the MLLM:"
+  },
+  {
+    "i": 24,
+    "anchor": "S3.SS3.p1.2",
+    "text": "where ℱ t \\mathcal{F}_{t} denotes the candidate rule sets that meet the predefined requirement for preserving prior-task performance after skill revision. The relation ≻ \\succ gives priority to higher restoration gain, with lower revision cost preferred when gains are comparable. Equation 3 adopts the candidate rules only when both conditions hold; otherwise, the current rules are retained. Section 3.2 decides how to update individual skills, while Eq. 3 selects the rules that guide subsequent revisions. Accepted rules guide subsequent CFSR runs, whose revision trajectories provide feedback for the next rule update. The recursive feedback refines the revision procedure itself, aiming to reduce repeated ineffective edits and unnecessary tool trials."
+  },
+  {
+    "i": 25,
+    "anchor": "S4.SS1.p1.1",
+    "text": "Implementation Details. To build the initial skill library, we collect restoration trajectories through exhaustive tool trials on the training set used by PaAgent [ 43 ] . We retain complete trajectories whose feedback indicates successful restoration. Following SkillIR [ 36 ] , we divide each retained trajectory into consecutive segments, each addressing one degradation. The frozen Qwen3.8-Max [ 34 ] uses a fixed prompt to summarize each segment’s scene conditions and restoration effects from intermediate images and feedback. We combine the segment summaries into applicability conditions for the complete restoration procedure. Each trajectory then yields one skill containing the applicability conditions, ordered operations, and tool configurations. Finally, we merge skills with compatible applicability conditions and execution procedures into the initial library."
+  },
+  {
+    "i": 26,
+    "anchor": "S4.SS1.p2.1",
+    "text": "Compared Methods. We compare our SIR-Agent method with nine IR methods. Four all-in-one IR methods are PromptIR [ 32 ] , RAM [ 33 ] , CPLIR [ 50 ] , and HOGformer [ 51 ] . Five IR agents are AgenticIR [ 66 ] , 4KAgent [ 70 ] , JarvisIR [ 23 ] , OPERA [ 65 ] , and HarnessIR [ 19 ] ."
+  },
+  {
+    "i": 27,
+    "anchor": "S4.SS1.p3.1",
+    "text": "Benchmark Datasets. The main evaluation covers 14 IR benchmarks, grouped by IR task in Tables 1 – 3 . Deblurring uses GoPro [ 30 ] and HIDE [ 37 ] , while dehazing uses SOTS [ 21 ] and Dense-Haze [ 2 ] . Denoising is evaluated on BSD68 [ 27 ] and SIDD [ 1 ] . Deraining uses Rain13K [ 55 ] and Rain1400 [ 9 ] , and desnowing uses CSD [ 4 ] and RealSnow [ 68 ] . Low-Light Image Enhancement (LLIE) is evaluated on LOL-V1 [ 48 ] and LOL-V2 [ 53 ] . LOL-Blur [ 62 ] and CDD-11 [ 12 ] cover Composite Degradation Restoration (CDR). Generalization is evaluated on seven datasets unseen during initial skill construction. These include NightIRS [ 8 ] for dereflection, ISTD [ 41 ] for deshadow, and FHDMi [ 13 ] for demoireing. We also use LSMU [ 44 ] for Underwater Image Enhancement (UIE), SID [ 14 ] for dedusting, Flare7K++ [ 7 ] for Nighttime Flare Removal (NFR), and Smoke [ 17 ] for desmoking."
+  },
+  {
+    "i": 28,
+    "anchor": "S4.SS2.p1.1",
+    "text": "Quantitative Comparison. Tables 1 – 3 show that our SIR-Agent achieves the highest PSNR and SSIM [ 45 ] across all seven task groups. On the six single-degradation tasks, our SIR-Agent improves PSNR by 1.92–11.07 dB over the strongest baseline for each task. The advantage also holds for CDR: our SIR-Agent surpasses HOGformer [ 51 ] by 7.95 dB PSNR and 0.21 SSIM, demonstrating effective restoration when multiple degradations occur together. The strongest PSNR baseline varies by task: HOGformer for deblurring, RAM for deraining, and CPLIR for denoising. SIR-Agent exceeds these baselines by 4.83, 4.14, and 3.66 dB, respectively."
+  },
+  {
+    "i": 29,
+    "anchor": "S4.SS2.p2.1",
+    "text": "Qualitative Comparison. In Fig. 4 , JarvisIR [ 23 ] leaves haze over the indoor scene, whereas our SIR-Agent reveals clearer shelves. In the composite-degradation examples, AgenticIR [ 66 ] , 4KAgent [ 70 ] , and OPERA [ 65 ] leave the furniture dark or retain snow along the path. Our SIR-Agent reveals the furniture and suppresses haze and snow along the path. More visual comparisons are provided in the supplementary material."
+  },
+  {
+    "i": 30,
+    "anchor": "S4.SS3.p1.1",
+    "text": "Quantitative Comparison. Our SIR-Agent obtains the highest PSNR and SSIM on all seven unseen tasks in Table 4 . Compared with the strongest baselines, our SIR-Agent gains 9.38 dB PSNR over AgenticIR [ 66 ] on deshadow and 2.64 dB over CPLIR [ 50 ] on desmoking. Relative to the degraded inputs, SIR-Agent improves both metrics across all unseen tasks, with PSNR gains ranging from 1.43 dB for dereflection to 12.84 dB for dedusting. The results show that our SIR-Agent adapts to new degradations through skill revision without MLLM fine-tuning."
+  },
+  {
+    "i": 31,
+    "anchor": "S4.SS3.p2.1",
+    "text": "Qualitative Comparison. In Fig. 5 , our SIR-Agent removes reflections and shadows more effectively than AgenticIR [ 66 ] and 4KAgent [ 70 ] , while preserving pavement patterns. For UIE, our SIR-Agent produces outputs with a weaker green cast than those of JarvisIR [ 23 ] and HarnessIR [ 19 ] . For NFR, our SIR-Agent produces a smaller halo and clearer windows than OPERA [ 65 ] . For desmoking, JarvisIR and HarnessIR retain smoke over the path and vegetation, whereas our SIR-Agent removes more smoke and reveals clearer foliage. More visual comparisons are provided in the supplementary material."
+  },
+  {
+    "i": 32,
+    "anchor": "S4.SS4.p1.1",
+    "text": "We conduct an ablation study on CFSR, chain feedback, and the RSI-driven skill meta-learning to evaluate the contribution of each component. The following configurations are compared:"
+  },
+  {
+    "i": 33,
+    "anchor": "S4.I1.i1.p1.1",
+    "text": "w/ FS : Use a fixed skill library."
+  },
+  {
+    "i": 34,
+    "anchor": "S4.I1.i2.p1.1",
+    "text": "w/ FR : Update skills using fixed rules."
+  },
+  {
+    "i": 35,
+    "anchor": "S4.I1.i3.p1.1",
+    "text": "w/o RR : Remove the regression rate from CFSR."
+  },
+  {
+    "i": 36,
+    "anchor": "S4.I1.i4.p1.1",
+    "text": "w/ RF : Use result-level feedback for suspicious-step localization."
+  },
+  {
+    "i": 37,
+    "anchor": "S4.I1.i5.p1.1",
+    "text": "w/o SSL : Disable suspicious-step localization and try revising steps one by one in their original order."
+  },
+  {
+    "i": 38,
+    "anchor": "S4.I1.i6.p1.1",
+    "text": "w/o CP : Remove cost preference from the RSI-driven skill meta-learning."
+  },
+  {
+    "i": 39,
+    "anchor": "S4.I1.i7.p1.1",
+    "text": "full model : Using our full SIR-Agent."
+  },
+  {
+    "i": 40,
+    "anchor": "S4.SS4.p2.1",
+    "text": "Effectiveness of CFSR. The comparison between w/ FS and w/ FR in Table 7 evaluates skill revision on both new and prior tasks. Skill revision raises new-task PSNR by 2.17 dB over the fixed library, while prior-task PSNR changes from 24.55 to 24.51 dB. The additional comparison with w/o RR examines the regression-rate constraint. Removing this constraint leaves both new-task metrics unchanged but lowers prior-task PSNR by 0.63 dB. Figure 6 (a) compares the corresponding prior-task restorations. Skill revision thus improves new-task restoration, while the regression-rate constraint helps retain prior-task performance."
+  },
+  {
+    "i": 41,
+    "anchor": "S4.SS4.p3.1",
+    "text": "Effectiveness of Chain Feedback. In Table 7 , we compare w/ RF with w/ FR to assess chain feedback, and w/o SSL with w/ FR to assess step localization. Compared with result-level feedback, chain feedback gains 0.84 dB on the new task while using 7.20 fewer tool calls per revision. Token usage also falls from 29.60k to 24.80k for this comparison. Disabling step localization lowers new-task PSNR by 0.52 dB and increases tool calls by 11.60. Figure 6 (b) shows the corresponding outputs on the new task. Both comparisons show that chain feedback and step localization improve restoration quality with fewer tool calls."
+  },
+  {
+    "i": 42,
+    "anchor": "S4.SS4.p4.1",
+    "text": "Effectiveness of the RSI-driven Skill Meta-learning. Table 7 compares w/ FR with the full model to evaluate learned revision rules, and includes w/o CP to examine cost preference. The full model reduces tool calls and token usage by 31.6% and 31.0% relative to fixed rules, while improving new-task PSNR by 0.38 dB. Removing cost preference adds 5.00 tool calls per revision and lowers new-task PSNR by 0.04 dB. Figure 6 (c) compares the prior-task outputs. The learned rules improve restoration and efficiency, with cost preference further reducing tool usage."
+  },
+  {
+    "i": 43,
+    "anchor": "S5.p1.1",
+    "text": "In this paper, we present SIR-Agent, a skill-augmented IR agent designed to adapt to new IR tasks without MLLM fine-tuning. The proposed CFSR uses restoration-chain feedback to locate weak operations and compatibility assessment to guide skill updates for new tasks while preserving prior restoration knowledge. Meanwhile, we design an RSI-driven skill meta-learning mechanism that analyzes revision trajectories to identify ineffective edits and refine CFSR’s revision rules. The updated rules guide subsequent revisions, allowing skills and their revision strategy to evolve together. Experiments on 14 benchmarks and 7 unseen datasets demonstrate SIR-Agent’s superior restoration performance and generalization to new IR tasks."
+  },
+  {
+    "i": 44,
+    "anchor": "Sx1.p1.1",
+    "text": "OpenAI Codex assisted with manuscript drafting and editing, literature checks, LaTeX preparation, and experiment planning."
+  }
+]
