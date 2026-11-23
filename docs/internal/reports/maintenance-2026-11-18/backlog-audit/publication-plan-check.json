@@ -1,0 +1,151 @@
+{
+  "checked_at": "2026-11-18T02:19:11.334477+00:00",
+  "reviewer": "independent nov18_hf16_crossreview agent",
+  "scope": "Read-only publication plan and implementation check; exact merged selection, identity/date preservation, W46 versus retrospective, rendered presentation. No production apply or online claim.",
+  "inspected_script": {
+    "path": "build/maintenance-2026-11-18/publish-reviewed.py",
+    "sha256": "a6a0b6d70135d11a669b655b6e1f55e80a8fb4fc94361ca248469dbaa02200bb",
+    "bytes": 15795
+  },
+  "inspected_plan": {
+    "path": "build/maintenance-2026-11-18/publication-plan-draft.json",
+    "sha256": "509b4a4df693b839c6933df5604dc0f2713b9eff5aefd5cad538893d79ee2a97",
+    "bytes": 5276
+  },
+  "result": "application_mechanics_pass_final_inputs_and_presentation_pending",
+  "blockers": [
+    {
+      "id": "final-pr135-not-in-draft",
+      "kind": "known_prerequisite",
+      "status": "pending",
+      "evidence": "Draft apply_order and daily_review_prs include #135, but reviews has only 134,137,138,118 and blocked_until explicitly says final #135 head/SHA are still required. Executing this draft would KeyError after earlier applications.",
+      "required": "Supply and verify final real merged #135 dated review/head/byte hash/selected IDs before execution. Do not execute draft."
+    },
+    {
+      "id": "new-retrospective-labelled-inaugural",
+      "kind": "presentation_incorrect",
+      "status": "open_at_inspection_parent_acknowledged_fix",
+      "locations": [
+        "scripts/feed/templates/daily.html:22",
+        "scripts/feed/templates/daily.html:26",
+        "scripts/feed/templates/daily.html:36",
+        "scripts/feed/digest.py:283",
+        "scripts/feed/digest.py:436"
+      ],
+      "evidence": "All retrospective editions are labelled Edition 0 / inaugural. HTML explicitly claims Oct 14–27 even for the planned Nov 16–18 historical additions and does not render the new retrospective intro. Markdown and Atom also use Edition 0.",
+      "required": "Preserve original Oct 14–27 inaugural labels, show actual new retrospective title/intro and non-inaugural label in page/archive/Markdown/Atom; do not label it W47 weekly."
+    }
+  ],
+  "findings_resolved_before_report": [
+    {
+      "id": "not-ready-counted-as-outage-and-stale-last-ok",
+      "status": "fixed_in_inspected_script",
+      "evidence": "Current script sets last_ok=ok and increments counters only when availability != not_ready. Three arXiv prior last_ok false now becomes true for actual successful responses; HF not_ready leaves both prior zero counters unchanged. No production state applied by this checker."
+    }
+  ],
+  "presentation_note": {
+    "id": "daily-paper-intro-omitted",
+    "status": "parent_acknowledged_fix_pending",
+    "locations": [
+      "scripts/feed/templates/daily.html:37",
+      "build/maintenance-2026-11-18/publish-reviewed.py:207"
+    ],
+    "evidence": "Normal paper HTML uses only standard daily_date_note, omitting appended Nov18 delayed-publication / 2 HF + 5 other-source explanation. Review date and source timestamps remain visible through edition-meta and footer. The added JSON collection_date_note also has no template consumer.",
+    "required": "Render real edition intro for normal paper edition or an equivalent explicit delayed collection note; preserve real dates."
+  },
+  "verified_mechanics": [
+    {
+      "check": "true_receipt_checks",
+      "result": "pass_by_code_inspection",
+      "details": "verify_pr fetches actual merged same-repository PR/base main, exact head, complete files pagination, branch-matching single dated review, owner User merge or exact-head owner approval, successful latest build/validate and owner-decision statuses, and merged review bytes against expected SHA. Local equality is required except #134 preserved historical bytes. #136 source-recovery branch cannot qualify."
+    },
+    {
+      "check": "134_15_plus_137_44",
+      "result": "pass_in_memory",
+      "details": "Original #134 gz bytes SHA c2d0199d7f9e43817eb05c83e85a0b6e8a8f7895628c0546b76324830fe7a473 contain 15 rows and all 15 equal the corresponding current Nov16 rows. #137 selects exactly 44 additional rows; both sets disjoint, EGE excluded."
+    },
+    {
+      "check": "selected_real_apply_function",
+      "result": "pass_in_memory_no_production_writes",
+      "details": [
+        {
+          "pr": 134,
+          "selected": 15,
+          "changed": 15,
+          "decisions": {
+            "reject": 6,
+            "backlog": 8,
+            "defer": 1
+          }
+        },
+        {
+          "pr": 137,
+          "selected": 44,
+          "changed": 44,
+          "decisions": {
+            "reject": 37,
+            "accept": 7
+          }
+        },
+        {
+          "pr": 138,
+          "selected": 46,
+          "changed": 46,
+          "decisions": {
+            "reject": 35,
+            "backlog": 6,
+            "defer": 5
+          }
+        }
+      ]
+    },
+    {
+      "check": "preservation",
+      "result": "pass_in_memory",
+      "details": "Unselected canonical rows byte-equivalent by JSON object per application; all canonical source_hash and first_seen unchanged; EGE complete original Nov12 approval/Nov15 actual review object unchanged. Previous review is added to review_history before replacement. No EGE scientific reapproval/reprint; only separate HF metadata receipt planned."
+    },
+    {
+      "check": "daily16",
+      "result": "pass_in_memory",
+      "accepted_ids": [
+        "arxiv:2611.12068",
+        "arxiv:2611.14505",
+        "arxiv:2611.20533",
+        "arxiv:2611.20655",
+        "arxiv:2611.20856",
+        "arxiv:2611.21056",
+        "arxiv:2611.21373"
+      ],
+      "details": "Seven accepted rows, 2 actual Nov16 HF members plus 5 true other-source-window papers; reviewed_on=Nov18. No old paper falsely assigned Nov18 HF membership."
+    },
+    {
+      "check": "weekly_and_recap_separation",
+      "result": "mechanics_pass_presentation_fix_required",
+      "details": "After simulated #137 MIRIX backlog->Nov16 accept, W46 backlog source-hash validation succeeds (32 records). #134 plus #138 produce 14 W47 historical backlog rows before final #135; script makes separate Nov16–18 recap and does not publish a W47 weekly. W46 requires true #118 review."
+    },
+    {
+      "check": "pr118_checks",
+      "result": "fresh_free_GET_verified",
+      "details": "Two GETs of exact head 1abd366c9573144dbc8e6f8718adfcbabfed5267 showed build and validate check-run success and Follow RSI owner decisions success. Saved workflow display-name difference is not an error."
+    },
+    {
+      "check": "local_only_boundary",
+      "result": "pass_by_code_inspection",
+      "details": "Generation receipt explicitly online_verified=false; no paid model calls; requires publication PR, CI/Pages and actual public endpoint verification afterwards. Existing prior edition JSON hashes and absent Oct27 withdrawn daily are asserted unchanged."
+    }
+  ],
+  "not_verified": [
+    "Final #135 merged review and selected IDs not yet provided",
+    "No real publication apply by this checker",
+    "No publication PR CI or Pages deployment checked by this checker",
+    "No actual public endpoint result claimed"
+  ],
+  "cost_and_side_effects": {
+    "paid_requests": 0,
+    "additional_free_GitHub_GETs_in_this_plan_check": 2,
+    "github_writes": 0,
+    "canonical_writes": 0,
+    "publishing_script_edits": 0,
+    "report_write_only": "docs/internal/reports/maintenance-2026-11-18/backlog-audit/publication-plan-check.json"
+  }
+}

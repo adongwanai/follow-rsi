@@ -1,0 +1,97 @@
+{
+  "created_at": "2026-11-18T02:14:51.994129+00:00",
+  "base": {
+    "path": "docs/internal/reports/maintenance-2026-11-18/historical-disposition/positive-proposals-v2.json",
+    "sha256": "889eb470bd87e9d7640881b6fe263cbd6eaf63a06022f3b94dc56cd120194378",
+    "preserved_unchanged": true
+  },
+  "amendments": [
+    {
+      "id": "arxiv:2610.35616",
+      "independent_reviewer": "/root/nov18_hf17_crossreview",
+      "reason_zh": "正文训练期根据 outcome-transition 和 promotion feedback 更新 writer/evaluator 规则及证据权重，并把更新规则装入下轮；依 taxonomy 应归 harness/improver，meta 为次方向。目标基准适配阶段才冻结规则，不以此替代主方法。不是模型权重训练。",
+      "before": {
+        "summary_zh": "HSE 分层聚合任务、仓库与跨仓库证据，并用 writer-evaluator 循环在冻结模型下演化技能；仅由 SWE-Gym 演化的 10 个技能在两个基准所有设置上提升编码性能。",
+        "summary_en": "HSE hierarchically aggregates task, repo, and cross-repo evidence; a writer-evaluator loop evolves skills under frozen models; 10 skills evolved only from SWE-Gym improve coding on two benchmarks across all settings."
+      },
+      "after": {
+        "summary_zh": "HSE 在冻结编码模型下，分层聚合任务、仓库与跨仓库证据；反馈既演化技能，也更新 writer/evaluator 的外部规则与证据权重，并传给后续轮次。目标基准适配阶段固定这些规则，只更新技能库。",
+        "summary_en": "With the coding model frozen, HSE aggregates task, repository, and cross-repository evidence. Feedback evolves skills and also updates the external writer/evaluator rules and evidence weights, which are transferred to later rounds. Target-benchmark adaptation fixes those rules and updates only the skill library."
+      },
+      "source_file": "data/feed/raw/maintenance-2026-11-18/historical-disposition/2610.35616v1.html",
+      "source_sha256": "b42d8d2a487cfeaed93f18025a1d6613acbb24f7464826d6b8ce0c5d7b251829",
+      "text_file": "data/feed/raw/maintenance-2026-11-18/historical-disposition/2610.35616v1.txt",
+      "text_sha256": "03dc898ac003b4c86599f0457060c2b1d226ec38f75e136d998f1b63f5331638",
+      "source_quotes": [
+        {
+          "id": "S4.SS4.p1",
+          "quote": "During training, HSE periodically updates the external writer and evaluator rules that govern subsequent candidate construction and assessment.\nEach update summarizes the task-evidence labels accumulated since the previous update together with the promotion outcomes observed during hierarchical aggregation."
+        },
+        {
+          "id": "S4.SS4.p2",
+          "quote": "HSE updates the writer rules to determine what evidence and actions may appear in subsequent candidates.\nCandidate construction remains grounded in trace-visible evidence and respects the evidence requirements of the corresponding aggregation level.\nFor example, accumulated unresolved evidence makes subsequent candidate construction more conservative, shifting the writer toward recovery and validation rather than direct editing.\nConversely, successful promotions reinforce evidence patterns that have survived the preceding gates for reuse in subsequent candidates.\nThese updates shape how the writer constructs future candidates, while candidate promotion remains determined by the evaluator."
+        },
+        {
+          "id": "S4.SS4.p6",
+          "quote": "HSE evolves the evidence weights θ e \\theta_{e} according to feedback accumulated after previous evaluation decisions, while keeping the decision thresholds τ revise \\tau_{\\mathrm{revise}} and τ accept \\tau_{\\mathrm{accept}} frozen.\nWhen a promoted candidate is subsequently associated with regression, HSE increases the penalties assigned to the negative or risk signals that contributed to its promotion.\nConversely, when a revised or rejected candidate later accumulates consistent positive support, HSE increases the weights of the supporting signals that were previously undervalued.\nStrong-positive and strong-negative evidence induces larger updates than weak evidence, reflecting the greater informativeness of their outcome transitions."
+        },
+        {
+          "id": "S4.SS5.p2",
+          "quote": "The resulting transfer package contains success skills, recovery skills, and the updated writer/evaluator rules.\nThe frozen coding agent receives the transferable skills, while the external controller receives the rules required to continue evolution in the next round.\nNew agent rollouts then provide L1 evidence for the next round, closing the loop in Figure 2 ."
+        },
+        {
+          "id": "S4.SS6.p2",
+          "quote": "For target-benchmark adaptation, HSE starts from the transferred skill library and fixed writer/evaluator policies, and updates only the skill library using newly collected target-task trajectories.\nCandidate updates are assessed by the learned evaluator without access to benchmark verifier outcomes or evaluation-time test results."
+        }
+      ],
+      "numeric_guard": {
+        "ok": true,
+        "invalid_zh": [],
+        "translation_mismatch": {}
+      },
+      "direction_before": {
+        "primary": "harness",
+        "harness_sub": "component"
+      },
+      "direction_after": {
+        "primary": "harness",
+        "secondary": [
+          "meta"
+        ],
+        "harness_sub": "improver"
+      }
+    },
+    {
+      "id": "arxiv:2610.35316",
+      "independent_reviewer": "/root/nov18_hf17_crossreview",
+      "reason_zh": "保留原文反证：Table 3 静态 Harness 的 DeepSeek 可执行性为 64.98，Table 4 H0 却为 51.36。+28.02 对应 Table 3 的 64.98 到 93.00，不能把两个表的基线当成一致或声称矛盾已解决。公开双语摘要明确该限制；不改作者原始数字。",
+      "before": {
+        "summary_zh": "RSIV-Harness 固定语言模型权重，依据失败轨迹修订外部 Harness，并用 anchor 与 memory 检查决定保留或回滚。在 ODAC-Vis 的原骨干设置中，一轮改进提高全部六项指标，可执行性变化为 +28.02 点、图表结构为 +34.01 点；跨骨干结果并非所有指标都提升。",
+        "summary_en": "RSIV-Harness fixes language-model weights, revises the surrounding harness from failure traces, and uses anchor and memory checks for retention or rollback. In the original backbone setting on ODAC-Vis, one round improves all six metrics, including +28.02 points in executability and +34.01 in chart structure; transfer does not improve every metric."
+      },
+      "after": {
+        "summary_zh": "RSIV-Harness 固定模型权重，依据失败轨迹修改 Harness，以 anchor 和 memory 检查保留或回滚。相对总体结果表中原骨干的静态 Harness，可执行性提高 +28.02 点、图表结构提高 +34.01 点；消融表的基线数值与总体结果表不一致，跨骨干也并非全部指标提升。",
+        "summary_en": "RSIV-Harness fixes model weights, revises the harness from failure traces, and uses anchor and memory checks for retention or rollback. Relative to the original-backbone static harness in the overall-results table, executability rises by +28.02 points and chart structure by +34.01. The ablation table reports an inconsistent baseline, and transfer does not improve every metric."
+      },
+      "source_file": "data/feed/raw/maintenance-2026-11-18/historical-disposition/2610.35316v1.html",
+      "source_sha256": "a6da2cbd0d409dc9d8f561fe76c2a424b49840ad23e7b5e35fbf866030b36e9d",
+      "text_file": "data/feed/raw/maintenance-2026-11-18/historical-disposition/2610.35316v1.txt",
+      "text_sha256": "8eb9f58453fc45904c346a05715c6156073f966936fe3c4a8825ad82a530c453",
+      "source_quotes": [
+        {
+          "id": "S5.T3",
+          "quote": "Table 3 . Overall results on the ODAC-Vis test split across different methods. Method Model Executability Route. Stance Exec Acc. Clarify Chart Direct Prompt DeepSeek 81.32 81.32 57.59 57.59 62.25 62.25 31.91 4.32 4.32 52.23 52.23 GPT 63.04 63.04 44.36 44.36 61.00 61.00 24.51 24.51 3.02 3.02 47.46 47.46 Static Harnesses DeepSeek 64.98 64.98 48.25 48.25 51.25 51.25 24.51 24.51 3.72 3.72 41.46 41.46 GPT 51.75 51.75 30.35 30.35 54.00 54.00 26.07 26.07 2.02 2.02 42.01 42.01 ReAct DeepSeek 79.38 79.38 57.59 57.59 64.25 64.25 27.24 27.24 3.93 3.93 49.57 49.57 GPT 65.76 65.76 44.75 44.75 61.75 61.75 21.40 21.40 2.27 2.27 50.37 50.37 MultiVis- Agent DeepSeek 58.75 58.75 56.81 56.81 56.25 56.25 26.85 26.85 0.60 0.60 44.08 44.08 GPT 53.70 53.70 50.97 50.97 58.25 58.25 25.29 25.29 0.97 0.97 40.39 40.39 RSIV- Harness DeepSeek 93.00 62.26 67.00 31.52 31.52 5.15 75.47 GPT 61.09 61.09 49.42 49.42 61.50 61.50 25.29 25.29 3.74 3.74 50.36 50.36"
+        },
+        {
+          "id": "S5.T4",
+          "quote": "Table 4 . Ablation of RSIV-Harness on the ODAC-Vis test split.\nThe first variant removes the stability rules. The remaining variants add one evolved component to H 0 H_{0} . Method Exec. Route. Stance Exec Acc. Clarify Chart RSIV-Harness 93.00 62.26 67.00 31.52 5.15 75.47 - w/o. rule 83.27 83.27 59.14 59.14 64.50 64.50 28.02 28.02 2.41 2.41 65.94 65.94 H0 51.36 51.36 48.25 48.25 51.25 51.25 24.51 24.51 3.72 3.72 41.46 41.46 + prompt only 87.94 87.94 62.26 64.00 64.00 29.96 29.96 3.76 71.13 71.13 + tool only 84.82 84.82 62.26 65.25 65.25 27.63 27.63 2.84 2.84 66.67 66.67 + memory only 85.99 85.99 59.92 59.92 64.00 64.00 26.85 26.85 2.56 2.56 67.69 67.69 + skill only 85.99 85.99 60.70 60.70 64.00 64.00 29.18 29.18 2.29 2.29 69.47 69.47 + middleware only 90.66 56.03 56.03 66.50 30.35 2.07 2.07 72.41"
+        }
+      ],
+      "numeric_guard": {
+        "ok": true,
+        "invalid_zh": [],
+        "translation_mismatch": {}
+      }
+    }
+  ]
+}

@@ -772,6 +772,60 @@ def test_retrospective_is_separate_from_withdrawn_daily_and_explicit_in_feed(tmp
     assert 'Offline Fixture' not in (root / 'site/recaps' / (period + '.html')).read_text()
 
 
+def test_later_retrospective_keeps_its_own_title_and_review_period(tmp_path):
+    root = make_daily_repo(tmp_path)
+    ready_week(root)
+    original = json.loads((root / 'site/daily' / f'{DAY}.json').read_text())
+    period = '2026-11-16--2026-11-18'
+    recap = {'start': '2026-11-16', 'end': '2026-11-18',
+             'title_zh': '历史补录 · 11 月 16–18 日审核',
+             'title_en': 'Historical additions reviewed November 16–18',
+             'reviewed_only': True, 'published_at': '2026-11-18T12:00:00Z',
+             'items': original['items'],
+             'intro': {'zh': '此区间为审核日期，论文原发表日另列。',
+                       'en': 'This is the review period; original publication dates are listed separately.'}}
+
+    render_recap(root, recap)
+    initialize_public(root)
+
+    for suffix in ('.html', '.md', '.en.md'):
+        content = (root / 'site/recaps' / (period + suffix)).read_text()
+        assert '第 0 期' not in content and 'Edition 0' not in content
+        assert 'October 14–27' not in content
+        lang = 'en' if suffix == '.en.md' else 'zh'
+        assert recap['title_' + lang] in content
+        assert recap['intro'][lang] in content
+    for directory in ('daily', 'weekly'):
+        index = (root / 'site' / directory / 'index.html').read_text()
+        assert '../recaps/' + period + '.html' in index
+        assert recap['title_en'] in index
+        assert '第 0 期' not in index and 'Edition 0' not in index
+    ns = {'a': 'http://www.w3.org/2005/Atom'}
+    entries = ET.parse(root / 'site/feed/atom.xml').getroot().findall('a:entry', ns)
+    entry = next(row for row in entries
+                 if row.findtext('a:id', namespaces=ns) == 'urn:follow-rsi:recap:' + period)
+    assert entry.findtext('a:title', namespaces=ns) == 'Follow RSI · ' + recap['title_en']
+    assert entry.findtext('a:summary', namespaces=ns) == recap['intro']['en']
+
+
+def test_paper_daily_html_retains_editorial_delay_note(tmp_path):
+    root = make_daily_repo(tmp_path)
+    ready_week(root)
+    manifest = root / 'site/daily' / f'{DAY}.json'
+    edition = json.loads(manifest.read_text())
+    edition['reviewed_on'] = NEXT
+    edition['intro'] = {'zh': '补刊：采集日期与实际审核日期分别保留。',
+                        'en': 'Delayed edition: collection and actual review dates remain separate.'}
+    manifest.write_text(json.dumps(edition))
+
+    initialize_public(root)
+
+    for filename in (f'{DAY}.html', 'index.html'):
+        html = (root / 'site/daily' / filename).read_text()
+        assert edition['intro']['zh'] in html and edition['intro']['en'] in html
+        assert 'Review date: ' + NEXT in html
+
+
 def test_daily_groups_follow_taxonomy_and_order_dates_before_curated_status(tmp_path):
     root = make_daily_repo(tmp_path)
     base = next(item for item in load_items(root) if item['arxiv_id'] == '2610.99991')
