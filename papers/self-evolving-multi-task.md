@@ -1,4 +1,4 @@
-# Self-Evolving Harness on Multiple Tasks with the Agent as Its Own Optimizer
+# Multi-Task Self-Evolving Harnesses with the Agent as Its Own Optimizer
 
 <!-- AUTO:CARD:START -->
 
@@ -25,7 +25,7 @@
 | 改进时机 | ❔ 未审 |
 | 演化结构 | ❔ 未审 |
 
-**一句话**：每批演化混合五个领域的基准，只在留出任务上计分。
+**一句话**：冻结模型依据训练任务的执行记录与评分编辑自身 Harness；阶段末冻结版本，再以独立留出任务评估。
 
 <details><summary>English</summary>
 
@@ -44,7 +44,7 @@
 | Timing | ❔ not yet reviewed |
 | Topology | ❔ not yet reviewed |
 
-**Summary**: Mixes benchmarks from five domains in each evolution batch and scores only on held-out tasks.
+**Summary**: The frozen model edits its own harness using training-task traces and grades; the final harness is frozen before evaluation on disjoint held-out tasks.
 
 </details>
 
