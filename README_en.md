@@ -27,11 +27,12 @@ RSI papers appear every day, but every claim of improvement needs scrutiny. Foll
 
 <!-- AUTO:TODAY:START -->
 
-**[2026-11-23](https://adongwanai.github.io/follow-rsi/daily/2026-11-23.html)** · Collection and review brief
+**[2026-11-26](https://adongwanai.github.io/follow-rsi/daily/2026-11-26.html)** · 2 papers, reviewed and approved.
 
-Collection and review bulletin published; no new papers were included. Collection and review record before publication: At the Nov 23 snapshot, all 13 papers on the complete same-day HF board were excluded after scope review; no same-day paper qualifies. Complete Nov 18–22 boards were also fetched (39, 50, 50, 0 and 0 papers). Qualifying earlier papers retain their recommendation dates rather than being presented as today’s discoveries. All 12 enabled sources were attempted on Nov 23 at 15:53–15:58 Asia/Shanghai. There were 4,684 raw occurrences across 4,416 stable IDs; 520 window occurrences across 471 IDs added 234 canonical records (213 papers and 21 posts). The three arXiv queries yielded 15, 17 and 2 window records; the five RSS feeds yielded 9, 7, 49, 7 and 0. Release queries succeeded for all 13 GitHub repositories with no window release. S2 citations made 47 requests including 19 rate limits and retained 262 window occurrences before the 180-second cutoff; authors made eight requests including six rate limits, with only partial identity lookup and unfinished paper traversal. Unvisited coverage remains unknown. Item-specific three-round review yields 29 inclusions (25 in delayed Nov 18–20 editions and four historical additions), 202 exclusions and three evidence deferrals. EVA-RSI needs a demonstrated Harness-edit chain, DailyBrick needs a deployed cross-configuration update, and the S2-only survey needs its full text. Six older external evidence gaps remain itemized. Historical global evaluation has not finished; recall is 0.892857 versus 0.90, without a threshold change or pass claim. Paid model requests and generation tokens are zero; scope review is not experimental replication.
+- [SEEK](https://arxiv.org/abs/2611.33915) · 3. Component-level evolution (skills, memory, context, interfaces) · SEEK iteratively revises a reusable operation library and main control program from action-effect evidence for unseen layouts, with fixed perception interfaces and per-task accumulation.
+- [RoboEvo²](https://arxiv.org/abs/2611.34675) · 4. Model–harness co-evolution · RoboEvo iteratively evolves an executable skill library, routing rules, and memory from policy failure feedback alongside policy weight updates, transferring across unseen layouts and embodiments.
 
-[Read this edition →](https://adongwanai.github.io/follow-rsi/daily/2026-11-23.html)
+[Read this edition →](https://adongwanai.github.io/follow-rsi/daily/2026-11-26.html)
 
 <!-- AUTO:TODAY:END -->
 
