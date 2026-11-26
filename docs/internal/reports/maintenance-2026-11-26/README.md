@@ -11,3 +11,9 @@ W47 now contains 37 daily papers alongside the 33 frozen previously published hi
 Historical model evaluation remains incomplete: recall `0.892857` versus threshold `0.90`. No threshold or pass claim was changed. This maintenance uses zero paid model requests and zero generation tokens; source requests and private mode-600 account-balance checks are separate operations. Scope review is not experimental replication.
 
 The generation receipt intentionally sets `online_verified=false` until the publication PR merges, Pages deploys, and byte-level live verification completes.
+
+## Verified publication and closeout
+
+Publication PR `#184` merged at `34d91390715d6d708150262048dd14eb03195cfd`. Pages run `45834752805` succeeded, and all `36` checked public responses matched local reviewed bytes (`publication-final/live-verification.json` and `backlog-audit/post-publication/summary.json`).
+
+Stall tracking issue `#177` was closed after review/publication completion; `#60` received a `2026-11-26` recheck update; external-evidence/numeric-followup issues `#19, #20, #23, #30, #60, #119, #128, #160` remain open with specific recovery conditions. Zero paid model calls or generation tokens were used, and the ending account-balance check confirmed the CNY 5 stop boundary was not reached.
